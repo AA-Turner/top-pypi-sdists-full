@@ -734,8 +734,7 @@ class CloudWatchLogsClient(BaseClient):
         self, **kwargs: Unpack[DescribeFieldIndexesRequestTypeDef]
     ) -> DescribeFieldIndexesResponseTypeDef:
         """
-        Returns a list of custom and default field indexes which are discovered in log
-        data.
+        Returns a list of field indexes discovered in log data.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/logs/client/describe_field_indexes.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_logs/client/#describe_field_indexes)

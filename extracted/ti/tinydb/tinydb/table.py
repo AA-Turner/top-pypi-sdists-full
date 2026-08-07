@@ -3,17 +3,13 @@ This module implements tables, the central place for accessing and manipulating
 data in TinyDB.
 """
 
+from collections.abc import Callable, Iterable, Iterator, Mapping, MutableMapping
 from typing import (
-    Callable,
-    Dict,
-    Iterable,
-    Iterator,
-    List,
-    Mapping,
+    NoReturn,
     Optional,
     Union,
     cast,
-    Tuple
+    overload
 )
 
 from .queries import QueryLike
@@ -108,7 +104,7 @@ class Table:
 
         self._storage = storage
         self._name = name
-        self._query_cache: LRUCache[QueryLike, List[Document]] \
+        self._query_cache: LRUCache[QueryLike, list[Document]] \
             = self.query_cache_class(capacity=cache_size)
 
         self._next_id = None
@@ -178,7 +174,7 @@ class Table:
 
         return doc_id
 
-    def insert_multiple(self, documents: Iterable[Mapping]) -> List[int]:
+    def insert_multiple(self, documents: Iterable[Mapping]) -> list[int]:
         """
         Insert multiple documents into the table.
 
@@ -222,7 +218,7 @@ class Table:
 
         return doc_ids
 
-    def all(self) -> List[Document]:
+    def all(self) -> list[Document]:
         """
         Get all documents stored in the table.
 
@@ -236,7 +232,7 @@ class Table:
 
         return list(iter(self))
 
-    def search(self, cond: QueryLike) -> List[Document]:
+    def search(self, cond: QueryLike) -> list[Document]:
         """
         Search for all documents matching a 'where' cond.
 
@@ -280,12 +276,50 @@ class Table:
 
         return docs
 
+    @overload
+    def get(self) -> NoReturn: ...
+
+    @overload
+    def get(
+        self, cond: QueryLike, doc_id: None = ..., doc_ids: None = ...
+    ) -> Optional[Document]: ...
+
+    @overload
+    def get(
+        self, *, cond: QueryLike, doc_id: None = ..., doc_ids: None = ...
+    ) -> Optional[Document]: ...
+
+    @overload
+    def get(
+        self, cond: Optional[QueryLike], doc_id: int, doc_ids: Optional[list] = ...
+    ) -> Optional[Document]: ...
+
+    @overload
+    def get(
+        self, *, cond: Optional[QueryLike] = ..., doc_id: int, doc_ids: Optional[list] = ...,
+    ) -> Optional[Document]: ...
+
+    @overload
+    def get(
+        self, cond: Optional[QueryLike], doc_id: None, doc_ids: list
+    ) -> list[Document]: ...
+
+    @overload
+    def get(
+        self, cond: Optional[QueryLike], *, doc_id: None = ..., doc_ids: list
+    ) -> list[Document]: ...
+
+    @overload
+    def get(
+        self, *, cond: Optional[QueryLike] = ..., doc_id: None = ..., doc_ids: list
+    ) -> list[Document]: ...
+
     def get(
         self,
         cond: Optional[QueryLike] = None,
         doc_id: Optional[int] = None,
-        doc_ids: Optional[List] = None
-    ) -> Optional[Union[Document, List[Document]]]:
+        doc_ids: Optional[list] = None
+    ):
         """
         Get exactly one document specified by a query or a document ID.
         However, if multiple document IDs are given then returns all
@@ -369,15 +403,19 @@ class Table:
 
     def update(
         self,
-        fields: Union[Mapping, Callable[[Mapping], None]],
+        fields: Union[Mapping, Callable[[MutableMapping], None]],
         cond: Optional[QueryLike] = None,
         doc_ids: Optional[Iterable[int]] = None,
-    ) -> List[int]:
+    ) -> list[int]:
         """
         Update all matching documents to have a given set of fields.
 
+        When ``doc_ids`` is given, IDs that don't refer to an existing
+        document are silently skipped, and the returned list only contains
+        the IDs that were actually updated.
+
         :param fields: the fields that the matching documents will have
-                       or a method that will update the documents
+                       or a callable that mutates matching documents in place
         :param cond: which documents to update
         :param doc_ids: a list of document IDs
         :returns: a list containing the updated document's ID
@@ -396,12 +434,21 @@ class Table:
 
         if doc_ids is not None:
             # Perform the update operation for documents specified by a list
-            # of document IDs
-
-            updated_ids = list(doc_ids)
+            # of document IDs. Document IDs that don't exist in the table are
+            # silently skipped, mirroring the behaviour of ``get(doc_ids=...)``
+            # (see issue #591). The list of *actually* updated IDs is
+            # determined inside the updater so it reflects the table state at
+            # write time.
+            requested_ids = list(doc_ids)
+            updated_ids: list[int] = []
 
             def updater(table: dict):
-                # Call the processing callback with all document IDs
+                # Filter to IDs that exist *before* performing any updates,
+                # so the operation is atomic: either every existing target is
+                # updated, or none is.
+                updated_ids.extend(
+                    doc_id for doc_id in requested_ids if doc_id in table
+                )
                 for doc_id in updated_ids:
                     perform_update(table, doc_id)
 
@@ -461,9 +508,9 @@ class Table:
     def update_multiple(
         self,
         updates: Iterable[
-            Tuple[Union[Mapping, Callable[[Mapping], None]], QueryLike]
+            tuple[Union[Mapping, Callable[[MutableMapping], None]], QueryLike]
         ],
-    ) -> List[int]:
+    ) -> list[int]:
         """
         Update all matching documents to have a given set of fields.
 
@@ -510,13 +557,16 @@ class Table:
 
         return updated_ids
 
-    def upsert(self, document: Mapping, cond: Optional[QueryLike] = None) -> List[int]:
+    def upsert(self, document: Mapping, cond: Optional[QueryLike] = None) -> list[int]:
         """
         Update documents, if they exist, insert them otherwise.
 
-        Note: This will update *all* documents matching the query. Document
-        argument can be a tinydb.table.Document object if you want to specify a
-        doc_id.
+        Note: This will update *all* documents matching the query.
+        For example, if the query matches 3 documents, all 3 will be updated
+        with the new data. If no documents match, a new one is inserted.
+
+        Document argument can be a tinydb.table.Document object if you want
+        to specify a doc_id.
 
         :param document: the document to insert or the fields to update
         :param cond: which document to look for, optional if you've passed a
@@ -526,7 +576,7 @@ class Table:
 
         # Extract doc_id
         if isinstance(document, self.document_class) and hasattr(document, 'doc_id'):
-            doc_ids: Optional[List[int]] = [document.doc_id]
+            doc_ids: Optional[list[int]] = [document.doc_id]
         else:
             doc_ids = None
 
@@ -536,12 +586,10 @@ class Table:
                              "specify a doc_id. Hint: use a table.Document "
                              "object.")
 
-        # Perform the update operation
-        try:
-            updated_docs: Optional[List[int]] = self.update(document, cond, doc_ids)
-        except KeyError:
-            # This happens when a doc_id is specified, but it's missing
-            updated_docs = None
+        # Perform the update operation. ``update`` returns an empty list
+        # when no existing document matches the doc_id / query, in which
+        # case we fall through to insert below.
+        updated_docs = self.update(document, cond, doc_ids)
 
         # If documents have been updated: return their IDs
         if updated_docs:
@@ -555,27 +603,37 @@ class Table:
         self,
         cond: Optional[QueryLike] = None,
         doc_ids: Optional[Iterable[int]] = None,
-    ) -> List[int]:
+    ) -> list[int]:
         """
         Remove all matching documents.
+
+        When ``doc_ids`` is given, IDs that don't refer to an existing
+        document are silently skipped, and the returned list only contains
+        the IDs that were actually removed.
 
         :param cond: the condition to check against
         :param doc_ids: a list of document IDs
         :returns: a list containing the removed documents' ID
         """
         if doc_ids is not None:
-            # This function returns the list of IDs for the documents that have
-            # been removed. When removing documents identified by a set of
-            # document IDs, it's this list of document IDs we need to return
-            # later.
-            # We convert the document ID iterator into a list, so we can both
-            # use the document IDs to remove the specified documents and
-            # to return the list of affected document IDs
-            removed_ids = list(doc_ids)
+            # This function returns the list of IDs for the documents that
+            # have been removed. Document IDs that don't exist in the table
+            # are silently skipped, mirroring the behaviour of
+            # ``get(doc_ids=...)`` (see issue #591). The list of *actually*
+            # removed IDs is determined inside the updater so it reflects the
+            # table state at write time.
+            requested_ids = list(doc_ids)
+            removed_ids: list[int] = []
 
             def updater(table: dict):
+                # Filter to IDs that exist *before* performing any removals,
+                # so the operation is atomic: either every existing target is
+                # removed, or none is.
+                removed_ids.extend(
+                    doc_id for doc_id in requested_ids if doc_id in table
+                )
                 for doc_id in removed_ids:
-                    table.pop(doc_id)
+                    del table[doc_id]
 
             # Perform the remove operation
             self._update_table(updater)
@@ -695,7 +753,7 @@ class Table:
 
         return next_id
 
-    def _read_table(self) -> Dict[str, Mapping]:
+    def _read_table(self) -> dict[str, Mapping]:
         """
         Read the table data from the underlying storage.
 
@@ -720,7 +778,7 @@ class Table:
 
         return table
 
-    def _update_table(self, updater: Callable[[Dict[int, Mapping]], None]):
+    def _update_table(self, updater: Callable[[dict[int, Mapping]], None]):
         """
         Perform a table update operation.
 

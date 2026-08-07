@@ -72,6 +72,7 @@ from ..browser import server_scripts
 from ..browser._launch_lock import LaunchBusy
 from ..browser._offload import PlaywrightUnavailable
 from ..browser.actions import EVAL_ACTION, MAX_ACTIONS, act, normalize
+from ..browser.artifacts import prune as prune_artifacts
 from ..browser.badge import profile_label
 from ..browser.capture import MAX_WATCH_SECONDS, NoPageFound, arm, capture, navigate
 from ..browser.cursor import resolve_marks, write_mark
@@ -222,7 +223,13 @@ class ActInDebugWindowParams(BaseModel):
     settle_ms: int = Field(
         default=500, description="Pause after the last step so the page can react."
     )
-    screenshot: str = Field(default="none", description="none | viewport | full | element.")
+    screenshot: str = Field(
+        default="none",
+        description=(
+            "none | viewport | full | element. full can come back as one screen — "
+            "the reply says why."
+        ),
+    )
     selector: Optional[str] = Field(
         default=None, description="CSS selector for screenshot='element'."
     )
@@ -246,7 +253,16 @@ class InspectDebugWindowParams(BaseModel):
         description="Record while the user clicks. 0 reads what already happened.",
     )
     screenshot: str = Field(
-        default="none", description="none | viewport | full | element (needs selector)."
+        default="none",
+        # Over the 80-char target on purpose. `full` is the one value here that
+        # can quietly not do what its name says: the page's scroller is often a
+        # component in a shadow root, which cannot be driven, so the capture
+        # falls back to one screen. The reply carries the reason (`only_viewport`
+        # / `truncated`) — this is the line that stops it being a surprise.
+        description=(
+            "none | viewport | full | element (needs selector). "
+            "full can come back as one screen — the reply says why."
+        ),
     )
     selector: Optional[str] = Field(
         default=None, description="CSS selector for screenshot='element'."
@@ -650,6 +666,10 @@ def inspect_debug_window(
         return {"success": False, "window_open": True, "error": str(exc)}
 
     report = compact(raw, artifacts_dir=artifacts_dir)
+    # After the write, so this call's own artifact is the newest and can never
+    # be the one removed. Housekeeping — never fatal, and silent unless it did
+    # something (see browser/artifacts.py).
+    report.update(prune_artifacts(artifacts_dir))
     write_mark(cursor_path, report.get("tab_id", ""), report.get("next_seq", 0))
 
     identity = describe_window_user(raw.get("effective_user"), api_username(config))
@@ -816,6 +836,10 @@ def act_in_debug_window(
         return {"success": False, "window_open": True, "error": str(exc)}
 
     report = compact(raw, artifacts_dir=artifacts_dir)
+    # After the write, so this call's own artifact is the newest and can never
+    # be the one removed. Housekeeping — never fatal, and silent unless it did
+    # something (see browser/artifacts.py).
+    report.update(prune_artifacts(artifacts_dir))
     write_mark(cursor_path, report.get("tab_id", ""), report.get("next_seq", 0))
 
     failed_step = raw.get("failed_step")

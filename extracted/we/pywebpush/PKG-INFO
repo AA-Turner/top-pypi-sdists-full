@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: pywebpush
-Version: 2.3.0
+Version: 2.4.0
 Summary: WebPush publication library
 Author-email: JR Conlin <src+webpusher@jrconlin.com>
-License: MPL-2.0
+License-Expression: MPL-2.0
 Project-URL: Homepage, https://github.com/web-push-libs/pywebpush
 Keywords: webpush,vapid,notification
 Classifier: Topic :: Internet :: WWW/HTTP
@@ -14,11 +14,13 @@ Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: aiohttp
-Requires-Dist: cryptography>=2.6.1
+Requires-Dist: cryptography>=47.0.0
 Requires-Dist: http-ece>=1.1.0
 Requires-Dist: requests>=2.21.0
 Requires-Dist: py-vapid>=1.7.0
 Provides-Extra: dev
+Requires-Dist: isort; extra == "dev"
+Requires-Dist: bandit; extra == "dev"
 Requires-Dist: black; extra == "dev"
 Requires-Dist: mock; extra == "dev"
 Requires-Dist: pytest; extra == "dev"

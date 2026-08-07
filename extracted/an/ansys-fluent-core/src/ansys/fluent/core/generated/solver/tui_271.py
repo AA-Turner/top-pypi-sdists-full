@@ -4,7 +4,7 @@
 #
 # pylint: disable=line-too-long
 
-from ansys.fluent.core.services.datamodel_tui import PyMenu, TUIMenu, TUIMethod
+from ansys.fluent.core.services.text_interface import PyMenu, TUIMenu, TUIMethod
 
 
 
@@ -5425,15 +5425,10 @@ class main_menu(TUIMenu):
                 def __init__(self, service, version, mode, path):
                     self.rotor = self.__class__.rotor(service, version, mode, path + ["rotor"])
                     self.apply = self.__class__.apply(service, version, mode, path + ["apply"])
-                    self.cl_cd_interpolation_model = self.__class__.cl_cd_interpolation_model(service, version, mode, path + ["cl_cd_interpolation_model"])
                     self.enable = self.__class__.enable(service, version, mode, path + ["enable"])
                     self.mode = self.__class__.mode(service, version, mode, path + ["mode"])
                     super().__init__(service, version, mode, path)
                 class apply(TUIMethod):
-                    """
-                    No help available.
-                    """
-                class cl_cd_interpolation_model(TUIMethod):
                     """
                     No help available.
                     """
@@ -13051,6 +13046,7 @@ class main_menu(TUIMenu):
                     self.color_mode = self.__class__.color_mode(service, version, mode, path + ["color_mode"])
                     self.driver = self.__class__.driver(service, version, mode, path + ["driver"])
                     self.dpi = self.__class__.dpi(service, version, mode, path + ["dpi"])
+                    self.export_all_windows = self.__class__.export_all_windows(service, version, mode, path + ["export_all_windows"])
                     self.invert_background = self.__class__.invert_background(service, version, mode, path + ["invert_background"])
                     self.invert_normals_for_avz = self.__class__.invert_normals_for_avz(service, version, mode, path + ["invert_normals_for_avz"])
                     self.jpeg_hardcopy_quality = self.__class__.jpeg_hardcopy_quality(service, version, mode, path + ["jpeg_hardcopy_quality"])
@@ -13065,6 +13061,10 @@ class main_menu(TUIMenu):
                 class dpi(TUIMethod):
                     """
                     Set the DPI for EPS and Postscript files, specifies the resolution in dots per inch (DPI) instead of setting the width and height.
+                    """
+                class export_all_windows(TUIMethod):
+                    """
+                    Enable to export all graphics windows when capturing an image.
                     """
                 class invert_background(TUIMethod):
                     """
@@ -24033,6 +24033,7 @@ class main_menu(TUIMenu):
                     self.driver_options = self.__class__.driver_options(service, version, mode, path + ["driver_options"])
                     self.color_mode = self.__class__.color_mode(service, version, mode, path + ["color_mode"])
                     self.dpi = self.__class__.dpi(service, version, mode, path + ["dpi"])
+                    self.export_all_windows = self.__class__.export_all_windows(service, version, mode, path + ["export_all_windows"])
                     self.invert_background = self.__class__.invert_background(service, version, mode, path + ["invert_background"])
                     self.invert_normals_for_avz = self.__class__.invert_normals_for_avz(service, version, mode, path + ["invert_normals_for_avz"])
                     self.jpeg_hardcopy_quality = self.__class__.jpeg_hardcopy_quality(service, version, mode, path + ["jpeg_hardcopy_quality"])
@@ -24051,6 +24052,10 @@ class main_menu(TUIMenu):
                     No help available.
                     """
                 class dpi(TUIMethod):
+                    """
+                    No help available.
+                    """
+                class export_all_windows(TUIMethod):
                     """
                     No help available.
                     """
@@ -38817,6 +38822,7 @@ class main_menu(TUIMenu):
                         self.color_mode = self.__class__.color_mode(service, version, mode, path + ["color_mode"])
                         self.driver = self.__class__.driver(service, version, mode, path + ["driver"])
                         self.dpi = self.__class__.dpi(service, version, mode, path + ["dpi"])
+                        self.export_all_windows = self.__class__.export_all_windows(service, version, mode, path + ["export_all_windows"])
                         self.invert_background = self.__class__.invert_background(service, version, mode, path + ["invert_background"])
                         self.invert_normals_for_avz = self.__class__.invert_normals_for_avz(service, version, mode, path + ["invert_normals_for_avz"])
                         self.jpeg_hardcopy_quality = self.__class__.jpeg_hardcopy_quality(service, version, mode, path + ["jpeg_hardcopy_quality"])
@@ -38831,6 +38837,10 @@ class main_menu(TUIMenu):
                     class dpi(TUIMethod):
                         """
                         Set the DPI for EPS and Postscript files, specifies the resolution in dots per inch (DPI) instead of setting the width and height.
+                        """
+                    class export_all_windows(TUIMethod):
+                        """
+                        Enable to export all graphics windows when capturing an image.
                         """
                     class invert_background(TUIMethod):
                         """

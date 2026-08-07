@@ -95,7 +95,7 @@ class TestExtractor:
         assert plugin.version == "1.0.0"
         assert len(plugin.commands) == 1
         assert plugin.commands[0].name == "test-command"
-        assert plugin.commands[0].description == "A test command"
+        assert plugin.commands[0].description == "Runs a test workflow and reports the result"
         assert plugin.commands[0].full_name == "test-plugin:test-command"
         assert "test-plugin:test-command" in plugin.commands[0].synopsis
         assert plugin.has_readme is True
@@ -230,7 +230,7 @@ class TestExtractor:
         """A numeric plugin name in marketplace.json must not crash the docs
         renderers either: the marketplace markdown path derives per-plugin
         page filenames from ``plugin.name`` string methods (issue #322).
-        Non-string names are invalid (marketplace-json-valid flags them), so
+        Non-string names are invalid (claude-marketplace-json-valid flags them), so
         name resolution degrades to the plugin's directory name.
         """
         claude_dir = temp_dir / ".claude-plugin"
@@ -375,6 +375,204 @@ class TestExtractor:
 
 
 # ---------------------------------------------------------------------------
+# Agent Plugins extractor tests
+# ---------------------------------------------------------------------------
+
+
+AGENT_PLUGIN_SCHEMA = "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json"
+AGENT_PLUGIN_MCP_SCHEMA = "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json"
+
+
+def write_agent_plugin(root, name, *, manifest_text=None, skill="demo"):
+    """Write a portable Agent Plugins package at *root*."""
+    root.mkdir(parents=True, exist_ok=True)
+    if manifest_text is None:
+        manifest_text = json.dumps(
+            {
+                "$schema": AGENT_PLUGIN_SCHEMA,
+                "name": name,
+                "version": "1.4.0",
+                "description": "Review release evidence.",
+                "author": {"name": "Acme Release Engineering"},
+                "homepage": "https://example.com/plugins/release-tools",
+                "repository": "https://example.com/source/release-tools",
+                "license": "Apache-2.0",
+                "keywords": ["release", "audit"],
+            }
+        )
+    (root / "plugin.json").write_text(manifest_text)
+
+    (root / "mcp.json").write_text(
+        json.dumps(
+            {
+                "$schema": AGENT_PLUGIN_MCP_SCHEMA,
+                "mcpServers": {
+                    "release-auditor": {
+                        "type": "stdio",
+                        "command": "uvx",
+                        "args": ["release-auditor"],
+                    }
+                },
+            }
+        )
+    )
+
+    skill_dir = root / "skills" / skill
+    skill_dir.mkdir(parents=True)
+    (skill_dir / "SKILL.md").write_text(
+        f"---\nname: {skill}\ndescription: Audits release evidence before a ship decision.\n"
+        f"---\n\n# {skill}\n\nCollect the evidence.\n"
+    )
+
+    commands_dir = root / "commands"
+    commands_dir.mkdir()
+    (commands_dir / "audit.md").write_text(
+        "---\ndescription: Audit a release\n---\n\n"
+        "## Name\naudit\n\n## Description\nAudits a release.\n"
+    )
+    (root / "README.md").write_text(f"# {name}\n\nPortable package.\n")
+    return root
+
+
+class TestAgentPluginExtractor:
+    def test_extract_root_package(self, temp_dir):
+        """A repo-root Agent Plugin becomes a PluginDoc with its own content."""
+        write_agent_plugin(temp_dir, "acme.release-tools")
+
+        ctx = RepositoryContext(temp_dir)
+        docs = extract_docs(ctx)
+
+        assert docs.repo_type == RepositoryType.AGENT_PLUGIN
+        assert len(docs.plugins) == 1
+        plugin = docs.plugins[0]
+        assert plugin.name == "acme.release-tools"
+        assert plugin.version == "1.4.0"
+        assert plugin.description == "Review release evidence."
+        assert plugin.author == {"name": "Acme Release Engineering"}
+        assert plugin.homepage == "https://example.com/plugins/release-tools"
+        assert plugin.repository == "https://example.com/source/release-tools"
+        assert plugin.license == "Apache-2.0"
+        assert plugin.keywords == ["release", "audit"]
+        assert plugin.has_readme is True
+
+        assert [s.name for s in plugin.skills] == ["demo"]
+        assert [c.name for c in plugin.commands] == ["audit"]
+        # The package's skills belong to it, not to the repository at large.
+        assert docs.skills == []
+
+    def test_root_package_mcp_servers(self, temp_dir):
+        """The portable mcp.json is published like any other MCP config."""
+        write_agent_plugin(temp_dir, "acme.release-tools")
+
+        docs = extract_docs(RepositoryContext(temp_dir))
+        servers = docs.plugins[0].mcp_servers
+        assert [s.name for s in servers] == ["release-auditor"]
+        assert servers[0].server_type == "stdio"
+        assert servers[0].source_file == "mcp.json"
+        assert servers[0].config["command"] == "uvx"
+
+    def test_extract_plugins_collection(self, temp_dir):
+        """Every plugins/* package is documented under its own package."""
+        write_agent_plugin(temp_dir / "plugins" / "alpha", "acme.alpha", skill="alpha-skill")
+        write_agent_plugin(temp_dir / "plugins" / "beta", "acme.beta", skill="beta-skill")
+
+        docs = extract_docs(RepositoryContext(temp_dir))
+
+        by_name = {p.name: p for p in docs.plugins}
+        assert set(by_name) == {"acme.alpha", "acme.beta"}
+        assert [s.name for s in by_name["acme.alpha"].skills] == ["alpha-skill"]
+        assert [s.name for s in by_name["acme.beta"].skills] == ["beta-skill"]
+        assert [s.name for s in by_name["acme.beta"].mcp_servers] == ["release-auditor"]
+        assert docs.skills == []
+
+    def test_malformed_manifest_falls_back_to_directory_name(self, temp_dir):
+        """An unparseable manifest still publishes the package it names."""
+        package = temp_dir / "plugins" / "release-tools"
+        write_agent_plugin(
+            package,
+            "acme.release-tools",
+            # Trailing comma: discovery recognizes the schema from the raw
+            # text, but json.loads never yields metadata.
+            manifest_text='{\n  "$schema": "%s",\n  "name": "acme.release-tools",\n}\n'
+            % AGENT_PLUGIN_SCHEMA,
+        )
+
+        docs = extract_docs(RepositoryContext(temp_dir))
+
+        assert len(docs.plugins) == 1
+        plugin = docs.plugins[0]
+        assert plugin.name == "release-tools"
+        assert plugin.version == ""
+        assert plugin.description == ""
+        assert plugin.author is None
+        assert plugin.keywords == []
+        # The package still owns its content — a bad manifest must not
+        # scatter the skills back into the repository's standalone list.
+        assert [s.name for s in plugin.skills] == ["demo"]
+        assert [s.name for s in plugin.mcp_servers] == ["release-auditor"]
+        assert docs.skills == []
+
+    def test_non_string_manifest_fields_do_not_crash(self, temp_dir):
+        """Wrong-typed manifest values degrade to defaults, never to a crash."""
+        write_agent_plugin(
+            temp_dir,
+            "acme.release-tools",
+            manifest_text=json.dumps(
+                {
+                    "$schema": AGENT_PLUGIN_SCHEMA,
+                    "name": 42,
+                    "version": 18,
+                    "description": False,
+                    "author": "Acme Release Engineering",
+                    "keywords": "release",
+                    "homepage": "javascript:alert(1)",
+                }
+            ),
+        )
+
+        docs = extract_docs(RepositoryContext(temp_dir))
+        plugin = docs.plugins[0]
+        assert plugin.name == temp_dir.name
+        assert plugin.version == "18"
+        assert plugin.description == ""
+        assert plugin.author == {"name": "Acme Release Engineering"}
+        assert plugin.keywords == []
+        assert plugin.homepage == ""
+        assert render_markdown(docs)["README.md"]
+
+    def test_dual_ecosystem_package_documented_once(self, temp_dir):
+        """A Claude plugin that also ships a portable manifest is not doubled."""
+        write_agent_plugin(temp_dir, "acme.release-tools")
+        claude_dir = temp_dir / ".claude-plugin"
+        claude_dir.mkdir()
+        (claude_dir / "plugin.json").write_text(
+            json.dumps({"name": "release-tools", "version": "2.0.0"})
+        )
+
+        docs = extract_docs(RepositoryContext(temp_dir))
+
+        assert len(docs.plugins) == 1
+        assert docs.plugins[0].name == "release-tools"
+        # The Claude doc still carries the portable components.
+        assert [s.name for s in docs.plugins[0].skills] == ["demo"]
+        assert [s.name for s in docs.plugins[0].mcp_servers] == ["release-auditor"]
+
+    def test_root_package_renders(self, temp_dir):
+        """Both renderers publish the package rather than an empty page."""
+        write_agent_plugin(temp_dir, "acme.release-tools")
+        docs = extract_docs(RepositoryContext(temp_dir))
+
+        markdown = render_markdown(docs)["README.md"]
+        assert "acme.release-tools" in markdown
+        assert "demo" in markdown
+        assert "release-auditor" in markdown
+
+        html = render_html(docs)["index.html"]
+        assert "acme.release-tools" in html
+        assert "release-auditor" in html
+
+
+# ---------------------------------------------------------------------------
 # HTML renderer tests
 # ---------------------------------------------------------------------------
 
@@ -399,7 +597,7 @@ class TestHtmlRenderer:
 
         assert "test-plugin" in page
         assert "test-command" in page
-        assert "A test command" in page
+        assert "Runs a test workflow and reports the result" in page
 
     def test_marketplace_single_page(self, marketplace_repo):
         """Marketplace renders as a single page with embedded data."""
@@ -445,6 +643,20 @@ class TestHtmlRenderer:
         page = render_html(docs)["index.html"]
         assert "<script>alert" not in page
         assert "&lt;script&gt;" in page
+
+    def test_escattr_guards_missing_values(self, valid_plugin):
+        """escAttr(undefined) must render '', not the literal 'undefined'.
+
+        The card template calls escAttr(p.category) for every plugin, and
+        String(undefined) is the truthy string "undefined" — so without the
+        falsy guard an omitted category becomes data-category="undefined".
+        The JS runs client-side, so assert on the shipped helper source.
+        """
+        ctx = RepositoryContext(valid_plugin)
+        docs = extract_docs(ctx)
+        page = render_html(docs)["index.html"]
+        escattr = page.split("function escAttr(str) {", 1)[1].split("function", 1)[0]
+        assert "if (!str) return '';" in escattr
 
     def test_dot_claude_sections(self, dot_claude_repo):
         ctx = RepositoryContext(dot_claude_repo)
@@ -740,6 +952,129 @@ class TestMarkdownRenderer:
         pos_one = md.index("plugin-one")
         pos_two = md.index("plugin-two")
         assert pos_one < pos_two
+
+    def test_url_parens_cannot_break_out_of_markdown_links(self):
+        """A manifest URL containing ')' would close [Homepage](...) early
+        and inject arbitrary Markdown — e.g. a remote tracking image."""
+        from skillsaw.docs.extractor import _safe_url
+
+        url = "https://safe.example/)![x](https://tracker.example/pixel"
+        safe = _safe_url(url)
+        assert ")" not in safe and "(" not in safe
+        assert safe.startswith("https://safe.example/%29")
+        # Ordinary URLs come through unchanged.
+        assert _safe_url("https://example.com/docs") == "https://example.com/docs"
+
+    def test_control_characters_are_stripped_from_page_names(self):
+        """A NUL in a catalog name must not reach Path.write_text(), which
+        raises and aborts docs generation for the whole catalog."""
+        from skillsaw.docs.markdown_renderer import _plugin_filename
+        from skillsaw.docs.models import PluginDoc
+
+        doc = PluginDoc(name="bad\x00name\x1b", path=Path("plugins/bad"))
+        filename = _plugin_filename(doc)
+        assert not any(ord(c) < 0x20 or ord(c) == 0x7F for c in filename)
+        assert filename.endswith(".md")
+
+    def test_claude_only_sources_are_not_published_in_codex_docs(self, temp_dir):
+        """A Codex catalog listing a directory with only a Claude manifest
+        advertises a plugin Codex cannot install — the registration rule
+        reports the unusable source, and docs must agree with it."""
+        (temp_dir / ".agents" / "plugins").mkdir(parents=True)
+        (temp_dir / ".agents" / "plugins" / "marketplace.json").write_text(
+            json.dumps(
+                {
+                    "name": "mixed-cat",
+                    "plugins": [
+                        {
+                            "name": "claude-only",
+                            "source": {"source": "local", "path": "./plugins/claude-only"},
+                            "policy": {
+                                "installation": "AVAILABLE",
+                                "authentication": "ON_INSTALL",
+                            },
+                            "category": "Productivity",
+                        },
+                        {
+                            "name": "codex-plug",
+                            "source": {"source": "local", "path": "./plugins/codex-plug"},
+                            "policy": {
+                                "installation": "AVAILABLE",
+                                "authentication": "ON_INSTALL",
+                            },
+                            "category": "Productivity",
+                        },
+                    ],
+                }
+            ),
+            encoding="utf-8",
+        )
+        claude_dir = temp_dir / "plugins" / "claude-only" / ".claude-plugin"
+        claude_dir.mkdir(parents=True)
+        (claude_dir / "plugin.json").write_text(
+            json.dumps({"name": "claude-only", "version": "1.0.0", "description": "Claude."})
+        )
+        codex_dir = temp_dir / "plugins" / "codex-plug" / ".codex-plugin"
+        codex_dir.mkdir(parents=True)
+        (codex_dir / "plugin.json").write_text(
+            json.dumps({"name": "codex-plug", "version": "1.0.0", "description": "Codex."})
+        )
+
+        ctx = RepositoryContext(temp_dir)
+        docs = extract_docs(ctx)
+        assert docs.marketplace is not None
+        listed = {str(p.name) for p in docs.marketplace.plugins}
+        assert "codex-plug" in listed
+        assert "claude-only" not in listed
+
+    def test_remote_metadata_newlines_cannot_inject_markdown(self):
+        """A remote catalog entry controls version/license/category — a
+        newline in one would end the meta line and inject block Markdown."""
+        from skillsaw.docs.markdown_renderer import _append_plugin_meta
+        from skillsaw.docs.models import PluginDoc
+
+        doc = PluginDoc(
+            name="remote-plug",
+            path=Path("plugins/remote-plug"),
+            version="1.0\n\n![track](https://tracker.example/pixel)",
+            license="MIT",
+        )
+        lines: list = []
+        _append_plugin_meta(lines, doc)
+        assert not any(line.startswith("![") for line in lines)
+        meta_line = next(line for line in lines if "**Version:**" in line)
+        # Folded onto the meta line AND link syntax escaped — the image
+        # markup arrives inert.
+        assert "![track](" not in meta_line
+        assert r"!\[track\]" in meta_line
+        assert "**License:** MIT" in meta_line
+
+    def test_mcp_table_escapes_pipes_and_newlines(self):
+        """A valid command may contain '|' or a newline; neither may corrupt
+        the table — the pipe adds a column, the newline ends the row."""
+        from skillsaw.docs.markdown_renderer import _append_mcp_table
+        from skillsaw.docs.models import McpServerDoc
+
+        lines: list = []
+        _append_mcp_table(
+            lines,
+            [
+                McpServerDoc(
+                    name="log|ger",
+                    server_type="stdio",
+                    config={"command": "node server.js | tee log\nrm -rf /"},
+                    source_file=".mcp.json",
+                )
+            ],
+        )
+        rows = [line for line in lines if line.startswith("|")]
+        # Header, separator, and exactly one data row — the newline must not
+        # have split the entry into a second row.
+        assert len(rows) == 3
+        data_row = rows[2]
+        assert data_row.count(" | ") == 3
+        assert r"log\|ger" in data_row
+        assert "rm -rf /" in data_row  # folded onto the same line, not lost
 
     def test_skill_metadata_in_markdown(self, dot_claude_repo):
         ctx = RepositoryContext(dot_claude_repo)

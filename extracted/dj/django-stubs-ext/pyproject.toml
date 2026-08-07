@@ -1,40 +1,48 @@
 [project]
 name = "django-stubs-ext"
-# NB! For clarity, keep version major.minor.patch in sync with django-stubs.
-# It's fine to skip django-stubs-ext releases, but when doing a release, update this to newest django-stubs version.
-version = "6.0.7"
+version = "6.0.8"
 description = "Monkey-patching and extensions for django-stubs"
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE.md"]
-maintainers = [
-  { name = "Marti Raudsepp", email = "marti@juffo.org" },
-  { name = "Nikita Sobolev", email = "mail@sobolevn.me" },
-  { name = "Petter Friberg", email = "petter_friberg@hotmail.com" },
-  { name = "Adam Johnson", email = "me@adamj.eu" },
-]
-authors = [
-  { name = "Simula Proxy" },
-]
 requires-python = ">=3.10"
 classifiers = [
-  "Operating System :: OS Independent",
-  "Programming Language :: Python :: 3.10",
-  "Programming Language :: Python :: 3.11",
-  "Programming Language :: Python :: 3.12",
-  "Programming Language :: Python :: 3.13",
-  "Programming Language :: Python :: 3.14",
-  "Typing :: Typed",
-  "Framework :: Django",
-  "Framework :: Django :: 5.0",
-  "Framework :: Django :: 5.1",
-  "Framework :: Django :: 5.2",
-  "Framework :: Django :: 6.0",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Typing :: Typed",
+    "Framework :: Django",
+    "Framework :: Django :: 5.0",
+    "Framework :: Django :: 5.1",
+    "Framework :: Django :: 5.2",
+    "Framework :: Django :: 6.0",
 ]
 dependencies = [
-  "django",
-  "typing-extensions",
+    "django",
+    "typing-extensions",
 ]
+
+[[project.maintainers]]
+name = "Marti Raudsepp"
+email = "marti@juffo.org"
+
+[[project.maintainers]]
+name = "Nikita Sobolev"
+email = "mail@sobolevn.me"
+
+[[project.maintainers]]
+name = "Petter Friberg"
+email = "petter_friberg@hotmail.com"
+
+[[project.maintainers]]
+name = "Adam Johnson"
+email = "me@adamj.eu"
+
+[[project.authors]]
+name = "Simula Proxy"
 
 [project.urls]
 Homepage = "https://github.com/typeddjango/django-stubs"
@@ -42,7 +50,7 @@ Funding = "https://github.com/sponsors/typeddjango"
 "Release notes" = "https://github.com/typeddjango/django-stubs/releases"
 
 [build-system]
-requires = ["uv_build>=0.11.0,<0.12.0"]
+requires = ["uv_build>=0.12.0,<0.13.0"]
 build-backend = "uv_build"
 
 [tool.uv.build-backend]

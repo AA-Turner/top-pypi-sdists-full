@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
-from numpy.testing import assert_allclose, assert_array_equal
 from pytest import approx
 
 import boost_histogram as bh
@@ -34,9 +33,9 @@ def test_1D_fill_int(storage):
 
     H = np.array([0, 1, 2, 0, 0, 0, 0, 0, 0, 0])
 
-    assert_array_equal(np.asarray(hist), H)
-    assert_array_equal(hist.view(flow=False), H)
-    assert_array_equal(hist.view(flow=True)[1:-1], H)
+    assert np.asarray(hist) == approx(H)
+    assert hist.view(flow=False) == approx(H)
+    assert hist.view(flow=True)[1:-1] == approx(H)
 
     assert hist.axes[0].size == bins
     assert hist.axes[0].extent == bins + 2
@@ -59,9 +58,9 @@ def test_2D_fill_int(storage):
 
     H = np.histogram2d(*vals, bins=bins, range=ranges)[0]
 
-    assert_array_equal(np.asarray(hist), H)
-    assert_array_equal(hist.view(flow=True)[1:-1, 1:-1], H)
-    assert_array_equal(hist.view(flow=False), H)
+    assert np.asarray(hist) == approx(H)
+    assert hist.view(flow=True)[1:-1, 1:-1] == approx(H)
+    assert hist.view(flow=False) == approx(H)
 
     assert hist.axes[0].size == bins[0]
     assert hist.axes[0].extent == bins[0] + 2
@@ -78,9 +77,9 @@ def test_edges_histogram():
     hist.fill(vals)
 
     bins = np.asarray(hist)
-    assert_array_equal(bins, [0, 2, 2])
-    assert_array_equal(hist.view(flow=True), [0, 0, 2, 2, 0])
-    assert_array_equal(hist.view(flow=False), [0, 2, 2])
+    assert bins == approx([0, 2, 2])
+    assert hist.view(flow=True) == approx([0, 0, 2, 2, 0])
+    assert hist.view(flow=False) == approx([0, 2, 2])
 
 
 def test_int_histogram():
@@ -90,9 +89,9 @@ def test_int_histogram():
     hist.fill(vals)
 
     bins = np.asarray(hist)
-    assert_array_equal(bins, [1, 1, 1, 1])
-    assert_array_equal(hist.view(flow=False), [1, 1, 1, 1])
-    assert_array_equal(hist.view(flow=True), [2, 1, 1, 1, 1, 3])
+    assert bins == approx([1, 1, 1, 1])
+    assert hist.view(flow=False) == approx([1, 1, 1, 1])
+    assert hist.view(flow=True) == approx([2, 1, 1, 1, 1, 3])
 
 
 def test_str_categories_histogram():
@@ -154,9 +153,9 @@ def test_numpy_dd():
     h2, x2, y2 = h.to_numpy()
     h1, (x1, y1) = h.to_numpy(dd=True)
 
-    assert_array_equal(h1, h2)
-    assert_array_equal(x1, x2)
-    assert_array_equal(y1, y2)
+    assert h1 == approx(h2)
+    assert x1 == approx(x2)
+    assert y1 == approx(y2)
 
 
 def test_numpy_weights():
@@ -173,16 +172,16 @@ def test_numpy_weights():
     h2, x2, y2 = h.to_numpy(view=False)
     h1, (x1, y1) = h.to_numpy(dd=True, view=False)
 
-    assert_array_equal(h1, h2)
-    assert_array_equal(x1, x2)
-    assert_array_equal(y1, y2)
+    assert h1 == approx(h2)
+    assert x1 == approx(x2)
+    assert y1 == approx(y2)
 
     h1, (x1, y1) = h.to_numpy(dd=True, view=False)
     h2, x2, y2 = h.to_numpy(view=True)
 
-    assert_array_equal(h1, h2.value)
-    assert_array_equal(x1, x2)
-    assert_array_equal(y1, y2)
+    assert h1 == approx(h2.value)
+    assert x1 == approx(x2)
+    assert y1 == approx(y2)
 
 
 def test_numpy_flow():
@@ -199,14 +198,14 @@ def test_numpy_flow():
     flow_true = h.to_numpy(True)[0][1:-1, 1:-1]
     flow_false = h.to_numpy(False)[0]
 
-    assert_array_equal(flow_true, flow_false)
+    assert flow_true == approx(flow_false)
 
     view_flow_true = h.view(flow=True)
     view_flow_false = h.view(flow=False)
     view_flow_default = h.view()
 
-    assert_array_equal(view_flow_true[1:-1, 1:-1], view_flow_false)
-    assert_array_equal(view_flow_default, view_flow_false)
+    assert view_flow_true[1:-1, 1:-1] == approx(view_flow_false)
+    assert view_flow_default == approx(view_flow_false)
 
 
 def test_numpy_compare():
@@ -229,9 +228,9 @@ def test_numpy_compare():
 
     nH, nE1, nE2 = np.histogram2d(xs, ys, bins=(10, 5), range=((0, 1), (0, 1)))
 
-    assert_array_equal(H, nH)
-    assert_allclose(E1, nE1)
-    assert_allclose(E2, nE2)
+    assert approx(nH) == H
+    assert approx(nE1) == E1
+    assert approx(nE2) == E2
 
 
 def test_project():
@@ -257,9 +256,9 @@ def test_project():
     assert h.project(0) == h0
     assert h.project(1) == h1
 
-    assert_array_equal(h.project(0, 1), h)
-    assert_array_equal(h.project(0), h0)
-    assert_array_equal(h.project(1), h1)
+    assert np.asarray(h.project(0, 1)) == approx(np.asarray(h))
+    assert np.asarray(h.project(0)) == approx(np.asarray(h0))
+    assert np.asarray(h.project(1)) == approx(np.asarray(h1))
 
 
 def test_sums():
@@ -277,7 +276,7 @@ def test_int_cat_hist():
     h.fill(2)
     h.fill(3)
 
-    assert_array_equal(h.view(), [1, 1, 1])
+    assert h.view() == approx([1, 1, 1])
     assert h.sum() == 3
 
     with pytest.raises(TypeError):
@@ -385,3 +384,64 @@ def test_pick_multiaxis():
     assert h[[1, 2], [1, 0], sum, bh.loc("f")].sum() == 1
 
     assert mini.values() == approx(np.array(((0, 1), (0, 0))))
+
+
+# to_numpy computes its edges in Python now; the C++ helper (which copies the
+# bin contents too) remains the reference implementation for the NumPy edge
+# convention, including the nextafter nudge of the upper edge and flow bins.
+edge_convention_axes = (
+    bh.axis.Regular(5, 1, 2),
+    bh.axis.Regular(5, 1, 2, underflow=False),
+    bh.axis.Regular(5, 1, 2, overflow=False),
+    bh.axis.Regular(5, 1, 2, underflow=False, overflow=False),
+    bh.axis.Regular(5, 1, 2, growth=True),
+    bh.axis.Regular(5, 1, 2, circular=True),
+    bh.axis.Regular(5, 1, 2, transform=bh.axis.transform.log),
+    bh.axis.Regular(5, 1, 2, transform=bh.axis.transform.sqrt),
+    bh.axis.Regular(5, 1, 2, transform=bh.axis.transform.Pow(0.5)),
+    bh.axis.Variable([1, 2, 5, 8]),
+    bh.axis.Variable([1, 2, 5, 8], underflow=False),
+    bh.axis.Variable([1, 2, 5, 8], overflow=False),
+    bh.axis.Variable([1, 2, 5, 8], underflow=False, overflow=False),
+    bh.axis.Variable([1, 2, 5, 8], growth=True),
+    bh.axis.Variable([1, 2, 5, 8], circular=True),
+    bh.axis.Integer(-2, 3),
+    bh.axis.Integer(-2, 3, underflow=False),
+    bh.axis.Integer(-2, 3, overflow=False),
+    bh.axis.Integer(-2, 3, underflow=False, overflow=False),
+    bh.axis.Integer(-2, 3, growth=True),
+    bh.axis.Integer(-2, 3, circular=True),
+    bh.axis.IntCategory([1, 3, 5]),
+    bh.axis.IntCategory([1, 3, 5], overflow=False),
+    bh.axis.IntCategory([1, 3, 5], growth=True),
+    bh.axis.StrCategory(["a", "b"]),
+    bh.axis.StrCategory(["a", "b"], overflow=False),
+    bh.axis.StrCategory(["a", "b"], growth=True),
+    bh.axis.Boolean(),
+)
+
+
+@pytest.mark.parametrize("flow", [False, True])
+@pytest.mark.parametrize("axis", edge_convention_axes, ids=repr)
+def test_to_numpy_edges_match_cpp_helper(axis, flow):
+    h = bh.Histogram(axis, bh.axis.Regular(3, 0, 1))
+    _, *cpp_edges = h._hist.to_numpy(flow)
+    _, *py_edges = h.to_numpy(flow)
+
+    assert len(cpp_edges) == len(py_edges) == 2
+    for cpp_e, py_e in zip(cpp_edges, py_edges, strict=True):
+        assert cpp_e.dtype == py_e.dtype
+        assert cpp_e == approx(py_e)
+
+
+@pytest.mark.parametrize("flow", [False, True])
+def test_to_numpy_edges_match_cpp_helper_numpy_axis(flow):
+    # bh.numpy.histogram produces the special regular_numpy axis, which does
+    # not get the upper-edge nudge.
+    h = bh.numpy.histogram([0.25, 0.5, 0.75], bins=4, histogram=bh.Histogram)
+    _, *cpp_edges = h._hist.to_numpy(flow)
+    _, *py_edges = h.to_numpy(flow)
+
+    assert len(cpp_edges) == len(py_edges) == 1
+    assert cpp_edges[0].dtype == py_edges[0].dtype
+    assert cpp_edges[0] == approx(py_edges[0])

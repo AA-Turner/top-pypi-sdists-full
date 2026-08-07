@@ -32,6 +32,7 @@ logger = get_indented_logger(__name__)
 @cli_options.dry_run_option
 @cli_options.commit_option
 @cli_options.tag_option
+@cli_options.push_tag_option
 @cli_options.sign_tags_option
 @cli_options.tag_name_option
 @cli_options.tag_message_option
@@ -55,6 +56,7 @@ def bump(
     dry_run: bool,
     commit: Optional[bool],
     tag: Optional[bool],
+    push_tag: Optional[bool],
     sign_tags: Optional[bool],
     tag_name: Optional[str],
     tag_message: Optional[str],
@@ -86,6 +88,7 @@ def bump(
         replace=replace,
         commit=commit,
         tag=tag,
+        push_tag=push_tag,
         sign_tags=sign_tags,
         tag_name=tag_name,
         tag_message=tag_message,

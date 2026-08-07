@@ -82,7 +82,11 @@ def summary(r):
 def copy_fixture(name, tmp_path):
     src = FIXTURES / name
     dst = tmp_path / name.replace("/", "_")
-    shutil.copytree(src, dst)
+    # symlinks=True: a fixture that ships an escaping symlink is copied as
+    # the symlink, not as the contents behind it — copying the contents
+    # would rebuild the layout as an ordinary directory and quietly turn a
+    # containment test into a no-op.
+    shutil.copytree(src, dst, symlinks=True)
     return dst
 
 
@@ -182,12 +186,12 @@ class TestSinglePlugin:
         assert r["rc"] == 1
 
         ids = rule_ids(r)
-        assert "plugin-json-valid" in ids
-        assert "plugin-naming" in ids
-        assert "plugin-readme" in ids
-        assert "command-naming" in ids
-        assert "command-frontmatter" in ids
-        assert "agent-frontmatter" in ids
+        assert "claude-plugin-json-valid" in ids
+        assert "claude-plugin-naming" in ids
+        assert "claude-plugin-readme" in ids
+        assert "claude-command-naming" in ids
+        assert "claude-command-frontmatter" in ids
+        assert "claude-agent-frontmatter" in ids
 
         s = summary(r)
         assert s["errors"] >= 4
@@ -198,13 +202,13 @@ class TestSinglePlugin:
         r = run_lint(repo)
         grouped = by_rule(r)
 
-        naming = grouped["plugin-naming"]
+        naming = grouped["claude-plugin-naming"]
         assert any("kebab-case" in v["message"] for v in naming)
 
-        frontmatter = grouped["command-frontmatter"]
+        frontmatter = grouped["claude-command-frontmatter"]
         assert any("Missing frontmatter" in v["message"] for v in frontmatter)
 
-        agent = grouped["agent-frontmatter"]
+        agent = grouped["claude-agent-frontmatter"]
         assert any("name" in v["message"].lower() for v in agent)
         assert any("description" in v["message"].lower() for v in agent)
 
@@ -301,6 +305,104 @@ class TestRootLevelMcp:
         assert "mcp-valid-json" not in rule_ids(r)
 
 
+# ── Agent Plugins v1 ─────────────────────────────────────────────
+
+
+@pytest.mark.integration
+class TestAgentPlugins:
+    def test_clean_agent_plugin_passes_end_to_end(self, tmp_path):
+        repo = copy_fixture("agent-plugins/clean", tmp_path)
+        r = run_lint(repo)
+
+        assert r["rc"] == 0, violations(r)
+        assert "agent-plugin" in r["out"]["stats"]["repo_types"]
+        assert len(r["out"]["stats"]["plugins"]) == 1
+        assert "agent-plugin-json-valid" not in rule_ids(r)
+        assert "agent-plugin-mcp-valid" not in rule_ids(r)
+
+    def test_broken_manifest_reports_errors_and_spec_warnings(self, tmp_path):
+        repo = copy_fixture("agent-plugins/broken-manifest", tmp_path)
+        r = run_lint(repo)
+
+        assert r["rc"] == 1
+        found = by_rule(r)["agent-plugin-json-valid"]
+        assert any(v["severity"] == "error" for v in found)
+        assert any(v["severity"] == "warning" for v in found)
+
+    def test_broken_mcp_uses_agent_plugin_validator_only(self, tmp_path):
+        repo = copy_fixture("agent-plugins/broken-mcp", tmp_path)
+        r = run_lint(
+            repo,
+            "--rule",
+            "agent-plugin-mcp-valid",
+            "--rule",
+            "mcp-valid-json",
+            "--rule",
+            "mcp-prohibited",
+        )
+
+        assert r["rc"] == 1
+        assert "agent-plugin-mcp-valid" in rule_ids(r)
+        assert "mcp-prohibited" in rule_ids(r)
+        assert "mcp-valid-json" not in rule_ids(r)
+
+    def test_explicit_type_reports_a_missing_manifest(self, tmp_path):
+        repo = copy_fixture("agent-plugins/missing", tmp_path)
+        r = run_lint(
+            repo,
+            "--type",
+            "agent-plugin",
+            "--rule",
+            "agent-plugin-json-valid",
+        )
+
+        assert r["rc"] == 1
+        assert "agent-plugin-json-valid" in rule_ids(r)
+        assert any("plugin.json" in v["message"] for v in violations(r))
+
+    def test_legacy_root_manifest_does_not_auto_enable_agent_plugin_rules(self, tmp_path):
+        repo = copy_fixture("agent-plugins/legacy-root", tmp_path)
+        r = run_lint(repo)
+
+        assert "agent-plugin" not in r["out"]["stats"]["repo_types"]
+        assert "agent-plugin-json-valid" not in rule_ids(r)
+        assert "agent-plugin-mcp-valid" not in rule_ids(r)
+
+    def test_collection_counts_only_canonical_agent_plugins(self, tmp_path):
+        repo = copy_fixture("agent-plugins/collection", tmp_path)
+        r = run_lint(repo)
+
+        assert "agent-plugin" in r["out"]["stats"]["repo_types"]
+        assert len(r["out"]["stats"]["plugins"]) == 1
+
+    def test_forced_codex_type_still_validates_dual_package_mcp(self, tmp_path):
+        """A forced non-agent --type must not lose mcp.json validation.
+
+        The dual-format package symlinks .mcp.json at the portable mcp.json,
+        so the tree carries the document only as the Agent Plugins parser
+        role. With agent-plugin-mcp-valid filtered out by --type codex-plugin,
+        the generic mcp-valid-json rule must pick the file up instead.
+        """
+        repo = copy_fixture("agent-plugins/dual-codex-broken-mcp", tmp_path)
+        assert (repo / ".mcp.json").is_symlink()
+        r = run_lint(repo, "--type", "codex-plugin")
+
+        assert r["rc"] == 1
+        found = by_rule(r)["mcp-valid-json"]
+        assert any("Invalid JSON" in v["message"] for v in found)
+        assert "agent-plugin-mcp-valid" not in rule_ids(r)
+
+    def test_auto_detected_dual_package_reports_broken_mcp_once(self, tmp_path):
+        repo = copy_fixture("agent-plugins/dual-codex-broken-mcp", tmp_path)
+        r = run_lint(repo)
+
+        assert r["rc"] == 1
+        invalid_json = [v for v in violations(r) if "Invalid JSON" in v["message"]]
+        assert len(invalid_json) == 1
+        assert invalid_json[0]["rule_id"] == "agent-plugin-mcp-valid"
+        assert "mcp-valid-json" not in rule_ids(r)
+
+
 # ── Marketplace ──────────────────────────────────────────────────
 
 
@@ -318,7 +420,7 @@ class TestMarketplace:
         repo = copy_fixture("marketplace/broken", tmp_path)
         r = run_lint(repo)
         assert r["rc"] == 1
-        assert "marketplace-json-valid" in rule_ids(r)
+        assert "claude-marketplace-json-valid" in rule_ids(r)
 
     def test_marketplace_stats(self, tmp_path):
         repo = copy_fixture("marketplace/clean", tmp_path)
@@ -326,6 +428,45 @@ class TestMarketplace:
         stats = r["out"]["stats"]
         assert "marketplace" in stats["repo_types"]
         assert len(stats["plugins"]) == 3
+
+    def test_escaping_plugins_dir_child_is_dropped_visibly(self, tmp_path):
+        """A plugins/* child that resolves outside the repository root is
+        dropped from discovery (containment: autofix must never write
+        outside the checkout), but the drop must be visible — a warning
+        violation in machine output plus a log line, never a silent
+        coverage loss (fourth panel, required action 1)."""
+        fixture = copy_fixture("marketplace/escaping-plugin-dir", tmp_path)
+        repo = fixture / "repo"
+        link = repo / "plugins" / "shared-tools"
+        # copytree(symlinks=True) must have preserved the escaping link;
+        # a rebuilt plain directory would turn this test into a no-op.
+        assert link.is_symlink(), "fixture symlink was not preserved"
+
+        r = run_lint(repo)
+        # The escaped plugin is not discovered and none of its content is
+        # linted; the registered in-repo plugin still is.
+        assert len(r["out"]["stats"]["plugins"]) == 1
+        assert all(
+            "cleanup.md" not in str(v.get("file_path", "")) for v in violations(r)
+        ), violations(r)
+
+        # The drop is visible: a warning violation in JSON output ...
+        drops = [
+            v
+            for v in violations(r)
+            if v["rule_id"] == "claude-marketplace-json-valid"
+            and "resolves outside the repository root" in v["message"]
+        ]
+        assert len(drops) == 1, violations(r)
+        assert drops[0]["severity"] == "warning"
+        assert str(drops[0]["file_path"]).endswith("plugins/shared-tools")
+        # ... and the same log line the marketplace-source path emits.
+        assert "escapes repository root" in r["stderr"]
+
+        # A warning, not an error: the plugin's content is skipped, not
+        # known to be defective, so a previously-clean repo keeps exit 0.
+        assert summary(r)["errors"] == 0
+        assert r["rc"] == 0
 
     def test_marketplace_plugin_root_resolves_local_sources(self, tmp_path):
         """metadata.pluginRoot is prepended to relative plugin sources (issue #343)."""
@@ -336,7 +477,7 @@ class TestMarketplace:
         assert summary(r)["warnings"] == 0
         # The strict: false plugin resolved through pluginRoot must not be
         # flagged for a missing plugin.json.
-        assert "plugin-json-required" not in rule_ids(r)
+        assert "claude-plugin-json-required" not in rule_ids(r)
         assert len(r["out"]["stats"]["plugins"]) == 3
 
     def test_marketplace_plugin_root_prefixed_sources_resolve(self, tmp_path):
@@ -358,7 +499,7 @@ class TestMarketplace:
         repo = copy_fixture("marketplace/plugin-root-escape", tmp_path)
         r = run_lint(repo)
         assert r["rc"] == 1
-        assert "marketplace-json-valid" in rule_ids(r)
+        assert "claude-marketplace-json-valid" in rule_ids(r)
         assert len(r["out"]["stats"]["plugins"]) == 0
 
 
@@ -537,6 +678,80 @@ class TestFilePathArgument:
 
 
 @pytest.mark.integration
+class TestDirectManifestInputs:
+    """A manifest path given directly resolves to the directory that owns
+    it — never outward to a plugin or repository root.
+
+    Widening a named manifest would expand what ``lint`` reads, and what
+    ``fix`` writes, beyond the path the caller named (an earlier revision
+    widened Codex manifests and ``fix`` rewrote files two directories
+    away). Callers who want manifest rules name the plugin's root
+    directory instead."""
+
+    def test_codex_catalog_file_input_does_not_reach_sibling_projects(self, tmp_path):
+        """Naming ``.agents/plugins/marketplace.json`` must not lint (or
+        let ``fix`` rewrite) files outside the directory that owns it."""
+        repo = copy_fixture("codex/manifest-path-scope", tmp_path)
+        catalog = repo / ".agents" / "plugins" / "marketplace.json"
+        skill = repo / "private-project" / "skills" / "helper" / "SKILL.md"
+        before = skill.read_bytes()
+
+        r = run_lint(catalog)
+        assert r["out"]["stats"]["skills"] == [], r["out"]["stats"]
+        offending = [v for v in violations(r) if ".agents" not in str(v.get("file_path", ""))]
+        assert offending == [], offending
+
+        _run_fix(catalog, "--suggest")
+        assert skill.read_bytes() == before, "fix wrote outside the named path"
+
+    def test_codex_manifest_file_input_stays_in_its_marker_directory(self, tmp_path):
+        repo = copy_fixture("codex/manifest-path-scope", tmp_path)
+        manifest = repo / "plugins" / "note-taker" / ".codex-plugin" / "plugin.json"
+        command = repo / "plugins" / "note-taker" / "commands" / "capture.md"
+        before = command.read_bytes()
+
+        r = run_lint(manifest)
+        assert all(
+            not str(v.get("file_path", "")).endswith("capture.md") for v in violations(r)
+        ), violations(r)
+        _run_fix(manifest, "--suggest")
+        assert command.read_bytes() == before, "fix wrote outside the named path"
+
+    def test_claude_manifest_file_input_is_not_widened(self, tmp_path):
+        """A Claude manifest path keeps its established scope: lint reads
+        what the caller named, and ``fix`` cannot reach files outside it."""
+        repo = tmp_path / "clplug"
+        (repo / ".claude-plugin").mkdir(parents=True)
+        (repo / ".claude-plugin" / "plugin.json").write_text('{"name": "demo"', encoding="utf-8")
+        (repo / "commands").mkdir()
+        command = repo / "commands" / "deploy.md"
+        command.write_text("---\ndescription: Deploy it.\n---\nBody.\n", encoding="utf-8")
+        before = command.read_bytes()
+
+        r = run_lint(repo / ".claude-plugin" / "plugin.json")
+        assert all(
+            not str(v.get("file_path", "")).endswith("deploy.md") for v in violations(r)
+        ), violations(r)
+        _run_fix(repo / ".claude-plugin" / "plugin.json")
+        assert command.read_bytes() == before, "fix wrote outside the named path"
+
+
+class TestMergedContextCodexCounts:
+    def test_merged_context_counts_codex_plugins_across_paths(self, tmp_path):
+        """Multi-path lint of two Codex plugin directories must not report
+        zero plugins — the merged context carries codex_plugins too."""
+        for name in ("one", "two"):
+            plugin = tmp_path / name
+            (plugin / ".codex-plugin").mkdir(parents=True)
+            (plugin / ".codex-plugin" / "plugin.json").write_text(
+                json.dumps({"name": name, "version": "1.0.0", "description": "x"}),
+                encoding="utf-8",
+            )
+        r = run_lint(tmp_path / "one", str(tmp_path / "two"))
+        # Verbose stats list the paths; either way the count must be 2.
+        assert len(r["out"]["stats"]["plugins"]) == 2
+
+
 class TestMultiplePaths:
 
     def test_lint_two_directories(self, tmp_path):
@@ -1062,7 +1277,16 @@ class TestApm:
         assert "apm-structure-valid" in ids
 
         apm_violations = by_rule(r)["apm-yaml-valid"]
-        assert any("description" in v["message"].lower() for v in apm_violations)
+        assert any("version" in v["message"].lower() for v in apm_violations)
+
+    def test_consumer_manifest_passes(self, tmp_path):
+        """A consumer-only apm.yml has no .apm/ dir to validate (issue #472)"""
+        repo = copy_fixture("apm/consumer-manifest", tmp_path)
+        r = run_lint(repo)
+        assert r["rc"] == 0
+        assert "apm-structure-valid" not in rule_ids(r)
+        assert summary(r)["errors"] == 0
+        assert summary(r)["warnings"] == 0
 
     def test_apm_clean_hooks_pass(self, tmp_path):
         repo = copy_fixture("apm/hooks-clean", tmp_path)
@@ -1181,7 +1405,7 @@ class TestConfigFeatures:
         repo = copy_fixture("config/per-rule-exclude", tmp_path)
         r = run_lint(repo)
         assert r["out"] is not None
-        frontmatter = by_rule(r).get("command-frontmatter", [])
+        frontmatter = by_rule(r).get("claude-command-frontmatter", [])
         files = {v["file_path"] for v in frontmatter}
         assert any("real-cmd.md" in f for f in files)
         assert not any("vendor-cmd.md" in f for f in files)
@@ -1190,9 +1414,77 @@ class TestConfigFeatures:
         repo = copy_fixture("config/disable-rules", tmp_path)
         r = run_lint(repo)
         assert r["out"] is not None
-        assert "command-frontmatter" not in rule_ids(r)
+        assert "claude-command-frontmatter" not in rule_ids(r)
         rules_run = r["out"]["stats"]["rules_run"]
-        assert "command-frontmatter" not in rules_run
+        assert "claude-command-frontmatter" not in rules_run
+
+    def test_legacy_rule_name_in_config_still_works(self, tmp_path):
+        """Pre-rename rule names in configs keep controlling the renamed rule."""
+        repo = copy_fixture("config/legacy-rule-names", tmp_path)
+        r = run_lint(repo)
+        assert r["out"] is not None
+        # The legacy 'command-frontmatter' key disabled the renamed rule.
+        assert "claude-command-frontmatter" not in rule_ids(r)
+        assert "claude-command-frontmatter" not in r["out"]["stats"]["rules_run"]
+        # And it is not reported as an unknown rule.
+        assert "invalid-config" not in rule_ids(r)
+
+    def test_deprecated_rules_config_behavior(self, tmp_path):
+        """Explicitly enabled deprecated rules run with a removal warning;
+        mention-only entries warn that the rule no longer runs."""
+        repo = copy_fixture("config/deprecated-rules", tmp_path)
+        r = run_lint(repo)
+        assert r["out"] is not None
+        # enabled: true keeps the deprecated rule running.
+        assert "content-critical-position" in rule_ids(r)
+        # skill-frontmatter is only mentioned (severity override), so it
+        # stays retired.
+        assert "skill-frontmatter" not in r["out"]["stats"]["rules_run"]
+        deprecation = [v for v in violations(r) if v["rule_id"] == "deprecated-rule"]
+        messages = " | ".join(v["message"] for v in deprecation)
+        assert "content-critical-position" in messages
+        assert "skill-frontmatter" in messages
+        assert all(v["severity"] == "warning" for v in deprecation)
+
+    def test_fix_command_surfaces_deprecation_notices(self, tmp_path):
+        """skillsaw fix prints the deprecation notices its lint pass found —
+        its output otherwise only lists fixes, not violations."""
+        repo = copy_fixture("config/deprecated-rules", tmp_path)
+        result = subprocess.run(
+            [sys.executable, "-m", "skillsaw", "fix", str(repo)],
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        assert result.returncode == 0, result.stderr
+        assert "deprecated since 0.18.0" in result.stdout
+        assert "content-critical-position" in result.stdout
+        assert "skill-frontmatter" in result.stdout
+
+    def test_deprecation_notices_are_advisory_under_strict(self, tmp_path):
+        """Deprecation warnings alone must not fail a strict run — every
+        pre-0.18 --init config names now-deprecated rules."""
+        repo = copy_fixture("config/deprecated-rules", tmp_path)
+        config_path = repo / ".skillsaw.yaml"
+        # Keep only the inert mention so the deprecated rule itself cannot
+        # produce content violations, then tighten to strict.
+        config_path.write_text(
+            'version: "99.0.0"\n'
+            "strict: true\n"
+            "rules:\n"
+            "  skill-frontmatter:\n"
+            "    severity: info\n"
+        )
+        r = run_lint(repo)
+        deprecation = [v for v in violations(r) if v["rule_id"] == "deprecated-rule"]
+        assert deprecation, "expected a deprecation notice"
+        others = [
+            v
+            for v in violations(r)
+            if v["rule_id"] != "deprecated-rule" and v["severity"] in ("error", "warning")
+        ]
+        assert others == [], others
+        assert r["rc"] == 0
 
     def test_strict_mode_exits_nonzero_on_warnings(self, tmp_path):
         repo = copy_fixture("config/strict-mode", tmp_path)
@@ -1219,11 +1511,11 @@ class TestCliOverrides:
         """--type must influence discovery, not just rule enablement."""
         repo = copy_fixture("cli-overrides/type-override", tmp_path)
 
-        r = run_lint(repo, "--type", "single-plugin", "--rule", "command-frontmatter")
+        r = run_lint(repo, "--type", "single-plugin", "--rule", "claude-command-frontmatter")
 
         assert r["rc"] == 1
-        assert "command-frontmatter" in rule_ids(r)
-        assert any("foo.md" in v["file_path"] for v in by_rule(r)["command-frontmatter"])
+        assert "claude-command-frontmatter" in rule_ids(r)
+        assert any("foo.md" in v["file_path"] for v in by_rule(r)["claude-command-frontmatter"])
         assert r["out"]["stats"]["repo_types"] == ["single-plugin"]
 
     def test_type_unknown_rejected(self, tmp_path):
@@ -1371,7 +1663,7 @@ class TestExitCodes:
         r = run_lint(repo, "--output", str(out_file), verbose=False, fmt="text")
         assert r["rc"] == 1
         html = out_file.read_text()
-        assert "plugin-readme" in html
+        assert "claude-plugin-readme" in html
         assert '<span class="count-item count-info">Info:' in html
 
     def test_fail_on_info_includes_info_in_sarif_output(self, tmp_path):
@@ -1466,6 +1758,18 @@ class TestOutputFormats:
         assert "version" in native
         assert isinstance(gitlab, list)
 
+    def test_output_write_failure_returns_clean_error(self, tmp_path):
+        """Report write failures must return a clean CLI error."""
+        repo = copy_fixture("single-plugin/clean", tmp_path)
+        output_dir = tmp_path / "report.json"
+        output_dir.mkdir()
+
+        result = run_lint(repo, "--output", str(output_dir))
+
+        assert result["rc"] == 1
+        assert f"Failed to write report to '{output_dir}'" in result["stderr"]
+        assert "Traceback" not in result["stderr"]
+
 
 # ── Assert Directives (data-driven) ─────────────────────────────
 
@@ -1514,15 +1818,20 @@ BROKEN_FIXTURES = [
     "dot-claude/broken",
     "dot-claude/agents-imports-broken",
     "coderabbit/broken",
+    "coderabbit/schema-broken",
     "apm/broken",
     "supply-chain-hooks/malicious",
     "apm/hooks-dangerous",
     "root-mcp/invalid-json",
+    "agent-plugins/broken-manifest",
+    "agent-plugins/broken-mcp",
+    "agent-plugins/missing-portable",
     "content-unclosed-fence/skill-hides-violations",
     "content/instruction-drift",
     "content/repeated-directive",
     "content/emphasis-density",
     "security/malicious-skill",
+    "codex/broken",
 ]
 
 CLEAN_FIXTURES = [
@@ -1539,11 +1848,13 @@ CLEAN_FIXTURES = [
     "apm/hooks-clean",
     "supply-chain-hooks/clean",
     "root-mcp/clean",
+    "agent-plugins/clean",
+    "codex/clean",
 ]
 
 OPT_IN_RULES = {
-    "command-sections",
-    "command-name-format",
+    "claude-command-sections",
+    "claude-command-name-format",
     "mcp-prohibited",
     "agentskill-structure",
     "agentskill-evals-required",
@@ -1984,6 +2295,198 @@ class TestDescriptionMaxLengthConfig:
         assert "256" in vs[0]["message"]
 
 
+@pytest.mark.integration
+class TestDescriptionRouting:
+    """Descriptions are linted as routing signals across block types."""
+
+    FIXTURE = "content-description-routing"
+
+    @staticmethod
+    def _routing_violations(result):
+        """Return only content-description-routing violations from a lint result."""
+        return [v for v in violations(result) if v["rule_id"] == "content-description-routing"]
+
+    def test_reports_each_routing_failure_and_keeps_clean_descriptions_clean(self, tmp_path):
+        """Report every fixture failure deterministically while clean cases pass."""
+        repo = copy_fixture(self.FIXTURE, tmp_path)
+        r = run_lint(repo, "--rule", "content-description-routing")
+        vs = self._routing_violations(r)
+
+        assert len(vs) == 12
+        assert all(v["severity"] == "warning" and v["line"] in {2, 3} for v in vs)
+        assert sum("when to use" in v["message"] for v in vs) == 7
+        assert sum("restates the name" in v["message"] for v in vs) == 3
+        assert sum("Description is empty" in v["message"] for v in vs) == 2
+        assert any("sdk-guide" in v["file_path"] for v in vs)
+        assert any("oauth-explainer" in v["file_path"] for v in vs)
+        assert any("user-event-explainer" in v["file_path"] for v in vs)
+        assert any("header-builder" in v["file_path"] for v in vs)
+        assert any("generic-command" in v["file_path"] for v in vs)
+        assert not any("explicit-use-this" in v["file_path"] for v in vs)
+        assert not any("incident-investigator" in v["file_path"] for v in vs)
+        assert not any("test-staging" in v["file_path"] for v in vs)
+        assert not any("request-router" in v["file_path"] for v in vs)
+        assert not any("check-release" in v["file_path"] for v in vs)
+
+        rerun = run_lint(repo, "--rule", "content-description-routing")
+        assert self._routing_violations(rerun) == vs
+
+    def test_accepts_explicit_trigger_phrase_variants(self, tmp_path):
+        """Accept active, passive, and restrictive selection clauses."""
+        repo = copy_fixture(self.FIXTURE, tmp_path)
+        result = run_lint(repo, "--rule", "content-description-routing")
+        routing_violations = self._routing_violations(result)
+        expected_clean = {
+            "active-invoke-whenever",
+            "active-use-for",
+            "active-use-to",
+            "modal-after-em-dash",
+            "passive-must-whenever",
+            "passive-should-before",
+            "use-only-when",
+        }
+        discovered = {Path(path).name for path in result["out"]["stats"]["skills"]}
+        flagged = {
+            path.parent.name if path.name == "SKILL.md" else path.stem
+            for violation in routing_violations
+            for path in [Path(violation["file_path"])]
+        }
+
+        assert expected_clean <= discovered
+        assert expected_clean.isdisjoint(flagged)
+        # Subject-matter wording remains distinct from a selection clause.
+        assert {"explainer", "oauth-explainer", "sdk-guide", "user-event-explainer"} <= flagged
+
+    def test_codex_only_command_without_description_is_reported(self, tmp_path):
+        """Keep the always-on presence check active without Claude provenance."""
+        repo = copy_fixture("codex/clean", tmp_path)
+        command = repo / "plugins/note-taker/commands/capture.md"
+        command.write_text("---\nname: capture\n---\n\n# Capture\n", encoding="utf-8")
+
+        result = run_lint(repo, "--rule", "content-description-routing")
+        command_violations = [
+            violation
+            for violation in self._routing_violations(result)
+            if violation["file_path"].endswith("commands/capture.md")
+        ]
+
+        assert len(command_violations) == 1
+        assert "Description is missing" in command_violations[0]["message"]
+
+    def test_codex_only_command_without_frontmatter_is_reported(self, tmp_path):
+        """Do not depend on Claude frontmatter rules for the presence check."""
+        repo = copy_fixture("codex/clean", tmp_path)
+        command = repo / "plugins/note-taker/commands/capture.md"
+        command.write_text("# Capture\n\nCapture the current note.\n", encoding="utf-8")
+
+        result = run_lint(repo, "--rule", "content-description-routing")
+        command_violations = [
+            violation
+            for violation in self._routing_violations(result)
+            if violation["file_path"].endswith("commands/capture.md")
+        ]
+
+        assert len(command_violations) == 1
+        assert "Description is missing" in command_violations[0]["message"]
+
+    @pytest.mark.parametrize(
+        ("option", "message", "expected_count"),
+        [
+            ("require-trigger-phrasing", "when to use", 5),
+            ("flag-name-restatement", "restates the name", 9),
+        ],
+    )
+    def test_subchecks_can_be_disabled_independently(
+        self, tmp_path, option, message, expected_count
+    ):
+        """Allow either routing heuristic to be disabled without affecting its peer."""
+        repo = copy_fixture(self.FIXTURE, tmp_path)
+        config = repo / ".skillsaw.yaml"
+        config.write_text(
+            "rules:\n  content-description-routing:\n    " + option + ": false\n",
+            encoding="utf-8",
+        )
+
+        r = run_lint(repo, config=config)
+        assert r["rc"] == 0
+        assert isinstance(r["out"], dict)
+        routing_violations = self._routing_violations(r)
+        assert len(routing_violations) == expected_count
+        assert not any(message in v["message"] for v in routing_violations)
+
+    def test_user_only_skills_are_skipped_only_for_exact_boolean_true(self, tmp_path):
+        """Default skipping is limited to the actual YAML boolean true."""
+        repo = copy_fixture("description-routing-user-only", tmp_path)
+
+        result = run_lint(repo, "--rule", "content-description-routing")
+        routing_violations = self._routing_violations(result)
+        skill_violations = [v for v in routing_violations if "skills" in Path(v["file_path"]).parts]
+        checked_skills = {Path(v["file_path"]).parent.name for v in skill_violations}
+
+        assert checked_skills == {
+            "field-absent",
+            "field-false",
+            "field-numeric-one",
+            "field-string-true",
+        }
+        assert all("when to use" in v["message"] for v in skill_violations)
+        assert any("agents/field-true.md" in v["file_path"] for v in routing_violations)
+        assert any("commands/field-true.md" in v["file_path"] for v in routing_violations)
+
+    def test_user_only_skills_can_be_checked_by_configuration(self, tmp_path):
+        """The opt-in checks a boolean-true user-only skill normally."""
+        repo = copy_fixture("description-routing-user-only", tmp_path)
+        config = repo / ".skillsaw.yaml"
+        config.write_text(
+            "rules:\n  content-description-routing:\n    check-user-only-skills: true\n",
+            encoding="utf-8",
+        )
+
+        result = run_lint(repo, config=config)
+        routing_violations = self._routing_violations(result)
+        skill_violations = [v for v in routing_violations if "skills" in Path(v["file_path"]).parts]
+        checked_skills = {Path(v["file_path"]).parent.name for v in skill_violations}
+
+        assert checked_skills == {
+            "field-absent",
+            "field-false",
+            "field-numeric-one",
+            "field-string-true",
+            "field-true",
+            "field-true-empty",
+        }
+        assert all(
+            "when to use" in v["message"]
+            for v in skill_violations
+            if "field-true-empty" not in v["file_path"]
+        )
+        assert any(
+            "field-true-empty" in v["file_path"] and "Description is empty" in v["message"]
+            for v in skill_violations
+        )
+
+    def test_quoted_false_config_does_not_check_user_only_skills(self, tmp_path):
+        """A truthy string does not accidentally enable the boolean opt-in."""
+        repo = copy_fixture("description-routing-user-only", tmp_path)
+        config = repo / ".skillsaw.yaml"
+        config.write_text(
+            'rules:\n  content-description-routing:\n    check-user-only-skills: "false"\n',
+            encoding="utf-8",
+        )
+
+        result = run_lint(repo, config=config)
+        routing_violations = self._routing_violations(result)
+        skill_violations = [v for v in routing_violations if "skills" in Path(v["file_path"]).parts]
+        checked_skills = {Path(v["file_path"]).parent.name for v in skill_violations}
+
+        assert checked_skills == {
+            "field-absent",
+            "field-false",
+            "field-numeric-one",
+            "field-string-true",
+        }
+
+
 class TestUnlinkedInternalReferenceAutofix:
     """Integration tests for content-unlinked-internal-reference autofix via CLI."""
 
@@ -2238,13 +2741,21 @@ class TestContentUnclosedFenceAutofix:
 
 
 def _discover_safe_autofix_rule_ids() -> Set[str]:
-    """Auto-discover all rules that produce SAFE-confidence autofixes."""
+    """Auto-discover all rules that produce SAFE-confidence autofixes.
+
+    Deprecated rules no longer run in a default lint, so they are excluded —
+    their fixes cannot fire in the fixture.
+    """
     from skillsaw.rules.builtin import BUILTIN_RULES
     from skillsaw.rule import AutofixConfidence
 
     safe_ids: Set[str] = set()
     for rule_class in BUILTIN_RULES:
         instance = rule_class()
+        # The fixture exercises a default lint run: deprecated rules no
+        # longer run in one, and opt-in rules never did.
+        if instance.deprecated is not None or instance.default_enabled is False:
+            continue
         if instance.autofix_confidence == AutofixConfidence.SAFE:
             safe_ids.add(instance.rule_id)
     return safe_ids
@@ -2391,7 +2902,7 @@ class TestEncodingPreservingAutofix:
         assert "agentskill-name" not in rule_ids(r)
 
     def test_bom_crlf_command_missing_frontmatter_fix_single_bom(self, tmp_path):
-        """command-frontmatter's missing-frontmatter fix must read via the
+        """claude-command-frontmatter's missing-frontmatter fix must read via the
         BOM-stripping utils reader: a raw utf-8 read keeps U+FEFF, and
         prepending the frontmatter block embeds a second BOM mid-file
         (``\\ufeff# Deploy``) that breaks heading parsing on later lints."""
@@ -2418,7 +2929,7 @@ class TestEncodingPreservingAutofix:
         _run_fix(repo)
         assert target.read_bytes() == raw
         # Converges: the missing-frontmatter violation is gone.
-        r = run_lint(repo, "--rule", "command-frontmatter")
+        r = run_lint(repo, "--rule", "claude-command-frontmatter")
         assert not any("Missing frontmatter" in v.get("message", "") for v in violations(r))
 
 
@@ -2439,12 +2950,11 @@ class TestSafeAutofixIdempotency:
     FIXTURE = "autofix/safe-idempotency"
 
     EXPECTED_SAFE_VIOLATIONS = {
-        "agent-frontmatter": 3,
+        "claude-agent-frontmatter": 3,
         "agentskill-name": 4,
-        "agentskill-valid": 6,
-        "command-frontmatter": 3,
+        "agentskill-valid": 7,
+        "claude-command-frontmatter": 3,
         "content-unlinked-internal-reference": 23,
-        "skill-frontmatter": 3,
     }
 
     def test_fixture_violation_counts(self, tmp_path):
@@ -2511,6 +3021,7 @@ class TestSafeAutofixIdempotency:
             "no-desc-",
             "no-name-",
             "missing-name/",
+            "nested-name/",
             # Replacing a multi-line falsy ``name:`` value collapses the
             # continuation line; inserting a missing top-level name adds one.
             "multiline-name/",
@@ -2657,18 +3168,19 @@ class TestLintFixLoop:
         r = run_lint(repo, fmt="text", verbose=False)
 
         # SAFE-autofixable rules carry the [*] marker after the rule id.
-        assert "(agent-frontmatter) [*]" in r["stdout"]
-        assert "(command-frontmatter) [*]" in r["stdout"]
+        assert "(claude-agent-frontmatter) [*]" in r["stdout"]
+        assert "(claude-command-frontmatter) [*]" in r["stdout"]
         # Rules without an autofix never get a marker.
         assert "(agentskill-unreferenced-files) [*]" not in r["stdout"]
         assert "(agentskill-unreferenced-files) [?]" not in r["stdout"]
-        # agentskill-valid only fixes the missing-name subset.
+        # agentskill-valid fixes the missing-name and missing-frontmatter
+        # subsets; other violations (e.g. missing description) get no marker.
         assert (
             "(agentskill-valid) [*] [skills/missing-name/SKILL.md]: "
             "Missing required 'name' field" in r["stdout"]
         )
         assert (
-            "(agentskill-valid) [skills/no-frontmatter/SKILL.md]: "
+            "(agentskill-valid) [*] [skills/no-frontmatter/SKILL.md]: "
             "Missing YAML frontmatter" in r["stdout"]
         )
 
@@ -2686,13 +3198,17 @@ class TestLintFixLoop:
         r = run_lint(repo)
         grouped = by_rule(r)
 
-        for v in grouped["agent-frontmatter"]:
+        for v in grouped["claude-agent-frontmatter"]:
             assert v["fixable"] is True
             assert v["fix_confidence"] == "safe"
 
-        # agentskill-valid: only the missing-name subset is fixable.
+        # agentskill-valid: the missing-name and missing-frontmatter subsets
+        # are fixable; everything else is not.
         for v in grouped["agentskill-valid"]:
-            if "Missing required 'name'" in v["message"]:
+            if (
+                "Missing required 'name'" in v["message"]
+                or "Missing YAML frontmatter" in v["message"]
+            ):
                 assert v["fixable"] is True
                 assert v["fix_confidence"] == "safe"
             else:
@@ -3600,3 +4116,88 @@ class TestNameAutofixMultilineScalar:
         assert any("folded-name" in f for f in remaining)
         assert any("next-line" in f for f in remaining)
         assert any("dup-keys" in f for f in remaining)
+
+
+# ── Codex marketplace registration autofix (CLI level) ───────────
+
+
+@pytest.mark.integration
+class TestCodexRegistrationAutofixCli:
+    """The unit harness applies fixes by hand. This exercises the path a
+    user actually runs: ``Linter.fix_and_apply`` multi-pass, per-file
+    conflict resolution, and ``write_text_preserving``'s BOM/CRLF restore.
+    """
+
+    def _catalog(self, repo: Path) -> Path:
+        return repo / ".agents" / "plugins" / "marketplace.json"
+
+    def _build(self, tmp_path, *, indent=2, bom=False, crlf=False) -> Path:
+        repo = tmp_path / "codex-reg"
+        (repo / ".agents" / "plugins").mkdir(parents=True)
+        catalog = {
+            "name": "cat",
+            "plugins": [
+                {
+                    "name": "listed",
+                    "source": {"source": "local", "path": "./plugins/listed"},
+                    "policy": {"installation": "AVAILABLE", "authentication": "ON_INSTALL"},
+                    "category": "Productivity",
+                }
+            ],
+        }
+        text = json.dumps(catalog, indent=indent) + "\n"
+        if crlf:
+            text = text.replace("\n", "\r\n")
+        data = text.encode("utf-8")
+        if bom:
+            data = b"\xef\xbb\xbf" + data
+        self._catalog(repo).write_bytes(data)
+        for name in ("listed", "missing"):
+            manifest_dir = repo / "plugins" / name / ".codex-plugin"
+            manifest_dir.mkdir(parents=True)
+            (manifest_dir / "plugin.json").write_text(
+                json.dumps({"name": name, "version": "1.0.0", "description": "x"}, indent=2),
+                encoding="utf-8",
+            )
+        return repo
+
+    def test_fix_without_suggest_leaves_the_catalog_alone(self, tmp_path):
+        repo = self._build(tmp_path)
+        before = self._catalog(repo).read_bytes()
+        _run_fix(repo)
+        assert self._catalog(repo).read_bytes() == before
+
+    def test_fix_with_suggest_registers_and_is_idempotent(self, tmp_path):
+        repo = self._build(tmp_path)
+        _run_fix(repo, "--suggest")
+        after_once = self._catalog(repo).read_bytes()
+        names = [p["name"] for p in json.loads(after_once.decode("utf-8"))["plugins"]]
+        assert names == ["listed", "missing"]
+
+        _run_fix(repo, "--suggest")
+        assert self._catalog(repo).read_bytes() == after_once
+
+    def test_the_registration_violation_is_gone_after_the_fix(self, tmp_path):
+        repo = self._build(tmp_path)
+        _run_fix(repo, "--suggest")
+        r = run_lint(repo)
+        ids = {v["rule_id"] for v in r["out"]["violations"]}
+        assert "codex-marketplace-registration" not in ids
+
+    def test_a_bom_and_crlf_catalog_survives_the_fix(self, tmp_path):
+        repo = self._build(tmp_path, bom=True, crlf=True)
+        _run_fix(repo, "--suggest")
+        raw = self._catalog(repo).read_bytes()
+        assert raw.startswith(b"\xef\xbb\xbf"), "the BOM was dropped"
+        assert b"\r\n" in raw and b"\n" not in raw.replace(b"\r\n", b""), "line endings changed"
+
+    def test_a_four_space_catalog_is_reserialised_at_two(self, tmp_path):
+        """Pinning current behaviour, not endorsing it: ``fix()`` rewrites
+        the whole document with ``json.dumps(indent=2)``, so adding one
+        entry to a 4-space catalog reformats every line of it.
+        """
+        repo = self._build(tmp_path, indent=4)
+        _run_fix(repo, "--suggest")
+        text = self._catalog(repo).read_text(encoding="utf-8")
+        assert '\n  "name": "cat"' in text
+        assert '\n    "name": "cat"' not in text

@@ -10,12 +10,12 @@ use crate::{
         ir::{
             canonicalize_value_set, tighter, type_set_schema, typed_group, ArrayLeaf, ArrayLeaves,
             AtLeastTwo, BoundCardinality, BoundInteger, BoundNumber, BoundRational, CanonicalJson,
-            ContainsFacet, Discrete, Divisors, ExcludedDivisors, IntegerBounds, IntegerLeaf,
-            IntegerLeaves, LengthBounds, NonEmpty, NumberLeaf, NumberLeaves, ObjectLeaf,
-            ObjectLeaves, Round, Schema, SchemaKind, Side, StringLeaf, StringLeaves,
-            UncheckableFacet, Verdict,
+            ContainsFacet, Discrete, Distinctness, Divisors, ExcludedDivisors, IntegerBounds,
+            IntegerLeaf, IntegerLeaves, LengthBounds, NonEmpty, NumberLeaf, NumberLeaves,
+            ObjectLeaf, ObjectLeaves, ObjectViolation, Round, Schema, SchemaKind, Side, StringLeaf,
+            StringLeaves, UncheckableFacet, Verdict,
         },
-        negate, oracle, parse,
+        negate, oracle, parse, DefinitionMap,
     },
     JsonType, JsonTypeSet,
 };
@@ -236,13 +236,13 @@ fn intersect_pair(left: Schema, right: Schema, ctx: &CanonicalizationContext) ->
                 Schema::new(SchemaKind::False)
             }
         }
-        // Two array leaves: keep the arrays both accept - the narrower window, and distinct items
-        // when either side asks for them.
+        // Two array leaves: keep the arrays both accept - the narrower window, and the distinctness
+        // both sides ask for.
         (SchemaKind::Array(first), SchemaKind::Array(second)) => {
-            array_leaf(
-                intersect_array_leaves(first.into_inner(), second.into_inner(), ctx),
-                ctx,
-            )
+            match intersect_array_leaves(first.into_inner(), second.into_inner(), ctx) {
+                Some(leaf) => array_leaf(leaf, ctx),
+                None => Schema::new(SchemaKind::False),
+            }
         }
         // An object leaf constrains object values. A type set keeps it only when the set covers
         // `object`; otherwise the two share no value, so `False`.
@@ -404,9 +404,13 @@ fn partition_by_multiplicity(branches: &[Schema]) -> (Vec<Schema>, Vec<Schema>) 
 ///
 /// A reference is opaque to intersection and negation, so a branch holding one keeps the
 /// exclusivity symbolic instead of expanding it; the rest take [`concrete_one_of`].
-pub(crate) fn one_of(mut branches: Vec<Schema>, ctx: &CanonicalizationContext) -> Option<Schema> {
+pub(crate) fn one_of(
+    mut branches: Vec<Schema>,
+    definitions: &DefinitionMap,
+    ctx: &CanonicalizationContext,
+) -> Option<Schema> {
     if !branches.iter().any(contains_reference) {
-        return concrete_one_of(branches, ctx);
+        return concrete_one_of(branches, definitions, ctx);
     }
     // A branch accepting nothing can never be the single match.
     branches.retain(|branch| !matches!(branch.kind(), SchemaKind::False));
@@ -422,7 +426,7 @@ pub(crate) fn one_of(mut branches: Vec<Schema>, ctx: &CanonicalizationContext) -
         let mut complements = Vec::with_capacity(duplicates.len());
         for duplicate in &duplicates {
             // All or nothing: dropping a duplicate whose exclusion is never restated is unsound.
-            let Some(complement) = negate::negate(duplicate, ctx) else {
+            let Some(complement) = negate::negate_in_place(duplicate, definitions, ctx) else {
                 complements.clear();
                 break;
             };
@@ -432,7 +436,7 @@ pub(crate) fn one_of(mut branches: Vec<Schema>, ctx: &CanonicalizationContext) -
             // Survivors re-enter from the top, not wrapped in a `OneOf` here: the duplicates may
             // have held the only references, and a reference-free remainder must take the concrete
             // route or it emits a form that canonicalizes to something else.
-            let mut result = one_of(singles, ctx)?;
+            let mut result = one_of(singles, definitions, ctx)?;
             for complement in complements {
                 result = intersect(result, complement, ctx);
             }
@@ -454,11 +458,19 @@ pub(crate) fn one_of(mut branches: Vec<Schema>, ctx: &CanonicalizationContext) -
 /// [`one_of`] over branches none of which holds a reference: some branch matches and no two-branch
 /// overlap does, so only the overlaps need complements — a branch overlapping nothing is never
 /// negated. `None` when an overlap's complement is inexpressible.
-fn concrete_one_of(branches: Vec<Schema>, ctx: &CanonicalizationContext) -> Option<Schema> {
+fn concrete_one_of(
+    branches: Vec<Schema>,
+    definitions: &DefinitionMap,
+    ctx: &CanonicalizationContext,
+) -> Option<Schema> {
     let overlaps = pairwise_overlaps(&branches, ctx);
     let mut result = union(branches, ctx);
     for overlap in overlaps {
-        result = intersect(result, negate::negate(&overlap, ctx)?, ctx);
+        result = intersect(
+            result,
+            negate::negate_in_place(&overlap, definitions, ctx)?,
+            ctx,
+        );
     }
     Some(result)
 }
@@ -1109,7 +1121,7 @@ fn lift_degenerate_member(
                     minimum: None,
                     maximum: Some(BoundCardinality::from(0)),
                 },
-                unique: false,
+                distinctness: Distinctness::Unconstrained,
                 prefix: Vec::new(),
                 items: None,
                 contains: Vec::new(),
@@ -1129,6 +1141,7 @@ fn lift_degenerate_member(
                 property_names: None,
                 properties: BTreeMap::new(),
                 pattern_properties: BTreeMap::new(),
+                violations: Vec::new(),
             });
             true
         }
@@ -1272,6 +1285,9 @@ fn united_sole_key(
     if left.sizes != right.sizes
         || left.property_names != right.property_names
         || left.pattern_properties != right.pattern_properties
+        // Merging with unequal violation lists would silently drop one side's constraint: with
+        // equal lists the merge distributes, `(A and v) or (B and v) = (A or B) and v`.
+        || left.violations != right.violations
     {
         return None;
     }
@@ -1313,6 +1329,7 @@ fn united_sole_key(
         properties,
         pattern_properties: left.pattern_properties.clone(),
         additional: None,
+        violations: left.violations.clone(),
     })
 }
 
@@ -1381,6 +1398,9 @@ fn collapse_object_leaves_covering_domain(
         properties: BTreeMap::new(),
         pattern_properties: BTreeMap::new(),
         additional: None,
+        // Coverage goes through `oracle::covers` (intersect plus structural equality), so a
+        // violation-carrying leaf never falsely covers a violation-free piece.
+        violations: Vec::new(),
     };
     let packed = packed_leaves(leaves, ctx);
     if !split_piece_is_covered(piece.clone(), &packed, &keys, ctx) {
@@ -2504,38 +2524,57 @@ pub(crate) fn array_leaf(mut leaf: ArrayLeaf, ctx: &CanonicalizationContext) -> 
         return Schema::new(SchemaKind::False);
     }
     normalize_items(&mut leaf);
-    if !reconcile_contains_window(&mut leaf) {
+    if !reconcile_contains_window(&mut leaf, ctx) {
         return Schema::new(SchemaKind::False);
     }
     if !reconcile_contains_positions(&leaf, ctx) {
         return Schema::new(SchemaKind::False);
     }
-    // Distinct elements cannot outnumber the values they are drawn from, so a finite item domain
-    // is a length ceiling.
-    // e.g.  {"type": "array", "items": {"type": "boolean"}, "uniqueItems": true}
-    //       =>  {"type": "array", "items": {"type": "boolean"}, "uniqueItems": true, "maxItems": 2}
-    if leaf.unique {
-        // The elements meeting a demand are distinct and all drawn from its own domain, so a demand
-        // asking for more matches than that domain holds cannot be met.
-        // e.g.  {"type": "array", "contains": {"type": "boolean"}, "minContains": 3, "uniqueItems": true}
-        //       =>  false
-        if leaf.contains.iter().any(|facet| {
-            facet
-                .schema
-                .kind()
-                .finite_domain_size()
-                .is_some_and(|domain| facet.effective_minimum() > BoundCardinality::from(domain))
-        }) {
-            return Schema::new(SchemaKind::False);
+    match leaf.distinctness {
+        Distinctness::Unconstrained => {}
+        // Distinct elements cannot outnumber the values they are drawn from, so a finite item
+        // domain is a length ceiling.
+        // e.g.  {"type": "array", "items": {"type": "boolean"}, "uniqueItems": true}
+        //       =>  {"type": "array", "items": {"type": "boolean"}, "uniqueItems": true, "maxItems": 2}
+        Distinctness::AllDistinct => {
+            // The elements meeting a demand are distinct and all drawn from its own domain, so a
+            // demand asking for more matches than that domain holds cannot be met.
+            // e.g.  {"type": "array", "contains": {"type": "boolean"}, "minContains": 3, "uniqueItems": true}
+            //       =>  false
+            if leaf.contains.iter().any(|facet| {
+                facet
+                    .schema
+                    .kind()
+                    .finite_domain_size()
+                    .is_some_and(|domain| {
+                        facet.effective_minimum() > BoundCardinality::from(domain)
+                    })
+            }) {
+                return Schema::new(SchemaKind::False);
+            }
+            if let Some(ceiling) = distinct_length_ceiling(&leaf, ctx) {
+                leaf.lengths.maximum = Some(match leaf.lengths.maximum.take() {
+                    Some(maximum) => maximum.min(ceiling),
+                    None => ceiling,
+                });
+            }
         }
-        if let Some(ceiling) = unique_length_ceiling(&leaf, ctx) {
-            leaf.lengths.maximum = Some(match leaf.lengths.maximum.take() {
-                Some(maximum) => maximum.min(ceiling),
-                None => ceiling,
+        // Two elements that coincide are two elements, so the demand floors the length. Spelling
+        // that floor is what keeps the demand alone and the demand beside `minItems: 2` together.
+        // e.g.  {"type": "array", "allOf": [{"not": {"type": "array", "uniqueItems": true}}]}
+        //       =>  {"type": "array", "minItems": 2,
+        //            "allOf": [{"not": {"type": "array", "uniqueItems": true}}]}
+        Distinctness::SomeRepeated => {
+            let floor = BoundCardinality::from(2);
+            leaf.lengths.minimum = Some(match leaf.lengths.minimum.take() {
+                Some(minimum) => minimum.max(floor),
+                None => floor,
             });
         }
     }
-    // An array of at most one item has nothing to repeat, so uniqueness says nothing more.
+    // An array of at most one item holds nothing that can repeat, so a demand for distinct
+    // elements says nothing more and a demand for a repeat cannot be met - the latter through the
+    // floor above, which leaves such a window empty.
     // e.g.  {"type": "array", "maxItems": 1, "uniqueItems": true}
     //       =>  {"type": "array", "maxItems": 1}
     if leaf
@@ -2544,7 +2583,14 @@ pub(crate) fn array_leaf(mut leaf: ArrayLeaf, ctx: &CanonicalizationContext) -> 
         .as_ref()
         .is_some_and(|max| *max <= BoundCardinality::from(1))
     {
-        leaf.unique = false;
+        match leaf.distinctness {
+            Distinctness::AllDistinct => leaf.distinctness = Distinctness::Unconstrained,
+            Distinctness::SomeRepeated => debug_assert!(
+                leaf.lengths.is_empty(),
+                "a repeat demand inside a single-item window survived its length floor"
+            ),
+            Distinctness::Unconstrained => {}
+        }
     }
     let Some(leaf) = NonEmpty::new(leaf) else {
         return Schema::new(SchemaKind::False);
@@ -2634,15 +2680,10 @@ fn normalize_contains(leaf: &mut ArrayLeaf) -> bool {
 }
 
 /// Check the `contains` demands against the settled length window: matching elements are elements,
-/// so the largest demanded count must fit under the ceiling, and any item minimum it implies is
-/// dropped as redundant.
-fn reconcile_contains_window(leaf: &mut ArrayLeaf) -> bool {
-    let Some(implied) = leaf
-        .contains
-        .iter()
-        .map(ContainsFacet::effective_minimum)
-        .max()
-    else {
+/// so the count they imply must fit under the ceiling, and any item minimum it implies is dropped as
+/// redundant.
+fn reconcile_contains_window(leaf: &mut ArrayLeaf, ctx: &CanonicalizationContext) -> bool {
+    let Some(implied) = implied_length_floor(&leaf.contains, ctx) else {
         return true;
     };
     if leaf
@@ -2661,7 +2702,66 @@ fn reconcile_contains_window(leaf: &mut ArrayLeaf) -> bool {
     {
         leaf.lengths.minimum = None;
     }
+    debug_assert!(
+        leaf.lengths
+            .minimum
+            .as_ref()
+            .is_none_or(|min| *min > implied),
+        "a length minimum the demands already imply is dropped"
+    );
     true
+}
+
+/// The shortest array the `contains` demands admit: one element cannot meet two demands sharing no
+/// value, so the counts of demands that are pairwise disjoint add up.
+/// ```text
+/// e.g.  {"type": "array", "contains": {"const": 1}, "allOf": [{"contains": {"const": 2}}]}
+///       =>  floor 2
+///
+///       {"type": "array", "contains": {"type": "integer"}, "allOf": [{"contains": {"const": 1}}]}
+///       =>  floor 1
+/// ```
+fn implied_length_floor(
+    demands: &[ContainsFacet],
+    ctx: &CanonicalizationContext,
+) -> Option<BoundCardinality> {
+    // Taking the demands in descending order keeps the widest one, so the floor is never below the
+    // largest single count.
+    let mut order: Vec<&ContainsFacet> = demands.iter().collect();
+    order.sort_by_key(|facet| std::cmp::Reverse(facet.effective_minimum()));
+    let mut summed: Vec<&Schema> = Vec::new();
+    let mut floor: Option<BoundCardinality> = None;
+    for facet in order {
+        let minimum = facet.effective_minimum();
+        if minimum.is_zero() {
+            continue;
+        }
+        let disjoint = summed.iter().all(|counted| {
+            matches!(
+                intersect((*counted).clone(), facet.schema.clone(), ctx).kind(),
+                SchemaKind::False
+            )
+        });
+        if !disjoint {
+            continue;
+        }
+        floor = match floor {
+            // Past the representable range the floor stays where it is, which only understates it.
+            Some(current) => current.clone().checked_add(&minimum).or(Some(current)),
+            None => Some(minimum),
+        };
+        summed.push(&facet.schema);
+    }
+    debug_assert!(
+        demands
+            .iter()
+            .map(ContainsFacet::effective_minimum)
+            .max()
+            .unwrap_or_default()
+            <= floor.clone().unwrap_or_default(),
+        "the floor holds at least the largest single demanded count"
+    );
+    floor
 }
 
 /// The longest array `uniqueItems` admits when the tail draws from a finite domain: every element
@@ -2671,7 +2771,7 @@ fn reconcile_contains_window(leaf: &mut ArrayLeaf) -> bool {
 /// e.g.  {"prefixItems": [{"const": true}], "items": {"type": "boolean"}, "uniqueItems": true}
 ///       =>  ceiling 2, not 3
 /// ```
-fn unique_length_ceiling(
+fn distinct_length_ceiling(
     leaf: &ArrayLeaf,
     ctx: &CanonicalizationContext,
 ) -> Option<BoundCardinality> {
@@ -2824,13 +2924,21 @@ fn cap_length(leaf: &mut ArrayLeaf, ceiling: usize) {
     leaf.items = None;
 }
 
-/// Keep the arrays both leaves accept: the narrower window, distinct items when either asks, and
-/// elements both leaves admit at every index.
+/// Keep the arrays both leaves accept: the narrower window, the distinctness both demand, and
+/// elements both leaves admit at every index. `None` when one side demands distinct elements and
+/// the other a repeat, which no array does at once.
 fn intersect_array_leaves(
     first: ArrayLeaf,
     second: ArrayLeaf,
     ctx: &CanonicalizationContext,
-) -> ArrayLeaf {
+) -> Option<ArrayLeaf> {
+    let distinctness = match (first.distinctness, second.distinctness) {
+        (Distinctness::Unconstrained, other) | (other, Distinctness::Unconstrained) => other,
+        (Distinctness::AllDistinct, Distinctness::AllDistinct) => Distinctness::AllDistinct,
+        (Distinctness::SomeRepeated, Distinctness::SomeRepeated) => Distinctness::SomeRepeated,
+        (Distinctness::AllDistinct, Distinctness::SomeRepeated)
+        | (Distinctness::SomeRepeated, Distinctness::AllDistinct) => return None,
+    };
     let length = first.prefix.len().max(second.prefix.len());
     let mut prefix = Vec::with_capacity(length);
     for index in 0..length {
@@ -2846,13 +2954,13 @@ fn intersect_array_leaves(
     };
     let mut contains = first.contains;
     contains.extend(second.contains);
-    ArrayLeaf {
+    Some(ArrayLeaf {
         lengths: first.lengths.intersect(second.lengths),
-        unique: first.unique || second.unique,
+        distinctness,
         prefix,
         items,
         contains,
-    }
+    })
 }
 
 /// The schema a leaf places on the element at `index`: its prefix schema there, or the tail once
@@ -2877,8 +2985,17 @@ fn has_duplicate_elements(elements: &[Value]) -> bool {
         .any(|(index, element)| elements[..index].contains(element))
 }
 
-/// Whether `items` has a length in the window, every element the item schema admits, and distinct
-/// elements when asked.
+/// Whether the elements sit on the side of coincidence the leaf demands.
+fn meets_distinctness(leaf: &ArrayLeaf, elements: &[Value]) -> bool {
+    match leaf.distinctness {
+        Distinctness::Unconstrained => true,
+        Distinctness::AllDistinct => !has_duplicate_elements(elements),
+        Distinctness::SomeRepeated => has_duplicate_elements(elements),
+    }
+}
+
+/// Whether `items` has a length in the window, every element the item schema admits, and the
+/// distinctness the leaf asks for.
 fn array_leaf_admits(leaf: &ArrayLeaf, items: &[Value], ctx: &CanonicalizationContext) -> Verdict {
     if !leaf
         .lengths
@@ -2886,7 +3003,7 @@ fn array_leaf_admits(leaf: &ArrayLeaf, items: &[Value], ctx: &CanonicalizationCo
     {
         return Verdict::Rejects;
     }
-    if leaf.unique && has_duplicate_elements(items) {
+    if !meets_distinctness(leaf, items) {
         return Verdict::Rejects;
     }
     contains_verdict(&leaf.contains, items, UncheckableFacet::Undecided, ctx).and(Verdict::all(
@@ -2968,7 +3085,7 @@ fn restrict_array_member(
     {
         return MemberRestriction::Empty;
     }
-    if leaf.unique && has_duplicate_elements(elements) {
+    if !meets_distinctness(leaf, elements) {
         return MemberRestriction::Empty;
     }
     // Counting the elements of a finite member leaves the demand undecided only across a symbolic
@@ -3020,9 +3137,9 @@ fn restrict_array_member(
                 minimum: Some(length.clone()),
                 maximum: Some(length),
             },
-            // Element pinning preserves elementwise equality, so the member's distinctness carries
-            // over and the pinned tuple needs no uniqueness of its own.
-            unique: false,
+            // Element pinning preserves elementwise equality, so the member's own coincidences
+            // carry over and the pinned tuple needs no distinctness demand of its own.
+            distinctness: Distinctness::Unconstrained,
             prefix: restricted,
             items: None,
             contains,
@@ -3035,6 +3152,97 @@ fn restrict_array_member(
 pub(crate) fn object_leaf(mut leaf: ObjectLeaf, ctx: &CanonicalizationContext) -> Schema {
     normalize_additional(&mut leaf, ctx);
     normalize_property_names(&mut leaf, ctx);
+    // A demand no key can break admits nothing; negation never builds one, so reaching here is a
+    // constructor bug upstream.
+    debug_assert!(
+        !leaf.violations.iter().any(|violation| match violation {
+            ObjectViolation::NameFails(violated) => matches!(violated.kind(), SchemaKind::True)
+                || matches!(violated.kind(), SchemaKind::MultiType(set) if set.contains(JsonType::String)),
+            ObjectViolation::UndeclaredValueFails { additional, .. } => {
+                matches!(additional.kind(), SchemaKind::True)
+            }
+        }),
+        "a demand no key can break survived construction"
+    );
+    // Every key must satisfy the constraint, yet a demand needs one that breaks it.
+    if let Some(names) = &leaf.property_names {
+        for violation in &leaf.violations {
+            let ObjectViolation::NameFails(violated) = violation else {
+                continue;
+            };
+            if violated == names {
+                return Schema::new(SchemaKind::False);
+            }
+            if let Some(values) = names.kind().finite_values() {
+                if values.iter().all(|value| {
+                    matches!(value.as_value(), Value::String(key)
+                    if matches!(admits_key(violated, key, ctx), Verdict::Admits))
+                }) {
+                    return Schema::new(SchemaKind::False);
+                }
+            }
+        }
+    }
+    // Every undeclared key's value must satisfy the shield, yet a demand needs one that breaks it.
+    if let Some(shield) = &leaf.additional {
+        for violation in &leaf.violations {
+            if let ObjectViolation::UndeclaredValueFails {
+                names,
+                patterns,
+                additional,
+            } = violation
+            {
+                if additional == shield
+                    && leaf.properties.keys().eq(names.iter())
+                    && leaf.pattern_properties.keys().eq(patterns.iter())
+                {
+                    return Schema::new(SchemaKind::False);
+                }
+            }
+        }
+    }
+    // A required key already breaks the schema a `NameFails` demand names, so the key alone
+    // supplies the "some key breaks it" the demand needs; keeping the demand spells the same
+    // value set twice.
+    // e.g.  allOf [{"not": {"type": "object", "propertyNames": {"maxLength": 2}}},
+    //              {"type": "object", "required": ["abc"]}]
+    //       =>  {"type": "object", "required": ["abc"]}
+    let required = &leaf.required;
+    leaf.violations.retain(|violation| {
+        let ObjectViolation::NameFails(violated) = violation else {
+            return true;
+        };
+        !required
+            .iter()
+            .any(|key| matches!(admits_key(violated, key, ctx), Verdict::Rejects))
+    });
+    // A surviving demand needs a key none of the required ones can be, so it needs a key beyond
+    // them; the size ceiling then has to leave room for one, or no object can carry the violation.
+    // e.g.  {"type": "object", "maxProperties": 1, "minProperties": 1, "required": ["a"],
+    //        "properties": {"a": {"type": "string"}},
+    //        "not": {"type": "object", "propertyNames": {"enum": ["a", "b"]}}}
+    //       =>  {"not": {}}
+    if leaf
+        .effective_sizes()
+        .maximum
+        .as_ref()
+        .is_some_and(|max| *max <= leaf.required_count())
+        && leaf.violations.iter().any(|violation| match violation {
+            ObjectViolation::NameFails(violated) => required
+                .iter()
+                .all(|key| matches!(admits_key(violated, key, ctx), Verdict::Admits)),
+            ObjectViolation::UndeclaredValueFails {
+                names, patterns, ..
+            } => required.iter().all(|key| {
+                names.contains(key)
+                    || patterns
+                        .iter()
+                        .any(|pattern| matches_key(pattern, key, ctx))
+            }),
+        })
+    {
+        return Schema::new(SchemaKind::False);
+    }
     expand_additional_over_admitted_keys(&mut leaf);
     // A leaf no facet survives on admits every object, which the bare type set already spells;
     // keeping the leaf shape would give one value set two IR forms.
@@ -3124,7 +3332,8 @@ pub(crate) fn object_leaf(mut leaf: ObjectLeaf, ctx: &CanonicalizationContext) -
     };
     // A ceiling of zero present keys accepts the empty object and nothing else, whether spelled as
     // `maxProperties: 0` or as a finite key set whose every key is forbidden; a required key would
-    // have emptied the leaf above.
+    // have emptied the leaf above, and a demand would have collapsed against the slot check, which
+    // reads the same ceiling and passes vacuously without required keys.
     // e.g.  {"type": "object", "maxProperties": 0}  =>  {"const": {}}
     // e.g.  {"type": "object", "propertyNames": {"const": "a"}, "properties": {"a": false}}
     //       =>  {"const": {}}
@@ -3135,6 +3344,10 @@ pub(crate) fn object_leaf(mut leaf: ObjectLeaf, ctx: &CanonicalizationContext) -
         .as_ref()
         .is_some_and(BoundCardinality::is_zero)
     {
+        debug_assert!(
+            leaf.get().violations.is_empty(),
+            "a demand survived a zero ceiling past the slot check"
+        );
         return Schema::new(SchemaKind::Const(CanonicalJson::from_value(
             &Value::Object(serde_json::Map::new()),
         )));
@@ -3507,9 +3720,16 @@ pub(crate) fn contains_reference(schema: &Schema) -> bool {
                 }
             }
             if let Some(schema) = &leaf.additional {
-                return contains_reference(schema);
+                if contains_reference(schema) {
+                    return true;
+                }
             }
-            false
+            leaf.violations.iter().any(|violation| match violation {
+                ObjectViolation::NameFails(schema) => contains_reference(schema),
+                ObjectViolation::UndeclaredValueFails { additional, .. } => {
+                    contains_reference(additional)
+                }
+            })
         }
         SchemaKind::MultiType(_)
         | SchemaKind::String(_)
@@ -3552,14 +3772,27 @@ fn has_uncheckable_string_facet(schema: &Schema, ctx: &CanonicalizationContext) 
         SchemaKind::AllOf(_) | SchemaKind::OneOf(_) | SchemaKind::Not(_) => {
             unreachable!("a symbolic branch never reaches the facet scan")
         }
-        SchemaKind::Object(leaf) => leaf
-            .get()
-            .property_names
-            .iter()
-            .chain(leaf.get().properties.values())
-            .chain(leaf.get().pattern_properties.values())
-            .chain(leaf.get().additional.iter())
-            .any(|nested| has_uncheckable_string_facet(nested, ctx)),
+        SchemaKind::Object(leaf) => {
+            leaf.get()
+                .property_names
+                .iter()
+                .chain(leaf.get().properties.values())
+                .chain(leaf.get().pattern_properties.values())
+                .chain(leaf.get().additional.iter())
+                .any(|nested| has_uncheckable_string_facet(nested, ctx))
+                || leaf
+                    .get()
+                    .violations
+                    .iter()
+                    .any(|violation| match violation {
+                        ObjectViolation::NameFails(schema) => {
+                            has_uncheckable_string_facet(schema, ctx)
+                        }
+                        ObjectViolation::UndeclaredValueFails { additional, .. } => {
+                            has_uncheckable_string_facet(additional, ctx)
+                        }
+                    })
+        }
         SchemaKind::Array(leaf) => leaf
             .get()
             .prefix
@@ -3613,6 +3846,10 @@ fn intersect_object_leaves(
         (Some(left), Some(right)) => Some(intersect(left, right, ctx)),
         (shield, None) | (None, shield) => shield,
     };
+    let mut violations = first.violations;
+    violations.extend(second.violations);
+    violations.sort();
+    violations.dedup();
     ObjectLeaf {
         sizes: first.sizes.intersect(second.sizes),
         required,
@@ -3620,6 +3857,7 @@ fn intersect_object_leaves(
         properties,
         pattern_properties,
         additional,
+        violations,
     }
 }
 
@@ -3790,7 +4028,67 @@ fn restrict_object_member(
             }
         }
     }
-    let mut full = restricted_property_names.is_none();
+    let mut restricted_violations = Vec::new();
+    for violation in &leaf.violations {
+        match violation {
+            ObjectViolation::NameFails(violated) => {
+                let mut satisfied = Verdict::Rejects;
+                for key in map.keys() {
+                    match admits_key(violated, key, ctx) {
+                        Verdict::Rejects => {
+                            satisfied = Verdict::Admits;
+                            break;
+                        }
+                        Verdict::Unknown => satisfied = Verdict::Unknown,
+                        Verdict::Admits => {}
+                    }
+                }
+                match satisfied {
+                    Verdict::Admits => {}
+                    Verdict::Rejects => return MemberRestriction::Empty,
+                    Verdict::Unknown => {
+                        restricted_violations.push(ObjectViolation::NameFails(violated.clone()));
+                    }
+                }
+            }
+            ObjectViolation::UndeclaredValueFails {
+                names,
+                patterns,
+                additional,
+            } => {
+                let mut satisfied = Verdict::Rejects;
+                for (key, value) in map {
+                    if names.iter().any(|name| name.as_ref() == key.as_str())
+                        || patterns
+                            .iter()
+                            .any(|pattern| matches_key(pattern, key, ctx))
+                    {
+                        continue;
+                    }
+                    match admits_value(additional, value, UncheckableFacet::Undecided, ctx) {
+                        Verdict::Rejects => {
+                            satisfied = Verdict::Admits;
+                            break;
+                        }
+                        Verdict::Unknown => satisfied = Verdict::Unknown,
+                        Verdict::Admits => {}
+                    }
+                }
+                match satisfied {
+                    Verdict::Admits => {}
+                    Verdict::Rejects => return MemberRestriction::Empty,
+                    Verdict::Unknown => {
+                        restricted_violations.push(ObjectViolation::UndeclaredValueFails {
+                            names: names.clone(),
+                            patterns: patterns.clone(),
+                            additional: additional.clone(),
+                        });
+                    }
+                }
+            }
+        }
+    }
+    let mut full = restricted_property_names.is_none() && restricted_violations.is_empty();
     let mut restricted: BTreeMap<Arc<str>, Schema> = BTreeMap::new();
     for (key, value) in map {
         let pin = Schema::new(SchemaKind::Const(CanonicalJson::from_value(value)));
@@ -3823,6 +4121,7 @@ fn restrict_object_member(
             properties: restricted,
             pattern_properties: BTreeMap::new(),
             additional: None,
+            violations: restricted_violations,
         },
         ctx,
     ))
@@ -3849,6 +4148,44 @@ fn object_leaf_admits(
     if keys == Verdict::Rejects {
         return Verdict::Rejects;
     }
+    let violations = Verdict::all(leaf.violations.iter().map(|violation| match violation {
+        ObjectViolation::NameFails(violated) => {
+            let mut satisfied = Verdict::Rejects;
+            for key in map.keys() {
+                match admits_key(violated, key, ctx) {
+                    Verdict::Rejects => return Verdict::Admits,
+                    Verdict::Unknown => satisfied = Verdict::Unknown,
+                    Verdict::Admits => {}
+                }
+            }
+            satisfied
+        }
+        ObjectViolation::UndeclaredValueFails {
+            names,
+            patterns,
+            additional,
+        } => {
+            let mut satisfied = Verdict::Rejects;
+            for (key, value) in map {
+                if names.iter().any(|name| name.as_ref() == key.as_str())
+                    || patterns
+                        .iter()
+                        .any(|pattern| matches_key(pattern, key, ctx))
+                {
+                    continue;
+                }
+                match admits_value(additional, value, UncheckableFacet::Undecided, ctx) {
+                    Verdict::Rejects => return Verdict::Admits,
+                    Verdict::Unknown => satisfied = Verdict::Unknown,
+                    Verdict::Admits => {}
+                }
+            }
+            satisfied
+        }
+    }));
+    if violations == Verdict::Rejects {
+        return Verdict::Rejects;
+    }
     let values = Verdict::all(map.iter().map(|(key, value)| {
         let named = match (
             leaf.properties.get(key.as_str()),
@@ -3871,7 +4208,7 @@ fn object_leaf_admits(
             },
         )))
     }));
-    keys.and(values)
+    keys.and(values).and(violations)
 }
 
 /// The number leaf admitting exactly the values both admit.

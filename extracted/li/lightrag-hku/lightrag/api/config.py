@@ -46,6 +46,7 @@ from lightrag.constants import (
     DEFAULT_SUMMARY_LANGUAGE,
     DEFAULT_EMBEDDING_FUNC_MAX_ASYNC,
     DEFAULT_EMBEDDING_BATCH_NUM,
+    DEFAULT_EMBEDDING_CHUNK_OVERLAP_TOKEN_SIZE,
     DEFAULT_OLLAMA_MODEL_NAME,
     DEFAULT_OLLAMA_MODEL_TAG,
     DEFAULT_RERANK_BINDING,
@@ -636,9 +637,20 @@ def parse_args() -> argparse.Namespace:
         "MAX_PENDING_DOCUMENTS", DEFAULT_MAX_PENDING_DOCUMENTS, int
     )
 
-    # Raw request-body ceiling for the ingestion endpoints (LR2 §9.4); 0 disables.
-    args.max_request_body_bytes = get_env_value(
-        "MAX_REQUEST_BODY_BYTES", DEFAULT_MAX_REQUEST_BODY_BYTES, int
+    # Raw request-body ceiling (LR2 §9.4); 0 disables. Whether the operator
+    # supplied a value is recorded separately and MUST NOT be inferred by
+    # comparing the value to the default: an explicit MAX_REQUEST_BODY_BYTES
+    # equal to DEFAULT_MAX_REQUEST_BODY_BYTES is indistinguishable that way, and
+    # resolve_body_limits() would then hand the text-ingestion routes the 50 MiB
+    # built-in tier instead of the ceiling the operator asked for. A None default
+    # also folds in an unparseable value: it falls back here, and falling back to
+    # the default value should mean falling back to the default tiering too.
+    _configured_body_limit = get_env_value("MAX_REQUEST_BODY_BYTES", None, int)
+    args.max_request_body_bytes_explicit = _configured_body_limit is not None
+    args.max_request_body_bytes = (
+        DEFAULT_MAX_REQUEST_BODY_BYTES
+        if _configured_body_limit is None
+        else _configured_body_limit
     )
 
     # Document fan-out ceiling for one /documents/texts request (LR2 §11); 0 disables.
@@ -683,6 +695,13 @@ def parse_args() -> argparse.Namespace:
     # Inject chunk configuration
     args.chunk_size = get_env_value("CHUNK_SIZE", 1200, int)
     args.chunk_overlap_size = get_env_value("CHUNK_OVERLAP_SIZE", 100, int)
+    # Embedding hard-fallback overlap — independent of chunk_overlap_size above,
+    # see LightRAG.embedding_chunk_overlap_token_size.
+    args.embedding_chunk_overlap_token_size = get_env_value(
+        "EMBEDDING_CHUNK_OVERLAP_TOKEN_SIZE",
+        DEFAULT_EMBEDDING_CHUNK_OVERLAP_TOKEN_SIZE,
+        int,
+    )
 
     # Inject LLM cache configuration
     # Should not be disabled； LLM cache is required for entity/realtion rebuild after file deletion.
@@ -758,9 +777,13 @@ def parse_args() -> argparse.Namespace:
                     f"but required env vars are missing: {', '.join(missing)}"
                 )
 
-    # VLM multimodal master switch — when off, the pipeline emits a warning
-    # and skips every i/t/e item without touching the VLM. When on, the
-    # effective VLM binding must support image inputs.
+    # VLM multimodal master switch. It gates IMAGE (`i`) analysis only —
+    # table and equation items are analyzed by the EXTRACT role and ignore
+    # it. When off, a document carrying `i` does not skip its images: the
+    # first one that survives _analyze_drawing's pre-filters raises and the
+    # document lands in FAILED. When on, the effective VLM binding must
+    # accept image inputs; lollms is the only binding this server offers
+    # whose complete_if_cache rejects image_inputs outright.
     args.vlm_process_enable = get_env_value("VLM_PROCESS_ENABLE", False, bool)
     if args.vlm_process_enable:
         effective_vlm_binding = (

@@ -58,6 +58,8 @@ __all__ = (
     "FeatureStatusType",
     "FindingHistoryUpdateSourceTypeType",
     "FindingsTrendsStringFieldType",
+    "FreeTrialStatusValueType",
+    "FreeTrialTypeType",
     "GetEnabledStandardsPaginatorName",
     "GetFindingHistoryPaginatorName",
     "GetFindingsPaginatorName",
@@ -77,6 +79,7 @@ __all__ = (
     "ListConfigurationPolicyAssociationsPaginatorName",
     "ListEnabledProductsForImportPaginatorName",
     "ListFindingAggregatorsPaginatorName",
+    "ListFreeTrialStatusesV2PaginatorName",
     "ListInvitationsPaginatorName",
     "ListMembersPaginatorName",
     "ListOrganizationAdminAccountsPaginatorName",
@@ -213,6 +216,8 @@ FindingsTrendsStringFieldType = Literal[
     "resource_owner_organization_ids",
     "resource_regions",
 ]
+FreeTrialStatusValueType = Literal["ACTIVE", "INACTIVE"]
+FreeTrialTypeType = Literal["SECURITY_HUB_V2", "SECURITY_HUB_V2_MULTI_CLOUD_AZURE"]
 GetEnabledStandardsPaginatorName = Literal["get_enabled_standards"]
 GetFindingHistoryPaginatorName = Literal["get_finding_history"]
 GetFindingsPaginatorName = Literal["get_findings"]
@@ -281,6 +286,7 @@ ListConfigurationPoliciesPaginatorName = Literal["list_configuration_policies"]
 ListConfigurationPolicyAssociationsPaginatorName = Literal["list_configuration_policy_associations"]
 ListEnabledProductsForImportPaginatorName = Literal["list_enabled_products_for_import"]
 ListFindingAggregatorsPaginatorName = Literal["list_finding_aggregators"]
+ListFreeTrialStatusesV2PaginatorName = Literal["list_free_trial_statuses_v2"]
 ListInvitationsPaginatorName = Literal["list_invitations"]
 ListMembersPaginatorName = Literal["list_members"]
 ListOrganizationAdminAccountsPaginatorName = Literal["list_organization_admin_accounts"]
@@ -573,6 +579,8 @@ ServiceName = Literal[
     "account",
     "acm",
     "acm-pca",
+    "agent-registry",
+    "agent-registry-control",
     "aiops",
     "amp",
     "amplify",
@@ -877,6 +885,7 @@ ServiceName = Literal[
     "pipes",
     "polly",
     "pricing",
+    "pricing-plan-manager",
     "proton",
     "qapps",
     "qbusiness",
@@ -1018,6 +1027,7 @@ PaginatorName = Literal[
     "list_configuration_policy_associations",
     "list_enabled_products_for_import",
     "list_finding_aggregators",
+    "list_free_trial_statuses_v2",
     "list_invitations",
     "list_members",
     "list_organization_admin_accounts",

@@ -1618,6 +1618,10 @@ class FyersDataSocket:
                 self.__ws_object = None
                 self.scrips_per_channel[self.channel_num] = []
                 self.symbol_token = {}
+                self.scrips_sym = {}
+                self.index_sym = {}
+                self.dp_sym = {}
+                self.resp = {}
 
                 self.connect()
             else:
@@ -1692,6 +1696,10 @@ class FyersDataSocket:
             self.ping_thread.join()
             self.__ws_run = False
             self.scrips_per_channel[self.channel_num] = []
+            self.scrips_sym = {}
+            self.index_sym = {}
+            self.dp_sym = {}
+            self.resp = {}
 
 
     def keep_running(self):

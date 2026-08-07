@@ -33,11 +33,13 @@ pub(crate) const AWK_MAX_GETLINE_CACHED_FILES: usize = 100;
 pub(crate) const AWK_MAX_GETLINE_FILE_BYTES: usize = 10_000_000;
 /// awk: max total bytes retained by all `getline < file` inputs.
 pub(crate) const AWK_MAX_GETLINE_CACHE_BYTES: usize = 10_000_000;
+/// Max compiled runtime regexes retained by one evaluator.
+pub(crate) const RUNTIME_REGEX_CACHE_ENTRIES: usize = 64;
 
 /// curl: max number of HTTP redirects to follow.
 #[cfg(feature = "http_client")]
 pub(crate) const CURL_MAX_REDIRECTS: u32 = 10;
-/// curl: max request body bytes for `-d`, `-d @-`, `-d @file`, and multipart assembly.
+/// curl: max aggregate request bytes for all data variants and multipart assembly.
 #[cfg(feature = "http_client")]
 pub(crate) const CURL_MAX_REQUEST_BODY_BYTES: usize = 10_000_000;
 
@@ -80,9 +82,6 @@ pub(crate) const TEMPLATE_MAX_DEPTH: usize = 100;
 
 /// timeout: max timeout duration in seconds (5 minutes).
 pub(crate) const TIMEOUT_MAX_SECONDS: u64 = 300;
-
-/// yaml: max nesting depth.
-pub(crate) const YAML_MAX_DEPTH: usize = 100;
 
 /// yes: max lines and total output bytes per invocation.
 pub(crate) const YES_MAX_LINES: usize = 10_000;

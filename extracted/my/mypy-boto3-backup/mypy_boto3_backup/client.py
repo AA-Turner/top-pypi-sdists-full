@@ -27,6 +27,9 @@ from botocore.errorfactory import BaseClientExceptions
 from botocore.exceptions import ClientError as BotocoreClientError
 
 from .paginator import (
+    ListBackupAccessPointsByRecoveryPointPaginator,
+    ListBackupAccessPointsByResourcePaginator,
+    ListBackupAccessPointsPaginator,
     ListBackupJobsPaginator,
     ListBackupPlansPaginator,
     ListBackupPlanTemplatesPaginator,
@@ -53,6 +56,8 @@ from .paginator import (
 from .type_defs import (
     AssociateBackupVaultMpaApprovalTeamInputTypeDef,
     CancelLegalHoldInputTypeDef,
+    CreateBackupAccessPointRequestTypeDef,
+    CreateBackupAccessPointResponseTypeDef,
     CreateBackupPlanInputTypeDef,
     CreateBackupPlanOutputTypeDef,
     CreateBackupSelectionInputTypeDef,
@@ -75,6 +80,7 @@ from .type_defs import (
     CreateRestoreTestingSelectionOutputTypeDef,
     CreateTieringConfigurationInputTypeDef,
     CreateTieringConfigurationOutputTypeDef,
+    DeleteBackupAccessPointInputTypeDef,
     DeleteBackupPlanInputTypeDef,
     DeleteBackupPlanOutputTypeDef,
     DeleteBackupSelectionInputTypeDef,
@@ -88,6 +94,8 @@ from .type_defs import (
     DeleteRestoreTestingPlanInputTypeDef,
     DeleteRestoreTestingSelectionInputTypeDef,
     DeleteTieringConfigurationInputTypeDef,
+    DescribeBackupAccessPointInputTypeDef,
+    DescribeBackupAccessPointResponseTypeDef,
     DescribeBackupJobInputTypeDef,
     DescribeBackupJobOutputTypeDef,
     DescribeBackupVaultInputTypeDef,
@@ -147,6 +155,12 @@ from .type_defs import (
     GetSupportedResourceTypesOutputTypeDef,
     GetTieringConfigurationInputTypeDef,
     GetTieringConfigurationOutputTypeDef,
+    ListBackupAccessPointsByRecoveryPointRequestTypeDef,
+    ListBackupAccessPointsByRecoveryPointResponseTypeDef,
+    ListBackupAccessPointsByResourceRequestTypeDef,
+    ListBackupAccessPointsByResourceResponseTypeDef,
+    ListBackupAccessPointsRequestTypeDef,
+    ListBackupAccessPointsResponseTypeDef,
     ListBackupJobsInputTypeDef,
     ListBackupJobsOutputTypeDef,
     ListBackupJobSummariesInputTypeDef,
@@ -319,6 +333,16 @@ class BackupClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_backup/client/#cancel_legal_hold)
         """
 
+    def create_backup_access_point(
+        self, **kwargs: Unpack[CreateBackupAccessPointRequestTypeDef]
+    ) -> CreateBackupAccessPointResponseTypeDef:
+        """
+        Creates a backup access point for an Amazon S3 recovery point.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/backup/client/create_backup_access_point.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_backup/client/#create_backup_access_point)
+        """
+
     def create_backup_plan(
         self, **kwargs: Unpack[CreateBackupPlanInputTypeDef]
     ) -> CreateBackupPlanOutputTypeDef:
@@ -431,6 +455,16 @@ class BackupClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/backup/client/create_tiering_configuration.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_backup/client/#create_tiering_configuration)
+        """
+
+    def delete_backup_access_point(
+        self, **kwargs: Unpack[DeleteBackupAccessPointInputTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Deletes a backup access point.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/backup/client/delete_backup_access_point.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_backup/client/#delete_backup_access_point)
         """
 
     def delete_backup_plan(
@@ -552,6 +586,17 @@ class BackupClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/backup/client/delete_tiering_configuration.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_backup/client/#delete_tiering_configuration)
+        """
+
+    def describe_backup_access_point(
+        self, **kwargs: Unpack[DescribeBackupAccessPointInputTypeDef]
+    ) -> DescribeBackupAccessPointResponseTypeDef:
+        """
+        Returns metadata about a backup access point, including its status and the
+        details of the underlying Amazon S3 access point.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/backup/client/describe_backup_access_point.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_backup/client/#describe_backup_access_point)
         """
 
     def describe_backup_job(
@@ -888,6 +933,37 @@ class BackupClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_backup/client/#get_tiering_configuration)
         """
 
+    def list_backup_access_points(
+        self, **kwargs: Unpack[ListBackupAccessPointsRequestTypeDef]
+    ) -> ListBackupAccessPointsResponseTypeDef:
+        """
+        Returns a list of the backup access points in your account and Region.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/backup/client/list_backup_access_points.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_backup/client/#list_backup_access_points)
+        """
+
+    def list_backup_access_points_by_recovery_point(
+        self, **kwargs: Unpack[ListBackupAccessPointsByRecoveryPointRequestTypeDef]
+    ) -> ListBackupAccessPointsByRecoveryPointResponseTypeDef:
+        """
+        Returns the backup access points associated with the specified recovery point.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/backup/client/list_backup_access_points_by_recovery_point.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_backup/client/#list_backup_access_points_by_recovery_point)
+        """
+
+    def list_backup_access_points_by_resource(
+        self, **kwargs: Unpack[ListBackupAccessPointsByResourceRequestTypeDef]
+    ) -> ListBackupAccessPointsByResourceResponseTypeDef:
+        """
+        Returns the backup access points associated with the specified resource, such
+        as an Amazon S3 bucket.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/backup/client/list_backup_access_points_by_resource.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_backup/client/#list_backup_access_points_by_resource)
+        """
+
     def list_backup_job_summaries(
         self, **kwargs: Unpack[ListBackupJobSummariesInputTypeDef]
     ) -> ListBackupJobSummariesOutputTypeDef:
@@ -1021,9 +1097,10 @@ class BackupClient(BaseClient):
         self, **kwargs: Unpack[ListProtectedResourcesInputTypeDef]
     ) -> ListProtectedResourcesOutputTypeDef:
         """
-        Returns an array of resources successfully backed up by Backup, including the
-        time the resource was saved, an Amazon Resource Name (ARN) of the resource, and
-        a resource type.
+        Returns an array of resources with recovery points created by Backup
+        (regardless of the recovery point's <a
+        href="https://docs.aws.amazon.com/aws-backup/latest/devguide/API_DescribeRecoveryPoint.html#Backup-DescribeRecoveryPoint-response-Status">status</a>),
+        including the time the resource was sa...
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/backup/client/list_protected_resources.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_backup/client/#list_protected_resources)
@@ -1430,6 +1507,39 @@ class BackupClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/backup/client/update_tiering_configuration.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_backup/client/#update_tiering_configuration)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_backup_access_points_by_recovery_point"]
+    ) -> ListBackupAccessPointsByRecoveryPointPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/backup/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_backup/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_backup_access_points_by_resource"]
+    ) -> ListBackupAccessPointsByResourcePaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/backup/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_backup/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_backup_access_points"]
+    ) -> ListBackupAccessPointsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/backup/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_backup/client/#get_paginator)
         """
 
     @overload  # type: ignore[override]

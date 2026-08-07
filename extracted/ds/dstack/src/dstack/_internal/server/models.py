@@ -3,6 +3,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Callable, Generic, List, Optional, TypeVar, Union
 
+from pydantic import ConfigDict
 from sqlalchemy import (
     BigInteger,
     Boolean,
@@ -24,7 +25,7 @@ from sqlalchemy_utils import UUIDType
 
 from dstack._internal.core.errors import DstackError
 from dstack._internal.core.models.backends.base import BackendType
-from dstack._internal.core.models.common import CoreConfig, generate_dual_core_model
+from dstack._internal.core.models.common import CoreModel
 from dstack._internal.core.models.compute_groups import ComputeGroupStatus
 from dstack._internal.core.models.events import EventTargetType
 from dstack._internal.core.models.fleets import FleetStatus
@@ -76,18 +77,16 @@ class NaiveDateTime(TypeDecorator):
         return value.replace(tzinfo=timezone.utc)
 
 
-class DecryptedStringConfig(CoreConfig):
-    arbitrary_types_allowed = True
+class DecryptedString(CoreModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
-
-class DecryptedString(generate_dual_core_model(DecryptedStringConfig)):
     """
     A type for representing plaintext strings encrypted with `EncryptedString`.
     Besides the string, stores information if the decryption was successful.
     This is useful so that application code can have custom handling of failed decrypts (e.g. ignoring).
     """
 
-    plaintext: Optional[str]
+    plaintext: Optional[str] = None
     """
     `plaintext` should not be read directly to avoid ignoring errors accidentally.
     Unpack with `get_plaintext_or_error()`.
@@ -613,6 +612,12 @@ class GatewayModel(PipelineModelMixin, BaseModel):
     created_at: Mapped[datetime] = mapped_column(NaiveDateTime, default=get_current_datetime)
     status: Mapped[GatewayStatus] = mapped_column(EnumAsString(GatewayStatus, 100))
     status_message: Mapped[Optional[str]] = mapped_column(Text)
+    desired_replica_count: Mapped[Optional[int]] = mapped_column(Integer)
+    """Only `None` for pre-0.21.0 gateways that were never scaled"""
+    replica_scale_attempt: Mapped[int] = mapped_column(Integer, server_default="0")
+    last_replica_scale_attempt_at: Mapped[Optional[datetime]] = mapped_column(NaiveDateTime)
+    last_update_at: Mapped[Optional[datetime]] = mapped_column(NaiveDateTime)
+    """Latest in-place update timestamp"""
     last_processed_at: Mapped[datetime] = mapped_column(NaiveDateTime)
     to_be_deleted: Mapped[bool] = mapped_column(Boolean, server_default=false())
     forbid_new_services: Mapped[bool] = mapped_column(Boolean, server_default=false())
@@ -625,6 +630,14 @@ class GatewayModel(PipelineModelMixin, BaseModel):
     project: Mapped["ProjectModel"] = relationship(foreign_keys=[project_id])
     backend_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("backends.id", ondelete="CASCADE"))
     backend: Mapped["BackendModel"] = relationship()
+
+    hostname: Mapped[Optional[str]] = mapped_column(String(255))
+    """Hostname of the gateway's load balancer (e.g. ALB domain name for AWS ACM gateways).
+    Unset when there is no load balancer.
+    """
+    backend_data: Mapped[Optional[str]] = mapped_column(Text)
+    """Backend-specific load balancer resource data in JSON.
+    """
 
     gateway_compute_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         ForeignKey("gateway_computes.id", ondelete="CASCADE")
@@ -642,7 +655,8 @@ class GatewayModel(PipelineModelMixin, BaseModel):
         foreign_keys="GatewayComputeModel.gateway_id",
     )
     """
-    Relationship with gateway computes for 0.20.25+ gateways.
+    Relationship with gateway computes.
+    Pre-0.20.25 gateways can have an extra compute model referenced by `GatewayModel.gateway_compute`.
     Use `get_gateway_compute_models()` for version-agnostic gateway compute retrieval.
     """
 
@@ -667,16 +681,16 @@ class GatewayComputeModel(PipelineModelMixin, BaseModel):
     last_processed_at: Mapped[datetime] = mapped_column(NaiveDateTime)
     status: Mapped[GatewayReplicaStatus] = mapped_column(EnumAsString(GatewayReplicaStatus, 100))
     status_message: Mapped[Optional[str]] = mapped_column(Text)
+    scale_in: Mapped[bool] = mapped_column(Boolean, server_default=false())
+    """Indicates that replica termination is requested due to the gateway scaling in"""
     replica_num: Mapped[int] = mapped_column(Integer, server_default="0")
     instance_id: Mapped[Optional[str]] = mapped_column(String(100))
     ip_address: Mapped[Optional[str]] = mapped_column(String(100))
     """Gateway replica IP address or domain name (e.g., k8s can use domain names).
     **TODO**: rename.
     """
-    hostname: Mapped[Optional[str]] = mapped_column(String(100))
-    """Hostname of the gateway's load balancer.
-    **TODO**: move to `GatewayModel`.
-    """
+    hostname_deprecated_readonly: Mapped[Optional[str]] = mapped_column("hostname", String(100))
+    """Replaced by GatewayModel.hostname since 0.21.0"""
     configuration: Mapped[Optional[str]] = mapped_column(Text)
     """`configuration` is optional for compatibility with pre-0.18.2 gateways.
     Use `get_gateway_compute_configuration` to construct `configuration` for old gateways.

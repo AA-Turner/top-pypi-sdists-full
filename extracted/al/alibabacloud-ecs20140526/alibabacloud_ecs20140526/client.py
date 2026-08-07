@@ -5190,6 +5190,8 @@ class Client(OpenApiClient):
             query['ResourceOwnerAccount'] = request.resource_owner_account
         if not DaraCore.is_null(request.resource_owner_id):
             query['ResourceOwnerId'] = request.resource_owner_id
+        if not DaraCore.is_null(request.secure_boot_options):
+            query['SecureBootOptions'] = request.secure_boot_options
         if not DaraCore.is_null(request.snapshot_id):
             query['SnapshotId'] = request.snapshot_id
         if not DaraCore.is_null(request.tag):
@@ -5258,6 +5260,8 @@ class Client(OpenApiClient):
             query['ResourceOwnerAccount'] = request.resource_owner_account
         if not DaraCore.is_null(request.resource_owner_id):
             query['ResourceOwnerId'] = request.resource_owner_id
+        if not DaraCore.is_null(request.secure_boot_options):
+            query['SecureBootOptions'] = request.secure_boot_options
         if not DaraCore.is_null(request.snapshot_id):
             query['SnapshotId'] = request.snapshot_id
         if not DaraCore.is_null(request.tag):

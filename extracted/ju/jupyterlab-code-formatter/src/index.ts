@@ -12,29 +12,42 @@ import {
   JupyterFrontEnd,
   JupyterFrontEndPlugin
 } from '@jupyterlab/application';
-import { ICommandPalette, ToolbarButton } from '@jupyterlab/apputils';
+import {
+  ICommandPalette,
+  showErrorMessage,
+  ToolbarButton
+} from '@jupyterlab/apputils';
 import { ISettingRegistry } from '@jupyterlab/settingregistry';
 import { IMainMenu } from '@jupyterlab/mainmenu';
 import { IEditorTracker } from '@jupyterlab/fileeditor';
 import JupyterlabCodeFormatterClient from './client';
 import {
+  FormattingInProgressError,
   JupyterlabFileEditorCodeFormatter,
   JupyterlabNotebookCodeFormatter
 } from './formatter';
 import { DisposableDelegate, IDisposable } from '@lumino/disposable';
+import { ReadonlyPartialJSONObject } from '@lumino/coreutils';
 import { Constants } from './constants';
+import {
+  FORMAT_ARGUMENTS_SCHEMA,
+  IConfig,
+  IFormatArguments,
+  IFormatResult
+} from './tokens';
 import { LabIcon } from '@jupyterlab/ui-components';
 import { Widget } from '@lumino/widgets';
 
-class JupyterLabCodeFormatter
-  implements DocumentRegistry.IWidgetExtension<NotebookPanel, INotebookModel>
-{
+class JupyterLabCodeFormatter implements DocumentRegistry.IWidgetExtension<
+  NotebookPanel,
+  INotebookModel
+> {
   private app: JupyterFrontEnd;
   private readonly tracker: INotebookTracker;
   private palette: ICommandPalette;
   private settingRegistry: ISettingRegistry;
   private menu: IMainMenu;
-  private config: any;
+  private config!: IConfig;
   private readonly editorTracker: IEditorTracker;
   private readonly client: JupyterlabCodeFormatterClient;
   private readonly notebookCodeFormatter: JupyterlabNotebookCodeFormatter;
@@ -82,12 +95,15 @@ class JupyterLabCodeFormatter
         svgstr: Constants.ICON_FORMAT_ALL_SVG
       }),
       onClick: async () => {
-        await this.notebookCodeFormatter.formatAllCodeCells(
-          this.config,
-          { saving: false },
-          undefined,
-          nb.content
-        );
+        // Errors are reported to the user by `_runFormatting`.
+        await this._runFormatting(() =>
+          this.notebookCodeFormatter.formatAllCodeCells(
+            this.config,
+            { saving: false },
+            undefined,
+            nb
+          )
+        ).catch(() => undefined);
       }
     });
     nb.toolbar.insertAfter(
@@ -109,12 +125,14 @@ class JupyterLabCodeFormatter
   ) {
     if (state === 'started' && this.config.formatOnSave) {
       await context.sessionContext.ready;
-      await this.notebookCodeFormatter.formatAllCodeCells(
-        this.config,
-        { saving: true },
-        undefined,
-        undefined
-      );
+      await this._runFormatting(() =>
+        this.notebookCodeFormatter.formatAllCodeCells(
+          this.config,
+          { saving: true },
+          undefined,
+          context.path
+        )
+      ).catch(() => undefined);
     }
   }
 
@@ -133,11 +151,14 @@ class JupyterLabCodeFormatter
     state: DocumentRegistry.SaveState
   ) {
     if (state === 'started' && this.config.formatOnSave) {
-      this.fileEditorCodeFormatter.formatEditor(
-        this.config,
-        { saving: true },
-        undefined
-      );
+      await this._runFormatting(() =>
+        this.fileEditorCodeFormatter.formatEditor(
+          this.config,
+          { saving: true },
+          undefined,
+          context.path
+        )
+      ).catch(() => undefined);
     }
   }
 
@@ -177,18 +198,39 @@ class JupyterLabCodeFormatter
       });
 
     this.app.commands.addCommand(Constants.FORMAT_COMMAND, {
-      execute: async () => {
-        await this.notebookCodeFormatter.formatSelectedCodeCells(this.config);
+      execute: args => {
+        const { path, showDialogs } = Private.getArguments(args);
+        return this._runFormatting(
+          () =>
+            this.notebookCodeFormatter.formatSelectedCodeCells(
+              this.config,
+              undefined,
+              path,
+              { showDialogs }
+            ),
+          showDialogs
+        );
       },
+      describedBy: { args: FORMAT_ARGUMENTS_SCHEMA },
       // TODO: Add back isVisible
       label: 'Format cell'
     });
     this.app.commands.addCommand(Constants.FORMAT_ALL_COMMAND, {
-      execute: async () => {
-        await this.notebookCodeFormatter.formatAllCodeCells(this.config, {
-          saving: false
-        });
+      execute: args => {
+        const { path, showDialogs } = Private.getArguments(args);
+        return this._runFormatting(
+          () =>
+            this.notebookCodeFormatter.formatAllCodeCells(
+              this.config,
+              { saving: false },
+              undefined,
+              path,
+              { showDialogs }
+            ),
+          showDialogs
+        );
       },
+      describedBy: { args: FORMAT_ARGUMENTS_SCHEMA },
       iconClass: Constants.ICON_FORMAT_ALL,
       iconLabel: 'Format notebook'
       // TODO: Add back isVisible
@@ -200,7 +242,7 @@ class JupyterLabCodeFormatter
       Constants.SETTINGS_SECTION
     );
     const onSettingsUpdated = (jsettings: ISettingRegistry.ISettings) => {
-      this.config = jsettings.composite;
+      this.config = jsettings.composite as IConfig;
     };
     settings.changed.connect(onSettingsUpdated);
     onSettingsUpdated(settings);
@@ -208,18 +250,14 @@ class JupyterLabCodeFormatter
 
   private setupCommand(name: string, label: string, command: string) {
     this.app.commands.addCommand(command, {
-      execute: async () => {
-        for (const formatter of [
-          this.notebookCodeFormatter,
-          this.fileEditorCodeFormatter
-        ]) {
-          if (
-            formatter.applicable(name, <Widget>this.app.shell.currentWidget)
-          ) {
-            await formatter.formatAction(this.config, name);
-          }
-        }
+      execute: args => {
+        const { path, showDialogs } = Private.getArguments(args);
+        return this._runFormatting(
+          () => this._formatWithFormatter(name, { path, showDialogs }),
+          showDialogs
+        );
       },
+      describedBy: { args: FORMAT_ARGUMENTS_SCHEMA },
       isVisible: () => {
         for (const formatter of [
           this.notebookCodeFormatter,
@@ -236,6 +274,118 @@ class JupyterLabCodeFormatter
       label
     });
     this.palette.addItem({ command, category: Constants.COMMAND_SECTION_NAME });
+  }
+
+  /**
+   * Format a specific document (or the active one) with a specific formatter.
+   */
+  private async _formatWithFormatter(
+    formatter: string,
+    { path, showDialogs }: IFormatArguments
+  ): Promise<IFormatResult> {
+    const options = { showDialogs };
+    if (path !== undefined) {
+      if (this.notebookCodeFormatter.findPanel(path)) {
+        return this.notebookCodeFormatter.formatAction(
+          this.config,
+          formatter,
+          path,
+          options
+        );
+      }
+      if (this.fileEditorCodeFormatter.findWidget(path)) {
+        return this.fileEditorCodeFormatter.formatAction(
+          this.config,
+          formatter,
+          path,
+          options
+        );
+      }
+      throw new Error(
+        `Could not find an open notebook nor file with path: ${path}`
+      );
+    }
+    const currentWidget = <Widget>this.app.shell.currentWidget;
+    if (this.notebookCodeFormatter.applicable(formatter, currentWidget)) {
+      return this.notebookCodeFormatter.formatAction(
+        this.config,
+        formatter,
+        undefined,
+        options
+      );
+    }
+    if (this.fileEditorCodeFormatter.applicable(formatter, currentWidget)) {
+      return this.fileEditorCodeFormatter.formatAction(
+        this.config,
+        formatter,
+        undefined,
+        options
+      );
+    }
+    throw new Error(
+      'There is no active notebook nor file editor; please pass a `path` of an open document'
+    );
+  }
+
+  /**
+   * Run a formatting operation, reporting any error to the user (unless
+   * `showDialogs` is `false`) and re-raising it so that programmatic callers
+   * can handle it too.
+   */
+  private async _runFormatting(
+    operation: () => Promise<IFormatResult>,
+    showDialogs?: boolean
+  ): Promise<IFormatResult> {
+    try {
+      return await operation();
+    } catch (error) {
+      // Formatting requests which overlap with an ongoing one are expected
+      // to happen (e.g. on a double click) and are not worth a dialog.
+      if (
+        showDialogs !== false &&
+        !(error instanceof FormattingInProgressError)
+      ) {
+        // The dialog is intentionally not awaited, so that programmatic
+        // callers do not have to wait for the user to dismiss it.
+        void showErrorMessage(
+          'Jupyterlab Code Formatter Error',
+          error instanceof Error ? error : `${error}`
+        );
+      }
+      throw error;
+    }
+  }
+}
+
+namespace Private {
+  const getArgument = <T extends string | boolean>(
+    args: ReadonlyPartialJSONObject,
+    name: keyof IFormatArguments,
+    type: 'string' | 'boolean'
+  ): T | undefined => {
+    const value = args[name];
+    if (value === undefined) {
+      return undefined;
+    }
+    // `null` is rejected too: it is not allowed by `FORMAT_ARGUMENTS_SCHEMA`,
+    // and silently formatting the active document instead of the intended one
+    // would be worse than telling the caller about it.
+    if (typeof value !== type) {
+      throw new Error(`The \`${name}\` argument has to be a ${type}`);
+    }
+    return value as T;
+  };
+
+  /**
+   * Extract and validate the arguments of a formatting command.
+   */
+  export function getArguments(
+    args: ReadonlyPartialJSONObject
+  ): IFormatArguments {
+    return {
+      path: getArgument<string>(args, 'path', 'string'),
+      showDialogs: getArgument<boolean>(args, 'showDialogs', 'boolean')
+    };
   }
 }
 
@@ -273,3 +423,4 @@ const plugin: JupyterFrontEndPlugin<void> = {
 };
 
 export default plugin;
+export * from './tokens';

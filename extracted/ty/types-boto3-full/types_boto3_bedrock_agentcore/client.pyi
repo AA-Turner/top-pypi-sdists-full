@@ -59,6 +59,8 @@ from .type_defs import (
     DeleteABTestResponseTypeDef,
     DeleteBatchEvaluationRequestTypeDef,
     DeleteBatchEvaluationResponseTypeDef,
+    DeleteCapacityProviderSessionRequestTypeDef,
+    DeleteCapacityProviderSessionResponseTypeDef,
     DeleteEventInputTypeDef,
     DeleteEventOutputTypeDef,
     DeleteMemoryRecordInputTypeDef,
@@ -330,6 +332,17 @@ class BedrockAgentCoreClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/delete_batch_evaluation.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agentcore/client/#delete_batch_evaluation)
+        """
+
+    def delete_capacity_provider_session(
+        self, **kwargs: Unpack[DeleteCapacityProviderSessionRequestTypeDef]
+    ) -> DeleteCapacityProviderSessionResponseTypeDef:
+        """
+        Deletes a session associated with a capacity provider in Amazon Bedrock
+        AgentCore and makes the session unavailable for further use.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/delete_capacity_provider_session.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agentcore/client/#delete_capacity_provider_session)
         """
 
     def delete_event(self, **kwargs: Unpack[DeleteEventInputTypeDef]) -> DeleteEventOutputTypeDef:

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cisco-ai-mcp-scanner
-Version: 4.8.2
+Version: 4.8.3
 Summary: A tool to scan MCP servers and tools for security findings
 Author: Cisco
 Project-URL: Homepage, https://github.com/cisco-ai-defense/mcp-scanner

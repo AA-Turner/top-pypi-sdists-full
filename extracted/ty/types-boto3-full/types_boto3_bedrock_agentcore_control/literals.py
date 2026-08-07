@@ -34,6 +34,9 @@ __all__ = (
     "BrowserNetworkModeType",
     "BrowserProfileStatusType",
     "BrowserStatusType",
+    "CapacityProviderStatusCodeType",
+    "CapacityProviderStatusType",
+    "CapacityReservationPreferenceType",
     "ClaimMatchOperatorTypeType",
     "ClientAuthenticationMethodTypeType",
     "ClusteringFrequencyType",
@@ -48,6 +51,7 @@ __all__ = (
     "DatasetStatusType",
     "DescriptorTypeType",
     "DraftStatusType",
+    "EbsVolumeTypeType",
     "EndpointIpAddressTypeType",
     "EnforcementModeType",
     "EvaluatorLevelType",
@@ -60,6 +64,7 @@ __all__ = (
     "GatewayInterceptionPointType",
     "GatewayPolicyEngineModeType",
     "GatewayProtocolTypeType",
+    "GatewayRateLimitStatusType",
     "GatewayRuleStatusType",
     "GatewayStatusType",
     "HarnessBedrockApiFormatType",
@@ -74,11 +79,13 @@ __all__ = (
     "InterceptorPayloadExclusionType",
     "KeyTypeType",
     "ListAgentRuntimeEndpointsPaginatorName",
+    "ListAgentRuntimeVersionsByCapacityProviderPaginatorName",
     "ListAgentRuntimeVersionsPaginatorName",
     "ListAgentRuntimesPaginatorName",
     "ListApiKeyCredentialProvidersPaginatorName",
     "ListBrowserProfilesPaginatorName",
     "ListBrowsersPaginatorName",
+    "ListCapacityProvidersPaginatorName",
     "ListCodeInterpretersPaginatorName",
     "ListConfigurationBundleVersionsPaginatorName",
     "ListConfigurationBundlesPaginatorName",
@@ -86,6 +93,7 @@ __all__ = (
     "ListDatasetVersionsPaginatorName",
     "ListDatasetsPaginatorName",
     "ListEvaluatorsPaginatorName",
+    "ListGatewayRateLimitsPaginatorName",
     "ListGatewayRulesPaginatorName",
     "ListGatewayTargetsPaginatorName",
     "ListGatewaysPaginatorName",
@@ -115,11 +123,13 @@ __all__ = (
     "MemoryStrategyTypeType",
     "MemoryViewType",
     "MetadataValueTypeType",
+    "MonitoringType",
     "NetworkModeType",
     "OAuthGrantTypeType",
     "OnBehalfOfTokenExchangeGrantTypeTypeType",
     "OnlineEvaluationConfigStatusType",
     "OnlineEvaluationExecutionStatusType",
+    "OperatingSystemType",
     "OverrideTypeType",
     "PaginatorName",
     "PassthroughProtocolTypeType",
@@ -128,6 +138,7 @@ __all__ = (
     "PaymentCredentialProviderVendorTypeType",
     "PaymentManagerStatusType",
     "PaymentsAuthorizerTypeType",
+    "PeriodType",
     "PolicyActiveWaiterName",
     "PolicyDeletedWaiterName",
     "PolicyEngineActiveWaiterName",
@@ -180,6 +191,13 @@ BrowserProfileStatusType = Literal["DELETED", "DELETING", "READY", "SAVING"]
 BrowserStatusType = Literal[
     "CREATE_FAILED", "CREATING", "DELETED", "DELETE_FAILED", "DELETING", "READY"
 ]
+CapacityProviderStatusCodeType = Literal[
+    "INTERNAL_SERVER_EXCEPTION", "QUOTA_EXCEEDED", "THROTTLED", "VALIDATION_ERROR"
+]
+CapacityProviderStatusType = Literal[
+    "CREATE_FAILED", "CREATING", "DELETE_FAILED", "DELETING", "READY", "UPDATE_FAILED", "UPDATING"
+]
+CapacityReservationPreferenceType = Literal["capacity-reservations-only", "none", "open"]
 ClaimMatchOperatorTypeType = Literal["CONTAINS", "CONTAINS_ANY", "EQUALS"]
 ClientAuthenticationMethodTypeType = Literal[
     "AWS_IAM_ID_TOKEN_JWT", "CLIENT_SECRET_BASIC", "CLIENT_SECRET_POST", "PRIVATE_KEY_JWT"
@@ -232,6 +250,7 @@ DatasetStatusType = Literal[
 ]
 DescriptorTypeType = Literal["A2A", "AGENT_SKILLS", "CUSTOM", "MCP"]
 DraftStatusType = Literal["MODIFIED", "UNMODIFIED"]
+EbsVolumeTypeType = Literal["gp2", "gp3", "io1", "io2", "sc1", "st1", "standard"]
 EndpointIpAddressTypeType = Literal["IPV4", "IPV6"]
 EnforcementModeType = Literal["ACTIVE", "LOG_ONLY"]
 EvaluatorLevelType = Literal["SESSION", "TOOL_CALL", "TRACE"]
@@ -257,6 +276,7 @@ FindingTypeType = Literal[
 GatewayInterceptionPointType = Literal["REQUEST", "RESPONSE"]
 GatewayPolicyEngineModeType = Literal["ENFORCE", "LOG_ONLY"]
 GatewayProtocolTypeType = Literal["MCP"]
+GatewayRateLimitStatusType = Literal["ACTIVE", "CREATING", "DELETING", "UPDATING"]
 GatewayRuleStatusType = Literal["ACTIVE", "CREATING", "DELETING", "UPDATING"]
 GatewayStatusType = Literal[
     "CREATING", "DELETING", "FAILED", "READY", "UPDATE_UNSUCCESSFUL", "UPDATING"
@@ -285,11 +305,15 @@ IncludedDataType = Literal["ALL_DATA", "METADATA_ONLY"]
 InterceptorPayloadExclusionType = Literal["RESPONSE_BODY"]
 KeyTypeType = Literal["CustomerManagedKey", "ServiceManagedKey"]
 ListAgentRuntimeEndpointsPaginatorName = Literal["list_agent_runtime_endpoints"]
+ListAgentRuntimeVersionsByCapacityProviderPaginatorName = Literal[
+    "list_agent_runtime_versions_by_capacity_provider"
+]
 ListAgentRuntimeVersionsPaginatorName = Literal["list_agent_runtime_versions"]
 ListAgentRuntimesPaginatorName = Literal["list_agent_runtimes"]
 ListApiKeyCredentialProvidersPaginatorName = Literal["list_api_key_credential_providers"]
 ListBrowserProfilesPaginatorName = Literal["list_browser_profiles"]
 ListBrowsersPaginatorName = Literal["list_browsers"]
+ListCapacityProvidersPaginatorName = Literal["list_capacity_providers"]
 ListCodeInterpretersPaginatorName = Literal["list_code_interpreters"]
 ListConfigurationBundleVersionsPaginatorName = Literal["list_configuration_bundle_versions"]
 ListConfigurationBundlesPaginatorName = Literal["list_configuration_bundles"]
@@ -297,6 +321,7 @@ ListDatasetExamplesPaginatorName = Literal["list_dataset_examples"]
 ListDatasetVersionsPaginatorName = Literal["list_dataset_versions"]
 ListDatasetsPaginatorName = Literal["list_datasets"]
 ListEvaluatorsPaginatorName = Literal["list_evaluators"]
+ListGatewayRateLimitsPaginatorName = Literal["list_gateway_rate_limits"]
 ListGatewayRulesPaginatorName = Literal["list_gateway_rules"]
 ListGatewayTargetsPaginatorName = Literal["list_gateway_targets"]
 ListGatewaysPaginatorName = Literal["list_gateways"]
@@ -328,6 +353,7 @@ MemoryStrategyTypeType = Literal[
 ]
 MemoryViewType = Literal["full", "without_decryption"]
 MetadataValueTypeType = Literal["NUMBER", "STRING", "STRINGLIST"]
+MonitoringType = Literal["BASIC", "DETAILED"]
 NetworkModeType = Literal["PUBLIC", "VPC"]
 OAuthGrantTypeType = Literal["AUTHORIZATION_CODE", "CLIENT_CREDENTIALS", "TOKEN_EXCHANGE"]
 OnBehalfOfTokenExchangeGrantTypeTypeType = Literal["JWT_AUTHORIZATION_GRANT", "TOKEN_EXCHANGE"]
@@ -335,6 +361,7 @@ OnlineEvaluationConfigStatusType = Literal[
     "ACTIVE", "CREATE_FAILED", "CREATING", "DELETING", "ERROR", "UPDATE_FAILED", "UPDATING"
 ]
 OnlineEvaluationExecutionStatusType = Literal["DISABLED", "ENABLED"]
+OperatingSystemType = Literal["LINUX_ARM64", "LINUX_X86_64"]
 OverrideTypeType = Literal[
     "EPISODIC_OVERRIDE",
     "SELF_MANAGED",
@@ -352,6 +379,7 @@ PaymentManagerStatusType = Literal[
     "CREATE_FAILED", "CREATING", "DELETE_FAILED", "DELETING", "READY", "UPDATE_FAILED", "UPDATING"
 ]
 PaymentsAuthorizerTypeType = Literal["AWS_IAM", "CUSTOM_JWT"]
+PeriodType = Literal["minute", "second"]
 PolicyActiveWaiterName = Literal["policy_active"]
 PolicyDeletedWaiterName = Literal["policy_deleted"]
 PolicyEngineActiveWaiterName = Literal["policy_engine_active"]
@@ -427,6 +455,8 @@ ServiceName = Literal[
     "account",
     "acm",
     "acm-pca",
+    "agent-registry",
+    "agent-registry-control",
     "aiops",
     "amp",
     "amplify",
@@ -856,10 +886,12 @@ ResourceServiceName = Literal[
 PaginatorName = Literal[
     "list_agent_runtime_endpoints",
     "list_agent_runtime_versions",
+    "list_agent_runtime_versions_by_capacity_provider",
     "list_agent_runtimes",
     "list_api_key_credential_providers",
     "list_browser_profiles",
     "list_browsers",
+    "list_capacity_providers",
     "list_code_interpreters",
     "list_configuration_bundle_versions",
     "list_configuration_bundles",
@@ -867,6 +899,7 @@ PaginatorName = Literal[
     "list_dataset_versions",
     "list_datasets",
     "list_evaluators",
+    "list_gateway_rate_limits",
     "list_gateway_rules",
     "list_gateway_targets",
     "list_gateways",

@@ -10,9 +10,10 @@ from scramp import (
     make_channel_binding,
 )
 from scramp.core import (
+    SERVER_ERROR_INVALID_PROOF,
+    AuthFn,
     Gs2Header,
     Nonce,
-    SERVER_ERROR_INVALID_PROOF,
     Salt,
     Username,
     _check_client_key,
@@ -610,7 +611,7 @@ def test_set_client_first(x):
         Nonce(x["s_nonce"]),
         x["s_channel_binding"],
         x["s_init_use_binding"],
-        auth_fn,
+        AuthFn(auth_fn),
     )
 
     assert nonce == Nonce(x["nonce"])
@@ -794,7 +795,7 @@ def test_set_client_first_error_auth_fn():
             Nonce("%hvYDpWUa2RaTCAfuxFIlj)hNlF$k0"),
             None,
             False,
-            auth_fn,
+            AuthFn(auth_fn),
         )
 
     assert str(exc_info.value) == "Unknown user: unknown-user"

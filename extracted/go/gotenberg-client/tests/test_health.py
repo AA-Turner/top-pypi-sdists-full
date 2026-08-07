@@ -1,11 +1,15 @@
 # SPDX-FileCopyrightText: 2023-present Trenton H <rda0128ou@mozmail.com>
 #
 # SPDX-License-Identifier: MPL-2.0
+import pytest
+
 from gotenberg_client._health import AsyncHealthCheckApi
 from gotenberg_client._health import StatusOptions
 from gotenberg_client._health import SyncHealthCheckApi
 
 
+@pytest.mark.live
+@pytest.mark.flaky(reruns=5, rerun_delay=5)
 class TestHealthStatus:
     def test_health_endpoint(
         self,

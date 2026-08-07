@@ -125,6 +125,18 @@ class IOTests(unittest.TestCase):
         self.assertTrue(value.endswith(";"))
         self.assertEqual(value[2:-1], "%.0e" % 0.1)
 
+    def test_newick_writer_preserves_small_branch_lengths(self):
+        """Small nonzero branch lengths should not be rounded to zero."""
+        tree = Phylo.read(StringIO("(A:0.000001,B:0.000002);"), "newick")
+
+        mem_file = StringIO()
+        Phylo.write(tree, mem_file, "newick")
+
+        newick = mem_file.getvalue()
+        self.assertNotIn(":0.00000", newick)
+        self.assertIn(":1e-06", newick)
+        self.assertIn(":2e-06", newick)
+
     def test_convert(self):
         """Convert a tree between all supported formats."""
         mem_file_1 = StringIO()
@@ -197,7 +209,7 @@ class IOTests(unittest.TestCase):
         mem_file = StringIO()
         Phylo.write(tree, mem_file, "newick")
         mem_file.seek(0)
-        self.assertEqual(mem_file.read(), "('Node''Name':0.00000)Root:0.00000;\n")
+        self.assertEqual(mem_file.read(), "('Node''Name':0)Root:0;\n")
 
 
 class TreeTests(unittest.TestCase):
@@ -468,6 +480,12 @@ class MixinTests(unittest.TestCase):
         self.assertEqual(len(tree.get_nonterminals()), internal_node_ct - 7)
         for clade in d2:
             self.assertAlmostEqual(d1[clade], d2[clade])
+
+    def test_collapse_without_branch_lengths(self):
+        tree = Phylo.read(StringIO("(((A,B),C),D);"), "newick")
+        tree.collapse_all()
+        self.assertEqual(len(tree.get_terminals()), 4)
+        self.assertEqual(len(tree.get_nonterminals()), 1)
 
     def test_ladderize(self):
         """TreeMixin: ladderize() method."""

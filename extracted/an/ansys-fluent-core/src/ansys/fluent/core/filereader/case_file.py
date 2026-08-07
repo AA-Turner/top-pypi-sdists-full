@@ -1,5 +1,6 @@
-# Copyright (C) 2021 - 2026 ANSYS, Inc. and/or its affiliates.
+# Copyright (C) 2021 - 2026 Synopsys, Inc. and ANSYS, Inc. All rights reserved.
 # SPDX-License-Identifier: MIT
+#
 #
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -332,7 +333,7 @@ class Mesh:
 
     def _get_nodes(
         self, surface_id: int
-    ) -> tuple[npt.NDArray[np.uint32], npt.NDArray[np.int16]]:
+    ) -> tuple[npt.NDArray[np.uint32], npt.NDArray[np.integer[Any]]]:
         min_id, max_id = self.get_surface_locs(surface_id)
         nnodes = self._file_handle["meshes"]["1"]["faces"]["nodes"]["1"]["nnodes"]
         nodes = self._file_handle["meshes"]["1"]["faces"]["nodes"]["1"]["nodes"]

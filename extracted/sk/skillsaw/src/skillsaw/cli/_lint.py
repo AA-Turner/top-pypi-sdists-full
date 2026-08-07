@@ -19,9 +19,11 @@ from ._helpers import (
     color_enabled,
     hyperlinks_enabled,
 )
+from skillsaw.paths import safe_resolve
 
 
 def _run_lint(args):
+    """Lint the CLI-selected paths and emit the requested reports."""
     if args.verbose:
         logging.basicConfig(
             level=logging.INFO,
@@ -52,7 +54,13 @@ def _run_lint(args):
         except ValueError as e:
             print(f"Error: {e}", file=sys.stderr)
             sys.exit(1)
-        resolved_path = Path(filepath).resolve()
+        resolved_path = safe_resolve(Path(filepath))
+        if resolved_path is None:
+            print(
+                f"Error: --output path could not be resolved: {filepath}",
+                file=sys.stderr,
+            )
+            sys.exit(1)
         if resolved_path in output_formats and output_formats[resolved_path] != fmt:
             print(
                 f"Error: --output targets '{filepath}' with conflicting formats "
@@ -170,8 +178,8 @@ def _run_lint(args):
                 file=sys.stderr,
             )
             print(
-                "Expected: .claude-plugin/plugin.json, plugins/ directory,"
-                " or SKILL.md (agentskills.io)\n",
+                "Expected: an Agent Plugins plugin.json, .claude-plugin/plugin.json, "
+                "plugins/ directory, or SKILL.md (agentskills.io)\n",
                 file=sys.stderr,
             )
 
@@ -204,11 +212,16 @@ def _run_lint(args):
     lint_duration = time.perf_counter() - lint_started
 
     from ..grade import compute_grade
+    from ..linter import ADVISORY_RULE_IDS
 
     content_tokens = sum(
         block.estimate_tokens() for ctx in contexts for block in ctx.lint_tree.content_blocks()
     )
-    grade = compute_grade(all_violations, content_tokens)
+    # Advisory notices (deprecation warnings) are about the config, not the
+    # repository's content — they don't count toward the content grade.
+    grade = compute_grade(
+        [v for v in all_violations if v.rule_id not in ADVISORY_RULE_IDS], content_tokens
+    )
 
     color = color_enabled(sys.stdout, args.color)
     stdout_output = format_report(
@@ -243,10 +256,18 @@ def _run_lint(args):
                 fail_level=fail_level,
             )
         out_path = Path(output_path)
-        out_path.parent.mkdir(parents=True, exist_ok=True)
-        out_path.write_text(report_cache[fmt], encoding="utf-8")
+        try:
+            out_path.parent.mkdir(parents=True, exist_ok=True)
+            out_path.write_text(report_cache[fmt], encoding="utf-8")
+        except (OSError, ValueError) as e:
+            print(f"Error: Failed to write report to '{out_path}': {e}", file=sys.stderr)
+            sys.exit(1)
 
-    errors, warnings_count, info = get_counts(all_violations)
+    # Advisory violations (deprecation notices) display like warnings but
+    # never affect the exit code — a skillsaw upgrade must not break strict
+    # CI runs whose configs still name deprecated rules.
+    fatal_violations = [v for v in all_violations if v.rule_id not in ADVISORY_RULE_IDS]
+    errors, warnings_count, info = get_counts(fatal_violations)
 
     if missing_count > 0 or errors > 0:
         sys.exit(1)

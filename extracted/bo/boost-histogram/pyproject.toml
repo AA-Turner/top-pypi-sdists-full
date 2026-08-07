@@ -37,6 +37,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Programming Language :: Python :: Free Threading :: 3 - Stable",
     "Programming Language :: Python :: Free Threading",
     "Programming Language :: Python :: Implementation :: CPython",
@@ -54,10 +55,13 @@ dependencies = [
     "numpy>=1.21.3",
 ]
 
+[project.entry-points.pytest11]
+boost_histogram = "boost_histogram._pytest"
+
 [project.urls]
 "Bug Tracker" = "https://github.com/scikit-hep/boost-histogram/issues"
 Changelog = "https://boost-histogram.readthedocs.io/en/latest/CHANGELOG.html"
-Chat = " https://gitter.im/HSF/PyHEP-histogramming"
+Chat = "https://gitter.im/HSF/PyHEP-histogramming"
 Discussions = "https://github.com/scikit-hep/boost-histogram/discussions"
 Documentation = "https://boost-histogram.readthedocs.io/"
 Homepage = "https://github.com/scikit-hep/boost-histogram"
@@ -91,12 +95,13 @@ examples = [
 ]
 test = [
     "cloudpickle",
-    "pytest-benchmark",
     "pytest>=6.0",
     "pytest-benchmark",
     "numpy>=1.21.3",
     "hypothesis>=6.0; sys_platform != 'ios'", # slow on iOS, can fail health check
     "pytest-xdist; sys_platform != 'ios'",  # No processes on iOS
+    "jsonschema",  # validate UHI serialization against the uhi schema
+    "uhi>=1.1",  # ships the histogram JSON schema with metadata-only storage support
 ]
 github = [
   { include-group = "test" },
@@ -119,8 +124,6 @@ sdist.exclude = [
   "extern/*/doc/**",
   "extern/*/examples/**",
   "extern/*/tools/**",
-  "extern/pybind11/docs/**",
-  "extern/pybind11/tests/**",
   "extern/*/README.md",
 ]
 logging.level = "INFO"
@@ -134,8 +137,9 @@ __version__ = version = "$version"
 [tool.setuptools_scm]
 
 
-[tool.uv.pip]
-only-binary = ["numpy"]
+[tool.uv]
+pip.only-binary = ["numpy"]
+cache-keys = [{file = "include/**"}, {file = "src/**/*.cpp"}]
 
 
 [tool.pytest.ini_options]
@@ -150,6 +154,13 @@ addopts = [
 filterwarnings = [
   "error",
   "default:could not create cache path:pytest.PytestCacheWarning",
+  # Editable installs import the _boost_histogram_editable shim at interpreter
+  # startup (via .pth), so pytest cannot assertion-rewrite it once our pytest11
+  # plugin is registered. We do not want our own library rewritten anyway.
+  # pytest's fix for this (PR #10231, v7.2.0) only skips setuptools-style
+  # "__editable__*" finders, not scikit-build-core's "_<pkg>_editable" name.
+  # Fixed in pyest 7.2.0
+  "ignore:Module already imported so cannot be rewritten:pytest.PytestAssertRewriteWarning",
 ]
 xfail_strict = true
 testpaths = ["tests"]
@@ -178,14 +189,11 @@ build-frontend = "build[uv]"
 test-groups = ["test"]
 test-command = "python -m pytest -n auto --benchmark-disable tests"
 test-sources = ["pyproject.toml", "tests"]
-test-environment.CI = "1"  # Hypothosis needs this on GraalPy
+test-environment.CI = "1"  # Hypothesis needs this on GraalPy
 test-skip = [
   "cp310-win_arm64",
-  "cp310-musllinux_*",
   "cp31*-musllinux_*", # Threading test crashes
-  "gp311_242-macosx_x86_64",
-  "gp311_242-manylinux_aarch64",
-  "gp311_242-win*",  # pytest crashes with module 'io' has no attribute '_WindowsConsoleIO'
+  "cp315*",  # No numpy wheels yet
   "gp312_*",  # No numpy wheels yet
   "*-ios_*",  # Fails on CI with no device found
 ]
@@ -197,7 +205,7 @@ environment.UV_ONLY_BINARY = "numpy"
 environment.UV_PREFER_BINARY = "1"
 
 [tool.cibuildwheel.pyodide]
-build-frontend = {name = "build", args = ["--exports", "whole_archive"]}
+build-frontend = {name = "pyodide-build", args = ["--exports", "whole_archive"]}
 test-command = "pytest --benchmark-disable tests"
 
 [tool.cibuildwheel.ios]

@@ -17,9 +17,16 @@ class PluginNamingRule(Rule):
 
     repo_types = PLUGIN_REPO_TYPES
 
+    # Codex-only plugins are exempt: codex-plugin-json-valid already
+    # checks the manifest name; a second, Claude-directory-name report
+    # would double up.
+    provenance_scope = "claude"
+
+    aliases = ("plugin-naming",)
+
     @property
     def rule_id(self) -> str:
-        return "plugin-naming"
+        return "claude-plugin-naming"
 
     @property
     def description(self) -> str:
@@ -31,7 +38,7 @@ class PluginNamingRule(Rule):
     def check(self, context: RepositoryContext) -> List[RuleViolation]:
         violations = []
 
-        for plugin_node in context.lint_tree.find(PluginNode):
+        for plugin_node in self.scoped_find(context, PluginNode):
             plugin_path = plugin_node.path
             plugin_name = context.get_plugin_name(plugin_path)
 

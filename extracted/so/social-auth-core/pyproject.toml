@@ -4,20 +4,20 @@ requires = ["setuptools>=78.0.2"]
 
 [dependency-groups]
 dev = [
-  "coverage==7.14.3",
+  "coverage==7.15.3",
   "flake8==7.3.0",
   "google-auth-stubs==0.3.0",
-  "mypy==2.1.0",
+  "mypy==2.3.0",
   "pyright==1.1.411",
   "pytest-cov==7.1.0",
   "pytest-github-actions-annotate-failures==0.4.2",
   "pytest-profiling==1.8.1",
   "pytest-xdist==3.8.0",
   "pytest==9.1.1",
-  "responses==0.26.1",
-  "ty==0.0.54",
+  "responses==0.26.2",
+  "ty==0.0.69",
   "types-defusedxml==0.7.0.20260504",
-  "types-oauthlib==3.3.0.20260518",
+  "types-oauthlib==3.3.0.20260724",
   "types-requests-oauthlib==2.0.0.20260610",
   {include-group = "pylint"}
 ]
@@ -59,7 +59,7 @@ license-files = ["LICENSE"]
 name = "social-auth-core"
 readme = "README.md"
 requires-python = ">=3.10"
-version = "5.0.2"
+version = "5.1.0"
 
 [project.optional-dependencies]
 all = [
@@ -74,25 +74,25 @@ allpy3 = [
 # This is present until pip implements supports for PEP 735
 # see https://github.com/pypa/pip/issues/12963
 dev = [
-  "coverage==7.14.3",
+  "coverage==7.15.3",
   "flake8==7.3.0",
   "google-auth-stubs==0.3.0",
-  "mypy==2.1.0",
+  "mypy==2.3.0",
   "pyright==1.1.411",
   "pytest-cov==7.1.0",
   "pytest-github-actions-annotate-failures==0.4.2",
   "pytest-profiling==1.8.1",
   "pytest-xdist==3.8.0",
   "pytest==9.1.1",
-  "responses==0.26.1",
-  "ty==0.0.54",
+  "responses==0.26.2",
+  "ty==0.0.69",
   "types-defusedxml==0.7.0.20260504",
-  "types-oauthlib==3.3.0.20260518",
+  "types-oauthlib==3.3.0.20260724",
   "types-requests-oauthlib==2.0.0.20260610",
-  "types-requests==2.33.0.20260518"
+  "types-requests==2.33.0.20260712"
 ]
 google-onetap = [
-  "google-auth>=2.40.0,<2.56"
+  "google-auth>=2.40.0,<2.57"
 ]
 saml = [
   "python3-saml>=1.16.0"
@@ -182,6 +182,7 @@ ignore = [
   "ARG002",  # TODO: Unused method argument (mostly for API compatibility)
   "ARG003",  # TODO: Unused class method argument
   "COM",  # CONFIG: No trailing commas
+  "CPY001",  # TODO: Copyright not documented
   "D",  # TODO: Missing documentation
   "D203",  # CONFIG: incompatible with D211
   "D212",  # CONFIG: incompatible with D213

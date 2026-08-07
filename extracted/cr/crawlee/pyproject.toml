@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "crawlee"
-version = "1.9.0"
+version = "1.9.1"
 description = "Crawlee for Python"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
@@ -42,7 +42,6 @@ dependencies = [
     "psutil>=6.0.0",
     "pydantic-settings>=2.12.0",
     "pydantic>=2.11.0",
-    "pyee>=9.0.0",
     "tldextract>=5.3.0",
     "typing-extensions>=4.10.0",
     "yarl>=1.18.0",
@@ -59,7 +58,7 @@ adaptive-crawler = [
     "jaro-winkler>=2.0.3",
     "playwright>=1.27.0",
     "scikit-learn>=1.6.0",
-    "apify_fingerprint_datapoints>=0.0.3,<0.14.0",
+    "apify_fingerprint_datapoints>=0.0.3",
     "browserforge>=1.2.4",
 ]
 pydantic-ai = [
@@ -77,16 +76,16 @@ cli = [
     "rich>=13.9.0",
     "typer>=0.26.0",
 ]
-curl-impersonate = ["curl-cffi>=0.9.0,<0.16.0"]
+curl-impersonate = ["curl-cffi>=0.9.0"]
 httpx = [
     "httpx[brotli,http2,zstd]>=0.27.0",
-    "apify_fingerprint_datapoints>=0.0.2,<0.14.0",
+    "apify_fingerprint_datapoints>=0.0.2",
     "browserforge>=1.2.3",
 ]
 parsel = ["parsel>=1.10.0"]
 playwright = [
     "playwright>=1.27.0",
-    "apify_fingerprint_datapoints>=0.0.2,<0.14.0",
+    "apify_fingerprint_datapoints>=0.0.2",
     "browserforge>=1.2.3",
 ]
 otel = [
@@ -105,7 +104,7 @@ sql_postgres = [
 stagehand = [
     "stagehand>=3.19.5",
     "playwright>=1.27.0",
-    "apify_fingerprint_datapoints>=0.0.2,<0.14.0",
+    "apify_fingerprint_datapoints>=0.0.2",
     "browserforge>=1.2.3",
 ]
 sql_sqlite = [

@@ -95,12 +95,16 @@ class CommentAutomationsResource:
         post_title: str | None = None,
         keywords: list[str] | None = None,
         match_mode: str | None = "contains",
+        exclude_keywords: list[str] | None = None,
+        typo_tolerance: bool | None = None,
         buttons: list[Any] | None = None,
         comment_reply: str | None = None,
         dm_message_variations: list[str] | None = None,
         comment_reply_variations: list[str] | None = None,
         link_tracking: bool | None = True,
         click_tag: str | None = None,
+        audience: Any | None = None,
+        follow_gate: Any | None = None,
     ) -> dict[str, Any]:
         """Create comment-to-DM automation"""
         payload = self._build_payload(
@@ -113,6 +117,8 @@ class CommentAutomationsResource:
             name=name,
             keywords=keywords,
             match_mode=match_mode,
+            exclude_keywords=exclude_keywords,
+            typo_tolerance=typo_tolerance,
             dm_message=dm_message,
             buttons=buttons,
             comment_reply=comment_reply,
@@ -120,6 +126,8 @@ class CommentAutomationsResource:
             comment_reply_variations=comment_reply_variations,
             link_tracking=link_tracking,
             click_tag=click_tag,
+            audience=audience,
+            follow_gate=follow_gate,
         )
         return self._client._post("/v1/comment-automations", data=payload)
 
@@ -132,8 +140,11 @@ class CommentAutomationsResource:
         automation_id: str,
         *,
         name: str | None = None,
+        trigger: str | None = None,
         keywords: list[str] | None = None,
         match_mode: str | None = None,
+        exclude_keywords: list[str] | None = None,
+        typo_tolerance: bool | None = None,
         dm_message: str | None = None,
         buttons: list[Any] | None = None,
         comment_reply: str | None = None,
@@ -141,13 +152,18 @@ class CommentAutomationsResource:
         comment_reply_variations: list[str] | None = None,
         link_tracking: bool | None = None,
         click_tag: str | None = None,
+        audience: Any | None = None,
+        follow_gate: Any | None = None,
         is_active: bool | None = None,
     ) -> dict[str, Any]:
         """Update automation settings"""
         payload = self._build_payload(
             name=name,
+            trigger=trigger,
             keywords=keywords,
             match_mode=match_mode,
+            exclude_keywords=exclude_keywords,
+            typo_tolerance=typo_tolerance,
             dm_message=dm_message,
             buttons=buttons,
             comment_reply=comment_reply,
@@ -155,6 +171,8 @@ class CommentAutomationsResource:
             comment_reply_variations=comment_reply_variations,
             link_tracking=link_tracking,
             click_tag=click_tag,
+            audience=audience,
+            follow_gate=follow_gate,
             is_active=is_active,
         )
         return self._client._patch(
@@ -205,12 +223,16 @@ class CommentAutomationsResource:
         post_title: str | None = None,
         keywords: list[str] | None = None,
         match_mode: str | None = "contains",
+        exclude_keywords: list[str] | None = None,
+        typo_tolerance: bool | None = None,
         buttons: list[Any] | None = None,
         comment_reply: str | None = None,
         dm_message_variations: list[str] | None = None,
         comment_reply_variations: list[str] | None = None,
         link_tracking: bool | None = True,
         click_tag: str | None = None,
+        audience: Any | None = None,
+        follow_gate: Any | None = None,
     ) -> dict[str, Any]:
         """Create comment-to-DM automation (async)"""
         payload = self._build_payload(
@@ -223,6 +245,8 @@ class CommentAutomationsResource:
             name=name,
             keywords=keywords,
             match_mode=match_mode,
+            exclude_keywords=exclude_keywords,
+            typo_tolerance=typo_tolerance,
             dm_message=dm_message,
             buttons=buttons,
             comment_reply=comment_reply,
@@ -230,6 +254,8 @@ class CommentAutomationsResource:
             comment_reply_variations=comment_reply_variations,
             link_tracking=link_tracking,
             click_tag=click_tag,
+            audience=audience,
+            follow_gate=follow_gate,
         )
         return await self._client._apost("/v1/comment-automations", data=payload)
 
@@ -242,8 +268,11 @@ class CommentAutomationsResource:
         automation_id: str,
         *,
         name: str | None = None,
+        trigger: str | None = None,
         keywords: list[str] | None = None,
         match_mode: str | None = None,
+        exclude_keywords: list[str] | None = None,
+        typo_tolerance: bool | None = None,
         dm_message: str | None = None,
         buttons: list[Any] | None = None,
         comment_reply: str | None = None,
@@ -251,13 +280,18 @@ class CommentAutomationsResource:
         comment_reply_variations: list[str] | None = None,
         link_tracking: bool | None = None,
         click_tag: str | None = None,
+        audience: Any | None = None,
+        follow_gate: Any | None = None,
         is_active: bool | None = None,
     ) -> dict[str, Any]:
         """Update automation settings (async)"""
         payload = self._build_payload(
             name=name,
+            trigger=trigger,
             keywords=keywords,
             match_mode=match_mode,
+            exclude_keywords=exclude_keywords,
+            typo_tolerance=typo_tolerance,
             dm_message=dm_message,
             buttons=buttons,
             comment_reply=comment_reply,
@@ -265,6 +299,8 @@ class CommentAutomationsResource:
             comment_reply_variations=comment_reply_variations,
             link_tracking=link_tracking,
             click_tag=click_tag,
+            audience=audience,
+            follow_gate=follow_gate,
             is_active=is_active,
         )
         return await self._client._apatch(

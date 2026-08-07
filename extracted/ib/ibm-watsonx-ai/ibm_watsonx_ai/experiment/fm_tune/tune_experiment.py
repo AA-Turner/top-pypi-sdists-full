@@ -299,6 +299,15 @@ class TuneExperiment(BaseExperiment):
     ) -> FineTuner:
         """Initialize a FineTuner module.
 
+        .. warning::
+
+            Foundation model fine tuning functionality in watsonx.ai SaaS is being deprecated and will no longer be available effective 10 Sep 2026.
+            If you use this capability, start planning your transition before the removal date to avoid disruption to your workflows.
+            To continue fine tuning models, use Red Hat OpenShift AI (RHOAI) running on Red Hat OpenShift on IBM Cloud (ROKS).
+
+            Foundation model fine tuning functionality will be also removed from IBM Cloud Pak® for Data starting with version 6.0.0.
+
+
         :param name: name for the FineTuner
         :type name: str
 

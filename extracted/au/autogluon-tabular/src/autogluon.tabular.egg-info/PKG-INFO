@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: autogluon.tabular
-Version: 1.6.0
+Version: 1.6.1
 Summary: Fast and Accurate ML in 3 Lines of Code
 Author: AutoGluon Community
 License-Expression: Apache-2.0
@@ -37,8 +37,8 @@ Requires-Dist: scipy<1.19,>=1.5.4
 Requires-Dist: pandas<2.4.0,>=2.0.0
 Requires-Dist: scikit-learn<1.10.0,>=1.4.0
 Requires-Dist: networkx<4,>=3.0
-Requires-Dist: autogluon.core==1.6.0
-Requires-Dist: autogluon.features==1.6.0
+Requires-Dist: autogluon.core==1.6.1
+Requires-Dist: autogluon.features==1.6.1
 Provides-Extra: lightgbm
 Requires-Dist: lightgbm<4.8,>=4.0; extra == "lightgbm"
 Provides-Extra: catboost
@@ -81,7 +81,7 @@ Requires-Dist: tabicl<2.2,>=2.0; extra == "tabicl"
 Provides-Extra: nori
 Requires-Dist: synthefy-nori<0.15,>=0.13; extra == "nori"
 Provides-Extra: ray
-Requires-Dist: autogluon.core[all]==1.6.0; extra == "ray"
+Requires-Dist: autogluon.core[all]==1.6.1; extra == "ray"
 Provides-Extra: skex
 Requires-Dist: scikit-learn-intelex<2026.2,>=2025.0; extra == "skex"
 Provides-Extra: imodels
@@ -92,42 +92,42 @@ Requires-Dist: onnx<1.23.0,>=1.21.0; extra == "skl2onnx"
 Requires-Dist: onnxruntime<1.24.0,>=1.17.0; extra == "skl2onnx"
 Requires-Dist: onnxruntime-gpu<1.24.0,>=1.17.0; (platform_system != "Darwin" and platform_machine != "aarch64") and extra == "skl2onnx"
 Provides-Extra: all
-Requires-Dist: einops<0.9,>=0.7; extra == "all"
+Requires-Dist: loguru; extra == "all"
+Requires-Dist: spacy<3.9; extra == "all"
+Requires-Dist: einx; extra == "all"
+Requires-Dist: xgboost-cpu<3.4,>=2.1.1; extra == "all"
+Requires-Dist: fastai<2.8.8,>=2.3.1; extra == "all"
+Requires-Dist: fastcore<2; extra == "all"
+Requires-Dist: catboost<1.3,>=1.2; extra == "all"
+Requires-Dist: omegaconf; extra == "all"
+Requires-Dist: huggingface_hub[torch]<2.0,>=1.3; extra == "all"
 Requires-Dist: torch<2.14,>=2.10; extra == "all"
 Requires-Dist: torch<2.11,>=2.10; platform_system == "Darwin" and extra == "all"
-Requires-Dist: lightgbm<4.8,>=4.0; extra == "all"
-Requires-Dist: fastcore<2; extra == "all"
-Requires-Dist: einx; extra == "all"
-Requires-Dist: fastai<2.8.8,>=2.3.1; extra == "all"
-Requires-Dist: omegaconf; extra == "all"
+Requires-Dist: einops<0.9,>=0.7; extra == "all"
 Requires-Dist: transformers; extra == "all"
-Requires-Dist: autogluon.core[all]==1.6.0; extra == "all"
-Requires-Dist: spacy<3.9; extra == "all"
-Requires-Dist: loguru; extra == "all"
-Requires-Dist: catboost<1.3,>=1.2; extra == "all"
-Requires-Dist: xgboost-cpu<3.4,>=2.1.1; extra == "all"
-Requires-Dist: huggingface_hub[torch]<2.0,>=1.3; extra == "all"
+Requires-Dist: lightgbm<4.8,>=4.0; extra == "all"
+Requires-Dist: autogluon.core[all]==1.6.1; extra == "all"
 Provides-Extra: tabarena
-Requires-Dist: einops<0.9,>=0.7; extra == "tabarena"
-Requires-Dist: lightgbm<4.8,>=4.0; extra == "tabarena"
-Requires-Dist: autogluon.core[all]==1.6.0; extra == "tabarena"
 Requires-Dist: loguru; extra == "tabarena"
-Requires-Dist: pytabkit<1.8,>=1.7.2; extra == "tabarena"
-Requires-Dist: catboost<1.3,>=1.2; extra == "tabarena"
-Requires-Dist: fastcore<2; extra == "tabarena"
-Requires-Dist: transformers; extra == "tabarena"
-Requires-Dist: tabdpt<1.3,>=1.2; extra == "tabarena"
-Requires-Dist: omegaconf; extra == "tabarena"
-Requires-Dist: xgboost-cpu<3.4,>=2.1.1; extra == "tabarena"
-Requires-Dist: torch<2.14,>=2.10; extra == "tabarena"
-Requires-Dist: torch<2.11,>=2.10; platform_system == "Darwin" and extra == "tabarena"
+Requires-Dist: spacy<3.9; extra == "tabarena"
 Requires-Dist: einx; extra == "tabarena"
+Requires-Dist: tabicl<2.2,>=2.0; extra == "tabarena"
+Requires-Dist: tabpfn<8.3,>=8.0; extra == "tabarena"
 Requires-Dist: fastai<2.8.8,>=2.3.1; extra == "tabarena"
 Requires-Dist: synthefy-nori<0.15,>=0.13; extra == "tabarena"
-Requires-Dist: tabpfn<8.3,>=8.0; extra == "tabarena"
-Requires-Dist: tabicl<2.2,>=2.0; extra == "tabarena"
-Requires-Dist: spacy<3.9; extra == "tabarena"
+Requires-Dist: pytabkit<1.8,>=1.7.2; extra == "tabarena"
+Requires-Dist: torch<2.14,>=2.10; extra == "tabarena"
+Requires-Dist: torch<2.11,>=2.10; platform_system == "Darwin" and extra == "tabarena"
+Requires-Dist: einops<0.9,>=0.7; extra == "tabarena"
+Requires-Dist: xgboost-cpu<3.4,>=2.1.1; extra == "tabarena"
+Requires-Dist: tabdpt<1.3,>=1.2; extra == "tabarena"
+Requires-Dist: catboost<1.3,>=1.2; extra == "tabarena"
 Requires-Dist: huggingface_hub[torch]<2.0,>=1.3; extra == "tabarena"
+Requires-Dist: fastcore<2; extra == "tabarena"
+Requires-Dist: omegaconf; extra == "tabarena"
+Requires-Dist: transformers; extra == "tabarena"
+Requires-Dist: lightgbm<4.8,>=4.0; extra == "tabarena"
+Requires-Dist: autogluon.core[all]==1.6.1; extra == "tabarena"
 Provides-Extra: tests
 Requires-Dist: interpret-core<0.8,>=0.7.2; extra == "tests"
 Requires-Dist: tabdpt<1.3,>=1.2; extra == "tests"

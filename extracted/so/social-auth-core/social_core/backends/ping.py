@@ -38,23 +38,23 @@ class PingOpenIdConnect(OpenIdConnectAuth):
                 return key
         return None
 
-    def validate_and_return_id_token(self, id_token, access_token):
-        """
-        Validates the id_token according to the steps at
-        http://openid.net/specs/openid-connect-core-1_0.html#IDTokenValidation.
-        """
+    def decode_and_validate_id_token(self, id_token, access_token):
+        """Validate a Ping ID token's signature and self-contained claims."""
         client_id, _client_secret = self.get_key_and_secret()
 
-        key = self.find_valid_key(id_token)
+        try:
+            key = self.find_valid_key(id_token)
+        except PyJWTError as error:
+            raise AuthTokenError(self, str(error)) from error
 
         if not key:
             raise AuthTokenError(self, "Signature verification failed")
 
         if "alg" not in key:
             key["alg"] = "RS256"
-        rsakey = jwt.PyJWK(key)
 
         try:
+            rsakey = jwt.PyJWK(key)
             claims = jwt.decode(
                 id_token,
                 rsakey.key,
@@ -74,7 +74,9 @@ class PingOpenIdConnect(OpenIdConnectAuth):
         except PyJWTError as error:
             raise AuthTokenError(self, "Invalid signature") from error
 
-        self.validate_claims(claims)
+        self.validate_authorized_party(claims, client_id)
+        if not self.validate_at_hash(claims, access_token, key):
+            raise AuthTokenError(self, "Invalid access token")
 
         return claims
 

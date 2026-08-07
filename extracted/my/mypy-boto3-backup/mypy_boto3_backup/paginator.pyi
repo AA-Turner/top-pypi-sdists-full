@@ -12,6 +12,9 @@ Usage::
 
     from mypy_boto3_backup.client import BackupClient
     from mypy_boto3_backup.paginator import (
+        ListBackupAccessPointsByRecoveryPointPaginator,
+        ListBackupAccessPointsByResourcePaginator,
+        ListBackupAccessPointsPaginator,
         ListBackupJobsPaginator,
         ListBackupPlanTemplatesPaginator,
         ListBackupPlanVersionsPaginator,
@@ -39,6 +42,9 @@ Usage::
     session = Session()
     client: BackupClient = session.client("backup")
 
+    list_backup_access_points_by_recovery_point_paginator: ListBackupAccessPointsByRecoveryPointPaginator = client.get_paginator("list_backup_access_points_by_recovery_point")
+    list_backup_access_points_by_resource_paginator: ListBackupAccessPointsByResourcePaginator = client.get_paginator("list_backup_access_points_by_resource")
+    list_backup_access_points_paginator: ListBackupAccessPointsPaginator = client.get_paginator("list_backup_access_points")
     list_backup_jobs_paginator: ListBackupJobsPaginator = client.get_paginator("list_backup_jobs")
     list_backup_plan_templates_paginator: ListBackupPlanTemplatesPaginator = client.get_paginator("list_backup_plan_templates")
     list_backup_plan_versions_paginator: ListBackupPlanVersionsPaginator = client.get_paginator("list_backup_plan_versions")
@@ -72,6 +78,12 @@ from typing import TYPE_CHECKING
 from botocore.paginate import PageIterator, Paginator
 
 from .type_defs import (
+    ListBackupAccessPointsByRecoveryPointRequestPaginateTypeDef,
+    ListBackupAccessPointsByRecoveryPointResponseTypeDef,
+    ListBackupAccessPointsByResourceRequestPaginateTypeDef,
+    ListBackupAccessPointsByResourceResponseTypeDef,
+    ListBackupAccessPointsRequestPaginateTypeDef,
+    ListBackupAccessPointsResponseTypeDef,
     ListBackupJobsInputPaginateTypeDef,
     ListBackupJobsOutputTypeDef,
     ListBackupPlansInputPaginateTypeDef,
@@ -124,6 +136,9 @@ else:
     from typing_extensions import Unpack
 
 __all__ = (
+    "ListBackupAccessPointsByRecoveryPointPaginator",
+    "ListBackupAccessPointsByResourcePaginator",
+    "ListBackupAccessPointsPaginator",
     "ListBackupJobsPaginator",
     "ListBackupPlanTemplatesPaginator",
     "ListBackupPlanVersionsPaginator",
@@ -147,6 +162,66 @@ __all__ = (
     "ListScanJobsPaginator",
     "ListTieringConfigurationsPaginator",
 )
+
+if TYPE_CHECKING:
+    _ListBackupAccessPointsByRecoveryPointPaginatorBase = Paginator[
+        ListBackupAccessPointsByRecoveryPointResponseTypeDef
+    ]
+else:
+    _ListBackupAccessPointsByRecoveryPointPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListBackupAccessPointsByRecoveryPointPaginator(
+    _ListBackupAccessPointsByRecoveryPointPaginatorBase
+):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/backup/paginator/ListBackupAccessPointsByRecoveryPoint.html#Backup.Paginator.ListBackupAccessPointsByRecoveryPoint)
+    [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_backup/paginators/#listbackupaccesspointsbyrecoverypointpaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListBackupAccessPointsByRecoveryPointRequestPaginateTypeDef]
+    ) -> PageIterator[ListBackupAccessPointsByRecoveryPointResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/backup/paginator/ListBackupAccessPointsByRecoveryPoint.html#Backup.Paginator.ListBackupAccessPointsByRecoveryPoint.paginate)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_backup/paginators/#listbackupaccesspointsbyrecoverypointpaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListBackupAccessPointsByResourcePaginatorBase = Paginator[
+        ListBackupAccessPointsByResourceResponseTypeDef
+    ]
+else:
+    _ListBackupAccessPointsByResourcePaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListBackupAccessPointsByResourcePaginator(_ListBackupAccessPointsByResourcePaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/backup/paginator/ListBackupAccessPointsByResource.html#Backup.Paginator.ListBackupAccessPointsByResource)
+    [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_backup/paginators/#listbackupaccesspointsbyresourcepaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListBackupAccessPointsByResourceRequestPaginateTypeDef]
+    ) -> PageIterator[ListBackupAccessPointsByResourceResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/backup/paginator/ListBackupAccessPointsByResource.html#Backup.Paginator.ListBackupAccessPointsByResource.paginate)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_backup/paginators/#listbackupaccesspointsbyresourcepaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListBackupAccessPointsPaginatorBase = Paginator[ListBackupAccessPointsResponseTypeDef]
+else:
+    _ListBackupAccessPointsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListBackupAccessPointsPaginator(_ListBackupAccessPointsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/backup/paginator/ListBackupAccessPoints.html#Backup.Paginator.ListBackupAccessPoints)
+    [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_backup/paginators/#listbackupaccesspointspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListBackupAccessPointsRequestPaginateTypeDef]
+    ) -> PageIterator[ListBackupAccessPointsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/backup/paginator/ListBackupAccessPoints.html#Backup.Paginator.ListBackupAccessPoints.paginate)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_backup/paginators/#listbackupaccesspointspaginator)
+        """
 
 if TYPE_CHECKING:
     _ListBackupJobsPaginatorBase = Paginator[ListBackupJobsOutputTypeDef]

@@ -21,6 +21,8 @@ markdown_extensions:
   - admonition
   - pymdownx.highlight:
       anchor_linenums: true
+  - pymdownx.snippets:
+      base_path: .
   - pymdownx.superfences:
       custom_fences:
         - name: mermaid
@@ -83,6 +85,11 @@ plugins:
             show_root_heading: true
             show_root_full_path: true
             show_object_full_path: false
+            filters:
+              - "!^_"
+              - "!^to_form"
+              - "!^to_json"
+              - "!^asdict"
           inventories:
             - https://docs.python.org/3/objects.inv
 extra:

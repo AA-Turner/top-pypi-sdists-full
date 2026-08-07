@@ -1,4 +1,5 @@
-from typing import TypeVar, Optional, Callable, Dict
+from collections.abc import Callable
+from typing import TypeVar, Optional
 
 from mypy.nodes import NameExpr
 from mypy.options import Options
@@ -13,7 +14,7 @@ class TinyDBPlugin(Plugin):
     def __init__(self, options: Options):
         super().__init__(options)
 
-        self.named_placeholders: Dict[str, str] = {}
+        self.named_placeholders: dict[str, str] = {}
 
     def get_dynamic_class_hook(self, fullname: str) -> CB[DynamicClassDef]:
         if fullname == 'tinydb.utils.with_typehint':

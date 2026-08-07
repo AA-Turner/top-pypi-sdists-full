@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pandas-gbq
-Version: 0.35.0
+Version: 0.35.1
 Summary: Google BigQuery connector for pandas
 Home-page: https://github.com/googleapis/google-cloud-python/tree/main/packages/pandas-gbq
 Author: pandas-gbq authors
@@ -33,13 +33,13 @@ Requires-Dist: pyarrow>=12.0.0
 Requires-Dist: pyarrow>=22.0.0; python_version >= "3.14"
 Requires-Dist: pydata-google-auth>=1.5.0
 Requires-Dist: psutil>=5.9.8
-Requires-Dist: google-api-core<3.0.0,>=2.15.0
+Requires-Dist: google-api-core<3.0.0,>=2.25.0
 Requires-Dist: google-auth>=2.14.1
 Requires-Dist: google-auth-oauthlib>=0.7.0
 Requires-Dist: google-cloud-bigquery<4.0.0,>=3.20.0
 Requires-Dist: packaging>=22.0.0
 Provides-Extra: bqstorage
-Requires-Dist: google-cloud-bigquery-storage<3.0.0,>=2.16.2; extra == "bqstorage"
+Requires-Dist: google-cloud-bigquery-storage<3.0.0,>=2.29.0; extra == "bqstorage"
 Provides-Extra: tqdm
 Requires-Dist: tqdm>=4.23.0; extra == "tqdm"
 Provides-Extra: geopandas
@@ -105,7 +105,14 @@ Perform a query
 
     import pandas_gbq
 
+    # If running in your local environment or Colab, use the code below and specify your GCP project ID
+    # result_dataframe = pandas_gbq.read_gbq("SELECT * FROM bigquery-public-data.usa_names.usa_1910_2013 LIMIT 10", project_id="your-project-id")
+
     result_dataframe = pandas_gbq.read_gbq("SELECT column FROM dataset.table WHERE value = 'something'")
+
+.. note::
+
+    A Google Cloud project ID can be quickly obtained as described `here <https://docs.cloud.google.com/bigquery/docs/sandbox>`_.
 
 Upload a dataframe
 ~~~~~~~~~~~~~~~~~~

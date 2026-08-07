@@ -30,6 +30,7 @@ anyhow = { workspace = true }
 # Serialization
 serde = { workspace = true }
 serde_json = { workspace = true }
+serde_yaml_ng = { workspace = true, optional = true }
 
 # Regex
 regex = { workspace = true }
@@ -37,6 +38,7 @@ fancy-regex = { workspace = true }
 
 # Date/Time
 chrono = { workspace = true }
+chrono-tz = { workspace = true }
 
 # HTTP client (for curl/wget) - optional, enabled with http_client feature
 reqwest = { workspace = true, optional = true }
@@ -63,8 +65,9 @@ jaq-core = { workspace = true, optional = true }
 jaq-std = { workspace = true, optional = true }
 jaq-json = { workspace = true, optional = true }
 
-# Compression (for gzip/gunzip)
+# Compression (for gzip/gunzip and bzip2/bunzip2)
 flate2 = { workspace = true }
+bzip2 = { workspace = true }
 
 # Base64 encoding (for base64 builtin and HTTP basic auth)
 base64 = { workspace = true }
@@ -123,7 +126,7 @@ default = ["bash_tool"]
 bash_tool = ["dep:tower", "dep:futures-core"]
 # Enable jq builtin via embedded jaq interpreter
 # Usage: cargo build --features jq
-jq = ["dep:jaq-core", "dep:jaq-std", "dep:jaq-json"]
+jq = ["dep:jaq-core", "dep:jaq-std", "dep:jaq-json", "dep:serde_yaml_ng"]
 http_client = ["reqwest", "rustls"]
 # Enable Ed25519 request signing per RFC 9421 / web-bot-auth profile
 bot-auth = ["http_client", "dep:ed25519-dalek", "dep:rand", "dep:zeroize"]
@@ -165,7 +168,7 @@ sqlite = ["dep:turso_core", "tokio/rt-multi-thread"]
 # Enable RealFs backend for accessing host filesystem directories
 # WARNING: This intentionally breaks the sandbox boundary.
 # Usage: cargo build --features realfs
-realfs = []
+realfs = ["dep:rand"]
 # Enable native-extension interop contracts such as bashkit::interop::fs.
 interop = ["tokio/rt-multi-thread"]
 
@@ -204,6 +207,10 @@ harness = false
 
 [[bench]]
 name = "file_ops"
+harness = false
+
+[[bench]]
+name = "awk_regex"
 harness = false
 
 [[bench]]
@@ -276,6 +283,10 @@ tokio = { version = "1", features = ["rt-multi-thread", "fs"] }
 # re-exports std::time directly with zero overhead.
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 web-time = { workspace = true }
+
+[target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dependencies]
+gloo-timers = { version = "0.3", features = ["futures"] }
+send_wrapper = { version = "0.6", features = ["futures"] }
 
 # Vendored uucore modules (e.g. generated/format/human.rs) carry upstream
 # `#[cfg(feature = "i18n-decimal")]` gates. bashkit has no i18n surface —

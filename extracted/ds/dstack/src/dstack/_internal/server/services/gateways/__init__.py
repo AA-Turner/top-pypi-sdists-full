@@ -1,5 +1,6 @@
 import asyncio
 import datetime
+import itertools
 import uuid
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
@@ -28,14 +29,18 @@ from dstack._internal.core.errors import (
     SSHError,
 )
 from dstack._internal.core.models.backends.base import BackendType
-from dstack._internal.core.models.common import ApplyAction, EntityReference
+from dstack._internal.core.models.common import (
+    ApplyAction,
+    EntityReference,
+    validate_json_extra_ignore,
+)
 from dstack._internal.core.models.gateways import (
     GATEWAY_REPLICAS_DEFAULT,
-    AnyGatewayRouterConfig,
     ApplyGatewayPlanInput,
     Gateway,
     GatewayComputeConfiguration,
     GatewayConfiguration,
+    GatewayLoadBalancerConfiguration,
     GatewayPlan,
     GatewayReplica,
     GatewayReplicaStatus,
@@ -77,16 +82,19 @@ from dstack._internal.server.services.locking import (
 from dstack._internal.server.services.pipelines import PipelineHinterProtocol
 from dstack._internal.server.services.plugins import apply_plugin_policies
 from dstack._internal.server.utils.common import gather_map_async
+from dstack._internal.settings import FeatureFlags
+from dstack._internal.utils import crypto
 from dstack._internal.utils.common import (
     get_current_datetime,
     get_or_error,
     interpolate_gateway_domain,
 )
-from dstack._internal.utils.crypto import generate_rsa_key_pair_bytes
 from dstack._internal.utils.logging import get_logger
 
 logger = get_logger(__name__)
 _CONF_UPDATABLE_FIELDS = frozenset({"domain"})
+if FeatureFlags.GATEWAY_SCALING:
+    _CONF_UPDATABLE_FIELDS |= {"replicas"}
 
 
 def switch_gateway_status(
@@ -189,7 +197,7 @@ def create_gateway_compute_model(
 ) -> GatewayComputeModel:
     assert configuration.name is not None
 
-    private_bytes, public_bytes = generate_rsa_key_pair_bytes()
+    private_bytes, public_bytes = crypto.generate_rsa_key_pair_bytes()
     gateway_ssh_private_key = private_bytes.decode()
     gateway_ssh_public_key = public_bytes.decode()
 
@@ -203,7 +211,6 @@ def create_gateway_compute_model(
         ssh_key_pub=gateway_ssh_public_key,
         certificate=configuration.certificate,
         tags=configuration.tags,
-        router=configuration.router,
     )
 
     now = get_current_datetime()
@@ -211,7 +218,7 @@ def create_gateway_compute_model(
         gateway_id=gateway_id,
         backend_id=backend_id,
         replica_num=replica_num,
-        configuration=compute_configuration.json(),
+        configuration=compute_configuration.model_dump_json(),
         ssh_private_key=gateway_ssh_private_key,
         ssh_public_key=gateway_ssh_public_key,
         status=GatewayReplicaStatus.SUBMITTED,
@@ -265,8 +272,13 @@ async def create_gateway(
             project_id=project.id,
             backend_id=backend_model.id,
             wildcard_domain=configuration.domain,
-            configuration=configuration.json(),
+            configuration=configuration.model_dump_json(),
             status=GatewayStatus.SUBMITTED,
+            desired_replica_count=(
+                configuration.replicas
+                if configuration.replicas is not None
+                else GATEWAY_REPLICAS_DEFAULT
+            ),
             created_at=now,
             last_processed_at=now,
         )
@@ -406,7 +418,7 @@ async def set_gateway_wildcard_domain(
             if gateway.configuration is not None:
                 conf = get_gateway_configuration(gateway)
                 conf.domain = wildcard_domain
-                gateway.configuration = conf.json()
+                gateway.configuration = conf.model_dump_json()
             events.emit(
                 session,
                 f"Gateway wildcard domain changed {old_domain!r} -> {gateway.wildcard_domain!r}",
@@ -770,10 +782,9 @@ async def _update_gateway(gateway_compute_model: GatewayComputeModel, build: str
         gateway_compute_model.ssh_private_key,
     )
     logger.debug("Updating gateway %s", connection.ip_address)
-    router = _get_gateway_compute_router_config(gateway_compute_model)
 
     # Build package spec with extras and wheel URL
-    gateway_package = get_dstack_gateway_wheel(build, router)
+    gateway_package = get_dstack_gateway_wheel(build)
     commands = [
         # prevent update.sh from overwriting itself during execution
         "cp dstack/update.sh dstack/_update.sh",
@@ -791,17 +802,6 @@ def _recently_updated(gateway_compute_model: GatewayComputeModel) -> bool:
     return gateway_compute_model.app_updated_at.replace(
         tzinfo=datetime.timezone.utc
     ) > get_current_datetime() - timedelta(seconds=60)
-
-
-def _get_gateway_compute_router_config(
-    compute: GatewayComputeModel,
-) -> Optional[AnyGatewayRouterConfig]:
-    if compute.configuration is None:  # pre-0.18.2 gateway
-        return None  # gateway routers introduced in 0.19.38
-    compute_config: GatewayComputeConfiguration = (
-        GatewayComputeConfiguration.__response__.parse_raw(compute.configuration)
-    )
-    return compute_config.router
 
 
 async def configure_gateway(
@@ -837,16 +837,15 @@ async def configure_gateway(
 
 
 def get_gateway_compute_models(gateway_model: GatewayModel) -> List[GatewayComputeModel]:
-    if gateway_model.gateway_computes:  # 0.20.25+ gateway
-        return list(gateway_model.gateway_computes)
+    computes = list(gateway_model.gateway_computes)
     if gateway_model.gateway_compute is not None:  # pre-0.20.25 gateway
-        return [gateway_model.gateway_compute]
-    return []
+        computes.append(gateway_model.gateway_compute)
+    return computes
 
 
 def get_gateway_configuration(gateway_model: GatewayModel) -> GatewayConfiguration:
     if gateway_model.configuration is not None:
-        return GatewayConfiguration.__response__.parse_raw(gateway_model.configuration)
+        return validate_json_extra_ignore(GatewayConfiguration, gateway_model.configuration)
     # Handle gateways created before GatewayConfiguration was introduced
     return GatewayConfiguration(
         name=gateway_model.name,
@@ -862,7 +861,9 @@ def get_gateway_compute_configuration(
     gateway_model: GatewayModel,
 ) -> GatewayComputeConfiguration:
     if gateway_compute.configuration is not None:
-        return GatewayComputeConfiguration.__response__.parse_raw(gateway_compute.configuration)
+        return validate_json_extra_ignore(
+            GatewayComputeConfiguration, gateway_compute.configuration
+        )
     # Handle gateways created before GatewayComputeConfiguration was introduced
     gateway_configuration = get_gateway_configuration(gateway_model)
     return GatewayComputeConfiguration(
@@ -873,6 +874,20 @@ def get_gateway_compute_configuration(
         public_ip=True,
         ssh_key_pub=gateway_compute.ssh_public_key,
         certificate=LetsEncryptGatewayCertificate(),
+    )
+
+
+def get_gateway_lb_configuration(
+    gateway_model: GatewayModel,
+) -> GatewayLoadBalancerConfiguration:
+    configuration = get_gateway_configuration(gateway_model)
+    return GatewayLoadBalancerConfiguration(
+        project_name=gateway_model.project.name,
+        gateway_name=gateway_model.name,
+        region=configuration.region,
+        public_ip=configuration.public_ip,
+        certificate=configuration.certificate,
+        tags=configuration.tags,
     )
 
 
@@ -889,10 +904,16 @@ def gateway_model_to_gateway(
     configuration = get_gateway_configuration(gateway_model)
     configuration.default = is_default
 
-    compute_models = sorted(get_gateway_compute_models(gateway_model), key=lambda c: c.replica_num)
-    gateway_hostname = None
+    all_compute_models = sorted(
+        get_gateway_compute_models(gateway_model), key=lambda c: c.replica_num
+    )
+    relevant_compute_models = []
+    for replica_num, compute_models_for_num in itertools.groupby(
+        all_compute_models, key=lambda c: c.replica_num
+    ):
+        relevant_compute_models.append(max(compute_models_for_num, key=lambda c: c.created_at))
     replicas = []
-    for compute in compute_models:
+    for compute in relevant_compute_models:
         replicas.append(
             GatewayReplica(
                 hostname=compute.ip_address,
@@ -904,15 +925,12 @@ def gateway_model_to_gateway(
                 status_message=compute.status_message,
             )
         )
-        gateway_hostname = compute.hostname
 
     return Gateway(
         id=gateway_model.id,
         name=gateway_model.name,
         project_name=gateway_model.project.name,
-        hostname=gateway_hostname,
-        backend=gateway_model.backend.type,
-        region=gateway_model.region,
+        hostname=gateway_model.hostname,
         wildcard_domain=gateway_model.wildcard_domain,
         default=is_default,
         created_at=gateway_model.created_at,
@@ -1045,7 +1063,14 @@ async def apply_plan(
             )
 
         gateway_model.wildcard_domain = new_configuration.domain
-        gateway_model.configuration = new_configuration.json()
+        if new_configuration.replicas != current_configuration.replicas:
+            gateway_model.desired_replica_count = (
+                new_configuration.replicas
+                if new_configuration.replicas is not None
+                else GATEWAY_REPLICAS_DEFAULT
+            )
+        gateway_model.configuration = new_configuration.model_dump_json()
+        gateway_model.last_update_at = get_current_datetime()
         events.emit(
             session,
             f"Gateway updated. Changed fields: {format_diff_fields_for_event(diff)}",
@@ -1107,13 +1132,13 @@ def _validate_gateway_configuration(configuration: GatewayConfiguration):
             )
         if configuration.certificate.type == "acm" and configuration.backend != BackendType.AWS:
             raise ServerClientError("acm certificate type is supported for aws backend only")
-        if replicas > 1:
-            raise ServerClientError(
-                "Replicated gateways do not support certificates."
-                " Set either `certificate: null` or `replicas: 1` in the gateway configuration"
+        if configuration.certificate.type == "lets-encrypt" and replicas > 1:
+            err = (
+                "The `lets-encrypt` certificate type is not supported for gateways with `replicas`"
+                " greater than `1`. To create a replicated gateway, set the `certificate`"
+                " configuration property to one of the supported values, such as"
+                " `certificate: null` (no HTTPS)"
             )
-
-    if configuration.router is not None and replicas > 1:
-        raise ServerClientError(
-            "The deprecated `router` property is not supported for multi-replica gateways"
-        )
+            if configuration.backend == BackendType.AWS:
+                err += " or `certificate: { type: acm, arn: <arn> }` (AWS ACM)"
+            raise ServerClientError(err)

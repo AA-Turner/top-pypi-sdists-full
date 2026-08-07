@@ -1,6 +1,6 @@
 import os
 from types import TracebackType
-from typing import AsyncIterator, Iterator, List, Optional, Type, Union
+from typing import Any, AsyncIterator, Dict, Iterator, List, Optional, Type, Union
 
 from ._types import OMIT, Omit
 from .client import AsyncSeltzClient, SeltzClient
@@ -130,6 +130,7 @@ class Seltz:
         include_content: bool = False,
         scope: Union[str, Omit] = OMIT,
         model: Union[str, Omit] = OMIT,
+        response_format: Union[Dict[str, Any], Omit] = OMIT,
     ) -> AnswerResponse:
         """Generate a natural-language answer for a query, grounded in search results.
 
@@ -148,6 +149,14 @@ class Seltz:
             model (str, optional):
                 Select the answer tier (e.g. "seltz-pro").
                 Defaults to "seltz-base" when not provided.
+
+            response_format (dict, optional):
+                An OpenAI-style ``response_format`` object requesting structured
+                output (e.g. ``{"type": "json_schema", "json_schema": {...}}``).
+                When provided, the ``answer`` field carries the JSON payload
+                matching the requested schema instead of Markdown prose;
+                ``citations`` are still returned. Omitted from the request when
+                not provided (the answer stays Markdown).
 
         Raises:
             SeltzAuthenticationError: If the API key is invalid.
@@ -171,6 +180,7 @@ class Seltz:
             include_content=include_content,
             scope=scope,
             model=model,
+            response_format=response_format,
         )
 
     def answer_stream(
@@ -180,6 +190,7 @@ class Seltz:
         include_content: bool = False,
         scope: Union[str, Omit] = OMIT,
         model: Union[str, Omit] = OMIT,
+        response_format: Union[Dict[str, Any], Omit] = OMIT,
     ) -> Iterator[AnswerStreamResponse]:
         """Stream a natural-language answer for a query as it is generated.
 
@@ -202,6 +213,14 @@ class Seltz:
             model (str, optional):
                 Select the answer tier (e.g. "seltz-pro").
                 Defaults to "seltz-base" when not provided.
+
+            response_format (dict, optional):
+                An OpenAI-style ``response_format`` object requesting structured
+                output (e.g. ``{"type": "json_schema", "json_schema": {...}}``).
+                When provided, the ``answer`` field carries the JSON payload
+                matching the requested schema instead of Markdown prose;
+                ``citations`` are still returned. Omitted from the request when
+                not provided (the answer stays Markdown).
 
         Raises:
             SeltzAuthenticationError: If the API key is invalid.
@@ -226,6 +245,7 @@ class Seltz:
             include_content=include_content,
             scope=scope,
             model=model,
+            response_format=response_format,
         )
 
     def close(self) -> None:
@@ -364,6 +384,7 @@ class AsyncSeltz:
         include_content: bool = False,
         scope: Union[str, Omit] = OMIT,
         model: Union[str, Omit] = OMIT,
+        response_format: Union[Dict[str, Any], Omit] = OMIT,
     ) -> AnswerResponse:
         """Generate a natural-language answer for a query, grounded in search results.
 
@@ -382,6 +403,14 @@ class AsyncSeltz:
             model (str, optional):
                 Select the answer tier (e.g. "seltz-pro").
                 Defaults to "seltz-base" when not provided.
+
+            response_format (dict, optional):
+                An OpenAI-style ``response_format`` object requesting structured
+                output (e.g. ``{"type": "json_schema", "json_schema": {...}}``).
+                When provided, the ``answer`` field carries the JSON payload
+                matching the requested schema instead of Markdown prose;
+                ``citations`` are still returned. Omitted from the request when
+                not provided (the answer stays Markdown).
 
         Raises:
             SeltzAuthenticationError: If the API key is invalid.
@@ -405,6 +434,7 @@ class AsyncSeltz:
             include_content=include_content,
             scope=scope,
             model=model,
+            response_format=response_format,
         )
 
     def answer_stream(
@@ -414,6 +444,7 @@ class AsyncSeltz:
         include_content: bool = False,
         scope: Union[str, Omit] = OMIT,
         model: Union[str, Omit] = OMIT,
+        response_format: Union[Dict[str, Any], Omit] = OMIT,
     ) -> AsyncIterator[AnswerStreamResponse]:
         """Stream a natural-language answer for a query as it is generated.
 
@@ -437,6 +468,14 @@ class AsyncSeltz:
                 Select the answer tier (e.g. "seltz-pro").
                 Defaults to "seltz-base" when not provided.
 
+            response_format (dict, optional):
+                An OpenAI-style ``response_format`` object requesting structured
+                output (e.g. ``{"type": "json_schema", "json_schema": {...}}``).
+                When provided, the ``answer`` field carries the JSON payload
+                matching the requested schema instead of Markdown prose;
+                ``citations`` are still returned. Omitted from the request when
+                not provided (the answer stays Markdown).
+
         Raises:
             SeltzAuthenticationError: If the API key is invalid.
             SeltzConnectionError: If the connection to the API fails.
@@ -459,6 +498,7 @@ class AsyncSeltz:
             include_content=include_content,
             scope=scope,
             model=model,
+            response_format=response_format,
         )
 
     async def close(self) -> None:

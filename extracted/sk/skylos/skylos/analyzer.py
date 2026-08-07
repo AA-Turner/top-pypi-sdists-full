@@ -37,6 +37,9 @@ from skylos.visitors.languages.typescript.analysis import (
 )
 from skylos.visitors.languages.go import clear_go_cache
 
+from skylos.rules.secrets import (
+    SECRET_CONFIG_SUFFIXES as _SECRET_CONFIG_SUFFIXES,
+)
 from skylos.rules.secrets import scan_ctx as _secrets_scan_ctx
 
 from skylos.rules.danger.calls import DangerousCallsRule
@@ -349,15 +352,6 @@ def _scan_ai_defect_diff_signals(
             )
 
 
-_SECRET_CONFIG_SUFFIXES = {
-    ".yaml",
-    ".yml",
-    ".json",
-    ".toml",
-    ".ini",
-    ".cfg",
-    ".conf",
-}
 MAX_SECRET_CONFIG_BYTES = 8_000_000
 
 _TS_JS_SOURCE_EXTS = (
@@ -515,13 +509,26 @@ def _is_secret_config_candidate(path: Path) -> bool:
 
 
 def _resolve_secret_config_candidate(path: Path, root: Path) -> Path | None:
-    candidate = Path(path)
-    if candidate.is_symlink():
-        return None
-    if not _is_secret_config_candidate(candidate):
-        return None
     try:
         resolved_root = Path(root).resolve(strict=True)
+        raw_candidate = Path(os.path.abspath(Path(path)))
+        if raw_candidate.is_symlink():
+            return None
+        candidate = raw_candidate.parent.resolve(strict=True) / raw_candidate.name
+        if candidate.is_symlink():
+            return None
+        relative_candidate = candidate.relative_to(resolved_root)
+        if not relative_candidate.parts or any(
+            part in {"", ".", ".."} for part in relative_candidate.parts
+        ):
+            return None
+        current = resolved_root
+        for part in relative_candidate.parts:
+            current /= part
+            if current.is_symlink():
+                return None
+        if not _is_secret_config_candidate(candidate):
+            return None
         resolved = candidate.resolve(strict=True)
         resolved.relative_to(resolved_root)
     except (OSError, ValueError):
@@ -533,18 +540,80 @@ def _resolve_secret_config_candidate(path: Path, root: Path) -> Path | None:
 
 def _iter_secret_config_candidates(
     root: Path,
-    scan_target: Path,
+    scan_target,
     changed_files: set[str] | None,
 ):
     if changed_files is not None:
-        for raw_path in changed_files:
-            candidate = Path(raw_path)
-            yield candidate if candidate.is_absolute() else root / candidate
+        for candidate in _normalize_secret_changed_files(
+            root, scan_target, changed_files
+        ):
+            yield Path(candidate)
         return
-    if scan_target.is_file() or scan_target.is_symlink():
-        yield scan_target
-        return
-    yield from root.rglob("*")
+
+    for target in _absolute_secret_scan_targets(scan_target):
+        if target.is_file() or target.is_symlink():
+            yield target
+        elif target.is_dir():
+            yield from target.rglob("*")
+
+
+def _absolute_secret_scan_targets(scan_target) -> tuple[Path, ...]:
+    raw_targets = (
+        scan_target if isinstance(scan_target, (list, tuple)) else (scan_target,)
+    )
+    targets = []
+    for raw_target in raw_targets:
+        target = Path(raw_target).expanduser()
+        if not target.is_absolute():
+            target = Path(os.path.abspath(target))
+        if not target.is_symlink():
+            try:
+                target = target.resolve(strict=False)
+            except OSError:
+                pass
+        targets.append(target)
+    return tuple(targets)
+
+
+def _is_within_secret_scan_targets(
+    candidate: Path, scan_targets: tuple[Path, ...]
+) -> bool:
+    for target in scan_targets:
+        if candidate == target:
+            return True
+        if target.is_symlink() or not target.is_dir():
+            continue
+        try:
+            candidate.relative_to(target)
+            return True
+        except ValueError:
+            continue
+    return False
+
+
+def _normalize_secret_changed_files(
+    root: Path,
+    scan_target,
+    changed_files: set[str] | None,
+) -> set[str] | None:
+    if changed_files is None:
+        return None
+
+    scan_targets = _absolute_secret_scan_targets(scan_target)
+    normalized = set()
+    for raw_path in changed_files:
+        candidate = Path(raw_path).expanduser()
+        if not candidate.is_absolute():
+            candidate = root / candidate
+        candidate = Path(os.path.abspath(candidate))
+        try:
+            candidate = candidate.parent.resolve(strict=False) / candidate.name
+            scope_candidate = candidate.resolve(strict=False)
+        except OSError:
+            continue
+        if _is_within_secret_scan_targets(scope_candidate, scan_targets):
+            normalized.add(str(candidate))
+    return normalized
 
 
 def _scan_secret_config_candidate(
@@ -553,6 +622,7 @@ def _scan_secret_config_candidate(
     root: Path,
     excluded: set[str],
     scanned: set[str],
+    analysis_errors: list[dict] | None = None,
 ) -> list[dict]:
     resolved = _resolve_secret_config_candidate(candidate, root)
     if resolved is None or str(resolved) in scanned:
@@ -561,6 +631,7 @@ def _scan_secret_config_candidate(
         rel = str(resolved.relative_to(root))
         if excluded.intersection(Path(rel).parts):
             return []
+        scanned.add(str(resolved))
         source = read_project_text_no_symlink(
             root,
             resolved,
@@ -569,6 +640,8 @@ def _scan_secret_config_candidate(
             errors="ignore",
         )
         if source is None:
+            if analysis_errors is not None:
+                analysis_errors.append(_secret_config_read_error_payload(resolved))
             return []
         ctx = {
             "relpath": rel,
@@ -588,6 +661,7 @@ def _scan_secret_config_candidates(
     changed_files: set[str] | None,
     exclude_folders: list[str] | None,
     already_scanned: set[str] | None = None,
+    analysis_errors: list[dict] | None = None,
 ) -> list[dict]:
     if _secrets_scan_ctx is None:
         return []
@@ -595,7 +669,7 @@ def _scan_secret_config_candidates(
         root = Path(root).resolve(strict=True)
     except OSError:
         return []
-    scanned = already_scanned or set()
+    scanned = already_scanned if already_scanned is not None else set()
     excluded = set(exclude_folders or [])
     findings: list[dict] = []
     for candidate in _iter_secret_config_candidates(root, scan_target, changed_files):
@@ -605,9 +679,29 @@ def _scan_secret_config_candidates(
                 root=root,
                 excluded=excluded,
                 scanned=scanned,
+                analysis_errors=analysis_errors,
             )
         )
     return findings
+
+
+def _secret_config_read_error_payload(path: Path) -> dict:
+    try:
+        too_large = path.stat().st_size > MAX_SECRET_CONFIG_BYTES
+    except OSError:
+        too_large = False
+
+    if too_large:
+        kind = "secret_config_too_large"
+        message = (
+            f"Secret scan skipped {path.name}: file exceeds the "
+            f"{MAX_SECRET_CONFIG_BYTES}-byte safety limit"
+        )
+    else:
+        kind = "secret_config_read_error"
+        message = f"Secret scan could not safely read {path.name}"
+
+    return _analysis_error_payload(path, RuntimeError(message), kind=kind)
 
 
 _GREP_VERIFY_TYPE_PRIORITY = {
@@ -730,10 +824,16 @@ def _go_engine_analysis_report(files) -> dict | None:
 
     engine_status = get_go_engine_status()
     available = engine_status.get("status") == "available"
+    engine_report = dict(engine_status)
+    if "reason" in engine_report:
+        engine_report["reason"] = (
+            _sanitize_go_engine_reason(engine_report.get("reason"))
+            or "Go engine unavailable"
+        )
     report = {
         "status": "available" if available else "partial",
         "file_count": go_file_count,
-        "engine": dict(engine_status),
+        "engine": engine_report,
         "completed_checks": ["quality"],
         "skipped_checks": [],
     }
@@ -742,6 +842,141 @@ def _go_engine_analysis_report(files) -> dict | None:
     else:
         report["skipped_checks"] = ["dead_code", "security"]
     return report
+
+
+_ANSI_ESCAPE_RE = re.compile(
+    r"(?:\x1b\[[0-?]*[ -/]*[@-~]|\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)|"
+    r"\x1b[PX^_][^\x1b]*(?:\x1b\\)|\x1b[@-_]|\x9b[0-?]*[ -/]*[@-~])"
+)
+
+
+def _sanitize_go_engine_reason(value) -> str:
+    text = _ANSI_ESCAPE_RE.sub("", str(value or ""))
+    text = "".join(
+        " " if ord(char) < 0x20 or 0x7F <= ord(char) <= 0x9F else char for char in text
+    )
+    return " ".join(text.split())[:500]
+
+
+def _go_engine_analysis_error(files, report: dict | None) -> dict | None:
+    if not isinstance(report, dict) or report.get("status") != "partial":
+        return None
+
+    go_files = sorted(
+        (Path(file_path) for file_path in files if str(file_path).endswith(".go")),
+        key=lambda path: str(path),
+    )
+    if not go_files:
+        return None
+
+    engine = report.get("engine")
+    engine = engine if isinstance(engine, dict) else {}
+    reason = (
+        _sanitize_go_engine_reason(engine.get("reason") or "Go engine unavailable")
+        or "Go engine unavailable"
+    )
+    skipped_checks = [
+        str(check)
+        for check in (report.get("skipped_checks") or [])
+        if str(check).strip()
+    ]
+    skipped_label = ", ".join(check.replace("_", " ") for check in skipped_checks)
+    message = f"Go analysis incomplete: {reason}."
+    if skipped_label:
+        message += f" Skipped checks: {skipped_label}."
+
+    return {
+        "rule_id": "SKY-ANALYSIS-INCOMPLETE",
+        "severity": "HIGH",
+        "kind": "language_engine_unavailable",
+        "error_type": "GoEngineUnavailable",
+        "message": message,
+        "file": str(go_files[0]),
+        "line": 1,
+        "column": 1,
+        "language": "go",
+        "affected_file_count": len(go_files),
+        "skipped_checks": skipped_checks,
+        "suggestion": (
+            "Run `skylos doctor` and configure a runnable skylos-go engine "
+            "for this platform."
+        ),
+    }
+
+
+def _go_runtime_analysis_error(failure: dict, skipped_checks: list[str]):
+    module_files = sorted(
+        (
+            Path(file_path)
+            for file_path in (failure.get("files") or [])
+            if str(file_path).endswith(".go")
+        ),
+        key=lambda path: str(path),
+    )
+    if not module_files:
+        return None
+
+    reason = (
+        _sanitize_go_engine_reason(
+            failure.get("reason") or "Go engine failed during analysis"
+        )
+        or "Go engine failed during analysis"
+    )
+    error_type = (
+        _sanitize_go_engine_reason(failure.get("error_type") or "GoEngineError")
+        or "GoEngineError"
+    )
+    skipped_label = ", ".join(check.replace("_", " ") for check in skipped_checks)
+    return {
+        "rule_id": "SKY-ANALYSIS-INCOMPLETE",
+        "severity": "HIGH",
+        "kind": "language_engine_unavailable",
+        "error_type": error_type,
+        "message": (
+            f"Go analysis incomplete: {reason}. Skipped checks: {skipped_label}."
+        ),
+        "file": str(module_files[0]),
+        "line": 1,
+        "column": 1,
+        "language": "go",
+        "module_root": str(failure.get("module_root") or ""),
+        "affected_file_count": len(module_files),
+        "skipped_checks": list(skipped_checks),
+        "suggestion": (
+            "Run `skylos doctor`, then retry the Go scan after fixing "
+            "the reported engine error."
+        ),
+    }
+
+
+def _go_runtime_analysis_errors(
+    report: dict | None,
+    failures,
+) -> list[dict]:
+    if not isinstance(report, dict) or report.get("status") != "available":
+        return []
+
+    normalized_failures = [failure for failure in failures if isinstance(failure, dict)]
+    if not normalized_failures:
+        return []
+
+    skipped_checks = ["dead_code", "security"]
+    report.update(
+        {
+            "status": "partial",
+            "completed_checks": ["quality"],
+            "skipped_checks": list(skipped_checks),
+            "failed_module_count": len(normalized_failures),
+        }
+    )
+    errors = (
+        _go_runtime_analysis_error(failure, skipped_checks)
+        for failure in sorted(
+            normalized_failures,
+            key=lambda item: str(item.get("module_root") or ""),
+        )
+    )
+    return [error for error in errors if error is not None]
 
 
 def _no_source_danger_targets(
@@ -2356,8 +2591,12 @@ class Skylos:
         self._ai_verification_checks = [] if enable_ai_defects else None
         self._language_engine_reports = {}
         go_engine_report = _go_engine_analysis_report(files)
+        language_engine_errors = []
         if go_engine_report is not None:
             self._language_engine_reports["go"] = go_engine_report
+            go_engine_error = _go_engine_analysis_error(files, go_engine_report)
+            if go_engine_error is not None:
+                language_engine_errors.append(go_engine_error)
 
         from skylos.visitors.languages.typescript.workspace import (
             discover_workspace_inventory,
@@ -2503,16 +2742,26 @@ class Skylos:
                     result["analysis_summary"]["ai_defects_count"] = len(
                         ai_defect_findings
                     )
-            if enable_secrets and not first_is_symlink:
+            if enable_secrets and (
+                not first_is_symlink or isinstance(path, (list, tuple))
+            ):
                 secret_findings = _scan_secret_config_candidates(
                     root=Path(root),
-                    scan_target=no_source_scan_target,
+                    scan_target=(
+                        path
+                        if isinstance(path, (list, tuple))
+                        else no_source_scan_target
+                    ),
                     changed_files=changed_files,
                     exclude_folders=exclude_folders,
+                    analysis_errors=result["analysis_errors"],
                 )
                 if secret_findings:
                     result["secrets"] = secret_findings
                     result["analysis_summary"]["secrets_count"] = len(secret_findings)
+                result["analysis_summary"]["analysis_error_count"] = len(
+                    result["analysis_errors"]
+                )
             if enable_sca:
                 if first_is_symlink:
                     self._sca_coverage = {
@@ -2632,7 +2881,8 @@ class Skylos:
         all_quality = []
         all_ai_defects = []
         all_suppressed = []
-        analysis_errors = []
+        secret_scanned_files = set()
+        analysis_errors = list(language_engine_errors)
         empty_files = []
         file_contexts = []
         all_clone_fragments = []
@@ -2679,6 +2929,13 @@ class Skylos:
                 skip_docstrings=True,
             )
 
+        secret_scan_target = path if isinstance(path, (list, tuple)) else _first
+        secret_changed_files = _normalize_secret_changed_files(
+            root,
+            secret_scan_target,
+            changed_files,
+        )
+
         try:
             outs = run_proc_file_parallel(
                 files,
@@ -2698,6 +2955,16 @@ class Skylos:
 
             if os.getenv("SKYLOS_DEBUG"):
                 logger.info(f"[DBG] run_proc_file_parallel returned outs={len(outs)}")
+
+            if go_engine_report is not None:
+                from skylos.visitors.languages.go.go import get_go_engine_failures
+
+                analysis_errors.extend(
+                    _go_runtime_analysis_errors(
+                        go_engine_report,
+                        get_go_engine_failures(),
+                    )
+                )
 
             for file, out in zip(files, outs):
                 if out is None:
@@ -2831,7 +3098,11 @@ class Skylos:
                     all_dangers.extend(pro_finds)
 
                 if enable_secrets and _secrets_scan_ctx is not None:
-                    if changed_files is None or str(file) in changed_files:
+                    if (
+                        secret_changed_files is None
+                        or str(file) in secret_changed_files
+                    ):
+                        secret_scanned_files.add(str(Path(file).resolve()))
                         try:
                             file_source_lines = (
                                 out[19]
@@ -2840,6 +3111,20 @@ class Skylos:
                             )
                             if file_source_lines:
                                 src_lines = file_source_lines
+                            elif _is_secret_config_candidate(Path(file)):
+                                src = read_project_text_no_symlink(
+                                    root,
+                                    Path(file),
+                                    max_bytes=MAX_SECRET_CONFIG_BYTES,
+                                    encoding="utf-8",
+                                    errors="ignore",
+                                )
+                                if src is None:
+                                    analysis_errors.append(
+                                        _secret_config_read_error_payload(Path(file))
+                                    )
+                                    continue
+                                src_lines = src.splitlines(True)
                             else:
                                 src = Path(file).read_text(
                                     encoding="utf-8", errors="ignore"
@@ -2881,38 +3166,24 @@ class Skylos:
                             logger.debug("Secret scan failed for file", exc_info=True)
 
             if enable_secrets and _secrets_scan_ctx is not None:
-                scanned = {str(Path(f).resolve()) for f in files}
-                if changed_files is not None:
-                    cfg_candidates = []
-                    for raw_path in changed_files:
-                        cfg_file = Path(raw_path)
-                        if not cfg_file.is_absolute():
-                            cfg_file = root / cfg_file
-                        cfg_candidates.append(cfg_file)
-                else:
-                    cfg_candidates = root.rglob("*")
+                scanned = set(secret_scanned_files)
+                cfg_candidates = _iter_secret_config_candidates(
+                    root,
+                    secret_scan_target,
+                    secret_changed_files,
+                )
 
+                excluded = set(exclude_folders or [])
                 for cfg_file in cfg_candidates:
-                    cfg_file = Path(cfg_file)
-                    resolved_cfg = _resolve_secret_config_candidate(cfg_file, root)
-                    if resolved_cfg is None:
-                        continue
-                    if str(resolved_cfg) in scanned:
-                        continue
-                    try:
-                        rel = str(resolved_cfg.relative_to(root))
-                        if any(ex in Path(rel).parts for ex in (exclude_folders or [])):
-                            continue
-                        src = resolved_cfg.read_text(encoding="utf-8", errors="ignore")
-                        src_lines = src.splitlines(True)
-                        ctx = {"relpath": rel, "lines": src_lines, "tree": None}
-                        findings = list(_secrets_scan_ctx(ctx))
-                        if findings:
-                            all_secrets.extend(findings)
-                    except Exception:
-                        logger.debug(
-                            "Secret scan failed for config file", exc_info=True
+                    all_secrets.extend(
+                        _scan_secret_config_candidate(
+                            Path(cfg_file),
+                            root=root,
+                            excluded=excluded,
+                            scanned=scanned,
+                            analysis_errors=analysis_errors,
                         )
+                    )
 
         finally:
             if injected:

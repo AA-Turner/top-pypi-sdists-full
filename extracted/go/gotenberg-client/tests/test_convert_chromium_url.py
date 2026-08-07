@@ -2,6 +2,7 @@
 #
 # SPDX-License-Identifier: MPL-2.0
 import json
+from http import HTTPStatus
 from typing import Literal
 
 import pytest
@@ -16,6 +17,8 @@ from tests.utils import verify_basic_response_values_pdf
 from tests.utils import verify_stream_contains
 
 
+@pytest.mark.live
+@pytest.mark.chromium
 @pytest.mark.usefixtures("webserver_docker_internal_url")
 class TestConvertChromiumUrl:
     def test_basic_convert_sync(self, sync_url_to_pdf_route: SyncUrlToPdfRoute, webserver_docker_internal_url: str):
@@ -42,6 +45,7 @@ class TestConvertChromiumUrl:
         )
 
 
+@pytest.mark.chromium
 @pytest.mark.usefixtures("webserver_docker_internal_url")
 class TestConvertChromiumUrlMocked:
     @pytest.mark.parametrize(
@@ -50,14 +54,14 @@ class TestConvertChromiumUrlMocked:
     )
     def test_convert_orientation(
         self,
-        sync_client: GotenbergClient,
+        mock_sync_client: GotenbergClient,
         webserver_docker_internal_url: str,
         httpx_mock: HTTPXMock,
         emulation: Literal["screen", "print"],
     ):
         httpx_mock.add_response(method="POST")
 
-        with sync_client.chromium.url_to_pdf() as route:
+        with mock_sync_client.chromium.url_to_pdf() as route:
             _ = route.url(webserver_docker_internal_url).media_type(emulation).run()
 
         verify_stream_contains(httpx_mock.get_request(), "emulatedMediaType", emulation)
@@ -68,14 +72,14 @@ class TestConvertChromiumUrlMocked:
     )
     def test_convert_css_or_not_size(
         self,
-        sync_client: GotenbergClient,
+        mock_sync_client: GotenbergClient,
         webserver_docker_internal_url: str,
         httpx_mock: HTTPXMock,
         method: str,
     ):
         httpx_mock.add_response(method="POST")
 
-        with sync_client.chromium.url_to_pdf() as route:
+        with mock_sync_client.chromium.url_to_pdf() as route:
             route.url(webserver_docker_internal_url)
             getattr(route, method)()
             _ = route.run()
@@ -92,14 +96,14 @@ class TestConvertChromiumUrlMocked:
     )
     def test_convert_background_graphics_or_not(
         self,
-        sync_client: GotenbergClient,
+        mock_sync_client: GotenbergClient,
         webserver_docker_internal_url: str,
         httpx_mock: HTTPXMock,
         method: str,
     ):
         httpx_mock.add_response(method="POST")
 
-        with sync_client.chromium.url_to_pdf() as route:
+        with mock_sync_client.chromium.url_to_pdf() as route:
             route.url(webserver_docker_internal_url)
             getattr(route, method)()
             _ = route.run()
@@ -116,14 +120,14 @@ class TestConvertChromiumUrlMocked:
     )
     def test_convert_hide_background_or_not(
         self,
-        sync_client: GotenbergClient,
+        mock_sync_client: GotenbergClient,
         webserver_docker_internal_url: str,
         httpx_mock: HTTPXMock,
         method: str,
     ):
         httpx_mock.add_response(method="POST")
 
-        with sync_client.chromium.url_to_pdf() as route:
+        with mock_sync_client.chromium.url_to_pdf() as route:
             route.url(webserver_docker_internal_url)
             getattr(route, method)()
             _ = route.run()
@@ -140,14 +144,14 @@ class TestConvertChromiumUrlMocked:
     )
     def test_convert_fail_exceptions(
         self,
-        sync_client: GotenbergClient,
+        mock_sync_client: GotenbergClient,
         webserver_docker_internal_url: str,
         httpx_mock: HTTPXMock,
         method: str,
     ):
         httpx_mock.add_response(method="POST")
 
-        with sync_client.chromium.url_to_pdf() as route:
+        with mock_sync_client.chromium.url_to_pdf() as route:
             route.url(webserver_docker_internal_url)
             getattr(route, method)()
             _ = route.run()
@@ -160,13 +164,13 @@ class TestConvertChromiumUrlMocked:
 
     def test_convert_scale(
         self,
-        sync_client: GotenbergClient,
+        mock_sync_client: GotenbergClient,
         webserver_docker_internal_url: str,
         httpx_mock: HTTPXMock,
     ):
         httpx_mock.add_response(method="POST")
 
-        with sync_client.chromium.url_to_pdf() as route:
+        with mock_sync_client.chromium.url_to_pdf() as route:
             _ = route.url(webserver_docker_internal_url).scale(1.5).run()
 
         verify_stream_contains(
@@ -177,13 +181,13 @@ class TestConvertChromiumUrlMocked:
 
     def test_convert_page_ranges(
         self,
-        sync_client: GotenbergClient,
+        mock_sync_client: GotenbergClient,
         webserver_docker_internal_url: str,
         httpx_mock: HTTPXMock,
     ):
         httpx_mock.add_response(method="POST")
 
-        with sync_client.chromium.url_to_pdf() as route:
+        with mock_sync_client.chromium.url_to_pdf() as route:
             _ = route.url(webserver_docker_internal_url).page_ranges("1-5").run()
 
         verify_stream_contains(
@@ -194,13 +198,13 @@ class TestConvertChromiumUrlMocked:
 
     def test_convert_url_render_wait(
         self,
-        sync_client: GotenbergClient,
+        mock_sync_client: GotenbergClient,
         webserver_docker_internal_url: str,
         httpx_mock: HTTPXMock,
     ):
         httpx_mock.add_response(method="POST")
 
-        with sync_client.chromium.url_to_pdf() as route:
+        with mock_sync_client.chromium.url_to_pdf() as route:
             _ = route.url(webserver_docker_internal_url).render_wait(500).run()
 
         verify_stream_contains(
@@ -211,21 +215,23 @@ class TestConvertChromiumUrlMocked:
 
     def test_convert_url_render_wait_error(
         self,
-        sync_url_to_pdf_route: SyncUrlToPdfRoute,
+        mock_sync_client: GotenbergClient,
         webserver_docker_internal_url: str,
     ):
-        with pytest.raises(NegativeWaitDurationError):
-            sync_url_to_pdf_route.url(webserver_docker_internal_url).render_wait(-1).run()
+        # The negative duration is rejected client-side before any request is sent,
+        # so no server (and no httpx_mock) is required.
+        with pytest.raises(NegativeWaitDurationError), mock_sync_client.chromium.url_to_pdf() as route:
+            route.url(webserver_docker_internal_url).render_wait(-1).run()
 
     def test_convert_url_render_expression(
         self,
-        sync_client: GotenbergClient,
+        mock_sync_client: GotenbergClient,
         webserver_docker_internal_url: str,
         httpx_mock: HTTPXMock,
     ):
         httpx_mock.add_response(method="POST")
 
-        with sync_client.chromium.url_to_pdf() as route:
+        with mock_sync_client.chromium.url_to_pdf() as route:
             _ = route.url(webserver_docker_internal_url).render_expression("wait while false;").run()
 
         verify_stream_contains(
@@ -236,13 +242,13 @@ class TestConvertChromiumUrlMocked:
 
     def test_convert_url_user_agent(
         self,
-        sync_client: GotenbergClient,
+        mock_sync_client: GotenbergClient,
         webserver_docker_internal_url: str,
         httpx_mock: HTTPXMock,
     ):
         httpx_mock.add_response(method="POST")
 
-        with sync_client.chromium.url_to_pdf() as route:
+        with mock_sync_client.chromium.url_to_pdf() as route:
             _ = route.url(webserver_docker_internal_url).user_agent("Firefox").run()
 
         verify_stream_contains(
@@ -253,7 +259,7 @@ class TestConvertChromiumUrlMocked:
 
     def test_convert_url_headers(
         self,
-        sync_client: GotenbergClient,
+        mock_sync_client: GotenbergClient,
         webserver_docker_internal_url: str,
         httpx_mock: HTTPXMock,
     ):
@@ -261,10 +267,116 @@ class TestConvertChromiumUrlMocked:
 
         headers = {"X-Auth-Token": "Secure"}
 
-        with sync_client.chromium.url_to_pdf() as route:
+        with mock_sync_client.chromium.url_to_pdf() as route:
             _ = route.url(webserver_docker_internal_url).headers(headers).run()
         verify_stream_contains(
             httpx_mock.get_request(),
             "extraHttpHeaders",
             json.dumps(headers),
         )
+
+    def test_convert_url_flatten(
+        self,
+        mock_sync_client: GotenbergClient,
+        webserver_docker_internal_url: str,
+        httpx_mock: HTTPXMock,
+    ):
+        httpx_mock.add_response(method="POST")
+        with mock_sync_client.chromium.url_to_pdf() as route:
+            route.url(webserver_docker_internal_url).flatten(flatten=True).run()
+        verify_stream_contains(httpx_mock.get_request(), "flatten", "true")
+
+    def test_wait_for_selector(
+        self,
+        mock_sync_client: GotenbergClient,
+        webserver_docker_internal_url: str,
+        httpx_mock: HTTPXMock,
+    ):
+        httpx_mock.add_response(method="POST")
+        with mock_sync_client.chromium.url_to_pdf() as route:
+            route.url(webserver_docker_internal_url).wait_for_selector("#main-content").run()
+        verify_stream_contains(httpx_mock.get_request(), "waitForSelector", "#main-content")
+
+    def test_emulated_media_features(
+        self,
+        mock_sync_client: GotenbergClient,
+        webserver_docker_internal_url: str,
+        httpx_mock: HTTPXMock,
+    ):
+        httpx_mock.add_response(method="POST")
+        features = [{"name": "prefers-color-scheme", "value": "dark"}]
+        with mock_sync_client.chromium.url_to_pdf() as route:
+            route.url(webserver_docker_internal_url).emulated_media_features(features).run()
+        verify_stream_contains(httpx_mock.get_request(), "emulatedMediaFeatures", "prefers-color-scheme")
+
+    def test_fail_on_resource_http_status_codes(
+        self,
+        mock_sync_client: GotenbergClient,
+        webserver_docker_internal_url: str,
+        httpx_mock: HTTPXMock,
+    ):
+        httpx_mock.add_response(method="POST")
+        with mock_sync_client.chromium.url_to_pdf() as route:
+            route.url(webserver_docker_internal_url).fail_on_resource_status_codes([HTTPStatus.NOT_FOUND]).run()
+        verify_stream_contains(httpx_mock.get_request(), "failOnResourceHttpStatusCodes", "404")
+
+    def test_ignore_resource_http_status_domains(
+        self,
+        mock_sync_client: GotenbergClient,
+        webserver_docker_internal_url: str,
+        httpx_mock: HTTPXMock,
+    ):
+        httpx_mock.add_response(method="POST")
+        with mock_sync_client.chromium.url_to_pdf() as route:
+            route.url(webserver_docker_internal_url).ignore_resource_status_domains(["cdn.example.com"]).run()
+        verify_stream_contains(httpx_mock.get_request(), "ignoreResourceHttpStatusDomains", "cdn.example.com")
+
+    def test_skip_network_almost_idle_event(
+        self,
+        mock_sync_client: GotenbergClient,
+        webserver_docker_internal_url: str,
+        httpx_mock: HTTPXMock,
+    ):
+        httpx_mock.add_response(method="POST")
+        with mock_sync_client.chromium.url_to_pdf() as route:
+            route.url(webserver_docker_internal_url).skip_network_almost_idle(skip=True).run()
+        verify_stream_contains(httpx_mock.get_request(), "skipNetworkAlmostIdleEvent", "true")
+
+    def test_generate_tagged_pdf(
+        self,
+        mock_sync_client: GotenbergClient,
+        webserver_docker_internal_url: str,
+        httpx_mock: HTTPXMock,
+    ):
+        httpx_mock.add_response(method="POST")
+        with mock_sync_client.chromium.url_to_pdf() as route:
+            route.url(webserver_docker_internal_url).generate_tagged_pdf(generate=True).run()
+        verify_stream_contains(httpx_mock.get_request(), "generateTaggedPdf", "true")
+
+    def test_string_header(
+        self,
+        mock_sync_client: GotenbergClient,
+        webserver_docker_internal_url: str,
+        httpx_mock: HTTPXMock,
+    ):
+        httpx_mock.add_response(method="POST")
+        with mock_sync_client.chromium.url_to_pdf() as route:
+            route.url(webserver_docker_internal_url).string_header("<html><body>Header</body></html>").run()
+        request = httpx_mock.get_request()
+        boundary = request.headers["Content-Type"].split("boundary=")[1]
+        parts = request.content.split(f"--{boundary}".encode())
+        assert any(b'filename="header.html"' in part for part in parts)
+
+    def test_string_footer(
+        self,
+        mock_sync_client: GotenbergClient,
+        webserver_docker_internal_url: str,
+        httpx_mock: HTTPXMock,
+    ):
+        httpx_mock.add_response(method="POST")
+        with mock_sync_client.chromium.url_to_pdf() as route:
+            route.url(webserver_docker_internal_url).string_footer("<html><body>Footer</body></html>").run()
+        request = httpx_mock.get_request()
+        boundary = request.headers["Content-Type"].split("boundary=")[1]
+        parts = request.content.split(f"--{boundary}".encode())
+        assert any(b'filename="footer.html"' in part for part in parts)

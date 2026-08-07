@@ -11,6 +11,7 @@ from skylos.visitors.test_aware import TestAwareVisitor
 from skylos.visitors.framework_aware import FrameworkAwareVisitor
 from skylos.analysis.penalties import apply_penalties
 from skylos.deadcode.config_entrypoints import configured_entrypoint_reason
+from skylos.engines.go_runner import GoEngineError
 
 from skylos.analyzer import (
     Skylos,
@@ -3594,6 +3595,264 @@ def test_changed_files_scans_dotenv_for_secrets(tmp_path):
     assert ".env" in scanned
 
 
+_ISSUE_693_UV_LOCK = """\
+version = 1
+revision = 1
+requires-python = ">=3.11"
+
+[[package]]
+name = "internal-telemetry"
+version = "1.4.2"
+source = { registry = "https://artifacts.corp.internal/api/pypi/pypi-private/simple" }
+wheels = [
+    { url = "https://artifacts.corp.internal/api/pypi/pypi-private/download/internal_telemetry-1.4.2-py3-none-any.whl?access_token=V7pQ-2mKzR9xLd4TbN6wYc0JsE3hU8fA1gXvM5nP", hash = "sha256:3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f3f" },
+]
+"""
+
+
+def _issue_693_findings(result):
+    return [
+        finding
+        for finding in result.get("secrets", [])
+        if finding.get("rule_id") == "SKY-S101"
+        and finding.get("file") == "uv.lock"
+        and finding.get("provider") == "generic"
+        and finding.get("line") == 10
+        and finding.get("col") == 131
+        and finding.get("end_col") == 171
+        and finding.get("preview") == "V7pQ…M5nP"
+    ]
+
+
+def test_lockfile_only_directory_secret_survives_final_result(tmp_path):
+    (tmp_path / "uv.lock").write_text(_ISSUE_693_UV_LOCK, encoding="utf-8")
+
+    result = json.loads(analyze(str(tmp_path), enable_secrets=True, grep_verify=False))
+
+    assert len(_issue_693_findings(result)) == 1
+    assert result["analysis_summary"]["secrets_count"] == len(result["secrets"])
+
+
+def test_direct_lockfile_secret_does_not_report_python_parse_error(tmp_path):
+    lockfile = tmp_path / "uv.lock"
+    lockfile.write_text(_ISSUE_693_UV_LOCK, encoding="utf-8")
+    (tmp_path / "sibling.lock").write_text(_ISSUE_693_UV_LOCK, encoding="utf-8")
+
+    result = json.loads(analyze(str(lockfile), enable_secrets=True, grep_verify=False))
+
+    assert len(_issue_693_findings(result)) == 1
+    assert {finding["file"] for finding in result["secrets"]} == {"uv.lock"}
+    assert result["analysis_errors"] == []
+    assert result["analysis_summary"]["analysis_error_count"] == 0
+
+
+def test_lockfile_secret_survives_final_result_with_source_files(tmp_path):
+    (tmp_path / "app.py").write_text("print('ok')\n", encoding="utf-8")
+    (tmp_path / "uv.lock").write_text(_ISSUE_693_UV_LOCK, encoding="utf-8")
+
+    result = json.loads(analyze(str(tmp_path), enable_secrets=True, grep_verify=False))
+
+    assert len(_issue_693_findings(result)) == 1
+
+
+def test_changed_lockfile_secret_survives_final_result(tmp_path):
+    (tmp_path / "app.py").write_text("print('ok')\n", encoding="utf-8")
+    changed_lock = tmp_path / "uv.lock"
+    changed_lock.write_text(_ISSUE_693_UV_LOCK, encoding="utf-8")
+    (tmp_path / "unchanged.lock").write_text(
+        _ISSUE_693_UV_LOCK.replace("uv.lock", "unchanged.lock"),
+        encoding="utf-8",
+    )
+
+    result = json.loads(
+        analyze(
+            str(tmp_path),
+            enable_secrets=True,
+            changed_files={str(changed_lock.resolve())},
+            grep_verify=False,
+        )
+    )
+
+    assert len(_issue_693_findings(result)) == 1
+    assert all(finding.get("file") != "unchanged.lock" for finding in result["secrets"])
+
+
+def _issue_693_preview_files(result):
+    return [
+        finding["file"]
+        for finding in result.get("secrets", [])
+        if finding.get("preview") == "V7pQ…M5nP"
+    ]
+
+
+def test_multiple_source_directories_keep_secret_scan_in_scope(tmp_path):
+    first = tmp_path / "first"
+    second = tmp_path / "second"
+    first.mkdir()
+    second.mkdir()
+    (first / "app.py").write_text("print('first')\n", encoding="utf-8")
+    (second / "app.py").write_text("print('second')\n", encoding="utf-8")
+    (first / "uv.lock").write_text(_ISSUE_693_UV_LOCK, encoding="utf-8")
+    (tmp_path / "outside.lock").write_text(_ISSUE_693_UV_LOCK, encoding="utf-8")
+
+    result = json.loads(
+        analyze([str(first), str(second)], enable_secrets=True, grep_verify=False)
+    )
+
+    assert _issue_693_preview_files(result) == ["first/uv.lock"]
+
+
+def test_multiple_config_only_directories_keep_secret_scan_in_scope(tmp_path):
+    first = tmp_path / "first"
+    second = tmp_path / "second"
+    first.mkdir()
+    second.mkdir()
+    (first / "uv.lock").write_text(_ISSUE_693_UV_LOCK, encoding="utf-8")
+    (second / "safe.lock").write_text("version = 1\n", encoding="utf-8")
+    (tmp_path / "outside.lock").write_text(_ISSUE_693_UV_LOCK, encoding="utf-8")
+
+    result = json.loads(
+        analyze([str(first), str(second)], enable_secrets=True, grep_verify=False)
+    )
+
+    assert _issue_693_preview_files(result) == ["first/uv.lock"]
+
+
+def test_overlapping_scan_targets_deduplicate_lockfile_findings(tmp_path):
+    nested = tmp_path / "nested"
+    nested.mkdir()
+    (tmp_path / "app.py").write_text("print('ok')\n", encoding="utf-8")
+    (nested / "uv.lock").write_text(_ISSUE_693_UV_LOCK, encoding="utf-8")
+
+    result = json.loads(
+        analyze([str(tmp_path), str(nested)], enable_secrets=True, grep_verify=False)
+    )
+
+    assert _issue_693_preview_files(result) == ["nested/uv.lock"]
+
+
+def test_changed_files_cannot_widen_multiple_scan_targets(tmp_path):
+    first = tmp_path / "first"
+    second = tmp_path / "second"
+    first.mkdir()
+    second.mkdir()
+    (first / "app.py").write_text("print('first')\n", encoding="utf-8")
+    (second / "app.py").write_text("print('second')\n", encoding="utf-8")
+    selected_lock = first / "uv.lock"
+    selected_lock.write_text(_ISSUE_693_UV_LOCK, encoding="utf-8")
+    outside_lock = tmp_path / "outside.lock"
+    outside_lock.write_text(_ISSUE_693_UV_LOCK, encoding="utf-8")
+
+    result = json.loads(
+        analyze(
+            [str(first), str(second)],
+            enable_secrets=True,
+            changed_files={str(selected_lock), str(outside_lock)},
+            grep_verify=False,
+        )
+    )
+
+    assert _issue_693_preview_files(result) == ["first/uv.lock"]
+
+
+def test_changed_file_cannot_escape_scan_target_through_symlink_parent(tmp_path):
+    first = tmp_path / "first"
+    second = tmp_path / "second"
+    outside = tmp_path / "outside"
+    first.mkdir()
+    second.mkdir()
+    outside.mkdir()
+    (first / "app.py").write_text("print('first')\n", encoding="utf-8")
+    (second / "app.py").write_text("print('second')\n", encoding="utf-8")
+    outside_lock = outside / "uv.lock"
+    outside_lock.write_text(_ISSUE_693_UV_LOCK, encoding="utf-8")
+    escape = first / "escape"
+    escape.symlink_to(outside, target_is_directory=True)
+
+    result = json.loads(
+        analyze(
+            [str(first), str(second)],
+            enable_secrets=True,
+            changed_files={str(escape / "uv.lock")},
+            grep_verify=False,
+        )
+    )
+
+    assert _issue_693_preview_files(result) == []
+
+
+def test_direct_lockfile_accepts_relative_changed_file(tmp_path, monkeypatch):
+    (tmp_path / "uv.lock").write_text(_ISSUE_693_UV_LOCK, encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+
+    result = json.loads(
+        analyze(
+            "uv.lock",
+            enable_secrets=True,
+            changed_files={"uv.lock"},
+            grep_verify=False,
+        )
+    )
+
+    assert len(_issue_693_findings(result)) == 1
+
+
+def test_symlink_first_target_does_not_hide_safe_later_target(tmp_path):
+    skipped = tmp_path / "skipped"
+    safe = tmp_path / "safe"
+    skipped.mkdir()
+    safe.mkdir()
+    (safe / "uv.lock").write_text(_ISSUE_693_UV_LOCK, encoding="utf-8")
+    link = tmp_path / "linked"
+    link.symlink_to(skipped, target_is_directory=True)
+
+    result = json.loads(
+        analyze([str(link), str(safe)], enable_secrets=True, grep_verify=False)
+    )
+
+    assert _issue_693_preview_files(result) == ["safe/uv.lock"]
+
+
+def test_scan_targets_through_symlinked_ancestor_are_canonicalized(tmp_path):
+    real_root = tmp_path / "real"
+    first = real_root / "first"
+    second = real_root / "second"
+    first.mkdir(parents=True)
+    second.mkdir()
+    (second / "uv.lock").write_text(_ISSUE_693_UV_LOCK, encoding="utf-8")
+    alias = tmp_path / "alias"
+    alias.symlink_to(real_root, target_is_directory=True)
+
+    result = json.loads(
+        analyze(
+            [str(alias / "first"), str(alias / "second")],
+            enable_secrets=True,
+            grep_verify=False,
+        )
+    )
+
+    assert _issue_693_preview_files(result) == ["second/uv.lock"]
+
+
+@pytest.mark.parametrize("with_source", [False, True])
+def test_oversized_lockfile_reports_incomplete_secret_scan(
+    tmp_path, monkeypatch, with_source
+):
+    if with_source:
+        (tmp_path / "app.py").write_text("print('ok')\n", encoding="utf-8")
+    lockfile = tmp_path / "uv.lock"
+    lockfile.write_text(_ISSUE_693_UV_LOCK, encoding="utf-8")
+    monkeypatch.setattr("skylos.analyzer.MAX_SECRET_CONFIG_BYTES", 64)
+
+    target = tmp_path if with_source else lockfile
+    result = json.loads(analyze(str(target), enable_secrets=True, grep_verify=False))
+
+    assert _issue_693_findings(result) == []
+    assert result["analysis_summary"]["analysis_error_count"] == 1
+    assert result["analysis_errors"][0]["kind"] == "secret_config_too_large"
+    assert "64-byte safety limit" in result["analysis_errors"][0]["message"]
+
+
 def test_config_secret_scan_skips_symlink_targets_outside_root(tmp_path):
     (tmp_path / "app.py").write_text("print('ok')\n", encoding="utf-8")
     outside_secret = tmp_path.parent / "outside_secret"
@@ -3685,7 +3944,10 @@ class TestRepoPhantomReferences:
                 "skylos.engines.go_runner.get_go_engine_status",
                 return_value={
                     "status": "unavailable",
-                    "reason": "Go engine binary not found",
+                    "reason": (
+                        "\x1b[31mGo engine binary not found\x1b[0m\n"
+                        "unsafe\x00\x85detail"
+                    ),
                     "configured_by": "discovery",
                 },
             ),
@@ -3699,7 +3961,116 @@ class TestRepoPhantomReferences:
         report = result["analysis_summary"]["language_engines"]["go"]
         assert report["status"] == "partial"
         assert report["skipped_checks"] == ["dead_code", "security"]
+        assert report["engine"]["reason"] == (
+            "Go engine binary not found unsafe detail"
+        )
         assert result["analysis_summary"]["incomplete_languages"] == ["go"]
+        assert result["analysis_summary"]["analysis_error_count"] == 1
+        assert result["analysis_summary"]["grade_unavailable_reason"] == (
+            "analysis_incomplete"
+        )
+        assert "grade" not in result
+
+        assert len(result["analysis_errors"]) == 1
+        error = result["analysis_errors"][0]
+        assert error["rule_id"] == "SKY-ANALYSIS-INCOMPLETE"
+        assert error["kind"] == "language_engine_unavailable"
+        assert error["error_type"] == "GoEngineUnavailable"
+        assert error["file"] == str(source)
+        assert error["language"] == "go"
+        assert error["affected_file_count"] == 1
+        assert error["skipped_checks"] == ["dead_code", "security"]
+        assert "Go engine binary not found" in error["message"]
+        assert "python_version" not in error
+
+    def test_analyze_fails_closed_once_when_available_go_engine_crashes(self, tmp_path):
+        (tmp_path / "go.mod").write_text(
+            "module example.com/demo\n\ngo 1.22\n",
+            encoding="utf-8",
+        )
+        first_source = tmp_path / "a.go"
+        second_source = tmp_path / "z.go"
+        first_source.write_text("package demo\n", encoding="utf-8")
+        second_source.write_text("package demo\n", encoding="utf-8")
+
+        def quality_finding(_root_node, _source, file_path):
+            return [
+                {
+                    "rule_id": "SKY-Q301",
+                    "severity": "MEDIUM",
+                    "message": "Quality analysis still ran",
+                    "file": file_path,
+                    "line": 1,
+                    "col": 0,
+                    "name": "demo",
+                    "simple_name": "demo",
+                }
+            ]
+
+        with (
+            patch(
+                "skylos.engines.go_runner.get_go_engine_status",
+                return_value={
+                    "status": "available",
+                    "binary": "/tmp/skylos-go",
+                    "configured_by": "PATH",
+                },
+            ),
+            patch(
+                "skylos.visitors.languages.go.go.run_go_engine_for_module",
+                side_effect=GoEngineError(
+                    "\x1b[31mengine crashed\x1b[0m\nunsafe\x00\x85detail"
+                ),
+            ) as run_engine,
+            patch("skylos.visitors.languages.go.go.GO_LANG", object()),
+            patch("skylos.visitors.languages.go.go.Parser") as parser_type,
+            patch(
+                "skylos.visitors.languages.go.go.scan_go_quality",
+                side_effect=quality_finding,
+            ),
+        ):
+            parser_type.return_value.parse.return_value.root_node = object()
+            result = json.loads(
+                analyze(
+                    str(tmp_path),
+                    enable_quality=True,
+                    grep_verify=False,
+                )
+            )
+
+        run_engine.assert_called_once_with(tmp_path.resolve())
+        report = result["analysis_summary"]["language_engines"]["go"]
+        assert report["status"] == "partial"
+        assert report["completed_checks"] == ["quality"]
+        assert report["skipped_checks"] == ["dead_code", "security"]
+        assert report["failed_module_count"] == 1
+        assert result["analysis_summary"]["incomplete_languages"] == ["go"]
+        assert result["analysis_summary"]["analysis_error_count"] == 1
+        assert result["analysis_summary"]["grade_unavailable_reason"] == (
+            "analysis_incomplete"
+        )
+        assert "grade" not in result
+
+        assert len(result["analysis_errors"]) == 1
+        error = result["analysis_errors"][0]
+        assert error["rule_id"] == "SKY-ANALYSIS-INCOMPLETE"
+        assert error["kind"] == "language_engine_unavailable"
+        assert error["error_type"] == "GoEngineError"
+        assert error["file"] == str(first_source)
+        assert error["module_root"] == str(tmp_path.resolve())
+        assert error["affected_file_count"] == 2
+        assert "engine crashed unsafe detail" in error["message"]
+        assert all(
+            not (ord(char) < 0x20 or 0x7F <= ord(char) <= 0x9F)
+            for char in error["message"]
+        )
+
+        quality = [
+            finding
+            for finding in result.get("quality", [])
+            if finding.get("message") == "Quality analysis still ran"
+        ]
+        assert len(quality) == 2
 
     def test_resolve_analysis_root_ignores_home_git_root_without_project_marker(
         self, tmp_path, monkeypatch

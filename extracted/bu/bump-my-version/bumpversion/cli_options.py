@@ -192,6 +192,13 @@ tag_option: Callable = click.option(
     help="Create a tag in version control",
 )
 
+push_tag_option: Callable = click.option(
+    "--push-tag/--no-push-tag",
+    default=None,
+    envvar="BUMPVERSION_PUSH_TAG",
+    help="Push the tag to the remote after creation (only works with --tag)",
+)
+
 sign_tags_option: Callable = click.option(
     "--sign-tags/--no-sign-tags",
     default=None,

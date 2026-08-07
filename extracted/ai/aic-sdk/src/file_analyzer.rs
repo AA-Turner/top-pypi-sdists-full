@@ -10,11 +10,11 @@ use crate::to_py_err;
 /// FileAnalyzer is a convenience wrapper around a Collector and Analyzer pair for non-real-time
 /// analysis of audio that is already loaded in memory.
 ///
-/// Each call to analyze() configures the collector for mono input with the model's optimal frame
+/// Each call to analyze() configures the collector for mono input with the model's optimal block
 /// size. It analyzes independent five-second windows, advancing the start of each window by
 /// step_samples.
 ///
-/// For streaming or multi-channel analysis, use analyzer_pair() directly.
+/// For streaming analysis, use analyzer_pair() directly.
 ///
 /// Example:
 ///
@@ -105,18 +105,28 @@ impl FileAnalyzer {
         step_samples: Option<usize>,
         py: Python<'py>,
     ) -> PyResult<Vec<AnalysisResult>> {
-        let owned = audio.as_array().as_standard_layout().into_owned();
-        let audio_vec = owned
-            .as_slice()
-            .expect("Array is in standard layout")
-            .to_vec();
+        let view = audio.as_array();
 
         let inner = &mut self.inner;
 
         // The heavy native work (initialize + buffer + analyze) runs without the GIL so other
         // Python threads can make progress.
         let results = py
-            .detach(move || inner.analyze(&audio_vec, sample_rate, step_samples))
+            .detach(move || {
+                // Pass the samples through directly when already contiguous (the common case);
+                // only a strided view needs a normalizing copy.
+                match view.as_slice() {
+                    Some(slice) => inner.analyze(slice, sample_rate, step_samples),
+                    None => {
+                        let owned = view.as_standard_layout();
+                        inner.analyze(
+                            owned.as_slice().expect("standard layout is contiguous"),
+                            sample_rate,
+                            step_samples,
+                        )
+                    }
+                }
+            })
             .map_err(to_py_err)?;
 
         Ok(results.into_iter().map(AnalysisResult::from).collect())

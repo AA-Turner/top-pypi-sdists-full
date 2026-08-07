@@ -25,7 +25,8 @@ from pathlib import Path
 
 from xbsl import __version__
 from xbsl import (
-    dataset, docs, formedits, formhandlers, formmodel, i18n, metamodel, report, scaffold, uischema,
+    dataset, docs, environment, formedits, formhandlers, formmodel, i18n, metamodel, report,
+    scaffold, uischema,
 )
 from xbsl.cli import _filter_requested, discover_with_context
 from xbsl.engine import RULES, load, load_text, run, run_sources
@@ -95,6 +96,16 @@ def _forbid_unknown_arguments() -> None:
 def list_rules() -> list[dict]:
     """List the available linter rules (id, title, tier, scope, severity)."""
     return [r.as_dict() for r in sorted(RULES, key=lambda x: (x.tier, x.id))]
+
+
+@mcp.tool()
+def version_info() -> dict:
+    """The environment answering: engine version, interpreter, data version, plugins.
+
+    Two environments with diverged plugin versions (the editor's LSP, the agent's MCP)
+    answer differently on the same file - this names which one is talking.
+    """
+    return environment.snapshot()
 
 
 @mcp.tool()
@@ -634,6 +645,37 @@ def meta_rename_object(
     if dry_run:
         return result.as_dict(content=False)
     return _apply_and_lint(result)
+
+
+@mcp.tool()
+def meta_delete_object(
+    root: str,
+    name: str | None = None,
+    yaml_path: str | None = None,
+    dry_run: bool = True,
+) -> dict:
+    """Delete a configuration object whole: the yaml/module pair, its forms `<Имя>Форма*`
+    and the card-list row component `СтрокаСписка<Имя>`, with their pairs. A subsystem in
+    1C:Element is the folder the files live in, so the membership goes away with the files.
+    Every REMAINING mention of the name across the project is listed by file and line
+    (string literals and comments included - a router string, seeding, dictionary keys)
+    and deliberately NOT edited: which mention is dead code is the author's call.
+    yaml_path resolves ambiguity between namesakes. Deletion is irreversible, so
+    dry_run defaults to TRUE - the first call returns the plan; repeat with
+    dry_run=false to perform it.
+    """
+    try:
+        result = scaffold.op_delete_object(
+            Path(root), name, yaml_path=Path(yaml_path) if yaml_path else None,
+        )
+    except scaffold.ScaffoldError as exc:
+        return {"error": str(exc)}
+    if dry_run:
+        payload = result.as_dict(content=False)
+        payload["dry-run"] = True
+        return payload
+    scaffold.apply_result(result)
+    return result.as_dict(content=False)
 
 
 @mcp.tool()

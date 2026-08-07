@@ -8,6 +8,7 @@ from typing import List, Optional
 from ..rule import AutofixConfidence, Rule, RuleViolation, Severity
 from ..rule_docs import rule_doc_url
 from . import get_counts, relative_path, should_show_info
+from skillsaw.paths import safe_resolve
 
 
 def format_duration(seconds: float) -> str:
@@ -30,7 +31,7 @@ def _file_uri(file_path) -> Optional[str]:
     try:
         path = Path(file_path)
         if not path.is_absolute():
-            path = path.resolve()
+            path = safe_resolve(path) or path
         return path.as_uri()
     except (OSError, ValueError):
         return None
@@ -126,7 +127,7 @@ def format_text(
     output.append(f"\n{bold}Scanned:{reset}")
     repo_types_str = ", ".join(context.repo_type_names(include_unknown=False))
     output.append(f"  Repo type: {repo_types_str or 'unknown'}")
-    output.append(f"  Plugins:   {len(context.plugins)}")
+    output.append(f"  Plugins:   {len(context.distinct_plugin_dirs())}")
     output.append(f"  Skills:    {len(context.skills)}")
     output.append(f"  Rules run: {len(rules)}")
     if duration is not None:

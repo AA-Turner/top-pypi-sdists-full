@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: imap-tools
-Version: 1.14.0
+Version: 1.15.0
 Summary: Work with email by IMAP
 Home-page: https://github.com/ikvk/imap_tools
 Author: Vladimir Kaukin
@@ -127,7 +127,7 @@ Info about lib are at: *this page*, docstrings, issues, pull requests,
 
 Thread safety expectation: lib is not thread‑safe.
 
-Monkeypatches for imaplib: sets `imaplib._MAXLINE` (mailbox.py) and modifies `imaplib.Commands["IDLE"]` (idle.py)
+Monkeypatches for imaplib: sets ``imaplib._MAXLINE`` (mailbox.py) and modifies ``imaplib.Commands["IDLE"]`` (idle.py)
 
 📧 Email attributes
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -483,7 +483,8 @@ Big thanks to people who helped to develop this library 🎉:
 `hurricane-dorian <https://github.com/hurricane-dorian>`_,
 `dlucredativ <https://github.com/dlucredativ>`_,
 `ziima <https://github.com/ziima>`_,
-`Zomono <https://github.com/Zomono>`_
+`Zomono <https://github.com/Zomono>`_,
+`sebmuc99 <https://github.com/sebmuc99>`_
 
 
 Help other open projects that you use 🚀

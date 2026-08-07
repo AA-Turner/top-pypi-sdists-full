@@ -108,11 +108,13 @@ mod vars;
 mod verify;
 mod wait;
 mod wc;
-mod yaml;
 mod yes;
+#[cfg(feature = "jq")]
+mod yq;
 mod zip_cmd;
 
 mod helpers;
+pub(crate) use crate::execution_capability::ExecutionExtensions;
 pub(crate) use helpers::{BuiltinHelper, invalid_option};
 
 pub(crate) mod limits;
@@ -135,7 +137,7 @@ mod typescript;
 mod sqlite;
 
 pub use alias::{Alias, Unalias};
-pub use archive::{Gunzip, Gzip, Tar};
+pub use archive::{Bunzip2, Bzcat, Bzip2, Gunzip, Gzip, Tar};
 pub use assert::Assert;
 pub use awk::Awk;
 pub use base64::Base64;
@@ -218,8 +220,9 @@ pub use vars::{Eval, Local, Readonly, Set, Shift, Shopt, Times, Unset};
 pub use verify::Verify;
 pub use wait::Wait;
 pub use wc::Wc;
-pub use yaml::Yaml;
 pub use yes::Yes;
+#[cfg(feature = "jq")]
+pub use yq::Yq;
 pub use zip_cmd::{Unzip, Zip};
 
 #[cfg(feature = "git")]
@@ -249,7 +252,6 @@ pub use sqlite::{Sqlite, SqliteBackend, SqliteLimits};
 
 use async_trait::async_trait;
 use clap::{CommandFactory, FromArgMatches};
-use std::any::{Any, TypeId};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -263,19 +265,20 @@ pub(crate) async fn read_text_file(
     path: &Path,
     cmd_name: &str,
 ) -> std::result::Result<String, ExecResult> {
-    let content = fs
-        .read_file(path)
+    let content = read_stream_file(fs, path, cmd_name).await?;
+
+    Ok(content.to_string())
+}
+
+pub(crate) async fn read_stream_file(
+    fs: &dyn FileSystem,
+    path: &Path,
+    cmd_name: &str,
+) -> std::result::Result<crate::StreamData, ExecResult> {
+    fs.read_file(path)
         .await
-        .map_err(|e| ExecResult::err(format!("{cmd_name}: {}: {e}\n", path.display()), 1))?;
-
-    // Binary device files (/dev/urandom, /dev/random): preserve raw bytes as
-    // Latin-1 (ISO 8859-1) so each byte 0x00-0xFF maps 1:1 to a char.
-    // This lets `tr -dc 'a-z0-9' < /dev/urandom | head -c N` work correctly.
-    if path == Path::new("/dev/urandom") || path == Path::new("/dev/random") {
-        return Ok(content.iter().map(|&b| b as char).collect());
-    }
-
-    Ok(String::from_utf8_lossy(&content).into_owned())
+        .map(crate::StreamData::from)
+        .map_err(|e| ExecResult::err(format!("{cmd_name}: {}: {e}\n", path.display()), 1))
 }
 
 /// Check args for `--help` and optionally `--version`.
@@ -345,7 +348,19 @@ pub trait Extension: Send + Sync {
 /// builtins — so embedders can override baked-in commands.
 #[derive(Clone, Default)]
 pub struct BuiltinRegistry {
-    inner: Arc<std::sync::RwLock<HashMap<String, Arc<dyn Builtin>>>>,
+    inner: Arc<std::sync::RwLock<HashMap<String, RegisteredBuiltin>>>,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(crate) enum BuiltinAccess {
+    Scoped,
+    TrustedHost,
+}
+
+#[derive(Clone)]
+pub(crate) struct RegisteredBuiltin {
+    pub(crate) builtin: Arc<dyn Builtin>,
+    pub(crate) access: BuiltinAccess,
 }
 
 impl BuiltinRegistry {
@@ -357,18 +372,49 @@ impl BuiltinRegistry {
     /// Register or replace a builtin under `name`.
     pub fn insert(&self, name: impl Into<String>, builtin: Arc<dyn Builtin>) {
         if let Ok(mut guard) = self.inner.write() {
-            guard.insert(name.into(), builtin);
+            guard.insert(
+                name.into(),
+                RegisteredBuiltin {
+                    builtin,
+                    access: BuiltinAccess::Scoped,
+                },
+            );
+        }
+    }
+
+    /// Register a builtin with intentionally unscoped host-facility access.
+    ///
+    /// This is for trusted host integrations whose retained VFS handle is
+    /// deliberately session-scoped. Prefer [`insert`](Self::insert), whose
+    /// handles are revoked at the end of every execution.
+    pub fn insert_trusted(&self, name: impl Into<String>, builtin: Arc<dyn Builtin>) {
+        if let Ok(mut guard) = self.inner.write() {
+            guard.insert(
+                name.into(),
+                RegisteredBuiltin {
+                    builtin,
+                    access: BuiltinAccess::TrustedHost,
+                },
+            );
         }
     }
 
     /// Remove the entry for `name`, returning the previously registered
     /// builtin if any.
     pub fn remove(&self, name: &str) -> Option<Arc<dyn Builtin>> {
-        self.inner.write().ok().and_then(|mut g| g.remove(name))
+        self.inner
+            .write()
+            .ok()
+            .and_then(|mut g| g.remove(name))
+            .map(|entry| entry.builtin)
     }
 
     /// Look up the builtin registered under `name`, returning a cloned handle.
     pub fn lookup(&self, name: &str) -> Option<Arc<dyn Builtin>> {
+        self.lookup_entry(name).map(|entry| entry.builtin)
+    }
+
+    pub(crate) fn lookup_entry(&self, name: &str) -> Option<RegisteredBuiltin> {
         self.inner.read().ok().and_then(|g| g.get(name).cloned())
     }
 
@@ -386,16 +432,62 @@ impl BuiltinRegistry {
     }
 }
 
-/// Typed, per-execution data exposed to builtin implementations.
+/// Resolve a command name to a builtin at dispatch time.
 ///
-/// This is intentionally separate from shell state: extensions live for one
-/// `Bash::exec*()` call, while the shell/interpreter may persist across many
-/// executions.
-#[derive(Default)]
-pub struct ExecutionExtensions {
-    values: HashMap<TypeId, Box<dyn Any + Send + Sync>>,
+/// [`BuiltinRegistry`] answers "which names are registered" from a map fixed
+/// before the name is known. A resolver is asked *about a specific name*, after
+/// every other dispatch route has missed and immediately before the 127
+/// "command not found" path — so an embedder can decide at runtime, per name,
+/// without enumerating the set in advance.
+///
+/// Decision: resolvers return a [`Builtin`] rather than executing directly.
+/// The resolved builtin runs through the same dispatch path as every other
+/// builtin, so `before_tool` hooks fire with the resolved name and can veto it,
+/// `catch_unwind` still contains panics, and redirects and stdin behave
+/// identically. A bespoke execution path would have to re-earn all of that.
+///
+/// Returning `None` falls through to the normal `command not found` error.
+///
+/// # Security
+///
+/// A resolver is embedder-supplied host code, exactly like a builtin passed to
+/// [`BashBuilder::builtin`](crate::BashBuilder::builtin) — it grants no
+/// capability the embedder did not already have. What it *does* change is that
+/// the set of names reaching host code stops being enumerable in advance, so
+/// `Bash::builtin_names()` no longer bounds it. `before_tool` remains the
+/// enforcement backstop; see `knowledge/integrations/script-analysis.md`.
+///
+/// # Example
+///
+/// ```
+/// use bashkit::{Builtin, BuiltinContext, CommandResolver, ExecResult, async_trait};
+/// use std::sync::Arc;
+///
+/// struct Echoer(String);
+///
+/// #[async_trait]
+/// impl Builtin for Echoer {
+///     async fn execute(&self, _ctx: BuiltinContext<'_>) -> bashkit::Result<ExecResult> {
+///         Ok(ExecResult::ok(format!("ran {}\n", self.0)))
+///     }
+/// }
+///
+/// struct AnyToolResolver;
+///
+/// impl CommandResolver for AnyToolResolver {
+///     fn resolve(&self, name: &str) -> Option<Arc<dyn Builtin>> {
+///         name.starts_with("tool-").then(|| Arc::new(Echoer(name.into())) as Arc<dyn Builtin>)
+///     }
+/// }
+/// ```
+pub trait CommandResolver: Send + Sync {
+    /// Return a builtin to run for `name`, or `None` to fall through to
+    /// `command not found`.
+    ///
+    /// Called on every unresolved command, so keep it cheap — cache rather
+    /// than probing the filesystem on each call.
+    fn resolve(&self, name: &str) -> Option<Arc<dyn Builtin>>;
 }
-
 /// Per-exec wall-clock deadline for builtins with synchronous VM sections.
 #[derive(Debug, Clone)]
 pub(crate) struct ExecutionDeadline {
@@ -432,47 +524,6 @@ impl ExecutionDeadline {
     }
 }
 
-impl ExecutionExtensions {
-    /// Create an empty execution extension bag.
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    /// Insert a typed value, replacing any previous value of the same type.
-    pub fn insert<T>(&mut self, value: T) -> Option<T>
-    where
-        T: Send + Sync + 'static,
-    {
-        self.values
-            .insert(TypeId::of::<T>(), Box::new(value))
-            .and_then(|prev| prev.downcast::<T>().ok().map(|prev| *prev))
-    }
-
-    /// Builder-style insert.
-    pub fn with<T>(mut self, value: T) -> Self
-    where
-        T: Send + Sync + 'static,
-    {
-        let _ = self.insert(value);
-        self
-    }
-
-    /// Look up a typed value by exact type.
-    pub fn get<T>(&self) -> Option<&T>
-    where
-        T: Send + Sync + 'static,
-    {
-        self.values
-            .get(&TypeId::of::<T>())
-            .and_then(|value| value.downcast_ref::<T>())
-    }
-
-    /// Return whether the bag is empty.
-    pub fn is_empty(&self) -> bool {
-        self.values.is_empty()
-    }
-}
-
 /// A sub-command that a builtin wants the interpreter to execute.
 ///
 /// Builtins like `timeout`, `xargs`, and `find -exec` need to execute
@@ -485,7 +536,7 @@ pub struct SubCommand {
     /// Command arguments.
     pub args: Vec<String>,
     /// Optional stdin to pipe into the command.
-    pub stdin: Option<String>,
+    pub stdin: Option<crate::StreamData>,
     /// Command-scoped environment assignments (`VAR=value cmd ...`), applied
     /// only to this command's environment. Used by `xargs --process-slot-var`
     /// to expose a per-invocation parallel-slot index.
@@ -610,14 +661,16 @@ pub struct Context<'a> {
 
     /// Virtual filesystem.
     ///
-    /// Provides async file operations (read, write, mkdir, etc.).
+    /// Provides async file operations (read, write, mkdir, etc.). Custom and
+    /// extension builtins receive a revocable view: cloned handles fail after
+    /// the current execution completes or is cancelled.
     pub fs: Arc<dyn FileSystem>,
 
     /// Standard input from pipeline.
     ///
     /// Contains output from the previous command in a pipeline.
     /// For `echo hello | mycommand`, stdin will be `Some("hello\n")`.
-    pub stdin: Option<&'a str>,
+    pub stdin: Option<&'a crate::StreamData>,
 
     /// HTTP client for network operations (curl, wget).
     ///
@@ -659,14 +712,93 @@ pub struct Context<'a> {
 }
 
 impl<'a> Context<'a> {
-    /// Look up a typed per-execution extension, if present.
-    pub fn execution_extension<T>(&self) -> Option<&T>
+    /// Exact pipeline stdin bytes.
+    pub fn stdin_bytes(&self) -> Option<&[u8]> {
+        self.stdin.map(crate::StreamData::as_bytes)
+    }
+
+    /// Pipeline stdin decoded for a text-only builtin.
+    pub fn stdin_text_lossy(&self) -> Option<std::borrow::Cow<'_, str>> {
+        self.stdin.map(crate::StreamData::text_lossy)
+    }
+
+    /// Aggregate budget shared by this request's commands and runtimes.
+    pub fn execution_budget(
+        &self,
+    ) -> Option<crate::ExecutionCapability<crate::limits::ExecutionBudget>> {
+        self.execution_extension::<crate::limits::ExecutionBudget>()
+    }
+
+    /// Charge bytes materialized after dispatch, such as VFS file contents.
+    pub(crate) fn consume_budget_input(&self, bytes: usize) -> Result<()> {
+        if let Some(budget) = self.execution_budget() {
+            budget
+                .try_with(|budget| budget.consume_input(bytes))
+                .map_err(|_| crate::Error::Cancelled)??;
+        }
+        Ok(())
+    }
+
+    /// Charge scalable internal work that is not a shell command boundary.
+    pub(crate) fn consume_budget_work(&self, units: u64) -> Result<()> {
+        if let Some(budget) = self.execution_budget() {
+            budget
+                .try_with(|budget| budget.consume_work(units))
+                .map_err(|_| crate::Error::Cancelled)??;
+        }
+        Ok(())
+    }
+
+    /// Lease intermediate storage until the returned guard drops.
+    pub(crate) fn lease_budget_bytes(
+        &self,
+        bytes: usize,
+    ) -> Result<Option<crate::limits::ExecutionBudgetLease>> {
+        self.execution_budget()
+            .map(|budget| {
+                budget
+                    .try_with(|budget| budget.lease_bytes(bytes))
+                    .map_err(|_| crate::Error::Cancelled)?
+                    .map_err(Into::into)
+            })
+            .transpose()
+    }
+
+    /// Run async boundary work under this request's cancellation/lifecycle gate.
+    #[cfg(any(feature = "http_client", feature = "scripted_tool"))]
+    pub(crate) async fn run_budgeted<F>(&self, future: F) -> Result<F::Output>
+    where
+        F: std::future::Future,
+    {
+        match self.execution_budget() {
+            Some(budget) => {
+                let budget = budget
+                    .try_with(Clone::clone)
+                    .map_err(|_| crate::Error::Cancelled)?;
+                budget.run(future).await.map_err(Into::into)
+            }
+            None => Ok(future.await),
+        }
+    }
+
+    /// Look up a typed, revocable per-execution extension, if present.
+    pub fn execution_extension<T>(&self) -> Option<crate::ExecutionCapability<T>>
     where
         T: Send + Sync + 'static,
     {
         self.shell
             .as_ref()
             .and_then(|shell| shell.execution_extensions.get::<T>())
+    }
+
+    /// Bind a host value to the current execution lease.
+    pub fn execution_capability<T>(&self, value: T) -> Option<crate::ExecutionCapability<T>>
+    where
+        T: Send + Sync + 'static,
+    {
+        self.shell
+            .as_ref()
+            .and_then(|shell| shell.execution_extensions.capability(value))
     }
 
     /// Create a new Context for testing purposes.
@@ -681,6 +813,11 @@ impl<'a> Context<'a> {
         fs: std::sync::Arc<dyn crate::fs::FileSystem>,
         stdin: Option<&'a str>,
     ) -> Self {
+        let stdin = stdin.map(|text| {
+            let stream: &'static crate::StreamData =
+                Box::leak(Box::new(crate::StreamData::from(text)));
+            stream as &'a crate::StreamData
+        });
         Self {
             args,
             env,
@@ -697,6 +834,16 @@ impl<'a> Context<'a> {
             shell: None,
         }
     }
+}
+
+#[cfg(test)]
+pub(crate) fn test_stream(text: &str) -> &'static crate::StreamData {
+    Box::leak(Box::new(crate::StreamData::from(text)))
+}
+
+#[cfg(test)]
+pub(crate) fn test_stream_opt(text: Option<&str>) -> Option<&'static crate::StreamData> {
+    text.map(test_stream)
 }
 
 /// Trait for implementing builtin commands.
@@ -887,9 +1034,8 @@ impl<'a> BashkitContext<'a> {
 
     fn into_exec_result(self) -> ExecResult {
         ExecResult {
-            stdout: self.stdout,
-            stdout_bytes: None,
-            stderr: self.stderr,
+            stdout: self.stdout.into(),
+            stderr: self.stderr.into(),
             exit_code: self.exit_code,
             ..Default::default()
         }
@@ -927,11 +1073,11 @@ impl<'a> BashkitContext<'a> {
 
     /// Pipeline stdin, if the builtin is invoked after a pipe.
     pub fn stdin(&self) -> Option<&str> {
-        self.inner.stdin
+        self.inner.stdin.and_then(|stdin| stdin.text().ok())
     }
 
     /// Look up a typed per-execution extension, if present.
-    pub fn execution_extension<T>(&self) -> Option<&T>
+    pub fn execution_extension<T>(&self) -> Option<crate::ExecutionCapability<T>>
     where
         T: Send + Sync + 'static,
     {
@@ -1449,6 +1595,9 @@ mod tests {
             "tar",
             "gzip",
             "gunzip",
+            "bzip2",
+            "bunzip2",
+            "bzcat",
             "zip",
             "unzip",
             "seq",
@@ -1470,7 +1619,7 @@ mod tests {
             "tee",
             "csv",
             "json",
-            "yaml",
+            "yq",
             "tomlq",
             "jq",
             "semver",

@@ -389,27 +389,27 @@ class BINDPTR:
     """This class has no documentation."""
 
     @property
-    def lpfuncdesc(self) -> System.IntPtr:
+    def int_ptr(self) -> typing.Any:
         ...
 
-    @lpfuncdesc.setter
-    def lpfuncdesc(self, value: System.IntPtr) -> None:
-        ...
-
-    @property
-    def lpvardesc(self) -> System.IntPtr:
-        ...
-
-    @lpvardesc.setter
-    def lpvardesc(self, value: System.IntPtr) -> None:
+    @int_ptr.setter
+    def int_ptr(self, value: typing.Any) -> None:
         ...
 
     @property
-    def lptcomp(self) -> System.IntPtr:
+    def int_ptr(self) -> typing.Any:
         ...
 
-    @lptcomp.setter
-    def lptcomp(self, value: System.IntPtr) -> None:
+    @int_ptr.setter
+    def int_ptr(self, value: typing.Any) -> None:
+        ...
+
+    @property
+    def int_ptr(self) -> typing.Any:
+        ...
+
+    @int_ptr.setter
+    def int_ptr(self, value: typing.Any) -> None:
         ...
 
 
@@ -854,46 +854,6 @@ class CALLCONV(IntEnum):
     CC_MAX = 9
 
 
-class PARAMFLAG(IntEnum):
-    """This class has no documentation."""
-
-    PARAMFLAG_NONE = 0
-
-    PARAMFLAG_FIN = ...
-
-    PARAMFLAG_FOUT = ...
-
-    PARAMFLAG_FLCID = ...
-
-    PARAMFLAG_FRETVAL = ...
-
-    PARAMFLAG_FOPT = ...
-
-    PARAMFLAG_FHASDEFAULT = ...
-
-    PARAMFLAG_FHASCUSTDATA = ...
-
-
-class PARAMDESC:
-    """This class has no documentation."""
-
-    @property
-    def lp_var_value(self) -> System.IntPtr:
-        ...
-
-    @lp_var_value.setter
-    def lp_var_value(self, value: System.IntPtr) -> None:
-        ...
-
-    @property
-    def w_param_flags(self) -> System.Runtime.InteropServices.ComTypes.PARAMFLAG:
-        ...
-
-    @w_param_flags.setter
-    def w_param_flags(self, value: System.Runtime.InteropServices.ComTypes.PARAMFLAG) -> None:
-        ...
-
-
 class ELEMDESC:
     """This class has no documentation."""
 
@@ -901,19 +861,19 @@ class ELEMDESC:
         """This class has no documentation."""
 
         @property
-        def idldesc(self) -> System.Runtime.InteropServices.ComTypes.IDLDESC:
+        def idldesc(self) -> typing.Any:
             ...
 
         @idldesc.setter
-        def idldesc(self, value: System.Runtime.InteropServices.ComTypes.IDLDESC) -> None:
+        def idldesc(self, value: typing.Any) -> None:
             ...
 
         @property
-        def paramdesc(self) -> System.Runtime.InteropServices.ComTypes.PARAMDESC:
+        def paramdesc(self) -> typing.Any:
             ...
 
         @paramdesc.setter
-        def paramdesc(self, value: System.Runtime.InteropServices.ComTypes.PARAMDESC) -> None:
+        def paramdesc(self, value: typing.Any) -> None:
             ...
 
     @property
@@ -1033,6 +993,46 @@ class FUNCDESC:
         ...
 
 
+class PARAMFLAG(IntEnum):
+    """This class has no documentation."""
+
+    PARAMFLAG_NONE = 0
+
+    PARAMFLAG_FIN = ...
+
+    PARAMFLAG_FOUT = ...
+
+    PARAMFLAG_FLCID = ...
+
+    PARAMFLAG_FRETVAL = ...
+
+    PARAMFLAG_FOPT = ...
+
+    PARAMFLAG_FHASDEFAULT = ...
+
+    PARAMFLAG_FHASCUSTDATA = ...
+
+
+class PARAMDESC:
+    """This class has no documentation."""
+
+    @property
+    def lp_var_value(self) -> System.IntPtr:
+        ...
+
+    @lp_var_value.setter
+    def lp_var_value(self, value: System.IntPtr) -> None:
+        ...
+
+    @property
+    def w_param_flags(self) -> System.Runtime.InteropServices.ComTypes.PARAMFLAG:
+        ...
+
+    @w_param_flags.setter
+    def w_param_flags(self, value: System.Runtime.InteropServices.ComTypes.PARAMFLAG) -> None:
+        ...
+
+
 class VARKIND(IntEnum):
     """This class has no documentation."""
 
@@ -1052,19 +1052,11 @@ class VARDESC:
         """This class has no documentation."""
 
         @property
-        def o_inst(self) -> int:
+        def int_ptr(self) -> typing.Any:
             ...
 
-        @o_inst.setter
-        def o_inst(self, value: int) -> None:
-            ...
-
-        @property
-        def lpvar_value(self) -> System.IntPtr:
-            ...
-
-        @lpvar_value.setter
-        def lpvar_value(self, value: System.IntPtr) -> None:
+        @int_ptr.setter
+        def int_ptr(self, value: typing.Any) -> None:
             ...
 
     @property

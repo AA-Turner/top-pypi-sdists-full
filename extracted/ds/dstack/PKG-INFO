@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dstack
-Version: 0.20.29
+Version: 0.21.0
 Summary: dstack is an open-source orchestration engine for running AI workloads on any cloud or on-premises.
 Project-URL: Homepage, https://dstack.ai
 Project-URL: Source, https://github.com/dstackai/dstack
@@ -22,15 +22,13 @@ Requires-Dist: cryptography
 Requires-Dist: cursor
 Requires-Dist: filelock
 Requires-Dist: gitpython
-Requires-Dist: gpuhunt==0.1.27
+Requires-Dist: gpuhunt==0.1.29
 Requires-Dist: ignore-python>=0.2.0
 Requires-Dist: jsonschema
-Requires-Dist: orjson
 Requires-Dist: packaging
 Requires-Dist: paramiko>=3.2.0
 Requires-Dist: psutil
-Requires-Dist: pydantic-duality>=1.2.4
-Requires-Dist: pydantic<2.0.0,>=1.10.10
+Requires-Dist: pydantic>=2.12
 Requires-Dist: python-dateutil
 Requires-Dist: python-multipart>=0.0.16
 Requires-Dist: pyyaml

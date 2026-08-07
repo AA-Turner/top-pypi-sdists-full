@@ -15,8 +15,10 @@ from skillsaw.rules.builtin.instructions import (
 
 @pytest.fixture
 def temp_dir():
+    # Resolve symlinks (macOS /var -> /private/var) so path assertions match
+    # the resolved paths the imports rule reports for nested files.
     tmp = tempfile.mkdtemp()
-    yield Path(tmp)
+    yield Path(tmp).resolve()
     shutil.rmtree(tmp)
 
 
@@ -122,6 +124,35 @@ class TestInstructionImportsValidRule:
         assert len(violations) == 1
         assert "non-existent" in violations[0].message.lower()
         assert violations[0].line == 3
+
+    def test_unresolvable_import_reports_missing_without_stat(self, temp_dir, monkeypatch):
+        """A rejected import target must not be revived for an unsafe stat."""
+        from skillsaw.rules.builtin.instructions import imports_valid as rule_module
+
+        (temp_dir / "CLAUDE.md").write_text("# Instructions\n\n@hostile.md\n")
+        context = RepositoryContext(temp_dir)
+        _ = context.lint_tree
+        real_safe_resolve = rule_module.safe_resolve
+        real_exists = Path.exists
+
+        def hostile_resolve(path):
+            """Reject the hostile fixture path while resolving other paths."""
+            if path.name == "hostile.md":
+                return None
+            return real_safe_resolve(path)
+
+        def hostile_exists(path):
+            """Fail if the rejected hostile path reaches a raw stat call."""
+            if path.name == "hostile.md":
+                raise OSError("cannot stat hostile import")
+            return real_exists(path)
+
+        monkeypatch.setattr(rule_module, "safe_resolve", hostile_resolve)
+        monkeypatch.setattr(Path, "exists", hostile_exists)
+
+        violations = InstructionImportsValidRule().check(context)
+        assert len(violations) == 1
+        assert "non-existent" in violations[0].message.lower()
 
     def test_mid_line_missing_path_import_fails(self, temp_dir):
         (temp_dir / "CLAUDE.md").write_text(

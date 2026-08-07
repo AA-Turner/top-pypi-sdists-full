@@ -55,6 +55,11 @@ from openccu_loom_types.rest import (
     AlarmHealthChangedPayload,
     AlarmPanelChangedPayload,
     AlarmReminderPayload,
+    SecurityStateChangedPayload,
+    SecurityClassChangedPayload,
+    SecurityZoneChangedPayload,
+    SecurityFaultChangedPayload,
+    SecurityNotificationPayload,
 )
 
 __all__ = [
@@ -93,4 +98,9 @@ __all__ = [
     "AlarmHealthChangedPayload",
     "AlarmPanelChangedPayload",
     "AlarmReminderPayload",
+    "SecurityStateChangedPayload",
+    "SecurityClassChangedPayload",
+    "SecurityZoneChangedPayload",
+    "SecurityFaultChangedPayload",
+    "SecurityNotificationPayload",
 ]

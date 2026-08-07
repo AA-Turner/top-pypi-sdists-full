@@ -9,11 +9,9 @@ from typing import TYPE_CHECKING, Any, Callable
 
 import httpx
 
-from ibm_watsonx_ai.utils.auth.base_auth import (
-    RefreshableTokenAuth,
-    TokenInfo,
-    _get_token_info,
-)
+from ibm_watsonx_ai.utils.auth.models import TokenInfo
+from ibm_watsonx_ai.utils.auth.refreshable_token_auth import RefreshableTokenAuth
+from ibm_watsonx_ai.utils.auth.utils import get_token_payload
 from ibm_watsonx_ai.wml_client_error import (
     AuthenticationError,
     InvalidCredentialsError,
@@ -43,9 +41,7 @@ class IAMTokenAuth(RefreshableTokenAuth):
         on_token_creation: Callable[[], None] | None = None,
         on_token_refresh: Callable[[], None] | None = None,
     ) -> None:
-        RefreshableTokenAuth.__init__(
-            self, api_client, on_token_creation, on_token_refresh
-        )
+        super().__init__(api_client, on_token_creation, on_token_refresh)
 
         if not api_client._is_IAM():
             raise WMLClientError(
@@ -85,6 +81,7 @@ class IAMTokenAuth(RefreshableTokenAuth):
         """
 
         url, data, headers = self._get_token_request_arguments()
+
         response = self._api_client.httpx_client.post(
             url=url, content=data, headers=headers
         )
@@ -101,9 +98,7 @@ class IAMTokenAuth(RefreshableTokenAuth):
         url, data, headers = self._get_token_request_arguments()
 
         response = await self._api_client.async_httpx_client.post(
-            url=url,
-            headers=headers,
-            content=data,
+            url=url, content=data, headers=headers
         )
 
         return self._handle_token_response(response)
@@ -120,8 +115,9 @@ def get_iam_user_details(token: str) -> dict[str, Any]:
 
     :raises: WMLClientError if there is an error getting IAM user details
     """
+
     try:
-        token_info = _get_token_info(token)
+        token_info = get_token_payload(token)
     except json.JSONDecodeError as e:
         raise WMLClientError("Error getting IAM user details.") from e
 

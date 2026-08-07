@@ -1448,3 +1448,87 @@ def test_run_auto_close_skips_when_registry_unresolved(
     assert not result.actions
     assert not result.errors
     assert not result.skipped
+
+
+def _entry_with_candidates(
+    candidates: dict[str, str | None],
+    top_level_mode: str | None = None,
+) -> dict:
+    """Build a registry entry whose candidates carry the given rollout modes."""
+    release_candidates: dict[str, dict] = {}
+    for version, mode in candidates.items():
+        releases: dict = {}
+        if mode is not None:
+            releases["rolloutConfiguration"] = {"defaultRolloutMode": mode}
+        release_candidates[version] = {"releases": releases}
+    entry: dict = {"releases": {"releaseCandidates": release_candidates}}
+    if top_level_mode is not None:
+        entry["releases"]["rolloutConfiguration"] = {
+            "defaultRolloutMode": top_level_mode
+        }
+    return entry
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "entry,rc_version,expected_mode",
+    [
+        pytest.param(
+            _entry_with_candidates({"4.0.46": "autopilot"}),
+            "4.0.46",
+            "autopilot",
+            id="own_candidate_entry_wins",
+        ),
+        pytest.param(
+            _entry_with_candidates({"4.0.49": "autopilot"}),
+            "4.0.46",
+            "autopilot",
+            id="retired_rc_inherits_highest_candidate",
+        ),
+        pytest.param(
+            _entry_with_candidates(
+                {"4.0.47": "manual", "4.0.49": "autopilot"},
+            ),
+            "4.0.46",
+            "autopilot",
+            id="inherits_highest_not_lowest_candidate",
+        ),
+        pytest.param(
+            _entry_with_candidates({"4.0.49": None}, top_level_mode="manual"),
+            "4.0.46",
+            "manual",
+            id="falls_back_to_top_level_when_candidate_has_no_config",
+        ),
+        pytest.param(
+            _entry_with_candidates({}, top_level_mode="manual"),
+            "4.0.46",
+            "manual",
+            id="falls_back_to_top_level_when_nothing_advertised",
+        ),
+        pytest.param(
+            _entry_with_candidates({"not-a-version": "autopilot"}, "manual"),
+            "4.0.46",
+            "manual",
+            id="falls_back_when_candidate_key_unparseable",
+        ),
+        pytest.param(
+            _entry_with_candidates({"4.0.49": "autopilot"}, top_level_mode="manual"),
+            None,
+            "manual",
+            id="no_rc_version_uses_top_level",
+        ),
+    ],
+)
+def test_extract_rollout_config_resolves_mode_for_retired_candidates(
+    entry: dict,
+    rc_version: str | None,
+    expected_mode: str,
+) -> None:
+    """A superseded RC inherits the rollout mode of the connector's live candidate.
+
+    Retiring a candidate deletes the entry that declared its `defaultRolloutMode`,
+    so resolving it against the connector-level config would silently downgrade
+    it to manual and strand the rollout beyond autopilot's reach.
+    """
+    raw = _helpers._extract_rollout_config(entry, rc_version)
+    assert raw.get("defaultRolloutMode") == expected_mode

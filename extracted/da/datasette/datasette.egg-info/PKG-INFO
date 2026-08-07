@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: datasette
-Version: 0.65.2
+Version: 0.65.3
 Summary: An open source multi-tool for exploring and publishing data
 Home-page: https://datasette.io/
 Author: Simon Willison

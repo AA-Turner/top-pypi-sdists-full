@@ -112,7 +112,7 @@ class Action:
     def __str__(self) -> str:
         raise NotImplementedError
 
-    def diff(self) -> str | None:
+    def diff(self, format: str = "yaml") -> str | None:
         if self.prev == self.new:
             return None
 
@@ -145,6 +145,31 @@ class TableConfigAction(Action):
     def __str__(self) -> str:
         return f"{self.verb} {self.table_ref} configuration"
 
+    def diff(self, format: str = "yaml") -> str | None:
+        if self.prev == self.new:
+            return None
+        if format == "shacl" and self.table_ref:
+            from .shacl_file import ShaclFileDriver
+
+            driver = ShaclFileDriver(validate_shacl=False)
+
+            def _repr(config: Dict[str, Any] | None) -> str:
+                return indent(
+                    driver.serialize_table_config(self.table_ref, config),
+                    prefix="    ",
+                )
+
+        else:
+
+            def _repr(config: Dict[str, Any] | None) -> str:  # type: ignore[misc]
+                return indent(yaml.safe_dump(config), prefix="    ") if config else ""
+
+        diff = unified_diff(
+            _repr(self.prev).splitlines(), _repr(self.new).splitlines(), lineterm=""
+        )
+        diff = [line for line in diff if not line.startswith(("+++", "---"))]
+        return indent(os.linesep.join(diff), prefix="  |  ")
+
 
 @dataclass
 class CheckAction(Action):
@@ -156,6 +181,38 @@ class CheckAction(Action):
 
     def __str__(self) -> str:
         return f"{self.verb} {self.check_ref or self.check_id} on {self.table_ref}"
+
+    def diff(self, format: str = "yaml") -> str | None:
+        if self.prev == self.new:
+            return None
+        if format == "shacl" and self.table_ref and self.check_ref:
+            from .shacl_file import ShaclFileDriver
+
+            driver = ShaclFileDriver(validate_shacl=False)
+            is_system_check = self.check_id is not None
+
+            def _repr(check: Check | None) -> str:
+                return indent(
+                    driver.serialize_check(
+                        self.table_ref,
+                        self.check_ref,
+                        check,
+                        system_check=is_system_check,
+                    ),
+                    prefix="    ",
+                )
+
+        else:
+
+            def _repr(check: Check | None) -> str:  # type: ignore[misc]
+                flat = check.to_dict() if check else None
+                return indent(yaml.safe_dump(flat), prefix="    ") if flat else ""
+
+        diff = unified_diff(
+            _repr(self.prev).splitlines(), _repr(self.new).splitlines(), lineterm=""
+        )
+        diff = [line for line in diff if not line.startswith(("+++", "---"))]
+        return indent(os.linesep.join(diff), prefix="  |  ")
 
 
 @dataclass

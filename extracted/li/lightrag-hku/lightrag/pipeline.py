@@ -25,7 +25,7 @@ from contextlib import AsyncExitStack
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
-from functools import lru_cache
+from functools import lru_cache, partial
 from pathlib import Path
 from typing import Any
 
@@ -43,9 +43,14 @@ from lightrag.constants import (
     FULL_DOCS_FORMAT_LIGHTRAG,
     FULL_DOCS_FORMAT_PENDING_PARSE,
     FULL_DOCS_FORMAT_RAW,
+    KG_PURGE_METADATA_KEY,
+    KG_WRITE_STATE_GRAPH_MUTATION_STARTED,
+    KG_WRITE_STATE_METADATA_KEY,
+    KG_WRITE_STATE_PRE_GRAPH,
     PARSED_DIR_NAME,
 )
 from lightrag.exceptions import (
+    ChunkBlockMatchError,
     MultimodalAnalysisError,
     PipelineCancelledException,
     PipelineRecoveryRequiredError,
@@ -101,6 +106,7 @@ from lightrag.utils import (
     is_truncated_response,
     logger,
     repair_vlm_json_escape_damage_nested,
+    run_in_chunking_executor,
     sanitize_text_for_encoding,
     save_to_cache,
     serialize_llm_cache_identity,
@@ -130,6 +136,7 @@ from lightrag.utils_pipeline import (
     doc_status_metadata_has_attempt_fields,
     doc_status_reset_metadata,
     read_source_file_basename,
+    require_doc_status_record,
     resolve_existing_doc_source,
     resolve_doc_file_path,
     resolve_doc_status_parse_engine,
@@ -656,7 +663,7 @@ class _PipelineMixin:
                 snapshot value is discarded (logged at WARNING) — see
                 :func:`lightrag.utils_pipeline.apply_trusted_sentence_split_regex`
                 and GHSA-32jh-39m7-8x84.  See
-                ``docs/FileProcessingConfiguration-zh.md`` for the schema.
+                ``docs/FileProcessingPipeline.md`` for the schema.
             admission_token: the pending-enqueue reservation the caller already
                 holds (endpoints reserve one before reading the request body).
                 With ``MAX_PENDING_DOCUMENTS > 0`` the admission guard
@@ -1038,7 +1045,22 @@ class _PipelineMixin:
             }
             if content_data.get("content_hash"):
                 base["content_hash"] = content_data["content_hash"]
-            metadata: dict[str, Any] = {}
+            # Stamp the KG write-progress marker at BIRTH (issue #3400
+            # fail-closed purge). A brand-new row provably owns nothing in the
+            # graph, and every pre-merge state a document can fail in —
+            # PENDING, PARSING, ANALYZING, PROCESSING-before-merge — inherits
+            # that fact by carry-over. This is what lets deletion clean up a
+            # parse-stage failure that never got as far as writing recovery
+            # anchors, instead of refusing it for lack of proof.
+            #
+            # The marker is MONOTONIC: only ``on_anchors_durable`` advances it
+            # to ``graph_mutation_started``, and nothing ever writes it back.
+            # Re-stamping ``pre_graph`` at the start of a reprocess would be a
+            # lie about the PREVIOUS run's contributions — the resume purge
+            # would then skip the graph and orphan them.
+            metadata: dict[str, Any] = {
+                KG_WRITE_STATE_METADATA_KEY: KG_WRITE_STATE_PRE_GRAPH,
+            }
             options_str = content_data.get("process_options") or ""
             if options_str:
                 # Mirror process_options into doc_status.metadata so admin UIs
@@ -4799,6 +4821,9 @@ class _PipelineMixin:
                         chunking_by_recursive_character,
                         chunking_by_semantic_vector,
                     )
+                    from lightrag.chunker.recursive_character import (
+                        normalize_r_separators,
+                    )
 
                     strategy = doc_process_opts.chunking
                     if strategy == "P":
@@ -4820,7 +4845,8 @@ class _PipelineMixin:
                         )
                         chunk_opts_str = _format_chunking_params(p_chunk_size, p_opts)
                         logger.info(f"Chunking P: {chunk_opts_str}, doc_id: {doc_id}")
-                        chunking_result = chunking_by_paragraph_semantic(
+                        chunking_result = await run_in_chunking_executor(
+                            chunking_by_paragraph_semantic,
                             self.tokenizer,
                             content,
                             p_chunk_size,
@@ -4840,9 +4866,35 @@ class _PipelineMixin:
                         r_chunk_size = int(
                             r_opts.pop("chunk_token_size", resolved_chunk_size)
                         )
+                        # Bound the cascade BEFORE anything renders it. Newly
+                        # configured values are normalized at their ingress
+                        # boundaries; this silent backstop protects direct SDK
+                        # snapshots and old persisted snapshots before
+                        # ``_format_chunking_params`` interpolates a raw list
+                        # into a string that is logged at INFO and persisted to
+                        # ``doc_status.metadata['chunk_opts']``. A snapshot
+                        # carrying one 10 MB separator therefore materialises a
+                        # ~10 MB parameter string on the event loop and pushes it
+                        # into doc_status, where it can exceed a backend's value
+                        # limit and leave the document permanently FAILED — even
+                        # though the cascade the chunker actually used was empty.
+                        # Normalizing here costs one length check per entry and
+                        # copies no separator content.
+                        if "separators" in r_opts:
+                            bounded_seps = normalize_r_separators(r_opts["separators"])
+                            if bounded_seps:
+                                r_opts["separators"] = bounded_seps
+                            else:
+                                # Empty means every entry was over-long. Drop the
+                                # key so the chunker takes its documented
+                                # ``separators=None`` path (LangChain's own
+                                # cascade) without producing a per-document
+                                # warning for the old bad snapshot.
+                                r_opts.pop("separators")
                         chunk_opts_str = _format_chunking_params(r_chunk_size, r_opts)
                         logger.info(f"Chunking R: {chunk_opts_str}, doc_id: {doc_id}")
-                        chunking_result = chunking_by_recursive_character(
+                        chunking_result = await run_in_chunking_executor(
+                            chunking_by_recursive_character,
                             self.tokenizer,
                             content,
                             r_chunk_size,
@@ -4888,7 +4940,8 @@ class _PipelineMixin:
                         )
                         chunk_opts_str = _format_chunking_params(f_chunk_size, f_opts)
                         logger.info(f"Chunking F: {chunk_opts_str}, doc_id: {doc_id}")
-                        chunking_result = chunking_by_fixed_token(
+                        chunking_result = await run_in_chunking_executor(
+                            chunking_by_fixed_token,
                             self.tokenizer,
                             content,
                             f_chunk_size,
@@ -4934,9 +4987,10 @@ class _PipelineMixin:
                     # private ``_emit_source_span`` kwarg; a user-supplied
                     # ``chunking_func`` must not receive it.
                     legacy_kwargs = {}
-                    if self.chunking_func is chunking_by_token_size:
+                    is_builtin_chunker = self.chunking_func is chunking_by_token_size
+                    if is_builtin_chunker:
                         legacy_kwargs["_emit_source_span"] = True
-                    chunking_result = self.chunking_func(
+                    legacy_args = (
                         self.tokenizer,
                         content,
                         f_opts.get("split_by_character"),
@@ -4946,8 +5000,27 @@ class _PipelineMixin:
                             self.chunk_overlap_token_size,
                         ),
                         legacy_chunk_size,
-                        **legacy_kwargs,
                     )
+                    if is_builtin_chunker:
+                        chunking_result = await run_in_chunking_executor(
+                            self.chunking_func, *legacy_args, **legacy_kwargs
+                        )
+                    else:
+                        # A user-supplied ``chunking_func`` is documented as
+                        # "synchronous or async" and the awaitable it may return
+                        # is handled just below, so it is NOT safe to assume it
+                        # does not touch the running loop: a synchronous factory
+                        # that calls ``get_running_loop()`` or ``create_task()``
+                        # is a supported implementation and would fail outright
+                        # in a worker thread. For an ``async def`` the hop would
+                        # buy nothing anyway — the coroutine body still runs on
+                        # the loop. So the extension point keeps its existing
+                        # calling convention, and a CPU-bound custom chunker is
+                        # responsible for its own ``to_thread``; see the
+                        # ``chunking_func`` docstring.
+                        chunking_result = self.chunking_func(
+                            *legacy_args, **legacy_kwargs
+                        )
                 if inspect.isawaitable(chunking_result):
                     chunking_result = await chunking_result
 
@@ -5016,7 +5089,8 @@ class _PipelineMixin:
                     # left over from an earlier multimodal run. The builder's
                     # None branch is reserved for ad-hoc callers (unit tests)
                     # that intentionally want every modality considered.
-                    mm_chunks = self._build_mm_chunks_from_sidecars(
+                    mm_chunks = await run_in_chunking_executor(
+                        self._build_mm_chunks_from_sidecars,
                         doc_id=doc_id,
                         file_path=file_path,
                         blocks_path=blocks_path,
@@ -5034,11 +5108,26 @@ class _PipelineMixin:
                     self.embedding_token_limit is not None
                     and self.embedding_token_limit > 0
                 ):
+                    # A document eligible for sidecar backfill (blocks_path set)
+                    # must be able to relocate hard-split children's
+                    # _source_span against the merged text it was chunked
+                    # from — if that text is missing here, the wiring itself
+                    # is broken; surface it now with full context rather than
+                    # let backfill fail later with a more confusing error.
+                    if blocks_path and not content:
+                        raise ChunkBlockMatchError(
+                            chunk_order_index=-1,
+                            chunk_preview=None,
+                            blocks_path=blocks_path,
+                        )
                     original_chunk_count = len(chunking_result)
-                    chunking_result = enforce_chunk_token_limit_before_embedding(
+                    chunking_result = await run_in_chunking_executor(
+                        enforce_chunk_token_limit_before_embedding,
                         chunking_result=chunking_result,
                         tokenizer=self.tokenizer,
                         max_tokens=self.embedding_token_limit,
+                        overlap_tokens=self.embedding_chunk_overlap_token_size,
+                        source_content=content,
                     )
                     if len(chunking_result) != original_chunk_count:
                         logger.info(
@@ -5081,7 +5170,18 @@ class _PipelineMixin:
                 if blocks_path and sidecar_backfill_eligible:
                     from lightrag.sidecar import backfill_chunk_sidecars
 
-                    backfill_chunk_sidecars(chunking_result, blocks_path)
+                    # Same reason as the chunkers themselves: this parses
+                    # blocks.jsonl and then walks every block for every chunk, so
+                    # it is O(chunks x blocks) of pure CPU plus synchronous file
+                    # I/O — seconds of frozen event loop on a document with many
+                    # chunks. It sits between chunking and the storage writes, so
+                    # leaving it inline would keep /health stalled over exactly
+                    # the window this work exists to free. One coarse submission,
+                    # not one per chunk: the executor has a single worker and the
+                    # backfill mutates ``chunking_result`` in place.
+                    await run_in_chunking_executor(
+                        backfill_chunk_sidecars, chunking_result, blocks_path
+                    )
 
                 chunks = build_chunks_dict_from_chunking_result(
                     chunking_result, doc_id=doc_id, file_path=file_path
@@ -5201,6 +5301,9 @@ class _PipelineMixin:
                             current_file_number=current_file_number,
                             total_files=ctx.total_files,
                             file_path=file_path,
+                            on_anchors_durable=partial(
+                                self._mark_graph_mutation_started, doc_id, status_doc
+                            ),
                         )
 
                     # If another in-flight document already triggered an abort
@@ -5245,6 +5348,16 @@ class _PipelineMixin:
                             "process_end_time": process_end_time,
                             **extraction_meta,
                         },
+                        # A PROCESSED document has no purge in flight by
+                        # definition, so retire any journal that a resume purge
+                        # left behind. Belt-and-braces next to
+                        # _clear_kg_purge_journal: a surviving ``completed``
+                        # journal would name a stale operation id and collide
+                        # with the next purge of this document.
+                        # kg_write_state is deliberately NOT dropped — it is
+                        # monotonic history, and the anchors written during this
+                        # run are the proof from here on.
+                        metadata_drop=(KG_PURGE_METADATA_KEY,),
                     )
 
                     async with ctx.pipeline_status_lock:
@@ -5386,8 +5499,74 @@ class _PipelineMixin:
         # The status_doc carries chunks_list / chunks_count from the prior
         # run; clear them so subsequent state-machine upserts don't write
         # back stale IDs.
+        #
+        # Persist that reset together with retiring the purge journal, in one
+        # targeted write (issue #3400). In-memory-only was not enough: the
+        # stored chunks_list kept pointing at chunks this purge just deleted,
+        # so a crash here left the row advertising them. Retiring the journal
+        # in the SAME write is what keeps the two consistent — a surviving
+        # ``completed`` journal would later collide with the next purge's
+        # operation id. kg_write_state is deliberately left untouched: it is
+        # monotonic, and this run's own merge will advance it if it gets that
+        # far.
+        await self._clear_kg_purge_journal(
+            doc_id,
+            extra_fields={"chunks_list": [], "chunks_count": 0},
+        )
         status_doc.chunks_list = []
         status_doc.chunks_count = 0
+
+    async def _mark_graph_mutation_started(
+        self, doc_id: str, status_doc: DocProcessingStatus | None = None
+    ) -> None:
+        """Advance ``kg_write_state`` past the point of no return.
+
+        Awaited by ``merge_nodes_and_edges`` in the single window where "this
+        document has never touched the graph" stops being true: after both
+        recovery anchors are flushed, before the first mutation. From here on a
+        purge may no longer assume there is nothing in the graph to find, so it
+        demands the anchors (or a purge journal) as proof.
+
+        Monotonic by construction — this is the only writer that sets
+        ``graph_mutation_started``, and no path writes ``pre_graph`` back.
+        Raising aborts the merge before any mutation, which is the safe
+        direction: the anchors are already durable.
+
+        ``status_doc`` is the caller's in-memory snapshot, and updating it is
+        NOT optional bookkeeping: every later transition upsert rebuilds
+        ``metadata`` from that object via ``doc_status_transition_metadata``, so
+        leaving it stale makes the PROCESSED write carry ``pre_graph`` forward
+        and silently revert this marker. A PROCESSED document would then claim
+        it never touched the graph — reinstating exactly the silent-skip the
+        marker exists to prevent.
+
+        Raises when the row cannot be read (strict where the backend supports
+        it), has vanished, or the update fails. The document is mid-merge
+        under the pipeline reservation, so the row is guaranteed to exist —
+        an unreadable row is the read failing, not the document being gone.
+        Returning silently instead would let the merge proceed with the
+        stored marker still ``pre_graph``: the graph gets written, and if the
+        anchors are later lost, that stale marker is a false proof licensing
+        a purge to skip graph cleanup — the exact defect of issue #3400.
+        """
+        stored = await require_doc_status_record(
+            self.doc_status, doc_id, purpose="advance kg_write_state"
+        )
+        raw_metadata = doc_status_field(stored, "metadata", {})
+        metadata = dict(raw_metadata) if isinstance(raw_metadata, dict) else {}
+        metadata[KG_WRITE_STATE_METADATA_KEY] = KG_WRITE_STATE_GRAPH_MUTATION_STARTED
+        # missing_ok=False: the row vanishing between the read above and this
+        # write must abort the merge too, not silently skip the marker.
+        await self.doc_status.update_doc_status_fields(doc_id, {"metadata": metadata})
+        await self._flush_storages([self.doc_status])
+        if status_doc is not None:
+            in_memory = getattr(status_doc, "metadata", None)
+            if isinstance(in_memory, dict):
+                in_memory[KG_WRITE_STATE_METADATA_KEY] = (
+                    KG_WRITE_STATE_GRAPH_MUTATION_STARTED
+                )
+            else:
+                status_doc.metadata = dict(metadata)
 
     # ============================================================
     # doc_status state-machine helpers (shared by all layers)
@@ -5403,6 +5582,7 @@ class _PipelineMixin:
         ctx: "_BatchRunContext",
         extra_fields: dict[str, Any] | None = None,
         metadata_extra: dict[str, Any] | None = None,
+        metadata_drop: tuple[str, ...] = (),
     ) -> None:
         """Single source of truth for doc_status state-transition upserts.
 
@@ -5411,6 +5591,8 @@ class _PipelineMixin:
         ``chunks_count`` / ``chunks_list`` / ``error_msg``; ``metadata_extra``
         is forwarded to ``doc_status_transition_metadata`` so carry-over
         fields (e.g. ``process_options``) survive every state change.
+        ``metadata_drop`` is forwarded as its ``drop`` argument — the only way
+        to retire a carried-over metadata key at a transition.
 
         Owner-checked (LR2 §7.7 items 3/4/7): every worker status write verifies
         its run still owns ``busy`` immediately before writing, and a run whose
@@ -5440,7 +5622,7 @@ class _PipelineMixin:
             "track_id": status_doc.track_id,
             "content_hash": status_doc.content_hash,
             "metadata": doc_status_transition_metadata(
-                status_doc, extra=metadata_extra
+                status_doc, extra=metadata_extra, drop=metadata_drop
             ),
         }
         if extra_fields:
@@ -6109,7 +6291,8 @@ class _PipelineMixin:
                     enrich_sidecars_with_surrounding,
                 )
 
-                enrich_counts = enrich_sidecars_with_surrounding(
+                enrich_counts = await run_in_chunking_executor(
+                    enrich_sidecars_with_surrounding,
                     blocks_path=str(block_file),
                     enabled_modalities=enabled_modalities,
                     tokenizer=tokenizer,
@@ -6648,8 +6831,18 @@ class _PipelineMixin:
                             frame_reserve=SAFETY_BUFFER,
                             content_min=content_min_tokens,
                         )
-                    total_tokens = len(tokenizer.encode(prompt))
-                    if max_extract_tokens > 0 and total_tokens > max_extract_tokens:
+
+                    # Everything from here to the post-trim guard is
+                    # tokenizer-bound and works on the same ``self.tokenizer``
+                    # the chunking executor uses, so it runs there in one hop
+                    # rather than on the event loop. MultimodalAnalysisError
+                    # propagates out of the executor unchanged.
+                    def _cap_extract_prompt(prompt: str) -> str:
+                        total_tokens = len(tokenizer.encode(prompt))
+                        if not (
+                            max_extract_tokens > 0 and total_tokens > max_extract_tokens
+                        ):
+                            return prompt
                         frame_tokens = len(tokenizer.encode(_render("")))
                         content_budget = (
                             max_extract_tokens - frame_tokens - SAFETY_BUFFER
@@ -6722,6 +6915,9 @@ class _PipelineMixin:
                                 f"MAX_EXTRACT_INPUT_TOKENS "
                                 f"({max_extract_tokens})"
                             )
+                        return prompt
+
+                    prompt = await run_in_chunking_executor(_cap_extract_prompt, prompt)
 
                 args_hash = compute_args_hash(
                     prompt,

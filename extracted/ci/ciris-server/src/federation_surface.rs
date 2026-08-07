@@ -85,11 +85,19 @@ const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(30);
 #[derive(Clone)]
 struct SurfaceState {
     engine: Arc<Engine>,
-    /// The node's derived federation `key_id` (`== edge.signer_key_id()`).
-    self_key_id: String,
     /// The ONE shared edge runtime (compose builds/reuses it before mounting).
     edge: Arc<Edge>,
 }
+
+/// How the peer counts on `GET /v1/federation/identity` were arrived at.
+///
+/// **Three states, not one counter** (the 2026-08-05 RCA's second instrument
+/// finding). "Zero peers", "the store could not be read" and "this node cannot
+/// resolve its own identity so there is no `self` to count peers OF" are
+/// different conditions that used to render as the same `0`.
+const COUNTS_MEASURED: &str = "measured";
+/// The peer store could not be read; the counts are not evidence.
+const COUNTS_STORE_UNAVAILABLE: &str = "store_unavailable";
 
 fn err(code: StatusCode, error: &str) -> Response {
     (code, Json(serde_json::json!({ "error": error }))).into_response()
@@ -104,14 +112,27 @@ fn err(code: StatusCode, error: &str) -> Response {
 ///
 /// A peer-count store error degrades to zero counts rather than failing the
 /// whole call — the agent did the same when its seeder wasn't wired ("we
-/// still have a working Edge identity to return").
+/// still have a working Edge identity to return") — but the degradation is now
+/// **named**: `peer_counts_standing` distinguishes a measured zero from an
+/// unreadable store from an unresolvable self (CIRISServer#372 / the
+/// 2026-08-05 RCA). A zero that cannot say why it is zero is not evidence.
+///
+/// The node's own key id — the `self` the peers are counted relative to — is
+/// resolved from the engine (CIRISServer#372 Level 2), not threaded in from
+/// `cfg.key_id`. It was documented as `== edge.signer_key_id()`; asking the
+/// engine makes that an identity rather than an assertion.
 async fn get_identity(State(st): State<SurfaceState>) -> Response {
-    let (total, canonical) =
-        match crate::federation_peers::peer_counts(&st.engine, &st.self_key_id).await {
-            Ok(counts) => counts,
-            Err(e) => {
-                tracing::debug!("peer counts unavailable for federation identity: {e}");
-                (0, 0)
+    let (total, canonical, standing) =
+        match crate::self_identity::resolve(&st.engine, "federation_surface").await {
+            Err(_) => (0, 0, crate::self_identity::REFUSAL_TOKEN),
+            Ok(self_key_id) => {
+                match crate::federation_peers::peer_counts(&st.engine, &self_key_id).await {
+                    Ok((t, c)) => (t, c, COUNTS_MEASURED),
+                    Err(e) => {
+                        tracing::debug!("peer counts unavailable for federation identity: {e}");
+                        (0, 0, COUNTS_STORE_UNAVAILABLE)
+                    }
+                }
             }
         };
     (
@@ -122,6 +143,7 @@ async fn get_identity(State(st): State<SurfaceState>) -> Response {
                 "crate_version": ciris_edge::version::VERSION,
                 "peer_count_total": total,
                 "peer_count_canonical": canonical,
+                "peer_counts_standing": standing,
                 "capabilities": FEDERATION_CAPABILITIES,
             }
         })),
@@ -200,6 +222,49 @@ async fn get_metrics(State(st): State<SurfaceState>) -> Response {
         .map(|((peer, medium), v)| (format!("{peer}:{medium}"), serde_json::json!(v)))
         .collect();
 
+    // CIRISServer#377 / CIRISEdge#433+#434 — the REPLICATION plane's own counters.
+    // Everything above this line is the application/durable plane (edge's
+    // `inc_sent` / `inc_received` / `inc_send_failure`, all called only from
+    // edge's `src/edge.rs`). Anti-entropy replication — the plane that carries
+    // `trace:*` to a canonical — increments none of them, so an operator reading
+    // this endpoint saw `envelopes_sent_total: {}` on a node that had just moved
+    // 15 trace rows. Same defect as the mesh-repro `ship` rung, one surface over.
+    let replication_served: serde_json::Map<_, _> = bundle
+        .replication_envelopes_served_total
+        .iter()
+        .map(|(k, v)| (k.as_wire_str().to_string(), serde_json::json!(v)))
+        .collect();
+    let withholds: serde_json::Map<_, _> = bundle
+        .withholds_by_reason
+        .iter()
+        .map(|(k, v)| (k.as_str().to_string(), serde_json::json!(v)))
+        .collect();
+    let apply_refusals: serde_json::Map<_, _> = bundle
+        .apply_refusals_by_kind
+        .iter()
+        .map(|(k, v)| (k.as_wire_str().to_string(), serde_json::json!(v)))
+        .collect();
+    // CIRISEdge#457 — the receive plane's ACCEPTED-apply axes. Without these,
+    // `receive_standing` below could only ever say `clean`, and this endpoint
+    // reported the same `{}` for a node that applied everything a peer offered
+    // and a node that was offered nothing. #377 shipped with three stale readers
+    // of one counter; this is the reader that must not become a fourth.
+    let applied: serde_json::Map<_, _> = bundle
+        .replication_applied_total
+        .iter()
+        .map(|(k, v)| (k.as_wire_str().to_string(), serde_json::json!(v)))
+        .collect();
+    let duplicates: serde_json::Map<_, _> = bundle
+        .replication_duplicate_total
+        .iter()
+        .map(|(k, v)| (k.as_wire_str().to_string(), serde_json::json!(v)))
+        .collect();
+    let round_outcomes: serde_json::Map<_, _> = bundle
+        .replication_round_outcomes_total
+        .iter()
+        .map(|(k, v)| (k.as_str().to_string(), serde_json::json!(v)))
+        .collect();
+
     (
         StatusCode::OK,
         Json(serde_json::json!({
@@ -213,6 +278,18 @@ async fn get_metrics(State(st): State<SurfaceState>) -> Response {
                 "transport_bytes_out_total": bytes_out,
                 "peer_reachability_ratio": reachability,
                 "inline_text_subscriber_count": st.edge.verified_feed_subscriber_count(),
+                // The plane that carries trace:*. Read THESE for carriage health;
+                // the four counters above observe the application plane only.
+                "replication_envelopes_served_total": replication_served,
+                "withholds_by_reason": withholds,
+                "apply_refusals_by_kind": apply_refusals,
+                "replication_applied_total": applied,
+                "replication_duplicate_total": duplicates,
+                "replication_round_outcomes_total": round_outcomes,
+                "carriage_standing": crate::operator_surface::carriage_standing(Some(&bundle)).as_str(),
+                "receive_standing": crate::operator_surface::receive_standing(Some(&bundle)).as_str(),
+                "receive_decided_total": crate::operator_surface::receive_decided_total(&bundle),
+                "plane_note": "envelopes_sent_total / envelopes_received_total / send_failures_total are the APPLICATION plane (edge.rs send_*/dispatch_inbound). Anti-entropy replication increments none of them, so 0 there says nothing about carriage — read replication_envelopes_served_total and carriage_standing for the send direction (CIRISEdge#434), and replication_applied_total / replication_duplicate_total / apply_refusals_by_kind with receive_standing for the receive direction (CIRISEdge#457). receive_decided_total is their sum: every offered row that reached an apply decision. Undecodable bytes reach no decision and edge counts them nowhere, so they are absent from it rather than folded in.",
             }
         })),
     )
@@ -567,16 +644,14 @@ async fn events_stream(
         .into_response()
 }
 
-/// The agent-compat federation edge-surface router (#261). `self_key_id` is
-/// the node's derived federation `key_id`; `edge` is the ONE shared edge
-/// runtime — mounted right after [`crate::federation_peers::router`] in
-/// [`crate::compose`].
-pub fn router(engine: Arc<Engine>, self_key_id: String, edge: Arc<Edge>) -> Router {
-    let state = SurfaceState {
-        engine,
-        self_key_id,
-        edge,
-    };
+/// The agent-compat federation edge-surface router (#261). `edge` is the ONE
+/// shared edge runtime — mounted right after [`crate::federation_peers::router`]
+/// in [`crate::compose`].
+///
+/// **It takes no key id** (CIRISServer#372 Level 2): the node's own derived
+/// federation `key_id` is resolved from the engine at request time.
+pub fn router(engine: Arc<Engine>, edge: Arc<Edge>) -> Router {
+    let state = SurfaceState { engine, edge };
     Router::new()
         .route("/v1/federation/identity", axum::routing::get(get_identity))
         .route("/v1/federation/metrics", axum::routing::get(get_metrics))

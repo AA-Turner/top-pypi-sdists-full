@@ -79,6 +79,9 @@ class AuthClient:
         # across scopes.
         organization_id: t.Optional[str] = None,
         workspace_id: t.Optional[str] = None,
+        # RFC 8707 resource indicator. When set, every mint asks for this
+        # audience; like the scope above, cache keys do not include it.
+        resource: t.Optional[str] = None,
     ) -> None:
         self.public_key_url = urljoin(url, ".well-known/jwks.json")
         self.access_token_url = urljoin(url, "api/v1/login/access-token")
@@ -89,6 +92,7 @@ class AuthClient:
         self._salt = salt
         self._organization_id = organization_id
         self._workspace_id = workspace_id
+        self._resource = resource
         self._recursion_gate: t.Optional[RecursionGate] = None
 
         if recursion_check_enabled and recursion_counter is None:
@@ -370,6 +374,7 @@ class AuthClient:
         organization_id: t.Optional[str] = None,
         workspace_id: t.Optional[str] = None,
         roles: t.Optional[t.Sequence[str]] = None,
+        resource: t.Optional[str] = None,
     ) -> t.Union[
         JWTResponseSuccess,
         JWTResponseAllowedFailure,
@@ -384,6 +389,10 @@ class AuthClient:
         (``?roles=a&roles=b``) and subsets the mint to the named roles.
         Omit all of them for an unscoped mint (backwards-compatible
         default).
+
+        ``resource`` is the RFC 8707 resource indicator: the audience the
+        minted token is for. An auth server that does not implement it
+        ignores the param and mints its default audience.
         """
         # PEP-295 prefix is for *customer* hop accounting. The internal
         # access-token exchange is not a hop — the prefix would only
@@ -403,6 +412,8 @@ class AuthClient:
             params["workspace_id"] = workspace_id
         if roles is not None:
             params["roles"] = list(roles)
+        if resource is not None:
+            params["resource"] = resource
         try:
             res = requests.post(
                 self.access_token_url,
@@ -436,6 +447,7 @@ class AuthClient:
             expires_seconds=int(self._cache_fallback_time.total_seconds()),
             organization_id=self._organization_id,
             workspace_id=self._workspace_id,
+            resource=self._resource,
         )
 
     def _get_cache_key(self, key: str) -> str:

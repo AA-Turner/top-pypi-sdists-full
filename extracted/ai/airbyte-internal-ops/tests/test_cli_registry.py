@@ -498,8 +498,19 @@ def _metadata_yaml(*, version: str, progressive_rollout: bool | None = None) -> 
             {"source-test": ["1.0.0", "1.1.0-rc.1", "1.1.0-rc.2"]},
             set(),
             {("source-test", "1.1.0-rc.1"), ("source-test", "1.1.0-rc.2")},
-            {"source-test": ["1.1.0-rc.2", "1.1.0-rc.1"]},
-            id="returns_all_enabled_rcs_highest_first",
+            {"source-test": ["1.1.0-rc.2"]},
+            id="advertises_only_highest_rc",
+        ),
+        pytest.param(
+            {"source-test": ["1.0.0", "1.1.0", "1.2.0", "1.3.0"]},
+            set(),
+            {
+                ("source-test", "1.1.0"),
+                ("source-test", "1.2.0"),
+                ("source-test", "1.3.0"),
+            },
+            {"source-test": ["1.3.0"]},
+            id="advertises_only_highest_of_backlogged_ga_candidates",
         ),
         pytest.param(
             {"source-test": ["1.0.0", "1.1.0-rc.1", "1.1.0-rc.2"]},
@@ -565,7 +576,7 @@ def test_compute_release_candidates(
     progressive_rollouts: set[tuple[str, str]],
     expected: dict[str, list[str]],
 ) -> None:
-    """Release candidates are derived from versioned marker files."""
+    """Only the highest release candidate is derived from versioned markers."""
     assert (
         _compute_release_candidates(
             connector_versions=connector_versions,

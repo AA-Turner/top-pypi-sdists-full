@@ -2290,3 +2290,53 @@ def test_nonfinite_scalar_operands():
     # String expressions with bare nan/inf names.
     assert np.all(np.isnan(blosc2.lazyexpr("a + nan", {"a": a}).compute()[:]))
     np.testing.assert_array_equal(blosc2.lazyexpr("a < inf", {"a": a}).compute()[:], [True] * 3)
+
+
+@pytest.mark.parametrize("shape", [(1, 1, 100), (10, 1, 100), (1, 10, 100), (100, 1), (1, 1, 1), (5, 1)])
+@pytest.mark.parametrize(
+    "item",
+    [0, -1, (0, 0), (slice(None), 0), (0, slice(None)), (Ellipsis, 0), (slice(1, 3), 0)],
+)
+def test_getitem_int_keeps_other_size1_dims(shape, item):
+    # Integer indexing must drop only the indexed axes, not every length-1
+    # axis that happens to survive (issue #319)
+    npa = np.arange(math.prod(shape), dtype="f8").reshape(shape)
+    a = blosc2.asarray(npa)
+    try:
+        expected = (npa + 1)[item]
+    except IndexError:
+        pytest.skip("invalid index for this shape")
+    result = blosc2.lazyexpr("a + 1", {"a": a})[item]
+    assert result.shape == expected.shape
+    np.testing.assert_array_equal(result, expected)
+
+
+@pytest.mark.parametrize(
+    ("shape", "bshape"),
+    [
+        ((2, 3, 4), (2, 1, 1)),
+        ((2, 3, 4), (3, 1)),
+        ((2, 3, 4), (1, 3, 1)),
+        ((2, 3, 4), (4,)),
+        ((10, 10), (10,)),
+        ((5, 6), (1, 6)),
+    ],
+)
+@pytest.mark.parametrize(
+    "item",
+    [(slice(None), 0), (Ellipsis, 0), (0, slice(None)), (0, 0), (slice(0, 2), -1), (None, 0), (0, None)],
+)
+def test_getitem_int_with_broadcast_operand(shape, bshape, item):
+    # An integer index drops an axis in every operand, including one that only
+    # broadcasts; keeping it as length 1 there put a phantom axis back into the
+    # result (issue #688)
+    npa = np.arange(math.prod(shape), dtype="f8").reshape(shape)
+    npb = (np.arange(math.prod(bshape), dtype="f8") + 100).reshape(bshape)
+    a, b = blosc2.asarray(npa), blosc2.asarray(npb)
+    try:
+        expected = (npa + npb)[item]
+    except IndexError:
+        pytest.skip("invalid index for this shape")
+    result = blosc2.lazyexpr("a + b", {"a": a, "b": b})[item]
+    assert result.shape == expected.shape
+    np.testing.assert_array_equal(result, expected)

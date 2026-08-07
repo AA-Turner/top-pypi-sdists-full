@@ -12,6 +12,9 @@ Usage::
     from types_boto3_backup import (
         BackupClient,
         Client,
+        ListBackupAccessPointsByRecoveryPointPaginator,
+        ListBackupAccessPointsByResourcePaginator,
+        ListBackupAccessPointsPaginator,
         ListBackupJobsPaginator,
         ListBackupPlanTemplatesPaginator,
         ListBackupPlanVersionsPaginator,
@@ -39,6 +42,9 @@ Usage::
     session = Session()
     client: BackupClient = session.client("backup")
 
+    list_backup_access_points_by_recovery_point_paginator: ListBackupAccessPointsByRecoveryPointPaginator = client.get_paginator("list_backup_access_points_by_recovery_point")
+    list_backup_access_points_by_resource_paginator: ListBackupAccessPointsByResourcePaginator = client.get_paginator("list_backup_access_points_by_resource")
+    list_backup_access_points_paginator: ListBackupAccessPointsPaginator = client.get_paginator("list_backup_access_points")
     list_backup_jobs_paginator: ListBackupJobsPaginator = client.get_paginator("list_backup_jobs")
     list_backup_plan_templates_paginator: ListBackupPlanTemplatesPaginator = client.get_paginator("list_backup_plan_templates")
     list_backup_plan_versions_paginator: ListBackupPlanVersionsPaginator = client.get_paginator("list_backup_plan_versions")
@@ -66,6 +72,9 @@ Usage::
 
 from .client import BackupClient
 from .paginator import (
+    ListBackupAccessPointsByRecoveryPointPaginator,
+    ListBackupAccessPointsByResourcePaginator,
+    ListBackupAccessPointsPaginator,
     ListBackupJobsPaginator,
     ListBackupPlansPaginator,
     ListBackupPlanTemplatesPaginator,
@@ -96,6 +105,9 @@ Client = BackupClient
 __all__ = (
     "BackupClient",
     "Client",
+    "ListBackupAccessPointsByRecoveryPointPaginator",
+    "ListBackupAccessPointsByResourcePaginator",
+    "ListBackupAccessPointsPaginator",
     "ListBackupJobsPaginator",
     "ListBackupPlanTemplatesPaginator",
     "ListBackupPlanVersionsPaginator",

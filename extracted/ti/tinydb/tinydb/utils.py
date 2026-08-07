@@ -3,8 +3,8 @@ Utility functions.
 """
 
 from collections import OrderedDict, abc
-from typing import List, Iterator, TypeVar, Generic, Union, Optional, Type, \
-    TYPE_CHECKING
+from collections.abc import Iterator
+from typing import TypeVar, Generic, Union, Optional, TYPE_CHECKING
 
 K = TypeVar('K')
 V = TypeVar('V')
@@ -14,7 +14,7 @@ T = TypeVar('T')
 __all__ = ('LRUCache', 'freeze', 'with_typehint')
 
 
-def with_typehint(baseclass: Type[T]):
+def with_typehint(baseclass: type[T]):
     """
     Add type hints from a specified class to a base class:
 
@@ -55,7 +55,7 @@ class LRUCache(abc.MutableMapping, Generic[K, V]):
         self.cache: OrderedDict[K, V] = OrderedDict()
 
     @property
-    def lru(self) -> List[K]:
+    def lru(self) -> list[K]:
         return list(self.cache.keys())
 
     @property
@@ -98,7 +98,7 @@ class LRUCache(abc.MutableMapping, Generic[K, V]):
         return default
 
     def set(self, key: K, value: V):
-        if self.cache.get(key):
+        if key in self.cache:
             self.cache[key] = value
             self.cache.move_to_end(key, last=True)
         else:
@@ -150,6 +150,10 @@ def freeze(obj):
         return FrozenDict((k, freeze(v)) for k, v in obj.items())
     elif isinstance(obj, list):
         # Transform lists into tuples
+        return tuple(freeze(el) for el in obj)
+    elif isinstance(obj, tuple):
+        # Freeze tuple elements too, so a nested dict/list inside an
+        # already-tuple arg (e.g. Query.test's *args) is still hashable
         return tuple(freeze(el) for el in obj)
     elif isinstance(obj, set):
         # Transform sets into ``frozenset``s

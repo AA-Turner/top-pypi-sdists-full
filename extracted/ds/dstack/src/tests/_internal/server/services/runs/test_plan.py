@@ -134,6 +134,9 @@ class TestGetJobPlansBackendOffers:
             project=project,
             run_spec=run_spec,
             max_offers=None,
+            full_offers=False,
+            unallocated_resources=False,
+            for_offers_only=False,
         )
 
         find_optimal_fleet_with_offers_mock.assert_awaited_once()
@@ -172,6 +175,9 @@ class TestGetJobPlansBackendOffers:
             project=project,
             run_spec=run_spec,
             max_offers=None,
+            full_offers=False,
+            unallocated_resources=False,
+            for_offers_only=False,
         )
 
         get_targeted_instance_offers_mock.assert_awaited_once()
@@ -211,6 +217,9 @@ class TestGetPlan:
             user=user,
             run_spec=run_spec,
             max_offers=None,
+            full_offers=False,
+            unallocated_resources=False,
+            for_offers_only=False,
         )
 
         select_instances_mock.assert_not_awaited()
@@ -497,7 +506,10 @@ class TestGetTargetedInstanceOffers:
             exclude_not_available=True,
         )
 
-        assert [instance for instance, _ in offers] == [selected_1, selected_2]
+        # Sorted: the plan query does not order instances.
+        assert sorted(instance.id for instance, _ in offers) == sorted(
+            [selected_1.id, selected_2.id]
+        )
         assert [offer.blocks for _, offer in offers] == [2, 2]
         assert [offer.total_blocks for _, offer in offers] == [2, 2]
 
@@ -549,7 +561,10 @@ class TestGetTargetedInstanceOffers:
             exclude_not_available=True,
         )
 
-        assert [instance for instance, _ in offers] == [selected_1, selected_2]
+        # Sorted: the plan query does not order instances.
+        assert sorted(instance.id for instance, _ in offers) == sorted(
+            [selected_1.id, selected_2.id]
+        )
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("test_db", ["sqlite", "postgres"], indirect=True)

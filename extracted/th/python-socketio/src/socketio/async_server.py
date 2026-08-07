@@ -590,6 +590,8 @@ class AsyncServer(base_server.BaseServer):
         if not self.manager.is_connected(sid, namespace):  # pragma: no cover
             return
         self.manager.pre_disconnect(sid, namespace=namespace)
+        if eio_sid in self._binary_packet:
+            del self._binary_packet[eio_sid]
         await self._trigger_event('disconnect', namespace, sid,
                                   reason or self.reason.CLIENT_DISCONNECT)
         await self.manager.disconnect(sid, namespace, ignore_queue=True)

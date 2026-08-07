@@ -27,7 +27,7 @@ from dstack._internal.core.errors import (
     ProvisioningError,
 )
 from dstack._internal.core.models.backends.base import BackendType
-from dstack._internal.core.models.common import CoreModel
+from dstack._internal.core.models.common import CoreModel, validate_json_extra_ignore
 from dstack._internal.core.models.instances import (
     InstanceAvailability,
     InstanceConfiguration,
@@ -64,7 +64,9 @@ class VerdaCompute(
         )
         self.backend_type = backend_type
 
-    def get_all_offers_with_availability(self) -> List[InstanceOfferWithAvailability]:
+    def get_all_offers_with_availability(
+        self, unallocated_resources: bool
+    ) -> List[InstanceOfferWithAvailability]:
         offers = get_catalog_offers(
             backend=self.backend_type,
             locations=self.config.regions,
@@ -72,7 +74,9 @@ class VerdaCompute(
         offers_with_availability = self._get_offers_with_availability(offers)
         return offers_with_availability
 
-    def get_offers_modifiers(self, requirements: Requirements) -> Iterable[OfferModifier]:
+    def get_offers_modifiers(
+        self, requirements: Requirements, full_offers: bool
+    ) -> Iterable[OfferModifier]:
         return [get_offers_disk_modifier(CONFIGURABLE_DISK_SIZE, requirements)]
 
     def _get_offers_with_availability(
@@ -189,7 +193,7 @@ class VerdaCompute(
             backend_data=VerdaInstanceBackendData(
                 startup_script_id=startup_script_id,
                 ssh_key_ids=ssh_ids,
-            ).json(),
+            ).model_dump_json(),
         )
 
     def terminate_instance(
@@ -326,4 +330,4 @@ class VerdaInstanceBackendData(CoreModel):
     def load(cls, raw: Optional[str]) -> "VerdaInstanceBackendData":
         if raw is None:
             return cls()
-        return cls.__response__.parse_raw(raw)
+        return validate_json_extra_ignore(cls, raw)

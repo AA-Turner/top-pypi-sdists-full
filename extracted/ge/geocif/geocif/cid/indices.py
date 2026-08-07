@@ -765,6 +765,34 @@ class CIDs:
         except Exception as e:
             logger.warning(f"ENSO ingestion skipped: {type(e).__name__}: {e}")
 
+        # CCI (USDA NASS crop-condition index): monthly-mean per (state, year),
+        # broadcast onto rows by (adm1_name, year, Month). Only maize/soybean
+        # have coverage -> other crops get an empty frame and this merge is a
+        # no-op (no 'cci' column, so compute_eo_indices skips the CCI branch).
+        # Config: [DEFAULT] cci_file = path to the cleaned condition CSV.
+        try:
+            from . import cci as _cci
+            cci_path = self.parser.get("DEFAULT", "cci_file", fallback="").strip()
+            if cci_path and "adm1_name" in df.columns and "Month" in df.columns:
+                key_col = "Season" if "Season" in df.columns else "year"
+                yrs = sorted(int(y) for y in df[key_col].dropna().astype(int).unique())
+                # self.crop is often still "" here: preprocess_input_df runs via
+                # the per-file cache (process_task) and discover_regions BEFORE
+                # obj.crop is assigned, so passing self.crop directly filters the
+                # CCI frame on crop=="" -> empty -> no 'cci' column, silently.
+                # Derive the crop from the file name instead.
+                crop_for_cci = self.crop or utils.get_crop_season(self.file_name)[0]
+                cci_frame = _cci.get_cci_frame(cci_path, crop_for_cci, years=yrs)
+                if cci_frame is not None and not cci_frame.empty:
+                    cci_frame = cci_frame.rename(
+                        columns={"region": "adm1_name", "year": key_col}
+                    )
+                    df = df.merge(
+                        cci_frame, on=["adm1_name", key_col, "Month"], how="left"
+                    )
+        except Exception as e:
+            logger.warning(f"CCI ingestion skipped: {type(e).__name__}: {e}")
+
         return df
 
     def filter_data_for_harvest_year(self) -> pd.DataFrame:
@@ -1438,6 +1466,8 @@ class CIDs:
                 eo_vars.append("S2S")
             if any(c.startswith(("ONI_", "MEI_")) for c in df_group.columns):
                 eo_vars.append("ENSO")
+            if "cci" in df_group.columns:
+                eo_vars.append("CCI")
             # NOTE: static per-region variables (aridity, soil_*) are NOT
             # emitted as staged CID rows — they carry no time dimension, so
             # per-stage rows would only duplicate one constant. They reach
@@ -1591,6 +1621,8 @@ class CIDs:
             dict_eo = di.dict_s2s
         elif var == "ENSO":
             dict_eo = di.dict_enso
+        elif var == "CCI":
+            dict_eo = di.dict_cci
         else:
             return pd.DataFrame()  # unknown var
 
@@ -1610,6 +1642,8 @@ class CIDs:
             # Map index name to actual column in df_time_period
             if iname.startswith("AEF_"):
                 col_name = iname.lower()  # AEF_1 → aef_1
+            elif iname.endswith("_CCI"):
+                col_name = "cci"  # MEAN_CCI/MAX_CCI/MIN_CCI -> merged 'cci' column
             elif iname in di.fldas_col_map:
                 col_name = di.fldas_col_map[iname]
             elif iname in di.s2s_col_map:

@@ -1,18 +1,26 @@
 """AgentSkill SKILL.md validation rule"""
 
-from typing import List
+from pathlib import Path
+from typing import List, Optional, Tuple
 
 from skillsaw.rule import Rule, RuleViolation, AutofixResult, AutofixConfidence, Severity
-from skillsaw.context import RepositoryContext, RepositoryType
+from skillsaw.context import RepositoryContext
 from skillsaw.lint_target import SkillNode
 from skillsaw.rules.builtin.content_analysis import SkillBlock
 from skillsaw.rules.builtin.utils import (
+    parse_frontmatter,
     prepend_frontmatter_fields,
     read_text,
     replace_frontmatter_field,
 )
 
-from ._helpers import NAME_MAX_LENGTH, DESCRIPTION_MAX_LENGTH, COMPATIBILITY_MAX_LENGTH, _to_kebab
+from ._helpers import (
+    is_installed_plugin_skill,
+    COMPATIBILITY_MAX_LENGTH,
+    NAME_MAX_LENGTH,
+    SKILL_REPO_TYPES,
+    _to_kebab,
+)
 
 
 class AgentSkillValidRule(Rule):
@@ -20,12 +28,7 @@ class AgentSkillValidRule(Rule):
 
     autofix_confidence = AutofixConfidence.SAFE
 
-    repo_types = {
-        RepositoryType.AGENTSKILLS,
-        RepositoryType.SINGLE_PLUGIN,
-        RepositoryType.MARKETPLACE,
-        RepositoryType.DOT_CLAUDE,
-    }
+    repo_types = SKILL_REPO_TYPES
 
     BUILTIN_REQUIRED = {"name", "description"}
 
@@ -53,6 +56,40 @@ class AgentSkillValidRule(Rule):
     def default_severity(self) -> Severity:
         return Severity.ERROR
 
+    def _plan_missing_name_fix(self, file_path: Path) -> Optional[Tuple[str, str, str]]:
+        """Return a validated missing-name rewrite, or ``None`` if unsafe."""
+        # Read BOM-stripped so prepend_frontmatter_fields can match the
+        # opening ``---``; the BOM/line endings are restored on write.
+        original = read_text(file_path)
+        if original is None:
+            return None
+        kebab_name = _to_kebab(file_path.parent.name)
+        # An empty/null value still has a `name:` key line — replace it in
+        # place; prepending would produce a duplicate key on every run.
+        fixed = replace_frontmatter_field(original, "name", f"name: {kebab_name}")
+        if fixed is None:
+            fixed = prepend_frontmatter_fields(original, [f"name: {kebab_name}"])
+        if fixed is None:
+            return None
+        # SAFE fixes must never turn valid YAML into malformed YAML (for
+        # example by deleting an anchor while a later alias still uses it).
+        new_fm, _new_body, new_error = parse_frontmatter(fixed)
+        if new_error or not new_fm or new_fm.get("name") != kebab_name:
+            return None
+        return original, fixed, kebab_name
+
+    def _plan_missing_frontmatter_fix(self, file_path: Path) -> Optional[Tuple[str, str, str]]:
+        """Return a validated add-frontmatter rewrite, or ``None`` if unsafe."""
+        original = read_text(file_path)
+        if original is None:
+            return None
+        kebab_name = _to_kebab(file_path.parent.name)
+        fixed = f"---\nname: {kebab_name}\ndescription:\n---\n{original}"
+        new_fm, _new_body, new_error = parse_frontmatter(fixed)
+        if new_error or not new_fm or new_fm.get("name") != kebab_name:
+            return None
+        return original, fixed, kebab_name
+
     def fix(
         self, context: RepositoryContext, violations: List[RuleViolation]
     ) -> List[AutofixResult]:
@@ -60,21 +97,13 @@ class AgentSkillValidRule(Rule):
         for v in violations:
             if not v.file_path or not v.file_path.exists():
                 continue
-            if "Missing required 'name'" not in v.message:
+            if is_installed_plugin_skill(context, v.file_path):
                 continue
-            # Read BOM-stripped so prepend_frontmatter_fields can match the
-            # opening ``---``; the BOM/line endings are restored on write.
-            original = read_text(v.file_path)
-            if original is None:
-                continue
-            dir_name = v.file_path.parent.name
-            kebab_name = _to_kebab(dir_name)
-            # An empty/null value still has a `name:` key line — replace it in
-            # place; prepending would produce a duplicate key on every run.
-            fixed = replace_frontmatter_field(original, "name", f"name: {kebab_name}")
-            if fixed is None:
-                fixed = prepend_frontmatter_fields(original, [f"name: {kebab_name}"])
-            if fixed is not None:
+            if "Missing YAML frontmatter" in v.message:
+                plan = self._plan_missing_frontmatter_fix(v.file_path)
+                if plan is None:
+                    continue
+                original, fixed, kebab_name = plan
                 results.append(
                     AutofixResult(
                         rule_id=self.rule_id,
@@ -82,10 +111,28 @@ class AgentSkillValidRule(Rule):
                         confidence=AutofixConfidence.SAFE,
                         original_content=original,
                         fixed_content=fixed,
-                        description=f"Set name '{kebab_name}' from directory name",
+                        description=f"Added frontmatter with name '{kebab_name}' to SKILL.md",
                         violations_fixed=[v],
                     )
                 )
+                continue
+            if "Missing required 'name'" not in v.message:
+                continue
+            plan = self._plan_missing_name_fix(v.file_path)
+            if plan is None:
+                continue
+            original, fixed, kebab_name = plan
+            results.append(
+                AutofixResult(
+                    rule_id=self.rule_id,
+                    file_path=v.file_path,
+                    confidence=AutofixConfidence.SAFE,
+                    original_content=original,
+                    fixed_content=fixed,
+                    description=f"Set name '{kebab_name}' from directory name",
+                    violations_fixed=[v],
+                )
+            )
         return results
 
     def check(self, context: RepositoryContext) -> List[RuleViolation]:
@@ -114,17 +161,28 @@ class AgentSkillValidRule(Rule):
                 continue
 
             if not block.has_frontmatter:
+                fixable = (
+                    not is_installed_plugin_skill(context, block.path)
+                    and self._plan_missing_frontmatter_fix(block.path) is not None
+                )
                 violations.append(
                     self.violation(
                         "Missing YAML frontmatter (must start with ---)",
                         block=block,
+                        fixable=fixable,
                     )
                 )
                 continue
 
             name = block.field_value("name")
             if not name:
-                violations.append(self.violation("Missing required 'name' field", block=block))
+                fixable = (
+                    not is_installed_plugin_skill(context, block.path)
+                    and self._plan_missing_name_fix(block.path) is not None
+                )
+                violations.append(
+                    self.violation("Missing required 'name' field", block=block, fixable=fixable)
+                )
             elif not isinstance(name, str):
                 violations.append(
                     self.violation(
@@ -280,10 +338,14 @@ class AgentSkillValidRule(Rule):
                                 )
                             )
 
-        # fix() only repairs the missing-name case (it derives the name from
-        # the directory); every other violation needs a human.
+        # fix() only repairs the missing-name and missing-frontmatter cases
+        # (both derive the name from the directory); every other violation
+        # needs a human.
         for v in violations:
-            if "Missing required 'name'" not in v.message:
+            if (
+                "Missing required 'name'" not in v.message
+                and "Missing YAML frontmatter" not in v.message
+            ):
                 v.fixable = False
                 v.fix_confidence = None
 

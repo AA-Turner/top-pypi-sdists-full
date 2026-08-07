@@ -571,6 +571,8 @@ class Server(base_server.BaseServer):
         if not self.manager.is_connected(sid, namespace):  # pragma: no cover
             return
         self.manager.pre_disconnect(sid, namespace=namespace)
+        if eio_sid in self._binary_packet:
+            del self._binary_packet[eio_sid]
         self._trigger_event('disconnect', namespace, sid,
                             reason or self.reason.CLIENT_DISCONNECT)
         self.manager.disconnect(sid, namespace, ignore_queue=True)

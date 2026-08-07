@@ -98,6 +98,10 @@ from outlines.types.dsl import to_regex
         (types.ipv4, "1.2.256.3", False),
         (types.ipv4, "1.2.3.256", False),
         (types.ipv4, "1.2.3", False),
+        (types.ipv4, "01.1.1.1", False),
+        (types.ipv4, "00.0.0.0", False),
+        (types.ipv4, "1.02.3.4", False),
+        (types.ipv4, "1.1.1.09", False),
         (types.ipv4, "1.2.3.4.5", False),
         (types.ipv4, "1.2.3.4.", False),
         (types.ipv4, ".1.2.3.4", False),
@@ -113,6 +117,9 @@ from outlines.types.dsl import to_regex
         (types.ipv6, "2001::db8::1", False),
         (types.ipv6, "12345::1", False),
         (types.ipv6, ":::1", False),
+        (types.ipv6, "::ffff:01.1.1.1", False),
+        (types.ipv6, "::ffff:00.0.0.0", False),
+        (types.ipv6, "1:2:3:4::5.6.7.8", True),
         (types.semver, "1.2.3", True),
         (types.semver, "1.2", False),
         (types.semver, "01.2.3", False),
@@ -120,6 +127,109 @@ from outlines.types.dsl import to_regex
         (types.mac_address, "00:1A:2B:3C:4D:5E", True),
         (types.mac_address, "00-1A-2B-3C-4D-5E", False),
         (types.mac_address, "00:1A:2B:3C:4D", False),
+        (types.hex_color, "#1a2b3c", True),
+        (types.hex_color, "#abc", True),
+        (types.hex_color, "#ABC123", True),
+        (types.hex_color, "1a2b3c", False),
+        (types.hex_color, "#12345", False),
+        (types.hex_color, "#gggggg", False),
+        (types.hex_color, "#abcd", False),
+        (types.hex_color, "#aabbccdd", False),
+        (types.hex_color, " #abc", False),
+        (types.slug, "my-post-title", True),
+        (types.slug, "post", True),
+        (types.slug, "a1-b2", True),
+        (types.slug, "My-Post", False),
+        (types.slug, "-leading-hyphen", False),
+        (types.slug, "trailing-hyphen-", False),
+        (types.slug, "double--hyphen", False),
+        (types.slug, "under_score", False),
+        (types.slug, "", False),
+        (types.credit_card, "4111111111111111", True),  # Visa 16
+        (types.credit_card, "4222222222222", True),  # Visa 13
+        (types.credit_card, "4111111111111111111", True),  # Visa 19
+        (types.credit_card, "5555555555554444", True),  # Mastercard 51-55
+        (types.credit_card, "2223003122003222", True),  # Mastercard 2221-2720
+        (types.credit_card, "378282246310005", True),  # American Express
+        (types.credit_card, "30569309025904", True),  # Diners Club
+        (types.credit_card, "6011111111111117", True),  # Discover 6011
+        (types.credit_card, "6440000000000007", True),  # Discover 644-649
+        (types.credit_card, "6490000000000009", True),  # Discover 644-649
+        (types.credit_card, "6512345678901234", True),  # Discover 65
+        (types.credit_card, "3530111333300000", True),  # JCB
+        (types.credit_card, "6759649826438453", True),  # Maestro
+        (types.credit_card, "6200000000000005", True),  # UnionPay
+        (types.credit_card, "6221260000000000", True),  # Discover 622126-622925 co-brand
+        (types.credit_card, "4111 1111 1111 1111", False),  # spaces
+        (types.credit_card, "4111-1111-1111-1111", False),  # hyphens
+        (types.credit_card, "1234567890123456", False),  # unknown prefix
+        (types.credit_card, "6430000000000000", False),  # 643 not a Discover prefix
+        (types.credit_card, "2220003122003222", False),  # below Mastercard 2-range
+        (types.credit_card, "2721003122003222", False),  # above Mastercard 2-range
+        (types.credit_card, "411111111111", False),  # too short
+        (types.credit_card, "4111a11111111111", False),  # non-digit character
+        (types.credit_card, "41111111111111111111", False),  # too long (20 digits)
+        (types.credit_card, "3782822463100050", False),  # Amex prefix, wrong length
+        (types.credit_card, "", False),
+        (types.iban, "GB82WEST12345698765432", True),
+        (types.iban, "DE89370400440532013000", True),
+        (types.iban, "FR1420041010050500013M02606", True),  # letters in the BBAN
+        (types.iban, "NO9386011117947", True),  # shortest, 15 characters
+        (types.iban, "MT84MALT011000012345MTLCAST001S", True),
+        (types.iban, "GB02WEST12345698765432", True),  # lowest check digits
+        (types.iban, "GB98WEST12345698765432", True),  # highest check digits
+        (types.iban, "GB00WEST12345698765432", False),  # check digits below 02
+        (types.iban, "GB99WEST12345698765432", False),  # check digits above 98
+        (types.iban, "GB82 WEST 1234 5698 7654 32", False),  # print format
+        (types.iban, "gb82west12345698765432", False),  # lowercase
+        (types.iban, "G182WEST12345698765432", False),  # digit in the country code
+        (types.iban, "GB82WEST1234", False),  # too short
+        (types.iban, "GB82WEST123456987654321234567890123", False),  # over 34
+        (types.iban, "", False),
+        (types.bic, "DEUTDEFF", True),  # institution, country and location only
+        (types.bic, "DEUTDEFF500", True),  # with a branch code
+        (types.bic, "NEDSZAJJXXX", True),  # head office branch code
+        (types.bic, "UNCRIT2B912", True),  # digit in the location code
+        (types.bic, "DEUTDE0F", False),  # location code starting with 0
+        (types.bic, "DEUTDE1F", False),  # location code starting with 1
+        (types.bic, "DEUTDEFO", False),  # letter O in the location code
+        (types.bic, "DEUT1EFF", False),  # digit in the country code
+        (types.bic, "DEUTDEF", False),  # too short
+        (types.bic, "DEUTDEFF50", False),  # incomplete branch code
+        (types.bic, "DEUTDEFF5000", False),  # too long
+        (types.bic, "deutdeff", False),  # lowercase
+        (types.bic, "", False),
+        (types.e164, "+14155552671", True),
+        (types.e164, "+442071838750", True),
+        (types.e164, "+8613800138000", True),
+        (types.e164, "14155552671", False),  # missing plus sign
+        (types.e164, "+04155552671", False),  # country code cannot start with 0
+        (types.e164, "+1 415 555 2671", False),  # spacing is not canonical form
+        (types.e164, "+1-415-555-2671", False),  # hyphens are not canonical form
+        (types.e164, "+123456789012345", True),  # exactly 15 digits, the maximum
+        (types.e164, "+1234567890123456", False),  # more than 15 digits
+        (types.e164, "+1", False),  # country code alone
+        (types.e164, "", False),
+        (types.latitude, "0", True),
+        (types.latitude, "45.5231", True),
+        (types.latitude, "-90", True),
+        (types.latitude, "90.0", True),
+        (types.latitude, "+27.9881", True),
+        (types.latitude, "90.5", False),  # above upper bound
+        (types.latitude, "-91", False),  # below lower bound
+        (types.latitude, "05", False),  # leading zero
+        (types.latitude, "45.", False),  # trailing decimal point
+        (types.latitude, "", False),
+        (types.longitude, "0", True),
+        (types.longitude, "-122.6765", True),
+        (types.longitude, "180", True),
+        (types.longitude, "180.00", True),
+        (types.longitude, "+179.9999", True),
+        (types.longitude, "180.1", False),  # above upper bound
+        (types.longitude, "-181", False),  # below lower bound
+        (types.longitude, "005", False),  # leading zeros
+        (types.longitude, "12.", False),  # trailing decimal point
+        (types.longitude, "", False),
     ],
 )
 def test_type_regex(custom_type, test_string, should_match):

@@ -7,13 +7,13 @@ from typing import Any
 
 from django.urls import reverse
 
-import jwt
 from oauthlib.common import Request
 from oauthlib.oauth2.rfc8628.endpoints import DeviceApplicationServer
 from oauthlib.openid import Server
 
 from allauth.core import context
 from allauth.core.internal import jwkkit
+from allauth.core.internal.deferred import jwt
 from allauth.idp.oidc import app_settings
 from allauth.idp.oidc.adapter import get_adapter
 from allauth.idp.oidc.internal.oauthlib.request_validator import (
@@ -53,7 +53,7 @@ def generate_jwt_access_token(request: Request) -> str:
     adapter.populate_access_token(
         access_token, user=request.user, client=request.client, scopes=request.scopes
     )
-    jwk_dict, private_key = jwkkit.load_jwk_from_pem(app_settings.PRIVATE_KEY)
+    jwk_dict, private_key = jwkkit.load_jwk_from_pem(adapter.get_signing_key().pem)
     return jwt.encode(
         access_token, private_key, algorithm="RS256", headers={"kid": jwk_dict["kid"]}
     )

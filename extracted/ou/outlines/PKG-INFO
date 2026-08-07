@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: outlines
-Version: 1.3.2
+Version: 1.3.3
 Summary: Probabilistic Generative Model Programming
 Author: Outlines Developers
 License: Apache-2.0
@@ -27,7 +27,6 @@ Requires-Dist: pillow
 Requires-Dist: typing_extensions
 Requires-Dist: outlines_core==0.2.14
 Requires-Dist: genson
-Requires-Dist: jsonpath_ng
 Provides-Extra: anthropic
 Requires-Dist: anthropic; extra == "anthropic"
 Provides-Extra: dottxt

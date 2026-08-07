@@ -964,7 +964,10 @@ class RecordingWriteRequest(BaseModel):
 
 
 class EnergyBucket(BaseModel):
-    ts: AwareDatetime = Field(..., description="Start of the bucket's time span (UTC).")
+    ts: AwareDatetime = Field(
+        ...,
+        description="Start of the bucket's time span, serialised as an RFC3339 instant. For `group=day` / `group=month` this instant is the local midnight respectively local first-of-month of the daemon's timezone, so rendering it with a local date format names the calendar day or month the bucket covers.\n",
+    )
     consumed_wh: float = Field(
         ...,
         description="ENERGY_COUNTER delta over the bucket, in Wh. Never negative — see `reset`.\n",
@@ -1942,6 +1945,89 @@ class AlarmHealthChangedPayload(BaseModel):
     )
 
 
+class EntityNameCatalogue(BaseModel):
+    locale: str = Field(
+        ...,
+        description="The locale that actually answered — the requested one when a\ncatalogue exists for it, the daemon's default otherwise. A\nconsumer reads it to tell a translation from a fallback.\n",
+    )
+    entries: dict[str, str] = Field(
+        ...,
+        description="Catalogue key to name, as authored. A value may carry a\n`{placeholder}` the caller fills.\n",
+    )
+
+
+class Severity(StrEnum):
+    ok = "ok"
+    info = "info"
+    warning = "warning"
+    alarm = "alarm"
+    critical = "critical"
+
+
+class PreviousSeverity(StrEnum):
+    ok = "ok"
+    info = "info"
+    warning = "warning"
+    alarm = "alarm"
+    critical = "critical"
+
+
+class ActiveClass(StrEnum):
+    smoke = "smoke"
+    water = "water"
+    gas = "gas"
+    co = "co"
+    tamper = "tamper"
+    battery = "battery"
+    technical = "technical"
+    intrusion = "intrusion"
+    panic = "panic"
+
+
+class SecurityStateChangedPayload(BaseModel):
+    severity: Severity
+    previous_severity: PreviousSeverity | None = Field(
+        None,
+        description="The severity the fold left. Omitted on the first report\nafter start-up, where there is no previous value.\n",
+    )
+    active_classes: list[ActiveClass] | None = Field(
+        None, description="The classes contributing to `severity`."
+    )
+    open_faults: int = Field(..., description="Standing faults behind the fold.")
+
+
+class Class1(StrEnum):
+    smoke = "smoke"
+    water = "water"
+    gas = "gas"
+    co = "co"
+    tamper = "tamper"
+    battery = "battery"
+    technical = "technical"
+    intrusion = "intrusion"
+    panic = "panic"
+
+
+class Reason(StrEnum):
+    unreachable = "unreachable"
+    blocked = "blocked"
+    device_error = "device_error"
+    central_lost = "central_lost"
+    duty_cycle = "duty_cycle"
+    low_battery = "low_battery"
+    tamper = "tamper"
+
+
+class Verb(StrEnum):
+    triggered = "triggered"
+    pre_alarm = "pre_alarm"
+    cleared = "cleared"
+    silenced = "silenced"
+    failed_to_arm = "failed_to_arm"
+    raised = "raised"
+    test = "test"
+
+
 class TriggeredEventSummary(BaseModel):
     parameter: str = Field(
         ..., description="Lowercased parameter name of the source that fired."
@@ -2102,7 +2188,7 @@ class MatterEndpointAssembledPayload(BaseModel):
     )
 
 
-class Class1(StrEnum):
+class Class4(StrEnum):
     basic = "basic"
     expert = "expert"
     secret = "secret"
@@ -2112,7 +2198,7 @@ class SchemaField(BaseModel):
     path: str = Field(
         ..., description='Dot-separated field path, e.g. "north.rest.listen".'
     )
-    class_: Class1 = Field(
+    class_: Class4 = Field(
         ...,
         alias="class",
         description="Visibility class from the cfg struct tag. `basic` fields are\nshown in the default UI view; `expert` requires the expert\ntoggle; `secret` values are always redacted in responses.\n",
@@ -2726,7 +2812,7 @@ class AlarmSensor(BaseModel):
     )
 
 
-class Class2(StrEnum):
+class Class5(StrEnum):
     acoustic_siren = "acoustic_siren"
     switched_siren = "switched_siren"
     smoke_sounder = "smoke_sounder"
@@ -2739,7 +2825,7 @@ class Class2(StrEnum):
 
 class AlarmOutput(BaseModel):
     id: str
-    class_: Class2 = Field(
+    class_: Class5 = Field(
         ...,
         alias="class",
         description="Output driver class. The class, not the backing device type, decides which safety invariants apply.",
@@ -2753,7 +2839,7 @@ class AlarmOutput(BaseModel):
     )
 
 
-class Class3(StrEnum):
+class Class6(StrEnum):
     acoustic_siren = "acoustic_siren"
     optical_siren = "optical_siren"
     switched_siren = "switched_siren"
@@ -2777,7 +2863,7 @@ class AlarmOutputCandidate(BaseModel):
         None,
         description="The channel's CCU function assignments (picker filter/label).",
     )
-    classes: list[Class3] = Field(
+    classes: list[Class6] = Field(
         ...,
         description="Device-backed output classes this channel can carry, in canonical class order. The switched_siren class requires device-side auto-off (ON_TIME) and is only listed when the channel supports it.",
     )
@@ -3011,15 +3097,7 @@ class AlarmArmAccepted(BaseModel):
     )
 
 
-class Severity(StrEnum):
-    ok = "ok"
-    info = "info"
-    warning = "warning"
-    alarm = "alarm"
-    critical = "critical"
-
-
-class Class4(StrEnum):
+class Class7(StrEnum):
     smoke = "smoke"
     water = "water"
     gas = "gas"
@@ -3055,7 +3133,7 @@ class SecuritySourceView(BaseModel):
 
 
 class SecuritySourceOverride(BaseModel):
-    class_: Class4 | None = Field(
+    class_: Class7 | None = Field(
         None, alias="class", description="Empty keeps the classifier verdict."
     )
     included: bool | None = Field(
@@ -3063,26 +3141,6 @@ class SecuritySourceOverride(BaseModel):
         description="false removes the source from every aggregate. Omitting the field leaves inclusion unchanged — a request that only names a class reclassifies and never excludes.\n",
     )
     note: str | None = None
-
-
-class Reason(StrEnum):
-    unreachable = "unreachable"
-    blocked = "blocked"
-    device_error = "device_error"
-    central_lost = "central_lost"
-    duty_cycle = "duty_cycle"
-    low_battery = "low_battery"
-    tamper = "tamper"
-
-
-class Verb(StrEnum):
-    triggered = "triggered"
-    pre_alarm = "pre_alarm"
-    cleared = "cleared"
-    silenced = "silenced"
-    failed_to_arm = "failed_to_arm"
-    raised = "raised"
-    test = "test"
 
 
 class SensorType(StrEnum):
@@ -3164,7 +3222,7 @@ class AlarmSource(BaseModel):
     sensor_type: str | None = Field(
         None, description="Alarm role (motion, opening, hazard, panic, ...)."
     )
-    class_: Class4 | None = Field(
+    class_: Class7 | None = Field(
         None, alias="class", description="Security & Safety hazard/fault class."
     )
     cause: str | None = Field(
@@ -3213,7 +3271,7 @@ class AlarmIncident(BaseModel):
     open: bool
 
 
-class Class7(StrEnum):
+class Class10(StrEnum):
     arm = "arm"
     disarm = "disarm"
     trigger = "trigger"
@@ -3228,7 +3286,7 @@ class AlarmJournalEntry(BaseModel):
     id: int
     when: AwareDatetime
     zone_id: str
-    class_: Class7 = Field(
+    class_: Class10 = Field(
         ...,
         alias="class",
         description="Journal bucket used by the `class` query filter.",
@@ -3395,6 +3453,89 @@ class AlarmReadinessChangedPayload(BaseModel):
     )
 
 
+class SecurityClassChangedPayload(BaseModel):
+    class_: Class1 = Field(..., alias="class")
+    active: bool
+    sources: list[AlarmSource] | None = None
+    centrals: list[str] | None = Field(
+        None, description="The centrals contributing active sources."
+    )
+    since: AwareDatetime | None = Field(
+        None,
+        description="When the class entered its current state. Omitted while the\nclass is inactive with no recorded transition.\n",
+    )
+
+
+class SecurityZoneChangedPayload(BaseModel):
+    zone_id: str
+    zone_slug: str = Field(
+        ...,
+        description="Frozen at zone creation, so consumer entity ids survive a\nrename — unlike `zone_name`.\n",
+    )
+    zone_name: str | None = None
+    state: str
+    mode: str | None = None
+    sources: list[AlarmSource] | None = None
+    by_class: dict[str, list[str]] | None = Field(
+        None,
+        description="Active source names grouped per class — the per-zone and\nper-class axis in one object rather than a zone-by-class\nmatrix of entities.\n",
+    )
+    incident_id: int | None = None
+
+
+class SecurityFaultChangedPayload(BaseModel):
+    fault_id: str
+    class_: Class1 = Field(..., alias="class")
+    reason: Reason
+    severity: Severity
+    source: AlarmSource
+    open: bool = Field(
+        ..., description="True when the fault was raised, false when it cleared."
+    )
+    acknowledged: bool = Field(
+        ...,
+        description="Marks an acknowledgement rather than a state change: the\ncondition is unchanged, the operator has merely stopped\nneeding to be told.\n",
+    )
+    since: AwareDatetime | None = Field(
+        None,
+        description="When the fault opened. Omitted when the ledger records no such occurrence.",
+    )
+    open_count: int = Field(
+        ...,
+        description="Standing fault count after this change, so a count entity needs no second read.",
+    )
+
+
+class SecurityNotificationPayload(BaseModel):
+    class_: Class1 = Field(..., alias="class")
+    severity: Severity
+    verb: Verb
+    subject: str = Field(
+        ...,
+        description="One line, at most 120 characters, suitable as a notification title.",
+    )
+    message: str = Field(
+        ..., description="A full sentence naming cause, place and time."
+    )
+    i18n_key: str = Field(
+        ...,
+        description="Catalogue key of the message, so a consumer can re-render in\nits own locale instead of translating prose.\n",
+    )
+    args: dict[str, str] | None = None
+    sources: list[AlarmSource] | None = None
+    zone_id: str | None = None
+    zone_slug: str | None = None
+    zone_name: str | None = None
+    mode: str | None = None
+    incident_id: int | None = None
+    link: str | None = None
+    at: AwareDatetime
+    fault: bool = Field(
+        ...,
+        description="Marks a fault report rather than a hazard report, so a\nconsumer can route the two without inspecting the class.\n",
+    )
+
+
 class CentralRow(BaseModel):
     name: str = Field(
         ...,
@@ -3501,7 +3642,7 @@ class Area(BaseModel):
 
 
 class SecurityClassState(BaseModel):
-    class_: Class4 = Field(..., alias="class")
+    class_: Class7 = Field(..., alias="class")
     active: bool
     sources: list[AlarmSource] | None = None
     known: int = Field(

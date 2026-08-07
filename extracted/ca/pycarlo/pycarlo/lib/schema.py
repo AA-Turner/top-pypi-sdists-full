@@ -471,11 +471,12 @@ class AgentHealthGranularity(pycarlo.lib.types.Enum):
 
 
 class AgentHealthIssueLifecycle(pycarlo.lib.types.Enum):
-    """Cross-run status of an issue vs the previous published report.
-    NEW = first seen in this report; ONGOING = matched an issue in the
-    prior report (by deterministic id or shared evidence fingerprint).
-    A resolved issue has no current evidence to cite, so it is not an
-    issue — it surfaces on the payload's `resolvedIssues` instead.
+    """Two-state cross-run status of an issue on the nested `issue`
+    payload.  NEW = first seen; ONGOING = re-reported since. Narrower
+    than the node's own `lifecycle`: REOPENED reads as NEW here and
+    RESOLVED has no value at all (the field is null) — read
+    `ReinforcementLoopIssueLifecycle` node-level for the full 4-state
+    vocabulary.
 
     Enumeration Choices:
 
@@ -500,23 +501,6 @@ class AgentHealthPriority(pycarlo.lib.types.Enum):
 
     __schema__ = schema
     __choices__ = ("CRITICAL", "HIGH", "LOW", "MEDIUM")
-
-
-class AgentHealthResolvedIssueStatus(pycarlo.lib.types.Enum):
-    """Whether a prior-report issue's disappearance is a real resolution.
-    RESOLVED = every detector behind the prior issue could have re-
-    fired this run and none did; UNVERIFIED = a source the issue
-    needed didn't run this window, so resolved-vs-still-failing is
-    unknown (a coverage gap).
-
-    Enumeration Choices:
-
-    * `RESOLVED`None
-    * `UNVERIFIED`None
-    """
-
-    __schema__ = schema
-    __choices__ = ("RESOLVED", "UNVERIFIED")
 
 
 class AgentHealthSeverity(pycarlo.lib.types.Enum):
@@ -6865,10 +6849,9 @@ class ReinforcementLoopIssueLifecycle(pycarlo.lib.types.Enum):
     """Cross-run lifecycle of a stable reinforcement-loop issue.  The
     full 4-state vocabulary of the stable issue record: NEW = first
     seen; ONGOING = re-reported since; REOPENED = seen again after
-    having been resolved; RESOLVED = no longer occurring. The 2-state
-    AgentHealthIssueLifecycle on the nested issue payload squashes
-    REOPENED into NEW and omits RESOLVED (parity with the legacy
-    report surface).
+    having been resolved; RESOLVED = no longer occurring. Prefer this
+    over the 2-state AgentHealthIssueLifecycle on the nested issue
+    payload, which squashes REOPENED into NEW and nulls RESOLVED.
 
     Enumeration Choices:
 
@@ -6885,11 +6868,10 @@ class ReinforcementLoopIssueLifecycle(pycarlo.lib.types.Enum):
 class ReinforcementLoopSnapshotSelection(pycarlo.lib.types.Enum):
     """Which in-window snapshot carries each issue's payload on the list
     query.  LATEST (the default) = the issue's most recent in-window
-    occurrence; OLDEST = its first (matching
-    getAgentHealthIssueFindings' dedupe). An issue last seen in-window
-    can lack an in-window snapshot entirely (its reports all predate
-    startTime); then its newest snapshot at or before endTime carries
-    the payload regardless of selection.
+    occurrence; OLDEST = its first in-window occurrence. An issue last
+    seen in-window can lack an in-window snapshot entirely (its
+    reports all predate startTime); then its newest snapshot at or
+    before endTime carries the payload regardless of selection.
 
     Enumeration Choices:
 
@@ -6935,6 +6917,59 @@ class RelationshipType(pycarlo.lib.types.Enum):
 
     __schema__ = schema
     __choices__ = ("EXPERT", "OWNER")
+
+
+class RemediationAction(pycarlo.lib.types.Enum):
+    """Who acts on a remediation plan next, always computed in code
+    rather than chosen by a model. CODING_AGENT: a coding agent picks
+    up the fix. MONITOR_TUNING: a surface offers a monitor edit.
+    ALERT_CLOSURE: a surface offers to close the alert with the plan's
+    explanation attached. HUMAN_OWNER: the plan hands off to a human
+    owner. Key any behavior off this field rather than responseType,
+    so a new response type never silently changes what is offered.
+
+    Enumeration Choices:
+
+    * `ALERT_CLOSURE`None
+    * `CODING_AGENT`None
+    * `HUMAN_OWNER`None
+    * `MONITOR_TUNING`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("ALERT_CLOSURE", "CODING_AGENT", "HUMAN_OWNER", "MONITOR_TUNING")
+
+
+class RemediationConfidence(pycarlo.lib.types.Enum):
+    """Confidence in the diagnosed cause behind a remediation plan. HIGH:
+    the report states the cause explicitly. MEDIUM: the report
+    strongly implies the cause without stating it outright. LOW: the
+    evidence is ambiguous or insufficient to settle on a cause.
+
+    Enumeration Choices:
+
+    * `HIGH`None
+    * `LOW`None
+    * `MEDIUM`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("HIGH", "LOW", "MEDIUM")
+
+
+class RemediationStatus(pycarlo.lib.types.Enum):
+    """Status of the remediation for an alert.
+
+    Enumeration Choices:
+
+    * `COMPLETED`None
+    * `FAILED`None
+    * `NOT_FOUND`None
+    * `RUNNING`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("COMPLETED", "FAILED", "NOT_FOUND", "RUNNING")
 
 
 class ReportInterval(pycarlo.lib.types.Enum):
@@ -11602,7 +11637,10 @@ class CreateJiraTicketForAgentHealthIssueInput(sgqlc.types.Input):
         "fields",
     )
     finding_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="findingUuid")
-    """UUID of the child finding carrying the agent-health issue."""
+    """UUID of the reinforcement-loop issue to act on — the `issueUuid`
+    of a getReinforcementLoopIssues node (equivalently its
+    `issue.findingUuid`), stable across runs.
+    """
 
     integration_id = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="integrationId")
     """UUID of the Jira integration to create the ticket under."""
@@ -11642,7 +11680,10 @@ class CreateLinearTicketForAgentHealthIssueInput(sgqlc.types.Input):
     __schema__ = schema
     __field_names__ = ("finding_uuid", "title", "description", "team_id")
     finding_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="findingUuid")
-    """UUID of the child finding carrying the agent-health issue."""
+    """UUID of the reinforcement-loop issue to act on — the `issueUuid`
+    of a getReinforcementLoopIssues node (equivalently its
+    `issue.findingUuid`), stable across runs.
+    """
 
     title = sgqlc.types.Field(String, graphql_name="title")
     """Ticket title; defaults to the issue title."""
@@ -11781,7 +11822,10 @@ class CreateServiceNowTicketForAgentHealthIssueInput(sgqlc.types.Input):
         "fields",
     )
     finding_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="findingUuid")
-    """UUID of the child finding carrying the agent-health issue."""
+    """UUID of the reinforcement-loop issue to act on — the `issueUuid`
+    of a getReinforcementLoopIssues node (equivalently its
+    `issue.findingUuid`), stable across runs.
+    """
 
     integration_id = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="integrationId")
     """UUID of the ServiceNow integration to create the incident under."""
@@ -13310,6 +13354,15 @@ class GcpDataformUpdateConnectionDetails(sgqlc.types.Input):
     """
 
 
+class GetAgentAlertInsightInput(sgqlc.types.Input):
+    """Input for getAgentAlertInsight query."""
+
+    __schema__ = schema
+    __field_names__ = ("alert_id",)
+    alert_id = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="alertId")
+    """UUID of the alert to generate insight for"""
+
+
 class GetAgentGraphInput(sgqlc.types.Input):
     """Input parameters for GetAgentGraph.  ``getAgentGraph`` reads a
     daily-refreshed snapshot of the fused graph for the trailing 7
@@ -13364,20 +13417,19 @@ class GetAgentGraphInput(sgqlc.types.Input):
     Ignored otherwise.
     """
 
-    workflows = sgqlc.types.Field(
-        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="workflows"
-    )
-    """Optional list of workflow names to scope the graph to. The graph
-    is built from the agent's most recent traces containing any listed
-    workflow (OR logic, same trace selection as `filters.workflows` on
-    getTraces), but node and edge statistics count only spans labeled
-    with one of the listed workflows — spans belonging to other
-    workflows in those traces are excluded, and ancestor steps
-    carrying a different label are retained as zero-stat structural
-    nodes so the hierarchy stays connected. The snapshot read uses the
-    matching per-workflow snapshot and supports at most one name today
-    — supplying more raises a validation error; omit or pass an empty
-    list for the unfiltered graph.
+    workflows = sgqlc.types.Field(sgqlc.types.list_of(String), graphql_name="workflows")
+    """Optional list of workflow names to scope the graph to. A null
+    element selects the no-workflow scope — spans carrying no workflow
+    label. The graph is built from the agent's most recent traces
+    containing any listed workflow (OR logic, same trace selection as
+    `filters.workflows` on getTraces), but node and edge statistics
+    count only spans labeled with one of the listed workflows — spans
+    belonging to other workflows in those traces are excluded, and
+    ancestor steps carrying a different label are retained as zero-
+    stat structural nodes so the hierarchy stays connected. The
+    snapshot read uses the matching per-workflow snapshot and supports
+    at most one entry today — supplying more raises a validation
+    error; omit or pass an empty list for the unfiltered graph.
     """
 
     max_traces = sgqlc.types.Field(Int, graphql_name="maxTraces")
@@ -17011,21 +17063,6 @@ class SslUpdateOptions(sgqlc.types.Input):
     """Skip certificate verification"""
 
 
-class StorageCandidateSelectionInput(sgqlc.types.Input):
-    """The storage-optimization candidates a ticket is created for."""
-
-    __schema__ = schema
-    __field_names__ = ("resource_id", "candidate_mcons")
-    resource_id = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="resourceId")
-    """UUID of the warehouse."""
-
-    candidate_mcons = sgqlc.types.Field(
-        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
-        graphql_name="candidateMcons",
-    )
-    """MCONs of the selected candidates."""
-
-
 class StorageOptimizationCandidatesFilter(sgqlc.types.Input):
     """Optional filters applied to storage optimization candidate
     results.
@@ -17724,10 +17761,10 @@ class TraceFiltersInput(sgqlc.types.Input):
     )
     """Filter by model names (OR logic)"""
 
-    workflows = sgqlc.types.Field(
-        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="workflows"
-    )
-    """Filter by workflow names (OR logic)"""
+    workflows = sgqlc.types.Field(sgqlc.types.list_of(String), graphql_name="workflows")
+    """Filter by workflow names (OR logic). A null element selects the
+    no-workflow scope — traces whose spans carry no workflow label.
+    """
 
     tasks = sgqlc.types.Field(
         sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="tasks"
@@ -21635,6 +21672,18 @@ class Agent(sgqlc.types.Type):
     """
 
 
+class AgentAlertSummary(sgqlc.types.Type):
+    """Summary section for agent alerts: a template-based headline."""
+
+    __schema__ = schema
+    __field_names__ = ("headline",)
+    headline = sgqlc.types.Field(String, graphql_name="headline")
+    """Template-based headline describing the breach — metric name,
+    observed value, expected range, and bucket time. Null if the
+    headline could not be generated from the event data.
+    """
+
+
 class AgentAssistant(sgqlc.types.Type):
     """Agent assistance attached to a domain. A domain is agent-assisted
     iff this object resolves non-null.
@@ -22658,116 +22707,6 @@ class AgentHealthEvidenceSample(sgqlc.types.Type):
     """
 
 
-class AgentHealthFindingPayload(sgqlc.types.Type):
-    """Report overview carried in the parent Health Agent finding's
-    payload.
-    """
-
-    __schema__ = schema
-    __field_names__ = (
-        "health",
-        "agent_name",
-        "workflow_name",
-        "report_uuid",
-        "span_count",
-        "trace_count",
-        "signal_count",
-        "issue_count",
-        "evidence_count",
-        "window_start",
-        "window_end",
-        "resolved_issues",
-    )
-    health = sgqlc.types.Field(AgentHealthSeverity, graphql_name="health")
-    """Overall health rollup — the max severity across all issues."""
-
-    agent_name = sgqlc.types.Field(String, graphql_name="agentName")
-    """Observability agent the report covers."""
-
-    workflow_name = sgqlc.types.Field(String, graphql_name="workflowName")
-    """Workflow within the agent the report covers."""
-
-    report_uuid = sgqlc.types.Field(UUID, graphql_name="reportUuid")
-    """Unique id of the underlying health report."""
-
-    span_count = sgqlc.types.Field(Int, graphql_name="spanCount")
-    """Spans analyzed in the window."""
-
-    trace_count = sgqlc.types.Field(Int, graphql_name="traceCount")
-    """Traces analyzed in the window."""
-
-    signal_count = sgqlc.types.Field(Int, graphql_name="signalCount")
-    """Distinct issue types observed in the window."""
-
-    issue_count = sgqlc.types.Field(Int, graphql_name="issueCount")
-    """Issues detected in the window."""
-
-    evidence_count = sgqlc.types.Field(Int, graphql_name="evidenceCount")
-    """Evidence items gathered for the report."""
-
-    window_start = sgqlc.types.Field(DateTime, graphql_name="windowStart")
-    """Start of the analyzed time window."""
-
-    window_end = sgqlc.types.Field(DateTime, graphql_name="windowEnd")
-    """End of the analyzed time window."""
-
-    resolved_issues = sgqlc.types.Field(
-        sgqlc.types.list_of(sgqlc.types.non_null("AgentHealthResolvedIssue")),
-        graphql_name="resolvedIssues",
-    )
-    """Prior-report issues absent from this report — resolved or no-
-    longer-checkable. Empty on a first run (no prior report to diff);
-    null on reports produced before lifecycle tracking shipped.
-    """
-
-
-class AgentHealthFindingResult(sgqlc.types.Type):
-    """An agent-health report: the report overview plus its per-issue
-    entries.
-    """
-
-    __schema__ = schema
-    __field_names__ = (
-        "created_time",
-        "uuid",
-        "title",
-        "summary",
-        "detection_time",
-        "priority",
-        "payload",
-        "issues",
-    )
-    created_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdTime")
-
-    uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
-    """Public finding identifier."""
-
-    title = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="title")
-    """Human-readable title."""
-
-    summary = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="summary")
-    """Agent-generated summary."""
-
-    detection_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="detectionTime")
-    """When the agent run produced this finding."""
-
-    priority = sgqlc.types.Field(AgentHealthPriority, graphql_name="priority")
-    """The headline issue's priority."""
-
-    payload = sgqlc.types.Field(
-        sgqlc.types.non_null(AgentHealthFindingPayload), graphql_name="payload"
-    )
-    """Report overview parsed from the parent finding's payload."""
-
-    issues = sgqlc.types.Field(
-        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("AgentHealthIssue"))),
-        graphql_name="issues",
-    )
-    """The report's issues — one child finding each, in report order,
-    with evidence and recommended actions resolved inline.
-    """
-
-
 class AgentHealthIssue(sgqlc.types.Type):
     """One detected health issue, with its evidence and fixes resolved
     inline.
@@ -22792,16 +22731,16 @@ class AgentHealthIssue(sgqlc.types.Type):
         "recommended_actions",
         "action_context",
         "proposed_monitor_yaml",
-        "linear_ticket",
-        "jira_ticket",
-        "service_now_ticket",
     )
     finding_uuid = sgqlc.types.Field(UUID, graphql_name="findingUuid")
-    """UUID of the child finding carrying this issue (fresh every run)."""
+    """UUID of the stable issue record behind this issue — the same value
+    as the node's `issueUuid`, and the handle the ticket / draft-PR
+    mutations take. Stable across runs.
+    """
 
     id = sgqlc.types.Field(String, graphql_name="id")
-    """Deterministic issue id (<issueType>-<hash>) — the cross-run 'same
-    problem' handle.
+    """Stable issue id: the agent-assigned UUID identifying the same
+    problem across runs (the node's `stableIssueId`).
     """
 
     title = sgqlc.types.Field(String, graphql_name="title")
@@ -22834,10 +22773,9 @@ class AgentHealthIssue(sgqlc.types.Type):
     """
 
     lifecycle = sgqlc.types.Field(AgentHealthIssueLifecycle, graphql_name="lifecycle")
-    """Cross-run status vs the previous published report. Null when there
-    was no prior report to diff against (first run, or the lookup was
-    skipped/failed) and on reports produced before lifecycle tracking
-    shipped.
+    """Two-state cross-run status of the issue. Null only when the issue
+    is RESOLVED — a state this enum cannot express; the node's own
+    `lifecycle` carries the full 4-state value and never nulls.
     """
 
     first_detected = sgqlc.types.Field(DateTime, graphql_name="firstDetected")
@@ -22845,10 +22783,8 @@ class AgentHealthIssue(sgqlc.types.Type):
     hop-by-hop through the lifecycle match (an ONGOING issue keeps its
     prior first_detected; a NEW one is stamped with this run's
     detection date), so the agent can report 'failing since <date>'
-    and the UI can derive an age/chronic badge. Null when there was no
-    prior report to diff against (first run, or the lookup was
-    skipped/failed) and on reports produced before chronicity tracking
-    shipped.
+    and the UI can derive an age/chronic badge. Always populated —
+    every issue is backed by a stable issue record.
     """
 
     last_seen = sgqlc.types.Field(DateTime, graphql_name="lastSeen")
@@ -22856,8 +22792,7 @@ class AgentHealthIssue(sgqlc.types.Type):
     run re-reports the issue, so it reads as 'still failing as of
     <date>'. A global as-of-now value, NOT clamped to a query's time
     window: it can exceed the window's endTime when the issue is still
-    occurring. Null in the same cases as firstDetected (no stable
-    issue record backs the occurrence).
+    occurring. Always populated, like firstDetected.
     """
 
     evidence = sgqlc.types.Field(
@@ -22888,54 +22823,6 @@ class AgentHealthIssue(sgqlc.types.Type):
     config (source table, span filter, comparisons, schedule) ready
     for the create-monitor API.
     """
-
-    linear_ticket = sgqlc.types.Field("AgentHealthIssueLinearTicket", graphql_name="linearTicket")
-    """The Linear ticket created for this issue, if any. Null means no
-    ticket has been created yet.
-    """
-
-    jira_ticket = sgqlc.types.Field("AgentHealthIssueJiraTicket", graphql_name="jiraTicket")
-    """The Jira ticket created for this issue, if any. Null means no
-    ticket has been created yet.
-    """
-
-    service_now_ticket = sgqlc.types.Field(
-        "AgentHealthIssueServiceNowTicket", graphql_name="serviceNowTicket"
-    )
-    """The ServiceNow incident created for this issue, if any. Null means
-    no incident has been created yet.
-    """
-
-
-class AgentHealthIssueFinding(sgqlc.types.Type):
-    """One deduped agent-health issue: its oldest finding within the
-    queried window.
-    """
-
-    __schema__ = schema
-    __field_names__ = ("issue_id", "finding_uuid", "detection_time", "report_finding_uuid", "issue")
-    issue_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="issueId")
-    """Deterministic issue id (<issueType>-<hash>) — the cross-run 'same
-    problem' handle the window is deduped on.
-    """
-
-    finding_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="findingUuid")
-    """UUID of the oldest in-window child finding carrying this issue."""
-
-    detection_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="detectionTime")
-    """Detection time of that oldest finding — when the issue first
-    appeared within the queried window.
-    """
-
-    report_finding_uuid = sgqlc.types.Field(
-        sgqlc.types.non_null(UUID), graphql_name="reportFindingUuid"
-    )
-    """UUID of the parent report finding the occurrence belongs to (the
-    AgentHealthFindingResult uuid, not the payload's reportUuid).
-    """
-
-    issue = sgqlc.types.Field(sgqlc.types.non_null(AgentHealthIssue), graphql_name="issue")
-    """The issue payload as of its oldest in-window occurrence."""
 
 
 class AgentHealthIssueJiraTicket(sgqlc.types.Type):
@@ -23048,59 +22935,6 @@ class AgentHealthRecommendedAction(sgqlc.types.Type):
     grounded change to apply; False when it only offers investigation
     leads.
     """
-
-
-class AgentHealthResolvedIssue(sgqlc.types.Type):
-    """A prior-report issue absent from this report — the lifecycle exit
-    record.  A resolved or no-longer-checkable issue has no current
-    evidence to cite, so it can't be an issue on this report; it
-    surfaces here so a finding that dropped out is explained
-    ("resolved since <date>") rather than silently vanishing when the
-    rolling analysis window moves on.
-    """
-
-    __schema__ = schema
-    __field_names__ = ("prior_issue_id", "title", "severity", "since", "status")
-    prior_issue_id = sgqlc.types.Field(String, graphql_name="priorIssueId")
-    """The prior report's deterministic issue id."""
-
-    title = sgqlc.types.Field(String, graphql_name="title")
-    """The prior issue's headline, carried for display."""
-
-    severity = sgqlc.types.Field(AgentHealthSeverity, graphql_name="severity")
-    """The severity the issue held in the prior report."""
-
-    since = sgqlc.types.Field(DateTime, graphql_name="since")
-    """The prior report's detection time — the 'resolved since' handle."""
-
-    status = sgqlc.types.Field(AgentHealthResolvedIssueStatus, graphql_name="status")
-    """RESOLVED when the issue's silence this run is a real below-
-    threshold signal; UNVERIFIED when a source it needed didn't run
-    this window.
-    """
-
-
-class AgentHealthWorkflowSummary(sgqlc.types.Type):
-    """Per-workflow rollup of an agent's latest health report, for list
-    views.
-    """
-
-    __schema__ = schema
-    __field_names__ = ("workflow_name", "issue_count", "health", "detection_time")
-    workflow_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="workflowName")
-    """Workflow within the agent the report covers."""
-
-    issue_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="issueCount")
-    """Issues on the latest report; 0 means a clean report."""
-
-    health = sgqlc.types.Field(AgentHealthSeverity, graphql_name="health")
-    """Worst-severity rollup of the latest report: the report's own
-    health when present, otherwise the max severity across its issues.
-    Null only when neither is known.
-    """
-
-    detection_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="detectionTime")
-    """When the latest report was produced."""
 
 
 class AgentLogEntry(sgqlc.types.Type):
@@ -23398,12 +23232,21 @@ class AgentSegmentsResult(sgqlc.types.Type):
     """Result of getAgentSegments query."""
 
     __schema__ = schema
-    __field_names__ = ("segments",)
+    __field_names__ = ("segments", "has_unsegmented_traces")
     segments = sgqlc.types.Field(
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
         graphql_name="segments",
     )
     """Distinct segment values for the requested field"""
+
+    has_unsegmented_traces = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="hasUnsegmentedTraces"
+    )
+    """True when the agent also has spans with NO value for the requested
+    field — the no-workflow scope, addressable as a null element on
+    `workflows` filters. Only computed for the WORKFLOW segment field;
+    always false for TASK and MODEL.
+    """
 
 
 class AgentSpanCondition(sgqlc.types.Type):
@@ -24618,6 +24461,23 @@ class AlertGrouping(sgqlc.types.Type):
     notify) a reminder notification is sent. Defaults to 24 when
     omitted in monitors-as-code; pass -1 to disable re-notify. Must
     otherwise be a positive integer.
+    """
+
+
+class AlertInsightResult(sgqlc.types.Type):
+    """Result of getAgentAlertInsight: an AI-authored insight about an
+    alert's traces.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("alert_id", "insight")
+    alert_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="alertId")
+    """Alert UUID"""
+
+    insight = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="insight")
+    """1–3 observational sentences describing the dominant pattern in the
+    alert's traces. Quantified, naming tools/models/errors that recur.
+    No causal verdicts — observational only.
     """
 
 
@@ -27680,8 +27540,8 @@ class ClearMemoryData(sgqlc.types.Type):
 
 
 class ClusterAssignmentType(sgqlc.types.Type):
-    """One conversation's assigned cluster (latest-wins, current
-    taxonomy).
+    """One of possibly several clusters assigned to a conversation by its
+    most recent classification run, in the current taxonomy.
     """
 
     __schema__ = schema
@@ -28624,6 +28484,7 @@ class Conversation(sgqlc.types.Type):
         "workflows",
         "eval_scores",
         "intent_cluster",
+        "cluster_assignments",
     )
     conversation_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="conversationId")
     """Conversation identifier"""
@@ -28671,9 +28532,23 @@ class Conversation(sgqlc.types.Type):
     """
 
     intent_cluster = sgqlc.types.Field(ClusterAssignmentType, graphql_name="intentCluster")
-    """The conversation's assigned intent cluster for the requested
-    clustering scope. Null when the conversation is unclassified or no
+    """Deprecated in favor of clusterAssignments. The conversation's
+    assignment for the requested clustering scope, on a space that
+    carries at most one assignment per conversation (e.g. intent) —
+    the single-assignment convenience for such a space. On a space
+    that can carry several assignments, this field is the highest-
+    confidence one. Null when the conversation is unclassified or no
     clustering scope was requested.
+    """
+
+    cluster_assignments = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(ClusterAssignmentType))),
+        graphql_name="clusterAssignments",
+    )
+    """Every assignment from the conversation's most recent
+    classification run in the requested clustering scope, ordered
+    highest-confidence first. Empty when the conversation is
+    unclassified or no clustering scope was requested.
     """
 
 
@@ -28736,8 +28611,9 @@ class ConversationClusterStat(sgqlc.types.Type):
     """Conversations assigned to this cluster in the window."""
 
     share_pct = sgqlc.types.Field(sgqlc.types.non_null(Float), graphql_name="sharePct")
-    """Percent of classified conversations in this cluster (cards sum to
-    100).
+    """Percent of classified conversations carrying this cluster's
+    assignment. A conversation can carry more than one assignment, so
+    cards can overlap and shares are not guaranteed to sum to 100.
     """
 
 
@@ -36143,6 +36019,7 @@ class EtlJobRunV3(sgqlc.types.Type):
         "job_mcon",
         "group_global_id",
         "is_failure",
+        "job",
     )
     id = sgqlc.types.Field(sgqlc.types.non_null(ID), graphql_name="id")
     """Stable opaque identifier derived from `(globalId, startedAt)` —
@@ -36199,6 +36076,16 @@ class EtlJobRunV3(sgqlc.types.Type):
 
     is_failure = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isFailure")
     """Whether this run ended in a failure-terminal status."""
+
+    job = sgqlc.types.Field("EtlJobV3", graphql_name="job")
+    """The job this run belongs to. When `jobMcon` is set this is that
+    exact job instance, so `job.mcon` equals `jobMcon`. For a run
+    whose instance has not been resolved (`jobMcon` is null) this
+    falls back to one row of the logical job identified by
+    `jobGlobalId`, so the run still carries a name — use it for
+    display, not as instance identity. Unlike `getEtlJobsV3`, stale
+    jobs resolve here. Null when no job row is visible to the caller.
+    """
 
 
 class EtlJobRunV3Connection(sgqlc.types.relay.Connection):
@@ -45523,10 +45410,10 @@ class Mutation(sgqlc.types.Type):
         args=sgqlc.types.ArgDict(
             (
                 (
-                    "candidates",
+                    "candidate_mcons",
                     sgqlc.types.Arg(
-                        sgqlc.types.non_null(StorageCandidateSelectionInput),
-                        graphql_name="candidates",
+                        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+                        graphql_name="candidateMcons",
                         default=None,
                     ),
                 ),
@@ -45546,7 +45433,8 @@ class Mutation(sgqlc.types.Type):
 
     Arguments:
 
-    * `candidates` (`StorageCandidateSelectionInput!`)None
+    * `candidate_mcons` (`[String!]!`): MCONs of the selected
+      candidates.
     * `details` (`CreateLinearStorageTicketInput!`)None
     """
 
@@ -45556,10 +45444,10 @@ class Mutation(sgqlc.types.Type):
         args=sgqlc.types.ArgDict(
             (
                 (
-                    "candidates",
+                    "candidate_mcons",
                     sgqlc.types.Arg(
-                        sgqlc.types.non_null(StorageCandidateSelectionInput),
-                        graphql_name="candidates",
+                        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+                        graphql_name="candidateMcons",
                         default=None,
                     ),
                 ),
@@ -45579,7 +45467,8 @@ class Mutation(sgqlc.types.Type):
 
     Arguments:
 
-    * `candidates` (`StorageCandidateSelectionInput!`)None
+    * `candidate_mcons` (`[String!]!`): MCONs of the selected
+      candidates.
     * `details` (`CreateJiraStorageTicketInput!`)None
     """
 
@@ -72538,9 +72427,6 @@ class Query(sgqlc.types.Type):
         "get_golden_set",
         "get_golden_test_cases",
         "get_golden_baseline",
-        "get_latest_agent_health_finding",
-        "get_latest_agent_health_finding_summaries",
-        "get_agent_health_issue_findings",
         "get_reinforcement_loop_issues",
         "get_reinforcement_loop_reports",
         "get_linear_teams",
@@ -72570,6 +72456,7 @@ class Query(sgqlc.types.Type):
         "get_node_detail",
         "get_trace_explanation",
         "get_conversation_explanation",
+        "get_agent_alert_insight",
         "get_conversation_eval",
         "get_table_monitor_metric",
         "get_tables_for_coverage_dashboard",
@@ -73148,6 +73035,7 @@ class Query(sgqlc.types.Type):
         "get_task_graph",
         "get_job_dependencies",
         "get_tsa_analysis_result",
+        "get_remediation_result",
         "get_agent_memories",
         "get_agent_context",
         "get_ai_agent_config",
@@ -73804,143 +73692,6 @@ class Query(sgqlc.types.Type):
     * `set_uuid` (`UUID!`): Set whose baseline to fetch.
     """
 
-    get_latest_agent_health_finding = sgqlc.types.Field(
-        AgentHealthFindingResult,
-        graphql_name="getLatestAgentHealthFinding",
-        args=sgqlc.types.ArgDict(
-            (
-                (
-                    "agent_name",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(String), graphql_name="agentName", default=None
-                    ),
-                ),
-                (
-                    "workflow_name",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(String), graphql_name="workflowName", default=None
-                    ),
-                ),
-                (
-                    "trace_table_mcon",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(String), graphql_name="traceTableMcon", default=None
-                    ),
-                ),
-            )
-        ),
-    )
-    """(experimental) Newest agent-health report for an (agent_name,
-    workflow_name, trace_table_mcon) combo. The daily agent-health
-    pipeline produces one report per run — a parent finding (the
-    overview) plus one child finding per issue; this returns the
-    latest report by detection time with its issues resolved inline.
-    Returns null when none exists.
-
-    Arguments:
-
-    * `agent_name` (`String!`): Observability agent name.
-    * `workflow_name` (`String!`): Workflow within the agent.
-    * `trace_table_mcon` (`String!`): MCON of the agent's trace table
-      — same value passed as `traceTableMcon` on getAgentGraph.
-      Disambiguates agents with identical names across trace tables.
-    """
-
-    get_latest_agent_health_finding_summaries = sgqlc.types.Field(
-        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(AgentHealthWorkflowSummary))),
-        graphql_name="getLatestAgentHealthFindingSummaries",
-        args=sgqlc.types.ArgDict(
-            (
-                (
-                    "agent_name",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(String), graphql_name="agentName", default=None
-                    ),
-                ),
-                (
-                    "trace_table_mcon",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(String), graphql_name="traceTableMcon", default=None
-                    ),
-                ),
-            )
-        ),
-    )
-    """(experimental) Per-workflow summaries of the newest agent-health
-    report for an (agent_name, trace_table_mcon) combo — the
-    lightweight companion to getLatestAgentHealthFinding for list
-    views. One entry per workflow that has at least one report
-    (workflows with no report yet are absent), sorted by workflow
-    name, carrying the issue count and worst-severity rollup instead
-    of the full issue/evidence tree.
-
-    Arguments:
-
-    * `agent_name` (`String!`): Observability agent name.
-    * `trace_table_mcon` (`String!`): MCON of the agent's trace table
-      — same value passed as `traceTableMcon` on getAgentGraph.
-      Disambiguates agents with identical names across trace tables.
-    """
-
-    get_agent_health_issue_findings = sgqlc.types.Field(
-        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(AgentHealthIssueFinding))),
-        graphql_name="getAgentHealthIssueFindings",
-        args=sgqlc.types.ArgDict(
-            (
-                (
-                    "agent_name",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(String), graphql_name="agentName", default=None
-                    ),
-                ),
-                (
-                    "workflow_name",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(String), graphql_name="workflowName", default=None
-                    ),
-                ),
-                (
-                    "trace_table_mcon",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(String), graphql_name="traceTableMcon", default=None
-                    ),
-                ),
-                (
-                    "start_time",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(DateTime), graphql_name="startTime", default=None
-                    ),
-                ),
-                (
-                    "end_time",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(DateTime), graphql_name="endTime", default=None
-                    ),
-                ),
-            )
-        ),
-    )
-    """(experimental) Agent-health issues detected in a time window for
-    an (agent_name, workflow_name, trace_table_mcon) combo,
-    deduplicated by issue id: for each issue id, the OLDEST finding in
-    the window — its first in-window occurrence — with the issue
-    payload resolved inline. Ordered by that first-occurrence
-    detection time, newest first. Empty when nothing matches.
-
-    Arguments:
-
-    * `agent_name` (`String!`): Observability agent name.
-    * `workflow_name` (`String!`): Workflow within the agent.
-    * `trace_table_mcon` (`String!`): MCON of the agent's trace table
-      — same value passed as `traceTableMcon` on getAgentGraph.
-      Disambiguates agents with identical names across trace tables.
-    * `start_time` (`DateTime!`): Include findings with detectionTime
-      at or after this instant (inclusive). Pass an ISO-8601 datetime
-      with a UTC offset.
-    * `end_time` (`DateTime!`): Include findings with detectionTime at
-      or before this instant (inclusive). Must not precede startTime.
-    """
-
     get_reinforcement_loop_issues = sgqlc.types.Field(
         sgqlc.types.non_null("ReinforcementLoopIssueConnection"),
         graphql_name="getReinforcementLoopIssues",
@@ -73989,8 +73740,7 @@ class Query(sgqlc.types.Type):
     one node per (workflow, issue) with cross-run lifecycle and
     recency from the stable issue record plus one selected in-window
     snapshot's payload. Sorted by lastSeenAt, newest first; forward-
-    paginated. The issue-centric superset of
-    getAgentHealthIssueFindings.
+    paginated.
 
     Arguments:
 
@@ -74067,7 +73817,10 @@ class Query(sgqlc.types.Type):
     no-workflow scope first, then workflow names ascending); scopes
     with no report yet are absent. Issue bodies live on
     getReinforcementLoopIssues — keep the nodes whose runUuid matches
-    a report's runUuid to read exactly that report's issues.
+    a report's runUuid to read exactly that report's issues. Query
+    that window up to *now*, not to this report's windowEnd: the issue
+    list filters on lastSeenAt, which is ingest time and always
+    postdates the analysis window it was reported for.
 
     Arguments:
 
@@ -74803,6 +74556,32 @@ class Query(sgqlc.types.Type):
     Arguments:
 
     * `input` (`GetConversationExplanationInput!`)None
+    """
+
+    get_agent_alert_insight = sgqlc.types.Field(
+        AlertInsightResult,
+        graphql_name="getAgentAlertInsight",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "input",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(GetAgentAlertInsightInput),
+                        graphql_name="input",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Generate an AI insight about the dominant pattern
+    in an agent alert's traces. Returns 1–3 observational sentences.
+    Each call regenerates — insights are not persisted. Returns null
+    if no traces are found or if the LLM call fails.
+
+    Arguments:
+
+    * `input` (`GetAgentAlertInsightInput!`)None
     """
 
     get_conversation_eval = sgqlc.types.Field(
@@ -77225,7 +77004,9 @@ class Query(sgqlc.types.Type):
             )
         ),
     )
-    """(experimental) List runs for a unified-ETL job.
+    """(experimental) List runs scoped by job, by table, or by both. At
+    least one of `jobMcon`, `jobGlobalId`, or `tableMcons` is
+    required.
 
     Arguments:
 
@@ -77237,17 +77018,26 @@ class Query(sgqlc.types.Type):
       return (page size)
     * `before` (`String`): When paging backward: the cursor of the
       first item on the next page of results
-    * `job_mcon` (`String`)None
-    * `job_global_id` (`String`)None
-    * `from_date` (`DateTime`)None
-    * `to_date` (`DateTime`)None
+    * `job_mcon` (`String`): Scope to a single job instance by MCON.
+    * `job_global_id` (`String`): Scope to a logical job by global ID
+      — includes every instance of that job across groups.
+    * `from_date` (`DateTime`): Only include runs started at or after
+      this time. Narrowing the window significantly reduces cost on
+      table-scoped queries.
+    * `to_date` (`DateTime`): Only include runs started at or before
+      this time.
     * `status_in` (`[EtlRunStatus!]`)None
     * `table_mcons` (`[String!]`): Scope to runs of jobs that produce
       one of the given table MCONs (downstream lineage). A run is
       included when its job — or any of the job's tasks — writes the
-      table. Combined with the job filter above via AND. Omitting the
+      table. Usable on its own to ask "what ran against this table":
+      with no job argument the result spans every producing job. When
+      a job filter is also given, the two are combined via AND. Note
+      that a table produced by a task resolves to that task's parent
+      job, so the parent's full run set is returned. Omitting the
       argument applies no table filter; an explicit empty list matches
-      no runs.
+      no runs. Table-scoped queries are cheapest over a bounded time
+      window — supply `fromDate` / `toDate`.
     * `order_by` (`[String!]`): Order-by keys applied in order; first
       key is primary, subsequent keys act as tiebreakers. Prefix any
       key with `-` for descending.
@@ -96190,6 +95980,32 @@ class Query(sgqlc.types.Type):
       result for
     """
 
+    get_remediation_result = sgqlc.types.Field(
+        "RemediationResult",
+        graphql_name="getRemediationResult",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "alert_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="alertId", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Get the remediation plan derived from an alert's
+    troubleshooting analysis. Read-only: it never starts one. Returns
+    NOT_FOUND when no plan is available to read — including when one
+    cannot be retrieved, so treat it as "nothing to show" rather than
+    proof that none exists.
+
+    Arguments:
+
+    * `alert_id` (`UUID!`): UUID of the alert to get the remediation
+      result for
+    """
+
     get_agent_memories = sgqlc.types.Field(
         ListMemoriesResultType,
         graphql_name="getAgentMemories",
@@ -97969,15 +97785,13 @@ class ReinforcementLoopIssue(sgqlc.types.Type):
         sgqlc.types.non_null(DateTime), graphql_name="snapshotReportedAt"
     )
     """The SELECTED snapshot's report time. With snapshotSelection:
-    OLDEST this equals getAgentHealthIssueFindings' detectionTime for
-    issues that have an in-window snapshot; when none exists it is the
-    newest report at or before endTime and can precede startTime.
+    OLDEST this is the issue's first in-window occurrence time; when
+    no in-window snapshot exists it is the newest report at or before
+    endTime and can precede startTime.
     """
 
     run_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="runUuid")
-    """The selected snapshot's run — the occurrence's provenance (the
-    legacy surface's reportFindingUuid).
-    """
+    """The selected snapshot's run — the occurrence's provenance."""
 
     report_window_start = sgqlc.types.Field(DateTime, graphql_name="reportWindowStart")
     """Start of the selected snapshot's run window — the time bounds its
@@ -97992,9 +97806,8 @@ class ReinforcementLoopIssue(sgqlc.types.Type):
 
     issue = sgqlc.types.Field(sgqlc.types.non_null(AgentHealthIssue), graphql_name="issue")
     """The selected snapshot's issue payload, evidence and recommended
-    actions resolved inline — the same shape
-    getAgentHealthIssueFindings serves, except its ticket fields stay
-    unset here: tickets are node-level state on this query.
+    actions resolved inline. Tickets are node-level state on this
+    query, not part of the payload.
     """
 
     linear_ticket = sgqlc.types.Field(AgentHealthIssueLinearTicket, graphql_name="linearTicket")
@@ -98172,6 +97985,90 @@ class RelinkOpsgenieIncident(sgqlc.types.Type):
     __field_names__ = ("restored",)
     restored = sgqlc.types.Field(Boolean, graphql_name="restored")
     """If an opsgenie incident was restored"""
+
+
+class RemediationResult(sgqlc.types.Type):
+    """The remediation plan derived from an alert's troubleshooting
+    analysis.
+    """
+
+    __schema__ = schema
+    __field_names__ = (
+        "status",
+        "tsa_run_id",
+        "summary",
+        "recommended_action",
+        "response_type",
+        "reference_uuid",
+        "drafted",
+        "confidence",
+        "cause",
+        "provenance",
+    )
+    status = sgqlc.types.Field(sgqlc.types.non_null(RemediationStatus), graphql_name="status")
+    """Status of the remediation for this alert: NOT_FOUND when no plan
+    is available to read — including when one cannot be retrieved, so
+    treat it as "nothing to show" rather than proof that none exists —
+    RUNNING while one is being produced, COMPLETED when a plan is
+    available, FAILED when producing one did not succeed. Reading this
+    never starts one.
+    """
+
+    tsa_run_id = sgqlc.types.Field(String, graphql_name="tsaRunId")
+    """Run ID of the troubleshooting analysis this remediation was
+    derived from. Compare it against the alert's current analysis run
+    ID to detect a remediation that predates a re-analysis. Populated
+    whenever a remediation thread was found, including on RUNNING and
+    FAILED, not only COMPLETED.
+    """
+
+    summary = sgqlc.types.Field(String, graphql_name="summary")
+    """Plain-language description of the incident and what the plan
+    proposes, as Markdown. Generated text derived from a report that
+    can contain customer-controlled content: render it as plain text
+    or sanitized Markdown, never as HTML. Available when status is
+    COMPLETED.
+    """
+
+    recommended_action = sgqlc.types.Field(RemediationAction, graphql_name="recommendedAction")
+    """Who should act on the plan next. Key any behavior off this field
+    rather than responseType, so a new response type never silently
+    changes what is offered. Available when status is COMPLETED.
+    """
+
+    response_type = sgqlc.types.Field(String, graphql_name="responseType")
+    """The kind of response the plan represents, for display only.
+    Informational: use recommendedAction to decide what to offer.
+    Lower-snake-case, e.g. `fix_the_code`; new values can appear
+    without a schema change. Available when status is COMPLETED.
+    """
+
+    reference_uuid = sgqlc.types.Field(String, graphql_name="referenceUuid")
+    """Identifier to cite when acting on the plan, e.g. in a PR or
+    commit. Available when status is COMPLETED.
+    """
+
+    drafted = sgqlc.types.Field(Boolean, graphql_name="drafted")
+    """Whether a plan was actually drafted. False marks a fallback
+    response — the incident was already dispositioned, no report was
+    available, or drafting did not succeed — so a surface can avoid
+    presenting it as a full plan. Available when status is COMPLETED.
+    """
+
+    confidence = sgqlc.types.Field(RemediationConfidence, graphql_name="confidence")
+    """Confidence in the diagnosed cause behind the plan. Available when
+    status is COMPLETED.
+    """
+
+    cause = sgqlc.types.Field(String, graphql_name="cause")
+    """The diagnosed root cause the plan responds to, e.g.
+    `etl_code_defect`. Available when status is COMPLETED.
+    """
+
+    provenance = sgqlc.types.Field(String, graphql_name="provenance")
+    """The analysis pipeline the plan was derived from, e.g. `tsa`.
+    Available when status is COMPLETED.
+    """
 
 
 class RemoveConnectionCtpConfig(sgqlc.types.Type):
@@ -104846,7 +104743,7 @@ class TraceFilterData(sgqlc.types.Type):
     """Filter values with counts for a single filter."""
 
     __schema__ = schema
-    __field_names__ = ("field_name", "values", "page_info")
+    __field_names__ = ("field_name", "values", "page_info", "has_unvalued_traces")
     field_name = sgqlc.types.Field(
         sgqlc.types.non_null(TraceFilterFieldName), graphql_name="fieldName"
     )
@@ -104862,6 +104759,16 @@ class TraceFilterData(sgqlc.types.Type):
         sgqlc.types.non_null("TraceFilterDataPageInfo"), graphql_name="pageInfo"
     )
     """Pagination information"""
+
+    has_unvalued_traces = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="hasUnvaluedTraces"
+    )
+    """True when the agent also has traces carrying NO value for this
+    field, under the same search criteria (time window and cross-
+    filters) as `values` — the complement of the enumeration,
+    independent of `searchValue`. Only computed for the WORKFLOW
+    field; always false otherwise.
+    """
 
 
 class TraceFilterDataPageInfo(sgqlc.types.Type):
@@ -109721,6 +109628,7 @@ class Alert(sgqlc.types.Type, NodeWithUUID):
         "priority",
         "triage_priority",
         "triage_result",
+        "tsa_analysis_thread_id",
         "status",
         "tables",
         "assets",
@@ -109746,6 +109654,7 @@ class Alert(sgqlc.types.Type, NodeWithUUID):
         "name",
         "uuid",
         "url",
+        "summary",
     )
     title = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="title")
 
@@ -109785,6 +109694,15 @@ class Alert(sgqlc.types.Type, NodeWithUUID):
     if never triaged. Always consistent with ``triagePriority``: non-
     null exactly when ``triagePriority`` is HIGH/MEDIUM/LOW, and null
     when it is PENDING or NOT_TRIAGED.
+    """
+
+    tsa_analysis_thread_id = sgqlc.types.Field(String, graphql_name="tsaAnalysisThreadId")
+    """Thread holding the latest completed troubleshooting analysis for
+    this alert, or null if none is recorded. Non-null means TSA output
+    exists, so a caller reading a page of alerts can tell which were
+    investigated without querying each one. Null covers alerts never
+    investigated and those investigated by the trace troubleshooting
+    agent.
     """
 
     status = sgqlc.types.Field(AlertStatus, graphql_name="status")
@@ -109880,6 +109798,11 @@ class Alert(sgqlc.types.Type, NodeWithUUID):
 
     url = sgqlc.types.Field(String, graphql_name="url")
     """URL of the alert"""
+
+    summary = sgqlc.types.Field(AgentAlertSummary, graphql_name="summary")
+    """Summary section for agent alerts — contains a template-based
+    headline describing the breach. Null for non-agent alerts.
+    """
 
 
 class AssetCollectionPreferences(sgqlc.types.Type, AssetCollectionPreferenceNode):
@@ -116873,6 +116796,8 @@ class Monitor(
         "supports_monitors_as_code",
         "is_tunable",
         "tuning_unavailable_reason",
+        "last_auto_applied_time",
+        "last_auto_applied_is_partial",
         "finding",
         "parent_finding",
     )
@@ -116905,6 +116830,23 @@ class Monitor(
     )
     """When ``isTunable`` is false, the reason tuning is currently
     unavailable. Null when tuning is available.
+    """
+
+    last_auto_applied_time = sgqlc.types.Field(DateTime, graphql_name="lastAutoAppliedTime")
+    """When tuning was last applied to this monitor automatically. Null
+    when the monitor has never been auto-tuned, or the apply was
+    reverted. Says the monitor was changed, not that the change can
+    still be undone — the undo additionally needs a captured snapshot
+    and a monitor unedited since, both resolved from the auto-apply
+    entry itself. Sortable as ``last_auto_applied_time``.
+    """
+
+    last_auto_applied_is_partial = sgqlc.types.Field(
+        Boolean, graphql_name="lastAutoAppliedIsPartial"
+    )
+    """Whether the apply behind ``lastAutoAppliedTime`` failed partway,
+    so only part of the change may have landed. Null when the monitor
+    was never auto-tuned.
     """
 
     finding = sgqlc.types.Field(Finding, graphql_name="finding")

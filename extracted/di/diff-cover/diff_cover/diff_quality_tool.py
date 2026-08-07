@@ -4,6 +4,7 @@ Implement the command-line tool interface for diff_quality.
 
 import argparse
 import contextlib
+import inspect
 import io
 import logging
 import os
@@ -33,6 +34,7 @@ from diff_cover.diff_cover_tool import (
     TOTAL_PERCENT_FLOAT_HELP,
     format_type,
     handle_old_format,
+    normalize_format,
 )
 from diff_cover.diff_reporter import GitDiffReporter
 from diff_cover.git_diff import GitDiffTool
@@ -119,7 +121,7 @@ def parse_quality_args(argv):
     parser.add_argument(
         "--format",
         type=format_type,
-        default="",
+        default=None,
         help=FORMAT_HELP,
     )
 
@@ -211,6 +213,7 @@ def parse_quality_args(argv):
     defaults = {
         "ignore_whitespace": False,
         "compare_branch": "origin/main",
+        "format": {},
         "diff_range_notation": "...",
         "input_reports": [],
         "fail_under": 0,
@@ -221,8 +224,8 @@ def parse_quality_args(argv):
         "total_percent_float": False,
     }
 
-    return get_config(
-        parser=parser, argv=argv, defaults=defaults, tool=Tool.DIFF_QUALITY
+    return normalize_format(
+        get_config(parser=parser, argv=argv, defaults=defaults, tool=Tool.DIFF_QUALITY)
     )
 
 
@@ -297,6 +300,27 @@ def generate_quality_report(
     return reporter.total_percent_covered()
 
 
+def _call_reporter_factory(factory_fn, reports, options):
+    """
+    Call a plugin's ``diff_cover_report_quality`` implementation.
+
+    Plugins are free to declare only the arguments they need (including none
+    at all, as documented in the README), so pass only what the function
+    actually accepts.
+    """
+    available = {"reports": reports, "options": options}
+    try:
+        parameters = inspect.signature(factory_fn).parameters
+    except (TypeError, ValueError):  # pragma: no cover - builtins/C callables
+        return factory_fn(**available)
+
+    if any(p.kind is inspect.Parameter.VAR_KEYWORD for p in parameters.values()):
+        return factory_fn(**available)
+
+    kwargs = {name: value for name, value in available.items() if name in parameters}
+    return factory_fn(**kwargs)
+
+
 def main(argv=None, directory=None):
     """
     Main entry point for the tool, script installed via pyproject.toml
@@ -366,8 +390,8 @@ def main(argv=None, directory=None):
 
                 reporter = QualityReporter(driver, input_reports, user_options)
             elif reporter_factory_fn:
-                reporter = reporter_factory_fn(
-                    reports=input_reports, options=user_options
+                reporter = _call_reporter_factory(
+                    reporter_factory_fn, input_reports, user_options
                 )
 
             percent_passing = generate_quality_report(

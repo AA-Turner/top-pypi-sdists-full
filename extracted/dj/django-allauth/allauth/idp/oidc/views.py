@@ -35,7 +35,7 @@ from oauthlib.oauth2.rfc6749.errors import InvalidScopeError, OAuth2Error
 from allauth.account import app_settings as account_settings
 from allauth.account.adapter import get_adapter as get_account_adapter
 from allauth.account.internal.decorators import login_not_required
-from allauth.core.exceptions import ImmediateHttpResponse
+from allauth.core.exceptions import ImmediateHttpResponse, RateLimited
 from allauth.core.internal import jwkkit, ratelimit
 from allauth.core.internal.httpkit import (
     add_query_params,
@@ -64,6 +64,17 @@ from allauth.idp.oidc.internal.oauthlib.utils import (
 from allauth.idp.oidc.internal.resources import get_resources
 from allauth.idp.oidc.models import Client, Token
 from allauth.utils import build_absolute_uri
+
+
+class _ClientHttpResponseRedirect(HttpResponse):
+    """
+    Not using HttpResponseRedirect -- that one checks schemes, and here
+    we might be redirecting to an app native url.
+    """
+
+    def __init__(self, redirect_uri: str):
+        super().__init__(status=HTTPStatus.FOUND)
+        self["Location"] = redirect_uri
 
 
 def _enforce_csrf(request: HttpRequest) -> HttpResponseForbidden | None:
@@ -106,15 +117,18 @@ class ConfigurationView(View):
                 request, reverse("idp:oidc:revoke")
             ),
             "token_endpoint": build_absolute_uri(request, reverse("idp:oidc:token")),
-            "token_endpoint_auth_methods_supported": [
-                "none",
-                "client_secret_basic",
-                "client_secret_post",
-            ],
+            "token_endpoint_auth_methods_supported": app_settings.AUTH_METHODS,
             "userinfo_endpoint": userinfo_endpoint,
             "subject_types_supported": ["public"],
             **supported_types,
         }
+        if app_settings.INTROSPECTION_ENABLED:
+            data["introspection_endpoint"] = build_absolute_uri(
+                request, reverse("idp:oidc:introspect")
+            )
+            data["introspection_endpoint_auth_methods_supported"] = (
+                app_settings.INTROSPECTION_AUTH_METHODS
+            )
         if app_settings.DCR_ENABLED:
             data["registration_endpoint"] = build_absolute_uri(
                 request, reverse("idp:oidc:client_registration")
@@ -126,8 +140,9 @@ class ConfigurationView(View):
         return response
 
     def _get_supported_types(self) -> dict[str, list[str]]:
+        scopes_supported = ["openid", "profile", "email"]
         return {
-            "scopes_supported": ["openid", "profile", "email"],
+            "scopes_supported": scopes_supported,
             "grant_types_supported": sorted(gt.value for gt in Client.GrantType),
             "response_types_supported": sorted(rt.value for rt in Client.ResponseType),
         }
@@ -203,7 +218,7 @@ class AuthorizationView(FormView):
             return None
         if request.user.is_authenticated:
             return None
-        return login_required()(None)(request)  # type:ignore[misc,type-var]
+        return login_required()(None)(request)  # type: ignore[misc,type-var]
 
     def _handle_login_prompt(
         self, request: HttpRequest, prompts: list[str]
@@ -236,13 +251,13 @@ class AuthorizationView(FormView):
             raise PermissionDenied()
         return self.form_valid(form)
 
-    def _respond_with_access_denied(self) -> HttpResponseRedirect:
+    def _respond_with_access_denied(self) -> HttpResponse:
         redirect_uri = self._request_info.get("redirect_uri")
         state = self._request_info.get("state")
         params = {"error": "access_denied"}
         if state:
             params["state"] = state
-        return HttpResponseRedirect(add_query_params(redirect_uri, params))
+        return _ClientHttpResponseRedirect(add_query_params(redirect_uri, params))
 
     def get_form_kwargs(self) -> dict[str, Any]:
         ret = super().get_form_kwargs()
@@ -472,11 +487,21 @@ user_info = UserInfoView.as_view()
 class JwksView(View):
     def get(self, request: HttpRequest, *args: Any, **kwargs: Any) -> JsonResponse:
         keys = []
-        for pem in [app_settings.PRIVATE_KEY]:
-            jwk, _ = jwkkit.load_jwk_from_pem(pem)
+        adapter = get_adapter()
+        # Deliberately not filtering on ``did_activate``: keys whose
+        # ``not_before`` still lies in the future are published ahead of time.
+        # That way clients have already fetched and cached the next key before
+        # it starts signing, avoiding a window where a freshly activated key
+        # signs tokens that verifiers cannot yet validate.
+        for key in adapter.list_private_keys(is_active=True):
+            jwk, _ = jwkkit.load_jwk_from_pem(key.pem)
             keys.append(jwk)
         response = JsonResponse({"keys": keys})
         response["Access-Control-Allow-Origin"] = "*"
+        response["Cache-Control"] = (
+            f"max-age={adapter.get_jwks_cache_control()}, must-revalidate"
+        )
+
         return response
 
 
@@ -493,6 +518,38 @@ class RevokeView(View):
 
 
 revoke = RevokeView.as_view()
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+@method_decorator(login_not_required, name="dispatch")
+class IntrospectView(View):
+    def post(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
+        ctx = get_validator_context()
+        ctx.supported_auth_methods = app_settings.INTROSPECTION_AUTH_METHODS
+        orequest = extract_params(request)
+        try:
+            # Throttle by source IP before client authentication runs, so that
+            # unauthenticated and failed-authentication requests are bounded as
+            # well. The per-client limit is consumed later, post-authentication.
+            ratelimit.consume(
+                request=request,
+                config=app_settings.RATE_LIMITS,
+                action="introspect_ip",
+                raise_exception=True,
+            )
+            oresponse = get_server().create_introspect_response(*orequest)
+        except RateLimited:
+            return JsonResponse(
+                {
+                    "error": "temporarily_unavailable",
+                    "error_description": "Too many requests.",
+                },
+                status=HTTPStatus.TOO_MANY_REQUESTS,
+            )
+        return convert_response(*oresponse)
+
+
+introspect = IntrospectView.as_view()
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -534,9 +591,7 @@ class LogoutView(FormView):
             op_logout = True
         return self._handle(form, op_logout)
 
-    def _handle(
-        self, form: RPInitiatedLogoutForm, op_logout: bool
-    ) -> HttpResponseRedirect:
+    def _handle(self, form: RPInitiatedLogoutForm, op_logout: bool) -> HttpResponse:
         cleaned_data = form.cleaned_data
         flows.rp_initiated_logout(
             self.request,
@@ -551,7 +606,7 @@ class LogoutView(FormView):
                 redirect_uri = add_query_params(redirect_uri, {"state": state})
         else:
             redirect_uri = get_account_adapter().get_logout_redirect_url(self.request)
-        return HttpResponseRedirect(redirect_uri)
+        return _ClientHttpResponseRedirect(redirect_uri)
 
     def _must_ask(self, form: RPInitiatedLogoutForm) -> bool:
         """

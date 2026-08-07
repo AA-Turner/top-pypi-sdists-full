@@ -168,7 +168,7 @@ def _load_session_configuration(agent_session: PresetAgentSession) -> PresetConf
     # The session copy is canonical output, not user input: parse it without
     # the user-facing deprecation warnings.
     try:
-        return PresetConfiguration.parse_obj(
+        return PresetConfiguration.model_validate(
             yaml.safe_load(configuration_path.read_text(encoding="utf-8"))
         )
     except (OSError, ValueError) as e:
@@ -346,7 +346,7 @@ def _resolve_preset_env(
     """Resolves `EnvSentinel` entries from the process environment. Non-strict
     drops unresolvable entries instead of raising — for attach, where env values
     only feed redaction and the agent already runs."""
-    configuration = configuration.copy(deep=True)
+    configuration = configuration.model_copy(deep=True)
     resolved: dict[str, str] = {}
     for key, value in configuration.env.items():
         if isinstance(value, EnvSentinel):
@@ -357,7 +357,7 @@ def _resolve_preset_env(
                     raise ConfigurationError(str(e)) from e
         else:
             resolved[key] = value
-    configuration.env = Env.parse_obj(resolved)
+    configuration.env = Env.model_validate(resolved)
     return configuration
 
 
@@ -554,7 +554,10 @@ async def _create_preset(
             workspace=setup.workspace,
             token=token,
         )
-    prompt = get_preset_agent_system_prompt(user_prompt=setup.user_prompt)
+    prompt = get_preset_agent_system_prompt(
+        user_prompt=setup.user_prompt,
+        baseline=configuration.effective_baseline,
+    )
     if setup.write_constraints:
         if setup.user_prompt:
             agent_session.write_user_prompt(setup.user_prompt)
@@ -805,7 +808,9 @@ def _print_fleet_offers(api: Client, allowed_fleets: tuple[str, ...]) -> None:
         offer_configuration.fleets = list(allowed_fleets)
         run_spec = RunSpec(configuration=offer_configuration, profile=None)
         with console.status("Getting offers..."):
-            run_plan = api.client.runs.get_plan(api.project, run_spec, max_offers=10)
+            run_plan = api.client.runs.get_plan(
+                api.project, run_spec, max_offers=10, for_offers_only=True
+            )
         props = Table(box=None, show_header=False)
         props.add_column(no_wrap=True)
         props.add_column()
@@ -845,19 +850,24 @@ def _build_constraints(
     build_name: str,
     allowed_fleets: Sequence[str],
 ) -> str:
-    constraints = PresetConstraints.parse_obj(
+    constraints = PresetConstraints.model_validate(
         {
             "run_name_prefix": build_name,
-            "model": json.loads(configuration.model.json(exclude_none=True)),
-            "context_length": configuration.context_length,
-            "max_trials": configuration.max_trials,
-            "concurrency": configuration.effective_concurrency,
+            "model": json.loads(configuration.model.model_dump_json(exclude_none=True)),
+            "min_context_length": configuration.min_context_length,
+            "max_ttft": configuration.max_ttft,
+            "trials_num": configuration.trials,
+            "concurrency": configuration.concurrency,
+            "input_tokens": configuration.effective_input_tokens,
+            "output_tokens": configuration.effective_output_tokens,
+            "shared_prefix_tokens": configuration.shared_prefix_tokens or 0,
+            "baseline": configuration.effective_baseline,
             "fleets": list(allowed_fleets),
             "env": list(configuration.env),
         }
     )
     # All fields are always present; unset optional constraints render as null.
-    return json.dumps(json.loads(constraints.json()), indent=2) + "\n"
+    return json.dumps(json.loads(constraints.model_dump_json()), indent=2) + "\n"
 
 
 def _save_final_report_copy(

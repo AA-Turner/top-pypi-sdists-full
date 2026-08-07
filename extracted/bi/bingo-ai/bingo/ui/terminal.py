@@ -8534,6 +8534,20 @@ class BingoTerminal:
         if not getattr(self, "_intel_ready", False):
             return None
         target = str(self._agent_state.get("target") or self._mission_runtime.target or "")
+        # v7.4.7: task_graph가 비어 있으면(타겟 감지 분기에서 load_template이 안 불린 경우)
+        # 목표 문장으로 표준 웹 침투 템플릿을 자가 로드한다. 텍스트 모드 모델이 계획만
+        # 출력하고 종료되는 근본 원인(프론티어 부당 공백) 제거.
+        try:
+            if not self._task_graph.ready_nodes() and not self._task_graph._nodes:
+                _seed = (
+                    self._mission_runtime.objective
+                    or response
+                    or target
+                )
+                if _seed.strip():
+                    self._task_graph.load_template(_seed)
+        except Exception:
+            pass
         for node in self._task_graph.ready_nodes():
             candidate = ActionCandidate(
                 node_id=node.node_id,
@@ -8665,6 +8679,10 @@ class BingoTerminal:
         _fc_mode = self._get_fc_tools() is not None
         _fc_nudge_count = 0
         _FC_NUDGE_MAX = 2  # 2회 연속 도구 미호출 시 강제 보고서 생성
+        # v7.4.7: 텍스트/TOOL_CALL 모드에서 "계획만 출력하고 액션 없음" 턴 카운터.
+        # FC 모드와 동일하게 실행 재촉 넛지를 최대 _PLAN_NUDGE_MAX회 준 뒤에만 종료.
+        _plan_nudge_count = 0
+        _PLAN_NUDGE_MAX = 2
         _http_ssl_fail_count = 0  # Track consecutive http_request SSL failures
 
         while True:
@@ -8776,11 +8794,42 @@ class BingoTerminal:
                     self._mission_runtime,
                     candidates=[_candidate] if _candidate else [],
                 )
-                if _decision == RuntimeDecision.REPORT:
-                    self._finalize_runtime("useful_action_frontier_exhausted")
-                    break
-                self._mission_runtime.pending_action_id = _candidate.action_id
                 _lang = getattr(self.config, "lang", "en")
+                if _decision == RuntimeDecision.REPORT:
+                    # v7.4.7: 후보 액션이 없어도 즉시 종료하지 않는다. 텍스트/TOOL_CALL
+                    # 모드 모델이 <THINK> 계획만 출력한 첫 턴들은 FC 모드와 동일하게
+                    # 실행 재촉 넛지를 최대 _PLAN_NUDGE_MAX회 준 뒤에만 보고서로 종료.
+                    # (계획→실행 전환 기회를 텍스트 모드에도 보장 — "계획만 나오고 멈춤" 수정)
+                    _plan_nudge_count += 1
+                    if _plan_nudge_count > _PLAN_NUDGE_MAX:
+                        self._finalize_runtime("useful_action_frontier_exhausted")
+                        break
+                    # ACTIVE 유지 — reduce_mission이 phase를 FAILED_NO_ACTION으로
+                    # 내려놨을 수 있으므로 넛지 재시도를 위해 되돌린다.
+                    self._mission_runtime.phase = MissionPhase.ACTIVE
+                    self._mission_runtime.terminal_reason = ""
+                    _plan_nudge = {
+                        "ko": "⚠️ 계획만 제시하고 실제 실행을 하지 않았습니다. 다음 응답에서 반드시 ```bash 또는 ```python 코드 블록(혹은 TOOL_CALL)으로 실제 명령을 실행하세요. 더 이상 수행할 작업이 없다면 지금까지 확인된 내용을 정리해 보고하세요.",
+                        "zh": "⚠️ 你只给出了计划，没有实际执行。下次回复必须用 ```bash 或 ```python 代码块(或 TOOL_CALL)执行真实命令。如果没有更多可执行操作，请立即总结已确认的内容并报告。",
+                        "en": "⚠️ You produced a plan but did not execute anything. In your next response you MUST run a real command via a ```bash or ```python block (or TOOL_CALL). If no actions remain, summarize confirmed findings and report now.",
+                    }.get(_lang, "⚠️ Execute a real command via a ```bash/```python block or TOOL_CALL now, or report your findings.")
+                    self.console.print(f"\n[{THEME['warn']}]{_plan_nudge}[/]")
+                    self.history.append(Message(role="user", content=_plan_nudge))
+                    from ..models.registry import ModelRegistry as _MR_plan
+                    _mc_plan = self.config.get_active_model_config()
+                    if not _mc_plan:
+                        break
+                    _m_plan = _MR_plan.build(_mc_plan)
+                    current_response = self._stream_response(_m_plan.chat_stream(self._build_messages(""), tools=self._get_fc_tools()))
+                    if current_response:
+                        self.history.append(Message(role="assistant", content=current_response))
+                    elif self._model_turn_failed():
+                        self._finalize_runtime("provider_failure", self._last_model_turn.failure)
+                        break
+                    continue
+                # 후보 액션이 있으면 넛지 예산 리셋 — 진짜 진행 중
+                _plan_nudge_count = 0
+                self._mission_runtime.pending_action_id = _candidate.action_id
                 _nudge = {
                     "ko": f"현재 실행 가능한 작업 [{_candidate.node_id}] {_candidate.technique}를 실제 실행 가능한 작업 또는 코드로 작성하세요.",
                     "zh": f"请把当前可执行任务 [{_candidate.node_id}] {_candidate.technique} 写成实际可执行操作或代码。",

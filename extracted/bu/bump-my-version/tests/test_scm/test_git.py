@@ -229,6 +229,38 @@ class TestGit:
             mock_tag.assert_not_called()
             mock_moveable_tag.assert_not_called()
 
+        def test_pushes_tag_when_push_tag_is_true(self, git_instance: Git, mocker):
+            """The method pushes the tag to origin when push_tag is True."""
+            # Arrange
+            files = ["file1.txt"]
+            context = {"new_version": "1.0.0", "new_major": "1", "current_version": "0.1.0"}
+            git_instance.config.tag = True
+            git_instance.config.push_tag = True
+            mocker.patch("bumpversion.scm.git.tag")
+            mock_push_remote = mocker.patch("bumpversion.scm.git.push_remote")
+
+            # Act
+            git_instance.commit_and_tag(files, context, dry_run=False)
+
+            # Assert
+            mock_push_remote.assert_called_once_with("origin", "v1.0.0")
+
+        def test_does_not_push_tag_when_push_tag_is_false(self, git_instance: Git, mocker):
+            """The method does not push the tag when push_tag is False."""
+            # Arrange
+            files = ["file1.txt"]
+            context = {"new_version": "1.0.0", "new_major": "1", "current_version": "0.1.0"}
+            git_instance.config.tag = True
+            git_instance.config.push_tag = False
+            mocker.patch("bumpversion.scm.git.tag")
+            mock_push_remote = mocker.patch("bumpversion.scm.git.push_remote")
+
+            # Act
+            git_instance.commit_and_tag(files, context, dry_run=False)
+
+            # Assert
+            mock_push_remote.assert_not_called()
+
 
 class TestRevisionInfo:
     """Tests for the revision_info function."""

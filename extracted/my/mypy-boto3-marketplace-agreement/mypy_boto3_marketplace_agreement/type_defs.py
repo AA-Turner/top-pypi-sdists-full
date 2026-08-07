@@ -123,6 +123,7 @@ __all__ = (
     "ListBillingAdjustmentRequestsInputPaginateTypeDef",
     "ListBillingAdjustmentRequestsInputTypeDef",
     "ListBillingAdjustmentRequestsOutputTypeDef",
+    "NetPaymentTermTypeDef",
     "PaginatorConfigTypeDef",
     "PaymentRequestSummaryTypeDef",
     "PaymentScheduleTermTypeDef",
@@ -196,6 +197,14 @@ ByolPricingTermTypeDef = TypedDict(
     {
         "type": NotRequired[str],
         "id": NotRequired[str],
+    },
+)
+NetPaymentTermTypeDef = TypedDict(
+    "NetPaymentTermTypeDef",
+    {
+        "type": NotRequired[str],
+        "id": NotRequired[str],
+        "paymentDuePeriod": NotRequired[str],
     },
 )
 RecurringPaymentTermTypeDef = TypedDict(
@@ -1035,6 +1044,7 @@ class AcceptedTermTypeDef(TypedDict):
     freeTrialPricingTerm: NotRequired[FreeTrialPricingTermTypeDef]
     fixedUpfrontPricingTerm: NotRequired[FixedUpfrontPricingTermTypeDef]
     variablePaymentTerm: NotRequired[VariablePaymentTermTypeDef]
+    netPaymentTerm: NotRequired[NetPaymentTermTypeDef]
 
 
 class ChargeSummaryTypeDef(TypedDict):

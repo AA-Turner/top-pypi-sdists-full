@@ -3,7 +3,7 @@
 #
 # pylint: disable=line-too-long
 
-from ansys.fluent.core.services.datamodel_se import (
+from ansys.fluent.core.services.object_model import (
     PyMenu,
     PyParameter,
     PyTextual,
@@ -921,17 +921,17 @@ class Root(PyMenu):
 
                 def __init__(self, parent, attr, service, rules, path):
                     super().__init__(parent, attr, service, rules, path)
-                    self.CEBtn = self._CEBtn(self, "CEBtn", service, rules, path)
-                    self.Density = self._Density(self, "Density", service, rules, path)
-                    self.OpP = self._OpP(self, "OpP", service, rules, path)
-                    self.WF = self._WF(self, "WF", service, rules, path)
-                    self.EFM = self._EFM(self, "EFM", service, rules, path)
-                    self.Energy = self._Energy(self, "Energy", service, rules, path)
                     self.Vrpm = self._Vrpm(self, "Vrpm", service, rules, path)
+                    self.Density = self._Density(self, "Density", service, rules, path)
+                    self.WF = self._WF(self, "WF", service, rules, path)
+                    self.Energy = self._Energy(self, "Energy", service, rules, path)
+                    self.CEBtn = self._CEBtn(self, "CEBtn", service, rules, path)
+                    self.EFM = self._EFM(self, "EFM", service, rules, path)
+                    self.OpP = self._OpP(self, "OpP", service, rules, path)
 
-                class _CEBtn(PyArgumentsParameterSubItem):
+                class _Vrpm(PyArgumentsNumericalSubItem):
                     """
-                    Argument CEBtn.
+                    Specify the rotation speed, or keep the default value.
                     """
 
                 class _Density(PyArgumentsNumericalSubItem):
@@ -939,19 +939,9 @@ class Root(PyMenu):
                     Provide a value for the density of air, or use the default value.
                     """
 
-                class _OpP(PyArgumentsNumericalSubItem):
-                    """
-                    Specify the operating pressure, or keep the default value.
-                    """
-
                 class _WF(PyArgumentsTextualSubItem):
                     """
                     Choose one of the following materials as the working fluid for the CFD model.
-                    """
-
-                class _EFM(PyArgumentsTextualSubItem):
-                    """
-                    Displays the current existing fluid assigned to the CFD model. Use the Create/Edit... button to create your own material, or edit other existing materials.
                     """
 
                 class _Energy(PyArgumentsParameterSubItem):
@@ -959,9 +949,19 @@ class Root(PyMenu):
                     Indicates whether or not temperature conditions are to be considered.
                     """
 
-                class _Vrpm(PyArgumentsNumericalSubItem):
+                class _CEBtn(PyArgumentsParameterSubItem):
                     """
-                    Specify the rotation speed, or keep the default value.
+                    Argument CEBtn.
+                    """
+
+                class _EFM(PyArgumentsTextualSubItem):
+                    """
+                    Displays the current existing fluid assigned to the CFD model. Use the Create/Edit... button to create your own material, or edit other existing materials.
+                    """
+
+                class _OpP(PyArgumentsNumericalSubItem):
+                    """
+                    Specify the operating pressure, or keep the default value.
                     """
 
         def create_instance(self) -> _TWF_TurboPhysicsArguments:
@@ -994,17 +994,17 @@ class Root(PyMenu):
 
                 def __init__(self, parent, attr, service, rules, path):
                     super().__init__(parent, attr, service, rules, path)
-                    self.UndoOperationsLog = self._UndoOperationsLog(self, "UndoOperationsLog", service, rules, path)
                     self.UseUndo = self._UseUndo(self, "UseUndo", service, rules, path)
-
-                class _UndoOperationsLog(PyArgumentsTextualSubItem):
-                    """
-                    Argument UndoOperationsLog.
-                    """
+                    self.UndoOperationsLog = self._UndoOperationsLog(self, "UndoOperationsLog", service, rules, path)
 
                 class _UseUndo(PyArgumentsParameterSubItem):
                     """
                     Argument UseUndo.
+                    """
+
+                class _UndoOperationsLog(PyArgumentsTextualSubItem):
+                    """
+                    Argument UndoOperationsLog.
                     """
 
         def create_instance(self) -> _TWF_TurboRegionsZonesArguments:

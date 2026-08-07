@@ -406,8 +406,8 @@ impl Builtin for Find {
         }
 
         Ok(ExecResult {
-            stdout: output,
-            stderr: errors,
+            stdout: output.into(),
+            stderr: errors.into(),
             exit_code: if had_error { 1 } else { 0 },
             control_flow: ControlFlow::None,
             ..Default::default()
@@ -529,6 +529,7 @@ fn find_recursive<'a>(
             }
 
             let entries = ctx.fs.read_dir(path).await?;
+            ctx.consume_budget_work(u64::try_from(entries.len()).unwrap_or(u64::MAX))?;
             let mut sorted_entries = entries;
             sorted_entries.sort_by(|a, b| a.name.cmp(&b.name));
 

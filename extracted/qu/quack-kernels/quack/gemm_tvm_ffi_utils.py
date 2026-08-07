@@ -21,7 +21,7 @@ def resolve_blockscaled_formats(bs_format_a, bs_format_b):
     """Resolve a blockscaled GEMM's per-operand format names into descriptors,
     checking presence and hardware pair legality. Single owner of this step for
     both the gemm_interface path and direct kernel-layer callers
-    (quack.gemm.gemm / quack.gemm_act.gemm_act)."""
+    (quack.gemm.gemm / epilogue-mod .gemm)."""
     if bs_format_a is None or bs_format_b is None:
         raise ValueError(
             "blockscaled GEMM requires bs_format_a and bs_format_b (BlockScaledFormat "
@@ -308,17 +308,30 @@ def make_fake_scheduler_args(has_semaphore, has_batch_idx_permute, l_sym, has_ag
     )
 
 
-def make_varlen_args(cu_seqlens_m, cu_seqlens_k, A_idx):
+def make_varlen_args(cu_seqlens_m, cu_seqlens_k, A_idx, cu_tiles_m=None):
     if cu_seqlens_m is None and cu_seqlens_k is None:
         return None
     return VarlenArguments(
         mCuSeqlensM=cu_seqlens_m,
         mCuSeqlensK=cu_seqlens_k,
         mAIdx=A_idx,
+        mCuTilesM=cu_tiles_m,
     )
 
 
-def make_fake_varlen_args(varlen_m, varlen_k, gather_A, aidx_len):
+def compute_cu_tiles_m(cu_seqlens_m, tile_m_cta):
+    """Per-sequence M-tile prefix for varlen M-fold reduce sinks:
+    cumsum of ceil(seqlen / tile_m_cta), zero-padded, (num_seqs + 1,) int32.
+    Device-only ops (graph-safe); recomputed per launch from the live
+    cu_seqlens values."""
+    import torch
+
+    seqlens = cu_seqlens_m[1:] - cu_seqlens_m[:-1]
+    tiles = torch.div(seqlens + (tile_m_cta - 1), tile_m_cta, rounding_mode="floor")
+    return torch.cat([tiles.new_zeros(1), tiles.cumsum(0, dtype=torch.int32)])
+
+
+def make_fake_varlen_args(varlen_m, varlen_k, gather_A, aidx_len, has_cu_tiles_m=False):
     if not varlen_m and not varlen_k:
         return None
     num_seqlens = cute.sym_int()
@@ -331,6 +344,12 @@ def make_fake_varlen_args(varlen_m, varlen_k, gather_A, aidx_len):
         ),
         mAIdx=(
             fake_tensor(Int32, (aidx_len,), leading_dim=0, divisibility=4) if gather_A else None
+        ),
+        # cu_tiles_m has num_seqs + 1 entries, same as cu_seqlens_m — share the sym.
+        mCuTilesM=(
+            fake_tensor(Int32, (num_seqlens,), leading_dim=0, divisibility=4)
+            if has_cu_tiles_m
+            else None
         ),
     )
 
@@ -538,7 +557,10 @@ def make_fake_gemm_tensors(
     b_leading = 1 if b_major == "k" else 0
     d_leading = 1 if d_major == "n" else 0
     c_leading = 1 if c_major == "n" else 0
-    m, n, l = cute.sym_int(), cute.sym_int(), cute.sym_int()
+    m, l = cute.sym_int(), cute.sym_int()
+    # Sub-byte (fp4) D is n-major with a statically packed contiguous extent.
+    n_div = div_for_dtype(d_dtype) if d_dtype is not None and d_dtype.width < 8 else 1
+    n = cute.sym_int(divisibility=n_div)
     a_packed_f6 = a_mma_dtype is not None and a_mma_dtype.width == 6
     b_packed_f6 = b_mma_dtype is not None and b_mma_dtype.width == 6
     # Sub-byte tensors need their contiguous extent statically divisible; sub-byte

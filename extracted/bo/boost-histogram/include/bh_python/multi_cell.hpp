@@ -8,6 +8,8 @@
 #include <boost/histogram/detail/iterator_adaptor.hpp>
 #include <iostream>
 #include <memory>
+#include <stdexcept>
+#include <vector>
 
 namespace boost {
 namespace histogram {
@@ -45,6 +47,14 @@ struct multi_cell_reference : public multi_cell_base<T, boost::span<T>> {
             *it++ += x;
     }
 
+    void operator-=(const boost::span<T> values) {
+        if(values.size() != this->size())
+            throw std::range_error("size does not match for -= ref");
+        auto it = this->begin();
+        for(const T& x : values)
+            *it++ -= x;
+    }
+
     template <class S>
     multi_cell_reference& operator=(const S& values) {
         if(values.size() != this->size())
@@ -78,6 +88,23 @@ struct multi_cell_value : public multi_cell_base<T, std::vector<T>> {
         auto it = this->begin();
         for(const T& x : values)
             *it++ += x;
+    }
+
+    void operator-=(const boost::span<T>& values) {
+        if(values.size() != this->size()) {
+            if(this->size() > 0) {
+                throw std::range_error("size does not match for -= val");
+            }
+            // Subtracting into an uninitialized cell yields the negation.
+            this->resize(values.size());
+            auto it = this->begin();
+            for(const T& x : values)
+                *it++ = -x;
+            return;
+        }
+        auto it = this->begin();
+        for(const T& x : values)
+            *it++ -= x;
     }
 
     template <class S>
@@ -206,6 +233,16 @@ class multi_cell {
         }
     }
 
+    template <class T>
+    void operator-=(const multi_cell<T>& other) {
+        if(size_ * nelem_ != other.size_ * other.nelem_) {
+            throw std::range_error("size does not match");
+        }
+        for(std::size_t i = 0; i < size_ * nelem_; i++) {
+            buffer_[i] -= other.buffer_[i];
+        }
+    }
+
     template <class Archive>
     void serialize(Archive& ar, unsigned /* version */) {
         ar& make_nvp("size", size_);
@@ -213,6 +250,9 @@ class multi_cell {
         std::vector<element_type> w;
         if(Archive::is_loading::value) {
             ar& make_nvp("buffer", w);
+            if(w.size() != size_ * nelem_)
+                throw std::runtime_error(
+                    "multi_cell: serialized buffer size does not match size * nelem");
             reset(size_);
             std::swap_ranges(buffer_.get(), buffer_.get() + size_ * nelem_, w.data());
         } else {

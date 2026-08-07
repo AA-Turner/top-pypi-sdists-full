@@ -32,6 +32,9 @@ from .literals import (
     BrowserNetworkModeType,
     BrowserProfileStatusType,
     BrowserStatusType,
+    CapacityProviderStatusCodeType,
+    CapacityProviderStatusType,
+    CapacityReservationPreferenceType,
     ClaimMatchOperatorTypeType,
     ClientAuthenticationMethodTypeType,
     ClusteringFrequencyType,
@@ -45,6 +48,7 @@ from .literals import (
     DatasetStatusType,
     DescriptorTypeType,
     DraftStatusType,
+    EbsVolumeTypeType,
     EndpointIpAddressTypeType,
     EnforcementModeType,
     EvaluatorLevelType,
@@ -55,6 +59,7 @@ from .literals import (
     FindingTypeType,
     GatewayInterceptionPointType,
     GatewayPolicyEngineModeType,
+    GatewayRateLimitStatusType,
     GatewayRuleStatusType,
     GatewayStatusType,
     HarnessBedrockApiFormatType,
@@ -73,11 +78,13 @@ from .literals import (
     MemoryStrategyTypeType,
     MemoryViewType,
     MetadataValueTypeType,
+    MonitoringType,
     NetworkModeType,
     OAuthGrantTypeType,
     OnBehalfOfTokenExchangeGrantTypeTypeType,
     OnlineEvaluationConfigStatusType,
     OnlineEvaluationExecutionStatusType,
+    OperatingSystemType,
     OverrideTypeType,
     PassthroughProtocolTypeType,
     PaymentConnectorStatusType,
@@ -85,6 +92,7 @@ from .literals import (
     PaymentCredentialProviderVendorTypeType,
     PaymentManagerStatusType,
     PaymentsAuthorizerTypeType,
+    PeriodType,
     PolicyEngineStatusType,
     PolicyGenerationStatusType,
     PolicyStatusType,
@@ -125,6 +133,7 @@ __all__ = (
     "AgentRuntimeArtifactUnionTypeDef",
     "AgentRuntimeEndpointTypeDef",
     "AgentRuntimeTypeDef",
+    "AgentRuntimeVersionSummaryTypeDef",
     "AgentSkillsDescriptorTypeDef",
     "AllowedWorkloadConfigurationOutputTypeDef",
     "AllowedWorkloadConfigurationTypeDef",
@@ -149,6 +158,9 @@ __all__ = (
     "AuthorizingClaimMatchValueTypeOutputTypeDef",
     "AuthorizingClaimMatchValueTypeTypeDef",
     "AuthorizingClaimMatchValueTypeUnionTypeDef",
+    "BatchPutGatewayRateLimitsRequestTypeDef",
+    "BatchPutGatewayRateLimitsResponseTypeDef",
+    "BatchPutLimitEntryTypeDef",
     "BedrockEvaluatorModelConfigOutputTypeDef",
     "BedrockEvaluatorModelConfigTypeDef",
     "BrowserEnterprisePolicyTypeDef",
@@ -159,6 +171,11 @@ __all__ = (
     "BrowserSigningConfigInputTypeDef",
     "BrowserSigningConfigOutputTypeDef",
     "BrowserSummaryTypeDef",
+    "CapacityProviderConfigurationTypeDef",
+    "CapacityProviderSummaryTypeDef",
+    "CapacityProviderVolumeConfigurationTypeDef",
+    "CapacityReservationSpecificationTypeDef",
+    "CapacityReservationTargetTypeDef",
     "CategoricalScaleDefinitionTypeDef",
     "CedarPolicyTypeDef",
     "CertificateLocationTypeDef",
@@ -185,6 +202,9 @@ __all__ = (
     "ComponentConfigurationOutputTypeDef",
     "ComponentConfigurationTypeDef",
     "ComponentConfigurationUnionTypeDef",
+    "ComputeConfigurationOutputTypeDef",
+    "ComputeConfigurationTypeDef",
+    "ComputeConfigurationUnionTypeDef",
     "ConditionOutputTypeDef",
     "ConditionTypeDef",
     "ConditionUnionTypeDef",
@@ -214,6 +234,8 @@ __all__ = (
     "CreateBrowserProfileResponseTypeDef",
     "CreateBrowserRequestTypeDef",
     "CreateBrowserResponseTypeDef",
+    "CreateCapacityProviderInputTypeDef",
+    "CreateCapacityProviderOutputTypeDef",
     "CreateCodeInterpreterRequestTypeDef",
     "CreateCodeInterpreterResponseTypeDef",
     "CreateConfigurationBundleRequestTypeDef",
@@ -224,6 +246,8 @@ __all__ = (
     "CreateDatasetVersionResponseTypeDef",
     "CreateEvaluatorRequestTypeDef",
     "CreateEvaluatorResponseTypeDef",
+    "CreateGatewayRateLimitRequestTypeDef",
+    "CreateGatewayRateLimitResponseTypeDef",
     "CreateGatewayRequestTypeDef",
     "CreateGatewayResponseTypeDef",
     "CreateGatewayRuleRequestTypeDef",
@@ -296,6 +320,8 @@ __all__ = (
     "DeleteBrowserProfileResponseTypeDef",
     "DeleteBrowserRequestTypeDef",
     "DeleteBrowserResponseTypeDef",
+    "DeleteCapacityProviderInputTypeDef",
+    "DeleteCapacityProviderOutputTypeDef",
     "DeleteCodeInterpreterRequestTypeDef",
     "DeleteCodeInterpreterResponseTypeDef",
     "DeleteConfigurationBundleRequestTypeDef",
@@ -306,6 +332,8 @@ __all__ = (
     "DeleteDatasetResponseTypeDef",
     "DeleteEvaluatorRequestTypeDef",
     "DeleteEvaluatorResponseTypeDef",
+    "DeleteGatewayRateLimitRequestTypeDef",
+    "DeleteGatewayRateLimitResponseTypeDef",
     "DeleteGatewayRequestTypeDef",
     "DeleteGatewayResponseTypeDef",
     "DeleteGatewayRuleRequestTypeDef",
@@ -337,8 +365,13 @@ __all__ = (
     "DeleteResourcePolicyRequestTypeDef",
     "DeleteWorkloadIdentityRequestTypeDef",
     "DescriptorsTypeDef",
+    "EbsVolumeConfigurationTypeDef",
+    "Ec2ConfigurationOutputTypeDef",
+    "Ec2ConfigurationTypeDef",
     "EfsAccessPointConfigurationTypeDef",
     "EfsConfigurationTypeDef",
+    "EphemeralBlockDeviceMappingTypeDef",
+    "EphemeralEBSVolumeConfigurationTypeDef",
     "EpisodicConsolidationOverrideTypeDef",
     "EpisodicExtractionOverrideTypeDef",
     "EpisodicMemoryStrategyInputTypeDef",
@@ -374,6 +407,7 @@ __all__ = (
     "GatewayProtocolConfigurationOutputTypeDef",
     "GatewayProtocolConfigurationTypeDef",
     "GatewayProtocolConfigurationUnionTypeDef",
+    "GatewayRateLimitDetailTypeDef",
     "GatewayRuleDetailTypeDef",
     "GatewaySummaryTypeDef",
     "GatewayTargetTypeDef",
@@ -387,6 +421,8 @@ __all__ = (
     "GetBrowserProfileResponseTypeDef",
     "GetBrowserRequestTypeDef",
     "GetBrowserResponseTypeDef",
+    "GetCapacityProviderInputTypeDef",
+    "GetCapacityProviderOutputTypeDef",
     "GetCodeInterpreterRequestTypeDef",
     "GetCodeInterpreterResponseTypeDef",
     "GetConfigurationBundleRequestTypeDef",
@@ -397,6 +433,8 @@ __all__ = (
     "GetDatasetResponseTypeDef",
     "GetEvaluatorRequestTypeDef",
     "GetEvaluatorResponseTypeDef",
+    "GetGatewayRateLimitRequestTypeDef",
+    "GetGatewayRateLimitResponseTypeDef",
     "GetGatewayRequestTypeDef",
     "GetGatewayResponseTypeDef",
     "GetGatewayRuleRequestTypeDef",
@@ -539,6 +577,9 @@ __all__ = (
     "InferenceTargetConfigurationTypeDef",
     "InlineExamplesSourceTypeDef",
     "InsightTypeDef",
+    "InstanceLifecycleConfigurationTypeDef",
+    "InstanceRequirementsOutputTypeDef",
+    "InstanceRequirementsTypeDef",
     "InterceptorConfigurationTypeDef",
     "InterceptorInputConfigurationOutputTypeDef",
     "InterceptorInputConfigurationTypeDef",
@@ -556,12 +597,23 @@ __all__ = (
     "LambdaEvaluatorConfigTypeDef",
     "LambdaInterceptorConfigurationTypeDef",
     "LambdaTransformConfigurationTypeDef",
+    "LaunchParametersOutputTypeDef",
+    "LaunchParametersTypeDef",
+    "LaunchTemplateSourceOutputTypeDef",
+    "LaunchTemplateSourceTypeDef",
+    "LicenseSpecificationTypeDef",
     "LifecycleConfigurationTypeDef",
+    "LimitEntryOutputTypeDef",
+    "LimitEntryTypeDef",
+    "LimitEntryUnionTypeDef",
     "LinkedinOauth2ProviderConfigInputTypeDef",
     "LinkedinOauth2ProviderConfigOutputTypeDef",
     "ListAgentRuntimeEndpointsRequestPaginateTypeDef",
     "ListAgentRuntimeEndpointsRequestTypeDef",
     "ListAgentRuntimeEndpointsResponseTypeDef",
+    "ListAgentRuntimeVersionsByCapacityProviderInputPaginateTypeDef",
+    "ListAgentRuntimeVersionsByCapacityProviderInputTypeDef",
+    "ListAgentRuntimeVersionsByCapacityProviderOutputTypeDef",
     "ListAgentRuntimeVersionsRequestPaginateTypeDef",
     "ListAgentRuntimeVersionsRequestTypeDef",
     "ListAgentRuntimeVersionsResponseTypeDef",
@@ -577,6 +629,9 @@ __all__ = (
     "ListBrowsersRequestPaginateTypeDef",
     "ListBrowsersRequestTypeDef",
     "ListBrowsersResponseTypeDef",
+    "ListCapacityProvidersInputPaginateTypeDef",
+    "ListCapacityProvidersInputTypeDef",
+    "ListCapacityProvidersOutputTypeDef",
     "ListCodeInterpretersRequestPaginateTypeDef",
     "ListCodeInterpretersRequestTypeDef",
     "ListCodeInterpretersResponseTypeDef",
@@ -598,6 +653,9 @@ __all__ = (
     "ListEvaluatorsRequestPaginateTypeDef",
     "ListEvaluatorsRequestTypeDef",
     "ListEvaluatorsResponseTypeDef",
+    "ListGatewayRateLimitsRequestPaginateTypeDef",
+    "ListGatewayRateLimitsRequestTypeDef",
+    "ListGatewayRateLimitsResponseTypeDef",
     "ListGatewayRulesRequestPaginateTypeDef",
     "ListGatewayRulesRequestTypeDef",
     "ListGatewayRulesResponseTypeDef",
@@ -750,6 +808,7 @@ __all__ = (
     "PaymentManagerSummaryTypeDef",
     "PaymentProviderConfigurationInputTypeDef",
     "PaymentProviderConfigurationOutputTypeDef",
+    "PermissionsConfigurationTypeDef",
     "PolicyDefinitionTypeDef",
     "PolicyEngineSummaryTypeDef",
     "PolicyEngineTypeDef",
@@ -774,6 +833,7 @@ __all__ = (
     "ProviderPrefixTypeDef",
     "PutResourcePolicyRequestTypeDef",
     "PutResourcePolicyResponseTypeDef",
+    "RateConfigTypeDef",
     "RatingScaleOutputTypeDef",
     "RatingScaleTypeDef",
     "ReasoningConfigurationTypeDef",
@@ -797,6 +857,7 @@ __all__ = (
     "ResourceLocationTypeDef",
     "ResourceTypeDef",
     "ResponseMetadataTypeDef",
+    "RootVolumeConfigurationTypeDef",
     "RouteToTargetActionOutputTypeDef",
     "RouteToTargetActionTypeDef",
     "RouteToTargetActionUnionTypeDef",
@@ -902,6 +963,8 @@ __all__ = (
     "UpdateAgentRuntimeResponseTypeDef",
     "UpdateApiKeyCredentialProviderRequestTypeDef",
     "UpdateApiKeyCredentialProviderResponseTypeDef",
+    "UpdateCapacityProviderInputTypeDef",
+    "UpdateCapacityProviderOutputTypeDef",
     "UpdateConfigurationBundleRequestTypeDef",
     "UpdateConfigurationBundleResponseTypeDef",
     "UpdateDatasetExamplesRequestTypeDef",
@@ -910,6 +973,8 @@ __all__ = (
     "UpdateDatasetResponseTypeDef",
     "UpdateEvaluatorRequestTypeDef",
     "UpdateEvaluatorResponseTypeDef",
+    "UpdateGatewayRateLimitRequestTypeDef",
+    "UpdateGatewayRateLimitResponseTypeDef",
     "UpdateGatewayRequestTypeDef",
     "UpdateGatewayResponseTypeDef",
     "UpdateGatewayRuleRequestTypeDef",
@@ -975,9 +1040,12 @@ __all__ = (
     "VersionCreatedBySourceTypeDef",
     "VersionFilterTypeDef",
     "VersionLineageMetadataTypeDef",
+    "VolumeConfigurationTypeDef",
     "VpcConfigOutputTypeDef",
     "VpcConfigTypeDef",
     "VpcConfigUnionTypeDef",
+    "VpcConfigurationOutputTypeDef",
+    "VpcConfigurationTypeDef",
     "WafConfigurationTypeDef",
     "WaiterConfigTypeDef",
     "WeightedOverrideOutputTypeDef",
@@ -1027,6 +1095,11 @@ class AgentRuntimeTypeDef(TypedDict):
     agentRuntimeName: str
     description: str
     lastUpdatedAt: datetime
+    status: AgentRuntimeStatusType
+
+class AgentRuntimeVersionSummaryTypeDef(TypedDict):
+    agentRuntimeArn: str
+    agentRuntimeVersion: str
     status: AgentRuntimeStatusType
 
 class SkillDefinitionTypeDef(TypedDict):
@@ -1132,6 +1205,24 @@ class BrowserSummaryTypeDef(TypedDict):
     name: NotRequired[str]
     description: NotRequired[str]
     lastUpdatedAt: NotRequired[datetime]
+
+class CapacityProviderConfigurationTypeDef(TypedDict):
+    capacityProviderArn: NotRequired[str]
+
+class CapacityProviderSummaryTypeDef(TypedDict):
+    capacityProviderId: str
+    capacityProviderArn: str
+    name: str
+    status: CapacityProviderStatusType
+    lastUpdatedAt: datetime
+
+class CapacityProviderVolumeConfigurationTypeDef(TypedDict):
+    volumeName: str
+    mountPath: str
+
+class CapacityReservationTargetTypeDef(TypedDict):
+    capacityReservationId: NotRequired[str]
+    capacityReservationResourceGroupArn: NotRequired[str]
 
 class CategoricalScaleDefinitionTypeDef(TypedDict):
     definition: str
@@ -1252,6 +1343,9 @@ class CreateBrowserProfileRequestTypeDef(TypedDict):
     description: NotRequired[str]
     clientToken: NotRequired[str]
     tags: NotRequired[Mapping[str, str]]
+
+class PermissionsConfigurationTypeDef(TypedDict):
+    capacityProviderOperatorRoleArn: str
 
 class VersionCreatedBySourceTypeDef(TypedDict):
     name: str
@@ -1437,6 +1531,7 @@ class DeleteAgentRuntimeEndpointRequestTypeDef(TypedDict):
 
 class DeleteAgentRuntimeRequestTypeDef(TypedDict):
     agentRuntimeId: str
+    agentRuntimeVersion: NotRequired[str]
     clientToken: NotRequired[str]
 
 class DeleteApiKeyCredentialProviderRequestTypeDef(TypedDict):
@@ -1448,6 +1543,10 @@ class DeleteBrowserProfileRequestTypeDef(TypedDict):
 
 class DeleteBrowserRequestTypeDef(TypedDict):
     browserId: str
+    clientToken: NotRequired[str]
+
+class DeleteCapacityProviderInputTypeDef(TypedDict):
+    capacityProviderId: str
     clientToken: NotRequired[str]
 
 class DeleteCodeInterpreterRequestTypeDef(TypedDict):
@@ -1468,6 +1567,10 @@ class DeleteDatasetRequestTypeDef(TypedDict):
 
 class DeleteEvaluatorRequestTypeDef(TypedDict):
     evaluatorId: str
+
+class DeleteGatewayRateLimitRequestTypeDef(TypedDict):
+    gatewayIdentifier: str
+    rateLimitId: str
 
 class DeleteGatewayRequestTypeDef(TypedDict):
     gatewayIdentifier: str
@@ -1535,6 +1638,36 @@ class DeleteResourcePolicyRequestTypeDef(TypedDict):
 class DeleteWorkloadIdentityRequestTypeDef(TypedDict):
     name: str
 
+class EbsVolumeConfigurationTypeDef(TypedDict):
+    name: str
+    sizeGiB: int
+    volumeType: NotRequired[EbsVolumeTypeType]
+    iops: NotRequired[int]
+    throughput: NotRequired[int]
+    encrypted: NotRequired[bool]
+    kmsKeyId: NotRequired[str]
+    snapshotId: NotRequired[str]
+
+class InstanceLifecycleConfigurationTypeDef(TypedDict):
+    idleInstanceTimeout: NotRequired[int]
+    maxLifetime: NotRequired[int]
+
+class RootVolumeConfigurationTypeDef(TypedDict):
+    volumeType: NotRequired[EbsVolumeTypeType]
+    iops: NotRequired[int]
+    throughput: NotRequired[int]
+    encrypted: NotRequired[bool]
+    kmsKeyId: NotRequired[str]
+    freeSpaceGiB: NotRequired[int]
+
+class VpcConfigurationOutputTypeDef(TypedDict):
+    subnets: list[str]
+    securityGroups: list[str]
+
+class VpcConfigurationTypeDef(TypedDict):
+    subnets: Sequence[str]
+    securityGroups: Sequence[str]
+
 class EfsAccessPointConfigurationTypeDef(TypedDict):
     accessPointArn: str
     mountPath: str
@@ -1543,6 +1676,17 @@ class EfsConfigurationTypeDef(TypedDict):
     accessPointArn: str
     mountPath: str
     fileSystemArn: str
+
+class EphemeralEBSVolumeConfigurationTypeDef(TypedDict):
+    volumeType: NotRequired[EbsVolumeTypeType]
+    iops: NotRequired[int]
+    throughput: NotRequired[int]
+    encrypted: NotRequired[bool]
+    kmsKeyId: NotRequired[str]
+    snapshotId: NotRequired[str]
+    volumeSize: NotRequired[int]
+    volumeInitializationRate: NotRequired[int]
+    ebsCardIndex: NotRequired[int]
 
 class EvaluatorSummaryTypeDef(TypedDict):
     evaluatorArn: str
@@ -1610,6 +1754,9 @@ class GetBrowserProfileRequestTypeDef(TypedDict):
 class GetBrowserRequestTypeDef(TypedDict):
     browserId: str
 
+class GetCapacityProviderInputTypeDef(TypedDict):
+    capacityProviderId: str
+
 class GetCodeInterpreterRequestTypeDef(TypedDict):
     codeInterpreterId: str
 
@@ -1628,6 +1775,10 @@ class GetDatasetRequestTypeDef(TypedDict):
 class GetEvaluatorRequestTypeDef(TypedDict):
     evaluatorId: str
     includedData: NotRequired[IncludedDataType]
+
+class GetGatewayRateLimitRequestTypeDef(TypedDict):
+    gatewayIdentifier: str
+    rateLimitId: str
 
 class GetGatewayRequestTypeDef(TypedDict):
     gatewayIdentifier: str
@@ -1883,6 +2034,12 @@ class InferenceConnectorSourceTypeDef(TypedDict):
 class ModelEntryTypeDef(TypedDict):
     model: str
 
+class InstanceRequirementsOutputTypeDef(TypedDict):
+    allowedInstanceTypes: list[str]
+
+class InstanceRequirementsTypeDef(TypedDict):
+    allowedInstanceTypes: Sequence[str]
+
 class LambdaInterceptorConfigurationTypeDef(TypedDict):
     arn: str
 
@@ -1900,6 +2057,13 @@ class InvocationConfigurationTypeDef(TypedDict):
 class KmsKeySourceTypeTypeDef(TypedDict):
     kmsKeyArn: str
 
+class LicenseSpecificationTypeDef(TypedDict):
+    licenseConfigurationArn: str
+
+class RateConfigTypeDef(TypedDict):
+    rate: float
+    period: PeriodType
+
 class PaginatorConfigTypeDef(TypedDict):
     MaxItems: NotRequired[int]
     PageSize: NotRequired[int]
@@ -1907,6 +2071,11 @@ class PaginatorConfigTypeDef(TypedDict):
 
 class ListAgentRuntimeEndpointsRequestTypeDef(TypedDict):
     agentRuntimeId: str
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+class ListAgentRuntimeVersionsByCapacityProviderInputTypeDef(TypedDict):
+    capacityProviderId: str
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
 
@@ -1936,6 +2105,11 @@ ListBrowsersRequestTypeDef = TypedDict(
         "type": NotRequired[ResourceTypeType],
     },
 )
+
+class ListCapacityProvidersInputTypeDef(TypedDict):
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
 ListCodeInterpretersRequestTypeDef = TypedDict(
     "ListCodeInterpretersRequestTypeDef",
     {
@@ -1972,6 +2146,11 @@ class ListDatasetsRequestTypeDef(TypedDict):
 class ListEvaluatorsRequestTypeDef(TypedDict):
     nextToken: NotRequired[str]
     maxResults: NotRequired[int]
+
+class ListGatewayRateLimitsRequestTypeDef(TypedDict):
+    gatewayIdentifier: str
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
 
 class ListGatewayRulesRequestTypeDef(TypedDict):
     gatewayIdentifier: str
@@ -2417,6 +2596,9 @@ class UpdateAgentRuntimeEndpointRequestTypeDef(TypedDict):
     description: NotRequired[str]
     clientToken: NotRequired[str]
 
+class UpdatedDescriptionTypeDef(TypedDict):
+    optionalValue: NotRequired[str]
+
 class UpdateDatasetExamplesRequestTypeDef(TypedDict):
     datasetId: str
     examples: Sequence[Mapping[str, Any]]
@@ -2433,9 +2615,6 @@ class UpdateHarnessEndpointRequestTypeDef(TypedDict):
     targetVersion: NotRequired[str]
     description: NotRequired[str]
     clientToken: NotRequired[str]
-
-class UpdatedDescriptionTypeDef(TypedDict):
-    optionalValue: NotRequired[str]
 
 class UpdatedSynchronizationTypeTypeDef(TypedDict):
     optionalValue: NotRequired[Literal["URL"]]
@@ -2484,6 +2663,13 @@ class CreateBrowserResponseTypeDef(TypedDict):
     browserArn: str
     createdAt: datetime
     status: BrowserStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class CreateCapacityProviderOutputTypeDef(TypedDict):
+    capacityProviderId: str
+    capacityProviderArn: str
+    name: str
+    status: CapacityProviderStatusType
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateCodeInterpreterResponseTypeDef(TypedDict):
@@ -2558,6 +2744,7 @@ class DeleteAgentRuntimeEndpointResponseTypeDef(TypedDict):
 class DeleteAgentRuntimeResponseTypeDef(TypedDict):
     status: AgentRuntimeStatusType
     agentRuntimeId: str
+    agentRuntimeVersion: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DeleteBrowserProfileResponseTypeDef(TypedDict):
@@ -2572,6 +2759,11 @@ class DeleteBrowserResponseTypeDef(TypedDict):
     browserId: str
     status: BrowserStatusType
     lastUpdatedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DeleteCapacityProviderOutputTypeDef(TypedDict):
+    capacityProviderId: str
+    status: CapacityProviderStatusType
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DeleteCodeInterpreterResponseTypeDef(TypedDict):
@@ -2605,6 +2797,11 @@ class DeleteEvaluatorResponseTypeDef(TypedDict):
     evaluatorArn: str
     evaluatorId: str
     status: EvaluatorStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DeleteGatewayRateLimitResponseTypeDef(TypedDict):
+    rateLimitId: str
+    status: GatewayRateLimitStatusType
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DeleteGatewayResponseTypeDef(TypedDict):
@@ -2791,6 +2988,15 @@ class UpdateAgentRuntimeEndpointResponseTypeDef(TypedDict):
     lastUpdatedAt: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
+class UpdateCapacityProviderOutputTypeDef(TypedDict):
+    capacityProviderId: str
+    capacityProviderArn: str
+    name: str
+    status: CapacityProviderStatusType
+    createdAt: datetime
+    lastUpdatedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class UpdateConfigurationBundleResponseTypeDef(TypedDict):
     bundleArn: str
     bundleId: str
@@ -2872,6 +3078,11 @@ class ListAgentRuntimeVersionsResponseTypeDef(TypedDict):
 
 class ListAgentRuntimesResponseTypeDef(TypedDict):
     agentRuntimes: list[AgentRuntimeTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class ListAgentRuntimeVersionsByCapacityProviderOutputTypeDef(TypedDict):
+    agentRuntimes: list[AgentRuntimeVersionSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -3049,6 +3260,15 @@ class ListBrowsersResponseTypeDef(TypedDict):
     browserSummaries: list[BrowserSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
+
+class ListCapacityProvidersOutputTypeDef(TypedDict):
+    capacityProviders: list[CapacityProviderSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class CapacityReservationSpecificationTypeDef(TypedDict):
+    capacityReservationPreference: NotRequired[CapacityReservationPreferenceType]
+    capacityReservationTarget: NotRequired[CapacityReservationTargetTypeDef]
 
 class CertificateLocationTypeDef(TypedDict):
     secretsManager: NotRequired[SecretsManagerLocationTypeDef]
@@ -3325,6 +3545,14 @@ class ListDatasetVersionsResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
+class VolumeConfigurationTypeDef(TypedDict):
+    ebsConfiguration: NotRequired[EbsVolumeConfigurationTypeDef]
+
+class EphemeralBlockDeviceMappingTypeDef(TypedDict):
+    deviceName: NotRequired[str]
+    virtualName: NotRequired[str]
+    ebs: NotRequired[EphemeralEBSVolumeConfigurationTypeDef]
+
 class ListEvaluatorsResponseTypeDef(TypedDict):
     evaluators: list[EvaluatorSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -3334,6 +3562,7 @@ class FilesystemConfigurationTypeDef(TypedDict):
     sessionStorage: NotRequired[SessionStorageConfigurationTypeDef]
     s3FilesAccessPoint: NotRequired[S3FilesAccessPointConfigurationTypeDef]
     efsAccessPoint: NotRequired[EfsAccessPointConfigurationTypeDef]
+    capacityProviderVolume: NotRequired[CapacityProviderVolumeConfigurationTypeDef]
 
 FilterTypeDef = TypedDict(
     "FilterTypeDef",
@@ -3558,8 +3787,24 @@ class InterceptorPayloadFilterTypeDef(TypedDict):
 class PrivateKeySourceTypeDef(TypedDict):
     kmsKeySource: NotRequired[KmsKeySourceTypeTypeDef]
 
+class LimitEntryOutputTypeDef(TypedDict):
+    dimensions: dict[str, str]
+    requests: NotRequired[list[RateConfigTypeDef]]
+    tokens: NotRequired[list[RateConfigTypeDef]]
+    connections: NotRequired[list[RateConfigTypeDef]]
+
+class LimitEntryTypeDef(TypedDict):
+    dimensions: Mapping[str, str]
+    requests: NotRequired[Sequence[RateConfigTypeDef]]
+    tokens: NotRequired[Sequence[RateConfigTypeDef]]
+    connections: NotRequired[Sequence[RateConfigTypeDef]]
+
 class ListAgentRuntimeEndpointsRequestPaginateTypeDef(TypedDict):
     agentRuntimeId: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListAgentRuntimeVersionsByCapacityProviderInputPaginateTypeDef(TypedDict):
+    capacityProviderId: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListAgentRuntimeVersionsRequestPaginateTypeDef(TypedDict):
@@ -3583,6 +3828,10 @@ ListBrowsersRequestPaginateTypeDef = TypedDict(
         "PaginationConfig": NotRequired[PaginatorConfigTypeDef],
     },
 )
+
+class ListCapacityProvidersInputPaginateTypeDef(TypedDict):
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
 ListCodeInterpretersRequestPaginateTypeDef = TypedDict(
     "ListCodeInterpretersRequestPaginateTypeDef",
     {
@@ -3607,6 +3856,10 @@ class ListDatasetsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListEvaluatorsRequestPaginateTypeDef(TypedDict):
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListGatewayRateLimitsRequestPaginateTypeDef(TypedDict):
+    gatewayIdentifier: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListGatewayRulesRequestPaginateTypeDef(TypedDict):
@@ -3900,6 +4153,11 @@ TokenExchangeGrantTypeConfigTypeUnionTypeDef = Union[
     TokenExchangeGrantTypeConfigTypeTypeDef, TokenExchangeGrantTypeConfigTypeOutputTypeDef
 ]
 
+class UpdateCapacityProviderInputTypeDef(TypedDict):
+    capacityProviderId: str
+    description: NotRequired[UpdatedDescriptionTypeDef]
+    clientToken: NotRequired[str]
+
 class UpdatePolicyEngineRequestTypeDef(TypedDict):
     policyEngineId: str
     description: NotRequired[UpdatedDescriptionTypeDef]
@@ -4192,6 +4450,28 @@ class CreateDatasetRequestTypeDef(TypedDict):
     kmsKeyArn: NotRequired[str]
     tags: NotRequired[Mapping[str, str]]
 
+class LaunchParametersOutputTypeDef(TypedDict):
+    operatingSystem: OperatingSystemType
+    instanceRequirements: InstanceRequirementsOutputTypeDef
+    ephemeralVolumes: NotRequired[list[EphemeralBlockDeviceMappingTypeDef]]
+    monitoring: NotRequired[MonitoringType]
+    licenseSpecifications: NotRequired[list[LicenseSpecificationTypeDef]]
+    capacityReservationSpecification: NotRequired[CapacityReservationSpecificationTypeDef]
+    sshKeyName: NotRequired[str]
+    instanceProfileArn: NotRequired[str]
+    propagatedTags: NotRequired[dict[str, str]]
+
+class LaunchParametersTypeDef(TypedDict):
+    operatingSystem: OperatingSystemType
+    instanceRequirements: InstanceRequirementsTypeDef
+    ephemeralVolumes: NotRequired[Sequence[EphemeralBlockDeviceMappingTypeDef]]
+    monitoring: NotRequired[MonitoringType]
+    licenseSpecifications: NotRequired[Sequence[LicenseSpecificationTypeDef]]
+    capacityReservationSpecification: NotRequired[CapacityReservationSpecificationTypeDef]
+    sshKeyName: NotRequired[str]
+    instanceProfileArn: NotRequired[str]
+    propagatedTags: NotRequired[Mapping[str, str]]
+
 class HarnessAgentCoreRuntimeEnvironmentTypeDef(TypedDict):
     agentRuntimeArn: str
     agentRuntimeName: str
@@ -4273,6 +4553,51 @@ class PrivateKeyJwtConfigTypeDef(TypedDict):
     signingAlgorithm: NotRequired[SigningAlgorithmType]
     additionalHeaderClaims: NotRequired[Mapping[str, str]]
     additionalPayloadClaims: NotRequired[Mapping[str, str]]
+
+class CreateGatewayRateLimitResponseTypeDef(TypedDict):
+    rateLimitId: str
+    gatewayIdentifier: str
+    description: str
+    dimensionKeys: list[str]
+    entries: list[LimitEntryOutputTypeDef]
+    status: GatewayRateLimitStatusType
+    createdAt: datetime
+    updatedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class GatewayRateLimitDetailTypeDef(TypedDict):
+    rateLimitId: str
+    gatewayIdentifier: str
+    dimensionKeys: list[str]
+    entries: list[LimitEntryOutputTypeDef]
+    status: GatewayRateLimitStatusType
+    createdAt: datetime
+    updatedAt: datetime
+    description: NotRequired[str]
+
+class GetGatewayRateLimitResponseTypeDef(TypedDict):
+    rateLimitId: str
+    gatewayIdentifier: str
+    description: str
+    dimensionKeys: list[str]
+    entries: list[LimitEntryOutputTypeDef]
+    status: GatewayRateLimitStatusType
+    createdAt: datetime
+    updatedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class UpdateGatewayRateLimitResponseTypeDef(TypedDict):
+    rateLimitId: str
+    gatewayIdentifier: str
+    description: str
+    dimensionKeys: list[str]
+    entries: list[LimitEntryOutputTypeDef]
+    status: GatewayRateLimitStatusType
+    createdAt: datetime
+    updatedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+LimitEntryUnionTypeDef = Union[LimitEntryTypeDef, LimitEntryOutputTypeDef]
 
 class GatewayProtocolConfigurationOutputTypeDef(TypedDict):
     mcp: NotRequired[MCPGatewayConfigurationOutputTypeDef]
@@ -4659,6 +4984,12 @@ class HarnessToolConfigurationOutputTypeDef(TypedDict):
     inlineFunction: NotRequired[HarnessInlineFunctionConfigOutputTypeDef]
     agentCoreCodeInterpreter: NotRequired[HarnessAgentCoreCodeInterpreterConfigTypeDef]
 
+class LaunchTemplateSourceOutputTypeDef(TypedDict):
+    launchParameters: NotRequired[LaunchParametersOutputTypeDef]
+
+class LaunchTemplateSourceTypeDef(TypedDict):
+    launchParameters: NotRequired[LaunchParametersTypeDef]
+
 class HarnessEnvironmentProviderTypeDef(TypedDict):
     agentCoreRuntimeEnvironment: NotRequired[HarnessAgentCoreRuntimeEnvironmentTypeDef]
 
@@ -4708,6 +5039,36 @@ class InterceptorInputConfigurationTypeDef(TypedDict):
 PrivateKeyJwtConfigUnionTypeDef = Union[
     PrivateKeyJwtConfigTypeDef, PrivateKeyJwtConfigOutputTypeDef
 ]
+
+class BatchPutGatewayRateLimitsResponseTypeDef(TypedDict):
+    rateLimits: list[GatewayRateLimitDetailTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class ListGatewayRateLimitsResponseTypeDef(TypedDict):
+    rateLimits: list[GatewayRateLimitDetailTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class BatchPutLimitEntryTypeDef(TypedDict):
+    dimensionKeys: Sequence[str]
+    entries: Sequence[LimitEntryUnionTypeDef]
+    rateLimitId: NotRequired[str]
+    description: NotRequired[str]
+
+class CreateGatewayRateLimitRequestTypeDef(TypedDict):
+    gatewayIdentifier: str
+    dimensionKeys: Sequence[str]
+    entries: Sequence[LimitEntryUnionTypeDef]
+    clientToken: NotRequired[str]
+    rateLimitId: NotRequired[str]
+    description: NotRequired[str]
+
+class UpdateGatewayRateLimitRequestTypeDef(TypedDict):
+    gatewayIdentifier: str
+    rateLimitId: str
+    entries: Sequence[LimitEntryUnionTypeDef]
+    description: NotRequired[str]
+
 GatewayProtocolConfigurationUnionTypeDef = Union[
     GatewayProtocolConfigurationTypeDef, GatewayProtocolConfigurationOutputTypeDef
 ]
@@ -4838,6 +5199,20 @@ HarnessToolOutputTypeDef = TypedDict(
     },
 )
 
+class Ec2ConfigurationOutputTypeDef(TypedDict):
+    launchTemplateSource: LaunchTemplateSourceOutputTypeDef
+    vpcConfiguration: VpcConfigurationOutputTypeDef
+    volumes: NotRequired[list[VolumeConfigurationTypeDef]]
+    lifecycleConfiguration: NotRequired[InstanceLifecycleConfigurationTypeDef]
+    rootVolume: NotRequired[RootVolumeConfigurationTypeDef]
+
+class Ec2ConfigurationTypeDef(TypedDict):
+    launchTemplateSource: LaunchTemplateSourceTypeDef
+    vpcConfiguration: VpcConfigurationTypeDef
+    volumes: NotRequired[Sequence[VolumeConfigurationTypeDef]]
+    lifecycleConfiguration: NotRequired[InstanceLifecycleConfigurationTypeDef]
+    rootVolume: NotRequired[RootVolumeConfigurationTypeDef]
+
 class CreateOnlineEvaluationConfigRequestTypeDef(TypedDict):
     onlineEvaluationConfigName: str
     rule: RuleUnionTypeDef
@@ -4874,6 +5249,11 @@ class ConditionTypeDef(TypedDict):
 InterceptorInputConfigurationUnionTypeDef = Union[
     InterceptorInputConfigurationTypeDef, InterceptorInputConfigurationOutputTypeDef
 ]
+
+class BatchPutGatewayRateLimitsRequestTypeDef(TypedDict):
+    gatewayIdentifier: str
+    rateLimits: Sequence[BatchPutLimitEntryTypeDef]
+    clientToken: NotRequired[str]
 
 class PrivateEndpointOverrideTypeDef(TypedDict):
     domain: str
@@ -5024,6 +5404,12 @@ class ConfigurationBundleActionTypeDef(TypedDict):
     staticOverride: NotRequired[StaticOverrideTypeDef]
     weightedOverride: NotRequired[WeightedOverrideUnionTypeDef]
 
+class ComputeConfigurationOutputTypeDef(TypedDict):
+    ec2Configuration: NotRequired[Ec2ConfigurationOutputTypeDef]
+
+class ComputeConfigurationTypeDef(TypedDict):
+    ec2Configuration: NotRequired[Ec2ConfigurationTypeDef]
+
 class UpdatedHarnessMemoryConfigurationTypeDef(TypedDict):
     optionalValue: NotRequired[HarnessMemoryConfigurationUnionTypeDef]
 
@@ -5123,6 +5509,7 @@ class GetAgentRuntimeResponseTypeDef(TypedDict):
     requestHeaderConfiguration: RequestHeaderConfigurationOutputTypeDef
     metadataConfiguration: RuntimeMetadataConfigurationTypeDef
     filesystemConfigurations: list[FilesystemConfigurationTypeDef]
+    capacityProviderConfiguration: CapacityProviderConfigurationTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetGatewayResponseTypeDef(TypedDict):
@@ -5350,6 +5737,24 @@ class ListGatewayRulesResponseTypeDef(TypedDict):
 ConfigurationBundleActionUnionTypeDef = Union[
     ConfigurationBundleActionTypeDef, ConfigurationBundleActionOutputTypeDef
 ]
+
+class GetCapacityProviderOutputTypeDef(TypedDict):
+    capacityProviderId: str
+    capacityProviderArn: str
+    name: str
+    status: CapacityProviderStatusType
+    description: str
+    statusCode: CapacityProviderStatusCodeType
+    statusReason: str
+    permissionsConfiguration: PermissionsConfigurationTypeDef
+    computeConfiguration: ComputeConfigurationOutputTypeDef
+    createdAt: datetime
+    lastUpdatedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+ComputeConfigurationUnionTypeDef = Union[
+    ComputeConfigurationTypeDef, ComputeConfigurationOutputTypeDef
+]
 GatewayInterceptorConfigurationUnionTypeDef = Union[
     GatewayInterceptorConfigurationTypeDef, GatewayInterceptorConfigurationOutputTypeDef
 ]
@@ -5521,6 +5926,14 @@ class ActionTypeDef(TypedDict):
     configurationBundle: NotRequired[ConfigurationBundleActionUnionTypeDef]
     routeToTarget: NotRequired[RouteToTargetActionUnionTypeDef]
 
+class CreateCapacityProviderInputTypeDef(TypedDict):
+    name: str
+    permissionsConfiguration: PermissionsConfigurationTypeDef
+    computeConfiguration: ComputeConfigurationUnionTypeDef
+    description: NotRequired[str]
+    clientToken: NotRequired[str]
+    tags: NotRequired[Mapping[str, str]]
+
 CustomJWTAuthorizerConfigurationUnionTypeDef = Union[
     CustomJWTAuthorizerConfigurationTypeDef, CustomJWTAuthorizerConfigurationOutputTypeDef
 ]
@@ -5658,7 +6071,7 @@ class CreateAgentRuntimeRequestTypeDef(TypedDict):
     agentRuntimeName: str
     agentRuntimeArtifact: AgentRuntimeArtifactUnionTypeDef
     roleArn: str
-    networkConfiguration: NetworkConfigurationUnionTypeDef
+    networkConfiguration: NotRequired[NetworkConfigurationUnionTypeDef]
     clientToken: NotRequired[str]
     description: NotRequired[str]
     authorizerConfiguration: NotRequired[AuthorizerConfigurationUnionTypeDef]
@@ -5667,6 +6080,7 @@ class CreateAgentRuntimeRequestTypeDef(TypedDict):
     lifecycleConfiguration: NotRequired[LifecycleConfigurationTypeDef]
     environmentVariables: NotRequired[Mapping[str, str]]
     filesystemConfigurations: NotRequired[Sequence[FilesystemConfigurationTypeDef]]
+    capacityProviderConfiguration: NotRequired[CapacityProviderConfigurationTypeDef]
     tags: NotRequired[Mapping[str, str]]
 
 class CreateGatewayRequestTypeDef(TypedDict):
@@ -5705,7 +6119,7 @@ class UpdateAgentRuntimeRequestTypeDef(TypedDict):
     agentRuntimeId: str
     agentRuntimeArtifact: AgentRuntimeArtifactUnionTypeDef
     roleArn: str
-    networkConfiguration: NetworkConfigurationUnionTypeDef
+    networkConfiguration: NotRequired[NetworkConfigurationUnionTypeDef]
     description: NotRequired[str]
     authorizerConfiguration: NotRequired[AuthorizerConfigurationUnionTypeDef]
     requestHeaderConfiguration: NotRequired[RequestHeaderConfigurationUnionTypeDef]
@@ -5714,6 +6128,7 @@ class UpdateAgentRuntimeRequestTypeDef(TypedDict):
     metadataConfiguration: NotRequired[RuntimeMetadataConfigurationTypeDef]
     environmentVariables: NotRequired[Mapping[str, str]]
     filesystemConfigurations: NotRequired[Sequence[FilesystemConfigurationTypeDef]]
+    capacityProviderConfiguration: NotRequired[CapacityProviderConfigurationTypeDef]
     clientToken: NotRequired[str]
 
 class UpdateGatewayRequestTypeDef(TypedDict):

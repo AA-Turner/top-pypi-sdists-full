@@ -3,7 +3,7 @@
 #
 # pylint: disable=line-too-long
 
-from ansys.fluent.core.services.datamodel_se import PyMenu
+from ansys.fluent.core.services.object_model import PyMenu
 from typing import Any
 
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cmd2
-Version: 4.1.2
+Version: 4.2.0
 Summary: cmd2 - quickly build feature-rich and user-friendly interactive command line applications in Python
 Author: cmd2 Contributors
 License-Expression: MIT
@@ -21,7 +21,7 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: prompt-toolkit>=3.0.52
+Requires-Dist: prompt-toolkit>=3.0.53
 Requires-Dist: pyperclip>=1.8.2
 Requires-Dist: rich>=15.0.0
 Requires-Dist: rich-argparse>=1.7.2

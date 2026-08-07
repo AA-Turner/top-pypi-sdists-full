@@ -11,24 +11,40 @@ Two files are needed because the ecosystem is split:
   (``//<host>/api/v4/packages/npm/:_authToken=``).
 - ``~/.yarnrc.yml`` — **Yarn 2+ ignores .npmrc** and reads its own home config:
   ``npmScopes.<owner>.npmRegistryServer`` for the mapping and ``npmRegistries``
-  for that registry's token.
+  for that registry's token. It also carries ``npmMinimalAgeGate: 0``: Yarn's
+  cooldown refuses packages published less than N minutes ago, which is aimed at
+  the public registry but would equally block a private package built minutes
+  earlier by our own CI.
 
 The token is always attached to the GitLab host and never posed as a global
-setting, so no request to a public registry can carry it. Writes are surgical:
-only the GitLab-registry keys are created or updated, and the rest of each file
-— which may hold other registries — is left as it was.
+setting, so no request to a public registry can carry it.
+
+Both files belong to the user, so writes are surgical: only our own keys are
+created or updated and everything else is left as it was — the ``.npmrc`` is
+edited line by line, and the ``.yarnrc.yml`` through a round-trip parser, so
+comments, key order and quoting style all survive. A ``.yarnrc.yml`` we cannot
+parse is never rewritten: the apply refuses (before touching the ``.npmrc``, so
+nothing is left half-configured) and says so, rather than replacing a file whose
+contents it doesn't understand.
 """
 
+import io
+from collections.abc import Mapping, MutableMapping
 from pathlib import Path
 from typing import Any
 
-import yaml
+from ruamel.yaml import YAML, YAMLError
+from ruamel.yaml.comments import CommentedMap
 
 from ..fs import atomic_write_private_text
 from .consumer import ApplyResult, ConsumerState, RegistryConsumer
 from .targets import RegistryTargets
 
 _AUTH_SUFFIX = ":_authToken"
+
+# Yarn's publish cooldown, in minutes. Zero disables it — see the module docstring.
+_MINIMAL_AGE_GATE_KEY = "npmMinimalAgeGate"
+_MINIMAL_AGE_GATE = 0
 
 
 def npmrc_path() -> Path:
@@ -92,20 +108,42 @@ def _drop_ini_keys(existing: str, keys: set[str]) -> str:
     return f"{body}\n" if body else ""
 
 
-def _load_yaml_mapping(path: Path) -> dict[str, Any]:
+def _round_trip() -> YAML:
+    """A round-trip parser: what it loads and dumps back keeps its comments and layout."""
+    parser = YAML()
+    parser.preserve_quotes = True
+    return parser
+
+
+def _load_yarnrc(path: Path) -> CommentedMap | None:
+    """Load ``~/.yarnrc.yml`` for editing, or ``None`` when it exists but can't be read.
+
+    A missing or blank file is a fresh mapping. Anything we fail to parse — or that
+    isn't a mapping at all — returns ``None`` so the caller refuses to write rather
+    than replacing a file whose contents it doesn't understand.
+    """
     raw = _read_text(path)
     if not raw.strip():
-        return {}
+        return CommentedMap()
     try:
-        loaded = yaml.safe_load(raw)
-    except yaml.YAMLError:
-        return {}
-    return loaded if isinstance(loaded, dict) else {}
+        loaded = _round_trip().load(raw)
+    except YAMLError:
+        return None
+    if loaded is None:
+        return CommentedMap()
+    return loaded if isinstance(loaded, CommentedMap) else None
 
 
-def _nested_mapping(data: dict[str, Any], key: str) -> dict[str, Any]:
+def _dump_yarnrc(data: CommentedMap) -> str:
+    buffer = io.StringIO()
+    _round_trip().dump(data, buffer)
+    return buffer.getvalue()
+
+
+def _nested_mapping(data: Mapping[str, Any], key: str) -> Any:
+    """The mapping under ``key``, edited in place so its comments survive."""
     value = data.get(key)
-    return dict(value) if isinstance(value, dict) else {}
+    return value if isinstance(value, MutableMapping) else CommentedMap()
 
 
 class NpmConsumer(RegistryConsumer):
@@ -119,7 +157,7 @@ class NpmConsumer(RegistryConsumer):
         npmrc_keys = {_line_key(line) for line in npmrc.splitlines()}
         npmrc_ok = _auth_key(targets) in npmrc_keys and _scope_key(targets.owner) in npmrc_keys
 
-        yarnrc = _load_yaml_mapping(yarnrc_path())
+        yarnrc = _load_yarnrc(yarnrc_path()) or CommentedMap()
         registries = _nested_mapping(yarnrc, "npmRegistries")
         scopes = _nested_mapping(yarnrc, "npmScopes")
         registry_entry = registries.get(targets.npm_auth_key)
@@ -129,6 +167,7 @@ class NpmConsumer(RegistryConsumer):
             and bool(registry_entry.get("npmAuthToken"))
             and isinstance(scope_entry, dict)
             and bool(scope_entry.get("npmRegistryServer"))
+            and yarnrc.get(_MINIMAL_AGE_GATE_KEY) == _MINIMAL_AGE_GATE
         )
 
         locations = tuple(str(path) for path, ok in ((npmrc_path(), npmrc_ok), (yarnrc_path(), yarn_ok)) if ok)
@@ -144,9 +183,17 @@ class NpmConsumer(RegistryConsumer):
         if not targets.owner:
             return ApplyResult(error="no GitLab owner resolved — cannot map the private npm scope")
 
+        # Read before writing anything: a yarnrc we can't parse must stop the whole
+        # apply, not leave the npmrc half-configured behind us.
+        yarnrc = _load_yarnrc(yarnrc_path())
+        if yarnrc is None:
+            return ApplyResult(
+                error=f"{yarnrc_path()} is not valid YAML — refusing to overwrite it; fix or move it, then retry"
+            )
+
         try:
             npm_changed = self._apply_npmrc(token, targets)
-            yarn_changed = self._apply_yarnrc(token, targets)
+            yarn_changed = self._apply_yarnrc(yarnrc, token, targets)
         except OSError as exc:
             return ApplyResult(error=f"could not write the Node configuration: {exc}")
 
@@ -164,27 +211,25 @@ class NpmConsumer(RegistryConsumer):
         atomic_write_private_text(path, updated)
         return True
 
-    def _apply_yarnrc(self, token: str, targets: RegistryTargets) -> bool:
+    def _apply_yarnrc(self, data: CommentedMap, token: str, targets: RegistryTargets) -> bool:
         path = yarnrc_path()
         existing = _read_text(path)
-        data = _load_yaml_mapping(path)
 
         scopes = _nested_mapping(data, "npmScopes")
-        scope_entry = dict(scopes.get(targets.owner) or {}) if isinstance(scopes.get(targets.owner), dict) else {}
+        scope_entry = _nested_mapping(scopes, targets.owner)
         scope_entry["npmRegistryServer"] = targets.npm_registry
         scopes[targets.owner] = scope_entry
         data["npmScopes"] = scopes
 
         registries = _nested_mapping(data, "npmRegistries")
-        registry_key = targets.npm_auth_key
-        registry_entry = (
-            dict(registries.get(registry_key) or {}) if isinstance(registries.get(registry_key), dict) else {}
-        )
+        registry_entry = _nested_mapping(registries, targets.npm_auth_key)
         registry_entry["npmAuthToken"] = token
-        registries[registry_key] = registry_entry
+        registries[targets.npm_auth_key] = registry_entry
         data["npmRegistries"] = registries
 
-        updated = yaml.safe_dump(data, sort_keys=False, default_flow_style=False, allow_unicode=True)
+        data[_MINIMAL_AGE_GATE_KEY] = _MINIMAL_AGE_GATE
+
+        updated = _dump_yarnrc(data)
         if updated == existing:
             return False
         atomic_write_private_text(path, updated)
@@ -209,7 +254,10 @@ class NpmConsumer(RegistryConsumer):
 
         yarn_path = yarnrc_path()
         yarn_existing = _read_text(yarn_path)
-        data = _load_yaml_mapping(yarn_path)
+        data = _load_yarnrc(yarn_path)
+        if data is None:
+            # Same rule as apply(): a file we can't parse is left alone.
+            return tuple(cleaned)
         touched = False
 
         registries = _nested_mapping(data, "npmRegistries")
@@ -228,13 +276,16 @@ class NpmConsumer(RegistryConsumer):
             else:
                 data.pop("npmScopes", None)
 
+        # Only drop the gate when we are the ones who set it to zero — a user who
+        # picked their own cooldown keeps it.
+        if data.get(_MINIMAL_AGE_GATE_KEY) == _MINIMAL_AGE_GATE:
+            data.pop(_MINIMAL_AGE_GATE_KEY)
+            touched = True
+
         if touched:
             try:
                 if data:
-                    atomic_write_private_text(
-                        yarn_path,
-                        yaml.safe_dump(data, sort_keys=False, default_flow_style=False, allow_unicode=True),
-                    )
+                    atomic_write_private_text(yarn_path, _dump_yarnrc(data))
                 elif yarn_existing:
                     yarn_path.unlink(missing_ok=True)
                 cleaned.append(str(yarn_path))

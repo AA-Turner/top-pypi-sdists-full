@@ -30,6 +30,7 @@ Usage::
         ListConfigurationPolicyAssociationsPaginator,
         ListEnabledProductsForImportPaginator,
         ListFindingAggregatorsPaginator,
+        ListFreeTrialStatusesV2Paginator,
         ListInvitationsPaginator,
         ListMembersPaginator,
         ListOrganizationAdminAccountsPaginator,
@@ -60,6 +61,7 @@ Usage::
     list_configuration_policy_associations_paginator: ListConfigurationPolicyAssociationsPaginator = client.get_paginator("list_configuration_policy_associations")
     list_enabled_products_for_import_paginator: ListEnabledProductsForImportPaginator = client.get_paginator("list_enabled_products_for_import")
     list_finding_aggregators_paginator: ListFindingAggregatorsPaginator = client.get_paginator("list_finding_aggregators")
+    list_free_trial_statuses_v2_paginator: ListFreeTrialStatusesV2Paginator = client.get_paginator("list_free_trial_statuses_v2")
     list_invitations_paginator: ListInvitationsPaginator = client.get_paginator("list_invitations")
     list_members_paginator: ListMembersPaginator = client.get_paginator("list_members")
     list_organization_admin_accounts_paginator: ListOrganizationAdminAccountsPaginator = client.get_paginator("list_organization_admin_accounts")
@@ -89,6 +91,7 @@ from .paginator import (
     ListConfigurationPolicyAssociationsPaginator,
     ListEnabledProductsForImportPaginator,
     ListFindingAggregatorsPaginator,
+    ListFreeTrialStatusesV2Paginator,
     ListInvitationsPaginator,
     ListMembersPaginator,
     ListOrganizationAdminAccountsPaginator,
@@ -120,6 +123,7 @@ __all__ = (
     "ListConfigurationPolicyAssociationsPaginator",
     "ListEnabledProductsForImportPaginator",
     "ListFindingAggregatorsPaginator",
+    "ListFreeTrialStatusesV2Paginator",
     "ListInvitationsPaginator",
     "ListMembersPaginator",
     "ListOrganizationAdminAccountsPaginator",

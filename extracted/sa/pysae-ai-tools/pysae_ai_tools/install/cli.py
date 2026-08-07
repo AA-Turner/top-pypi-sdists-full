@@ -141,6 +141,50 @@ def require(
     raise typer.Exit(code=1)
 
 
+@app.command("rotate-tokens")
+def rotate_tokens(
+    force: Annotated[
+        bool,
+        typer.Option("--force", help="Rotate even when expiry is still far off (leaked credential, or to test)."),
+    ] = False,
+    as_json: Annotated[bool, typer.Option("--json", help="Machine-readable output.")] = False,
+) -> None:
+    """Check the managed access tokens and renew the ones close to expiry.
+
+    What the hourly `auto_rotate_tokens` pass runs, on demand and in the
+    foreground. Covers the GitLab registry PAT (`GITLAB_REGISTRY_TOKEN`), whose
+    replacement is re-posed in every ecosystem holding it (uv, npm, Docker).
+
+    Exit code 2 when only you can fix what it found — no token at hand, a token
+    GitLab rejects, or one lacking the `self_rotate` scope. Exit code 1 when the
+    pass could not conclude: GitLab unreachable, or a forced rotation that failed.
+    """
+    # Local import: `cli.py` loads for every `tools` command, and the credential
+    # layer pulls in the env resolver chain that only this one needs.
+    import contextlib
+
+    from ..env import trace
+    from . import registry_credential
+
+    # The resolver narrates on stdout — the very stream `--json` must keep clean.
+    with trace.silence_trace() if as_json else contextlib.nullcontext():
+        result = registry_credential.sweep(force=force)
+
+    if as_json:
+        typer.echo(json.dumps(result.to_dict(), indent=2))
+    else:
+        registry_credential.render_sweep(result)
+
+    if result.needs_user_action:
+        raise typer.Exit(code=2)
+    if result.unreachable:
+        raise typer.Exit(code=1)
+    # A vetoed pass did what it was supposed to do — refusing to rotate in CI is
+    # the feature, not a failed rotation.
+    if force and not result.rotated and result.blocked is None:
+        raise typer.Exit(code=1)
+
+
 @app.command()
 def configure(
     reset: Annotated[

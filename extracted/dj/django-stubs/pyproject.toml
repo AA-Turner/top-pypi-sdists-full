@@ -1,83 +1,59 @@
 [project]
 name = "django-stubs"
-version = "6.0.7"
+version = "6.0.8"
 description = "Mypy stubs for Django"
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE.md"]
 requires-python = ">=3.10"
-authors = [
-  { name = "Maksim Kurnikov", email = "maxim.kurnikov@gmail.com" },
-]
-maintainers = [
-  { name = "Marti Raudsepp", email = "marti@juffo.org" },
-  { name = "Nikita Sobolev", email = "mail@sobolevn.me" },
-  { name = "Petter Friberg", email = "petter_friberg@hotmail.com" },
-  { name = "Adam Johnson", email = "me@adamj.eu" },
-]
 classifiers = [
-  "Operating System :: OS Independent",
-  "Programming Language :: Python :: 3.10",
-  "Programming Language :: Python :: 3.11",
-  "Programming Language :: Python :: 3.12",
-  "Programming Language :: Python :: 3.13",
-  "Programming Language :: Python :: 3.14",
-  "Typing :: Typed",
-  "Framework :: Django",
-  "Framework :: Django :: 5.0",
-  "Framework :: Django :: 5.1",
-  "Framework :: Django :: 5.2",
-  "Framework :: Django :: 6.0",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Typing :: Typed",
+    "Framework :: Django",
+    "Framework :: Django :: 5.0",
+    "Framework :: Django :: 5.1",
+    "Framework :: Django :: 5.2",
+    "Framework :: Django :: 6.0",
 ]
 dependencies = [
-  "django",
-  "django-stubs-ext>=6.0.2",
-  "tomli; python_version < '3.11'",
-  # Types:
-  "types-pyyaml",
-  "typing-extensions>=4.11.0",
+    "django",
+    "django-stubs-ext>=6.0.2",
+    "tomli; python_version < '3.11'",
+    "types-pyyaml",
+    "typing-extensions>=4.11.0",
 ]
+
+[[project.authors]]
+name = "Maksim Kurnikov"
+email = "maxim.kurnikov@gmail.com"
+
+[[project.maintainers]]
+name = "Marti Raudsepp"
+email = "marti@juffo.org"
+
+[[project.maintainers]]
+name = "Nikita Sobolev"
+email = "mail@sobolevn.me"
+
+[[project.maintainers]]
+name = "Petter Friberg"
+email = "petter_friberg@hotmail.com"
+
+[[project.maintainers]]
+name = "Adam Johnson"
+email = "me@adamj.eu"
 
 [project.optional-dependencies]
 compatible-mypy = ["mypy>=1.13,<2.4"]
 oracle = ["oracledb"]
-redis = ["redis", "types-redis"]
-
-[dependency-groups]
-tests = [
-  # Dev tools:
-  "pytest==9.1.1",
-  "pytest-mypy-plugins==4.0.3",
-  "pytest-shard==0.1.2",
-  "pytest-xdist==3.8.0",
-  # Django deps:
-  "django==5.2.16; python_version < '3.12'",
-  "django==6.0.7; python_version >= '3.12'",
-  "mysqlclient==2.2.8",
-  "psycopg[binary]==3.3.4",
-  "psycopg2-binary==2.9.12",
-  "jinja2==3.1.6",
-  "pyyaml==6.0.3",
-  # typing:
-  "django-stubs[compatible-mypy,oracle,redis]",
-]
-pyright = [
-  "pyright==1.1.411",
-]
-pyrefly = [
-  "pyrefly==1.1.1",
-  "psycopg2-binary"
-]
-ty = [
-  "ty==0.0.58",
-  "psycopg2-binary"
-]
-
-dev = [
-  {include-group = "tests"},
-  {include-group = "pyright"},
-  {include-group = "pyrefly"},
-  {include-group = "ty"},
+redis = [
+    "redis",
+    "types-redis",
 ]
 
 [project.urls]
@@ -85,43 +61,74 @@ Homepage = "https://github.com/typeddjango/django-stubs"
 Funding = "https://github.com/sponsors/typeddjango"
 "Release notes" = "https://github.com/typeddjango/django-stubs/releases"
 
-[tool.uv.sources]
-django-stubs = { workspace = true }
-django-stubs-ext = { workspace = true }
+[dependency-groups]
+tests = [
+    "pytest==9.1.1",
+    "pytest-mypy-plugins==4.0.3",
+    "pytest-shard==0.1.2",
+    "pytest-xdist==3.8.0",
+    "django==5.2.16; python_version < '3.12'",
+    "django==6.0.7; python_version >= '3.12'",
+    "mysqlclient==2.2.8",
+    "psycopg[binary]==3.3.4",
+    "psycopg2-binary==2.9.12",
+    "jinja2==3.1.6",
+    "pyyaml==6.0.3",
+    "django-stubs[compatible-mypy,oracle,redis]",
+]
+pyright = ["pyright==1.1.411"]
+pyrefly = [
+    "pyrefly==1.2.0",
+    "psycopg2-binary",
+]
+ty = [
+    "ty==0.0.65",
+    "psycopg2-binary",
+]
+
+[[dependency-groups.dev]]
+include-group = "tests"
+
+[[dependency-groups.dev]]
+include-group = "pyright"
+
+[[dependency-groups.dev]]
+include-group = "pyrefly"
+
+[[dependency-groups.dev]]
+include-group = "ty"
+
+[tool.uv.sources.django-stubs]
+workspace = true
+
+[tool.uv.sources.django-stubs-ext]
+workspace = true
 
 [tool.uv.workspace]
 members = ["ext"]
 
-[build-system]
-requires = ["uv_build>=0.11.0,<0.12.0"]
-build-backend = "uv_build"
-
 [tool.uv.build-backend]
-module-name = ["django-stubs", "mypy_django_plugin"]
+module-name = [
+    "django-stubs",
+    "mypy_django_plugin",
+]
 module-root = ""
 
 [tool.pyright]
 include = ["tests/assert_type/"]
 typeCheckingMode = "strict"
-# Extra strict settings
 reportImplicitStringConcatenation = "error"
 reportUninitializedInstanceVariable = "error"
 reportUnnecessaryTypeIgnoreComment = "error"
-# Don't use '# type: ignore' to suppress with pyright
 enableTypeIgnoreComments = false
-# If a test case uses this anti-pattern, there's likely a reason and annoying to `type: ignore`.
-# Let Ruff flag it (B006)
 reportCallInDefaultInitializer = "none"
-# Too strict and not needed for type testing
 reportMissingSuperCall = "none"
-# Stubs are allowed to use private variables. We may want to test those.
 reportPrivateUsage = "none"
-# Stubs don't need the actual modules to be installed
 reportMissingModuleSource = "none"
 
 [tool.pyrefly]
-# Respect only `# pyrefly: ignore` (ignore `# type: ignore`)
 enabled-ignores = ["pyrefly"]
+
 [tool.pyrefly.errors]
 unused-ignore = true
 
@@ -129,72 +136,89 @@ unused-ignore = true
 error-on-warning = true
 
 [tool.ty.analysis]
-# Respect only `# ty: ignore` (ignore `# type: ignore`)
 respect-type-ignore-comments = false
 
 [tool.codespell]
 ignore-words-list = "aadd,acount,asend,indentity,nam"
 
 [tool.ruff]
-# Adds to default excludes: https://ruff.rs/docs/settings/#exclude
 line-length = 120
 target-version = "py310"
 
 [tool.ruff.lint]
-# See Rules in Ruff documentation: https://beta.ruff.rs/docs/rules/
 select = [
-  "B",        # bugbear
-  "E",        # pycodestyle
-  "F",        # pyflakes
-  "FURB",     # refurb
-  "INP",      # flake8-tidy-imports
-  "W",        # pycodestyle
-  "I",        # isort
-  "ISC001",   # Implicitly concatenated string literals on one line
-  "ISC002",   # Implicitly concatenated string literals over multiple lines
-  "UP",       # pyupgrade
-  "TID251",   # Disallowed imports (flake8-tidy-imports.banned-api)
-  "PYI",      # flake8-pyi
-  "RUF100",   # Equivalent to flake8-noqa NQA103
-  "PGH004",   # Equivalent to flake8-noqa NQA104
-  "PGH003",   # Disallowed blanket `type: ignore` annotations.
-  "RET504",   # Unnecessary assignment to {name} before return statement
-  "RET505",   # Unnecessary {branch} after return statement
-  "RET506",   # Unnecessary {branch} after raise statement
-  "RET507",   # Unnecessary {branch} after continue statement
-  "RET508",   # Unnecessary {branch} after break statement
-  "RUF",      # Ruff specific rules
-  "TC",       # flake8-type-checking
+    "B",
+    "E",
+    "F",
+    "FURB",
+    "INP",
+    "W",
+    "I",
+    "ISC001",
+    "ISC002",
+    "UP",
+    "TID251",
+    "PYI",
+    "RUF100",
+    "PGH004",
+    "PGH003",
+    "RET504",
+    "RET505",
+    "RET506",
+    "RET507",
+    "RET508",
+    "RUF",
+    "TC",
 ]
 ignore = [
-  "PYI021", # We have a few meaningful docstrings for stubs only constructs/utilities.
-  "PYI041", # This might not be obvious that `float | int` is mostly equivalent to `float` typing wise | int | str
-  "PYI043",
+    "PYI021",
+    "PYI041",
+    "PYI043",
 ]
 
 [tool.ruff.lint.per-file-ignores]
 "*.pyi" = [
-  "B",
-  "E501",
-  "E741",
-  "E743",
-  "F403", # Use wildcard import
-  "F405",
-  "F822",
-  "F821",
+    "B",
+    "E501",
+    "E741",
+    "E743",
+    "F403",
+    "F405",
+    "F822",
+    "F821",
 ]
-"tests/*.py" = ["INP001", "PGH003", "RUF012"]
+"tests/*.py" = [
+    "INP001",
+    "PGH003",
+    "RUF012",
+]
 "ext/tests/*.py" = ["INP001"]
 "setup.py" = ["INP001"]
-"tests/assert_type/*.py" = ["B", "UP013"]
+"tests/assert_type/*.py" = [
+    "B",
+    "UP013",
+]
 
-[tool.ruff.lint.flake8-tidy-imports.banned-api]
-"_typeshed.Self".msg = "Use typing_extensions.Self (PEP 673) instead. If you type a metaclass, add a noqa"
-"typing.assert_type".msg = "Only available in Python 3.11 and above. Use `typing_extensions.assert_type` instead."
-"typing.Self".msg = "Only available in Python 3.11 and above. Use `typing_extensions.Self` instead."
-"typing.TypeVar".msg = "Only support the `default` parameter in Python 3.13 and above. Use `typing_extensions.TypeVar` instead."
+[tool.ruff.lint.flake8-tidy-imports.banned-api."_typeshed.Self"]
+msg = "Use typing_extensions.Self (PEP 673) instead. If you type a metaclass, add a noqa"
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api."typing.assert_type"]
+msg = "Only available in Python 3.11 and above. Use `typing_extensions.assert_type` instead."
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api."typing.Self"]
+msg = "Only available in Python 3.11 and above. Use `typing_extensions.Self` instead."
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api."typing.TypeVar"]
+msg = "Only support the `default` parameter in Python 3.13 and above. Use `typing_extensions.TypeVar` instead."
 
 [tool.ruff.lint.isort]
-known-first-party = ["django_stubs_ext", "mypy_django_plugin"]
+known-first-party = [
+    "django_stubs_ext",
+    "mypy_django_plugin",
+]
 required-imports = ["from __future__ import annotations"]
 split-on-trailing-comma = false
+
+[build-system]
+requires = ["uv_build>=0.12.0,<0.13.0"]
+build-backend = "uv_build"

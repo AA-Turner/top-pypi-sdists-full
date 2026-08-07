@@ -218,6 +218,7 @@ __all__ = (
     "NetworkBandwidthGbpsRequestTypeDef",
     "NetworkInterfaceCountRequestTypeDef",
     "NotificationConfigurationTypeDef",
+    "OperatorTypeDef",
     "PaginatorConfigTypeDef",
     "PerformanceFactorReferenceRequestTypeDef",
     "PoliciesTypeTypeDef",
@@ -376,6 +377,9 @@ class LaunchTemplateSpecificationTypeDef(TypedDict):
     LaunchTemplateId: NotRequired[str]
     LaunchTemplateName: NotRequired[str]
     Version: NotRequired[str]
+
+class OperatorTypeDef(TypedDict):
+    Principal: str
 
 class SuspendedProcessTypeDef(TypedDict):
     ProcessName: NotRequired[str]
@@ -1498,6 +1502,7 @@ class AutoScalingGroupTypeDef(TypedDict):
     AvailabilityZoneImpairmentPolicy: NotRequired[AvailabilityZoneImpairmentPolicyTypeDef]
     CapacityReservationSpecification: NotRequired[CapacityReservationSpecificationOutputTypeDef]
     InstanceLifecyclePolicy: NotRequired[InstanceLifecyclePolicyTypeDef]
+    Operator: NotRequired[OperatorTypeDef]
 
 class DesiredConfigurationOutputTypeDef(TypedDict):
     LaunchTemplate: NotRequired[LaunchTemplateSpecificationTypeDef]
@@ -1599,6 +1604,7 @@ class CreateAutoScalingGroupTypeTypeDef(TypedDict):
     SkipZonalShiftValidation: NotRequired[bool]
     CapacityReservationSpecification: NotRequired[CapacityReservationSpecificationUnionTypeDef]
     InstanceLifecyclePolicy: NotRequired[InstanceLifecyclePolicyTypeDef]
+    Operator: NotRequired[OperatorTypeDef]
 
 class UpdateAutoScalingGroupTypeTypeDef(TypedDict):
     AutoScalingGroupName: str

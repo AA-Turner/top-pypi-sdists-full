@@ -12,8 +12,10 @@ import sys
 import tempfile
 import time
 import unittest
+import warnings
 from subprocess import PIPE, Popen
 
+import pytest
 import testpath
 from traitlets.config import Config
 
@@ -30,13 +32,14 @@ class TestNotary(TestsBase):
             secret=b"secret",
             data_dir=self.data_dir,
         )
+        self.notary.__enter__()
         with self.fopen("test3.ipynb", "r") as f:
             self.nb = read(f, as_version=4)
         with self.fopen("test3.ipynb", "r") as f:
             self.nb3 = read(f, as_version=3)
 
     def tearDown(self):
-        self.notary.store.close()
+        self.notary.__exit__(None, None, None)
         shutil.rmtree(self.data_dir)
 
     def test_invalid_db_file(self):
@@ -44,15 +47,42 @@ class TestNotary(TestsBase):
         with open(invalid_sql_file, "w", encoding="utf-8") as tempfile:
             tempfile.write("[invalid data]")
 
-        invalid_notary = sign.NotebookNotary(
+        with sign.NotebookNotary(
             db_file=invalid_sql_file,
             secret=b"secret",
-        )
-        invalid_notary.sign(self.nb)
-        invalid_notary.store.close()
+        ) as invalid_notary:
+            invalid_notary.sign(self.nb)
 
         testpath.assert_isfile(os.path.join(self.data_dir, invalid_sql_file))
         testpath.assert_isfile(os.path.join(self.data_dir, invalid_sql_file + ".bak"))
+
+    def test_not_using_context_manager_warns(self):
+        """Using the store without entering the notary as a context manager warns once."""
+        notary = sign.NotebookNotary(
+            db_file=":memory:",
+            secret=b"secret",
+            data_dir=self.data_dir,
+        )
+        try:
+            with pytest.warns(PendingDeprecationWarning, match="context manager"):
+                notary.sign(self.nb)
+            # only warns once per instance
+            with warnings.catch_warnings():
+                warnings.simplefilter("error")
+                notary.check_signature(self.nb)
+        finally:
+            notary.close()
+
+    def test_using_context_manager_does_not_warn(self):
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            with sign.NotebookNotary(
+                db_file=":memory:",
+                secret=b"secret",
+                data_dir=self.data_dir,
+            ) as notary:
+                notary.sign(self.nb)
+                self.assertTrue(notary.check_signature(self.nb))
 
     def test_algorithms(self):
         last_sig = ""
@@ -220,7 +250,7 @@ class TestNotary(TestsBase):
             env = os.environ.copy()
             env["JUPYTER_DATA_DIR"] = self.data_dir
             p = Popen(
-                [sys.executable, "-m", "nbformat.sign", "--log-level=0"],  # noqa
+                [sys.executable, "-m", "nbformat.sign", "--log-level=0"],
                 stdin=PIPE,
                 stdout=PIPE,
                 env=env,
@@ -253,6 +283,15 @@ def test_config_store():
 class SignatureStoreTests(unittest.TestCase):
     def setUp(self):
         self.store = sign.MemorySignatureStore()
+
+    def tearDown(self):
+        # SQLiteSignatureStore (the subclass below) holds a real connection.
+        # Leaving it for the garbage collector means Python 3.13+ reports the
+        # finalization as an unraisable exception, which surfaces as a
+        # PytestUnraisableExceptionWarning inside whichever unrelated test
+        # happens to be running when the collection occurs -- and
+        # `filterwarnings = ["error"]` turns that into a failure.
+        self.store.close()
 
     def test_basics(self):
         digest = "0123457689abcef"

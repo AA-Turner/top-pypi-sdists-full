@@ -37,6 +37,7 @@ from lightrag.api.utils_api import (
     internal_server_error,
 )
 from lightrag.api.admission_middleware import AdmissionMiddleware
+from lightrag.api.body_limit_middleware import BodyLimitMiddleware, resolve_body_limits
 from .config import (
     global_args,
     normalize_api_prefix,
@@ -58,6 +59,7 @@ from lightrag.api.routers.document_routes import (
     DocumentManager,
     create_document_routes,
 )
+from lightrag.parser.docx.smart_heading.nlp import SmartHeadingNLPError
 from lightrag.parser.plugins import load_third_party_parsers
 from lightrag.parser.routing import (
     parser_rules_from_env,
@@ -1270,7 +1272,27 @@ def create_app(args):
     # smart_heading but the pinned spaCy models are missing — surfacing the
     # install step at startup instead of failing mid-pipeline. Runs in
     # create_app so both the uvicorn and gunicorn (preload) paths hit it.
-    validate_smart_heading_dependencies()
+    # Caught here (instead of letting it propagate as a raw traceback) so the
+    # missing-dependency message reads like the other boxed startup notices.
+    try:
+        validate_smart_heading_dependencies()
+    except SmartHeadingNLPError as exc:
+        # markup=False: ASCIIColors interprets "[...]" as rich markup tags and
+        # silently drops anything it doesn't recognize (e.g. "[api]").
+        ASCIIColors.red("\n" + "=" * 80, markup=False)
+        ASCIIColors.red("ERROR: smart_heading dependencies missing", markup=False)
+        ASCIIColors.red("=" * 80, markup=False)
+        ASCIIColors.red(exc.problem, markup=False)
+        ASCIIColors.red("\nInstall with:", markup=False)
+        ASCIIColors.cyan(
+            "    pip install lightrag-hku[api] && lightrag-download-cache --spacy-install",
+            markup=False,
+        )
+        ASCIIColors.red(
+            "(offline: see requirements-offline-smart-heading.txt)", markup=False
+        )
+        ASCIIColors.red("=" * 80 + "\n", markup=False)
+        sys.exit(1)
 
     # Create configuration cache (this will output configuration logs)
     config_cache = LLMConfigCache(args)
@@ -1503,14 +1525,23 @@ def create_app(args):
     # (without them the WebUI would see an opaque network error instead of "at
     # capacity"). It therefore also sees the un-normalized path, which is why it
     # strips ``api_prefix`` itself.
-    if args.max_pending_documents > 0 or args.max_request_body_bytes > 0:
+    if args.max_pending_documents > 0:
         app.add_middleware(
             AdmissionMiddleware,
             rag_getter=lambda: rag,
             api_key=api_key,
             api_prefix=api_prefix,
-            max_body_bytes=args.max_request_body_bytes,
         )
+
+    # Raw request-body ceilings (GHSA-r8jh-295g-vv42). Added AFTER the admission
+    # middleware so it ends up outside it: an oversized body is then refused
+    # before it can take a capacity slot, and the reservation a mid-body 413
+    # would otherwise strand is released by admission's own finally block as the
+    # exception travels back out. Still added before CORS, for the same reason
+    # admission is — a browser has to be able to read the 413.
+    body_limits = resolve_body_limits(args)
+    if body_limits is not None:
+        app.add_middleware(BodyLimitMiddleware, api_prefix=api_prefix, **body_limits)
 
     # Add CORS middleware
     cors_origins = get_cors_origins()
@@ -2214,6 +2245,9 @@ def create_app(args):
             summary_context_size=args.summary_context_size,
             chunk_token_size=int(args.chunk_size),
             chunk_overlap_token_size=int(args.chunk_overlap_size),
+            embedding_chunk_overlap_token_size=int(
+                args.embedding_chunk_overlap_token_size
+            ),
             llm_model_kwargs=create_llm_model_kwargs(
                 args.llm_binding, args, llm_timeout
             ),

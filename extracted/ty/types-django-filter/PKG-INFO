@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: types-django-filter
-Version: 26.1.0.20260713
+Version: 26.1.0.20260807
 Summary: Typing stubs for django-filter
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/python/typeshed
@@ -13,7 +13,7 @@ Classifier: Typing :: Stubs Only
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: django-stubs
+Requires-Dist: django-stubs>=6.0.8
 Dynamic: license-file
 
 ## Typing stubs for django-filter
@@ -32,8 +32,9 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://github.com/python/mypy/) 2.2.0
+* [mypy](https://github.com/python/mypy/) 2.3.0
 * [pyright](https://github.com/microsoft/pyright) 1.1.411
+* [ty](https://docs.astral.sh/ty/) 0.0.59
 
 It was generated from typeshed commit
-[`af0c7e69534ff3ae810d06b727f5ac190b091927`](https://github.com/python/typeshed/commit/af0c7e69534ff3ae810d06b727f5ac190b091927).
+[`e0efbeef901e9b6998d016e1ab9352678f09ae77`](https://github.com/python/typeshed/commit/e0efbeef901e9b6998d016e1ab9352678f09ae77).

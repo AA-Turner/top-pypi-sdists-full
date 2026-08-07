@@ -19,6 +19,7 @@ from skillsaw.context import (
     HAS_CLAUDE_MD,
     HAS_CODERABBIT,
 )
+from skillsaw.rules.builtin.plugins.json_required import PluginJsonRequiredRule
 
 
 def test_single_plugin_detection(valid_plugin):
@@ -57,6 +58,128 @@ def test_unknown_repository(temp_dir):
     context = RepositoryContext(temp_dir)
     assert context.repo_type == RepositoryType.UNKNOWN
     assert len(context.plugins) == 0
+
+
+def _write_codex_manifest(plugin: Path) -> None:
+    (plugin / ".codex-plugin").mkdir(parents=True)
+    (plugin / ".codex-plugin" / "plugin.json").write_text(
+        json.dumps({"name": "demo", "version": "1.0.0", "description": "A Codex plugin."}),
+        encoding="utf-8",
+    )
+
+
+def _write_conventional_skill(root: Path) -> None:
+    skill = root / "skills" / "demo-skill"
+    skill.mkdir(parents=True)
+    (skill / "SKILL.md").write_text(
+        "---\nname: demo-skill\ndescription: A conventional skill\n---\n",
+        encoding="utf-8",
+    )
+
+
+def test_codex_plugin_with_skills_is_primarily_codex(temp_dir):
+    """An authored Codex plugin whose skills also match the Agent Skills
+    convention is a Codex plugin first — the generic AGENTSKILLS fallback
+    must not become the primary type in HTML/JSON/SARIF output."""
+    _write_codex_manifest(temp_dir)
+    _write_conventional_skill(temp_dir)
+
+    context = RepositoryContext(temp_dir)
+    assert RepositoryType.CODEX_PLUGIN in context.repo_types
+    assert RepositoryType.AGENTSKILLS in context.repo_types
+    assert context.repo_type == RepositoryType.CODEX_PLUGIN
+
+
+def test_dual_ecosystem_plugin_keeps_claude_primary_type(temp_dir):
+    """A repository that is both a Claude and a Codex plugin keeps its Claude
+    primary type, so existing output is unchanged."""
+    (temp_dir / ".claude-plugin").mkdir()
+    (temp_dir / ".claude-plugin" / "plugin.json").write_text(
+        json.dumps({"name": "demo", "version": "1.0.0", "description": "A Claude plugin."}),
+        encoding="utf-8",
+    )
+    _write_codex_manifest(temp_dir)
+    _write_conventional_skill(temp_dir)
+
+    context = RepositoryContext(temp_dir)
+    assert RepositoryType.CODEX_PLUGIN in context.repo_types
+    assert context.repo_type == RepositoryType.SINGLE_PLUGIN
+
+
+def test_agent_plugin_schema_detection_and_primary_type(temp_dir):
+    """A canonical root manifest claims the portable Agent Plugins format."""
+    (temp_dir / "plugin.json").write_text(
+        json.dumps(
+            {
+                "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+                "name": "portable-plugin",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    context = RepositoryContext(temp_dir)
+
+    assert RepositoryType.AGENT_PLUGIN in context.repo_types
+    assert context.repo_type is RepositoryType.AGENT_PLUGIN
+    assert context.agent_plugins == [temp_dir]
+
+
+def test_legacy_root_plugin_json_does_not_claim_agent_plugins(temp_dir):
+    """A generic historical root manifest is not enough detection evidence."""
+    (temp_dir / "plugin.json").write_text(
+        json.dumps({"name": "legacy", "version": "1.0.0"}),
+        encoding="utf-8",
+    )
+
+    context = RepositoryContext(temp_dir)
+
+    assert RepositoryType.AGENT_PLUGIN not in context.repo_types
+    assert context.agent_plugins == []
+
+
+def test_root_agent_plugin_keeps_empty_plugins_marketplace_inference(temp_dir):
+    """A root Agent Plugins package does not explain an empty plugins/ dir.
+
+    The historical MARKETPLACE inference for a bare plugins/ directory is
+    suppressed only by claims that live under plugins/* itself.
+    """
+    (temp_dir / "plugin.json").write_text(
+        json.dumps(
+            {
+                "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+                "name": "portable-plugin",
+            }
+        ),
+        encoding="utf-8",
+    )
+    (temp_dir / "plugins").mkdir()
+
+    context = RepositoryContext(temp_dir)
+
+    assert RepositoryType.AGENT_PLUGIN in context.repo_types
+    assert RepositoryType.MARKETPLACE in context.repo_types
+
+
+def test_declaring_plugins_child_suppresses_marketplace_inference(temp_dir):
+    """A portable package under plugins/* explains the directory, so the
+    Claude MARKETPLACE inference stands down."""
+    member = temp_dir / "plugins" / "member"
+    member.mkdir(parents=True)
+    (member / "plugin.json").write_text(
+        json.dumps(
+            {
+                "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+                "name": "collection-member",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    context = RepositoryContext(temp_dir)
+
+    assert RepositoryType.AGENT_PLUGIN in context.repo_types
+    assert RepositoryType.MARKETPLACE not in context.repo_types
 
 
 def test_flat_structure_discovery(flat_structure_marketplace):
@@ -184,6 +307,52 @@ def test_backward_compatibility_with_plugins_dir(marketplace_repo):
     assert "plugin-two" in names
 
 
+def test_plugins_dir_discovers_hooks_only_plugin(tmp_path):
+    """All component markers accepted by _is_valid_plugin_dir are discoverable."""
+    repo = tmp_path / "repo"
+    hooks = repo / "plugins" / "hooks-only" / "hooks"
+    hooks.mkdir(parents=True)
+    (hooks / "hooks.json").write_text('{"hooks": {}}')
+
+    context = RepositoryContext(repo)
+    assert context.repo_type == RepositoryType.MARKETPLACE
+    assert context.plugins == [repo / "plugins" / "hooks-only"]
+
+
+def test_plugins_dir_discovers_marker_only_plugin(tmp_path):
+    """A missing manifest remains discoverable for plugin-json-required."""
+    repo = tmp_path / "repo"
+    marker = repo / "plugins" / "marker-only" / ".claude-plugin"
+    marker.mkdir(parents=True)
+
+    context = RepositoryContext(repo)
+    assert context.repo_type == RepositoryType.MARKETPLACE
+    assert context.plugins == [repo / "plugins" / "marker-only"]
+    assert [v.message for v in PluginJsonRequiredRule({}).check(context)] == ["Missing plugin.json"]
+
+
+def test_escaping_plugins_dir_child_is_dropped_with_a_warning(tmp_path, caplog):
+    """A symlinked plugins/* child resolving outside the repository root is
+    dropped from discovery, logged like an escaping marketplace source, and
+    recorded on the context so claude-marketplace-json-valid can report it."""
+    import logging
+
+    caplog.set_level(logging.WARNING)
+
+    outside = tmp_path / "outside" / "foo"
+    (outside / ".claude-plugin").mkdir(parents=True)
+    (outside / ".claude-plugin" / "plugin.json").write_text('{"name": "foo"}')
+    repo = tmp_path / "repo"
+    (repo / "plugins").mkdir(parents=True)
+    (repo / "plugins" / "foo").symlink_to(outside)
+
+    context = RepositoryContext(repo)
+    assert context.repo_type == RepositoryType.MARKETPLACE
+    assert len(context.plugins) == 0
+    assert context.escaped_plugin_dirs == [repo / "plugins" / "foo"]
+    assert any("escapes repository root" in record.message for record in caplog.records)
+
+
 def test_disallow_parent_traversal(temp_dir, caplog):
     """Do not allow marketplace sources to escape repo root with .."""
     import logging
@@ -207,6 +376,18 @@ def test_disallow_parent_traversal(temp_dir, caplog):
 
     # Check that warning was logged
     assert any("escapes repository root" in record.message for record in caplog.records)
+
+
+def test_marketplace_source_resolution_failure_is_dropped(temp_dir, monkeypatch):
+    """An unresolvable marketplace source must not fall back to its raw path."""
+    plugin = temp_dir / "plugins" / "demo"
+    plugin.mkdir(parents=True)
+    context = RepositoryContext(temp_dir, repo_types={RepositoryType.MARKETPLACE})
+    monkeypatch.setattr("skillsaw.discovery.claude.contained_resolve", lambda path, root: None)
+
+    resolved = context._resolve_plugin_source("./plugins/demo", {"name": "demo"})
+
+    assert resolved is None
 
 
 def test_plugin_root_prepended_to_relative_sources(temp_dir):
@@ -697,10 +878,10 @@ def test_coderabbit_repo_no_command_violations(temp_dir):
         for v in violations
         if v.rule_id
         in {
-            "command-naming",
-            "command-frontmatter",
+            "claude-command-naming",
+            "claude-command-frontmatter",
             "skill-frontmatter",
-            "agent-frontmatter",
+            "claude-agent-frontmatter",
             "hooks-json-valid",
             "mcp-valid-json",
         }
@@ -808,6 +989,9 @@ class TestPathMatchesPatterns:
         assert not self._match(temp_dir, "other/x/SKILL.md", ["**/templates/**"])
 
     def test_trailing_star_star_matches_contents_at_any_depth(self, temp_dir):
+        # Strictly inside, never the directory entry itself — a violation
+        # addressed to an excluded directory stays reportable.
+        assert not self._match(temp_dir, "templates", ["**/templates/**"])
         assert self._match(temp_dir, "templates/SKILL.md", ["**/templates/**"])
         assert self._match(temp_dir, "templates/deep/nested/file.md", ["**/templates/**"])
 
@@ -832,3 +1016,29 @@ class TestPathMatchesPatterns:
         root.mkdir()
         outside = temp_dir / "templates" / "x" / "SKILL.md"
         assert not path_matches_patterns(outside, root, ["**/templates/**"])
+
+    def test_repository_context_expands_each_pattern_once(self, temp_dir, monkeypatch):
+        """Repeated consumers share the context-owned variant expansion."""
+        import skillsaw.context as context_module
+
+        expanded = []
+        real_pattern_variants = context_module._pattern_variants
+
+        def pattern_variants(pattern):
+            """Record actual expansions while delegating to the pure helper."""
+            expanded.append(pattern)
+            return real_pattern_variants(pattern)
+
+        monkeypatch.setattr(context_module, "_pattern_variants", pattern_variants)
+        context = RepositoryContext(
+            temp_dir,
+            repo_types=set(),
+            exclude_patterns=["**/templates/**"],
+        )
+
+        for rel in ("templates/a", "nested/templates/b", "templates/c"):
+            assert context.is_path_excluded(temp_dir / rel)
+        for rel in ("generated/a", "nested/generated/b"):
+            assert context.matches_patterns(temp_dir / rel, ["**/generated/**"])
+
+        assert expanded == ["**/templates/**", "**/generated/**"]

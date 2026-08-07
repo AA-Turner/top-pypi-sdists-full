@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: pymupdf
-Version: 1.28.0
+Version: 1.28.2
 Summary: A high performance Python library for data extraction, analysis, conversion & manipulation of PDF (and other) documents.
 Description-Content-Type: text/markdown
 Author: Artifex
@@ -804,3 +804,4 @@ Contributions are welcome. Please open an issue before submitting large pull req
 If you find this useful, please consider giving it a star — it helps others discover it!
 
 [![Star on GitHub](https://img.shields.io/github/stars/pymupdf/PyMuPDF.svg?style=for-the-badge&label=Star&logo=github)](https://github.com/pymupdf/PyMuPDF/)
+

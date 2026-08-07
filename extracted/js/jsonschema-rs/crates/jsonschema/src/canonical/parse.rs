@@ -13,9 +13,9 @@ use crate::{
         emptiness,
         ir::{
             canonicalize_value_set, type_set_schema, typed_group, ArrayLeaf, BoundCardinality,
-            BoundNumber, BoundRational, CanonicalJson, ContainsFacet, Divisors, ExcludedDivisors,
-            IntegerLeaf, LengthBounds, NumberLeaf, ObjectLeaf, Schema, SchemaKind, Side,
-            StringLeaf,
+            BoundNumber, BoundRational, CanonicalJson, ContainsFacet, Distinctness, Divisors,
+            ExcludedDivisors, IntegerLeaf, LengthBounds, NumberLeaf, ObjectLeaf, Schema,
+            SchemaKind, Side, StringLeaf,
         },
         negate, CanonicalizationError, DefinitionMap, CANONICAL_REFERENCE_PREFIX,
         ROOT_DEFINITION_KEY,
@@ -543,7 +543,7 @@ fn parse_schema_in_scope<'a>(
     let mut const_value = None;
     let mut min_length: Option<BoundCardinality> = None;
     let mut max_length: Option<BoundCardinality> = None;
-    let mut unique_items = false;
+    let mut distinctness = Distinctness::Unconstrained;
     let mut min_items: Option<BoundCardinality> = None;
     let mut max_items: Option<BoundCardinality> = None;
     let mut items: Option<Schema> = None;
@@ -622,7 +622,7 @@ fn parse_schema_in_scope<'a>(
                         None => return Ok(None),
                     }
                 }
-                match algebra::one_of(branches, ctx) {
+                match algebra::one_of(branches, &state.definitions, ctx) {
                     Some(schema) => conjuncts.push(schema),
                     None => return Ok(None),
                 }
@@ -660,7 +660,11 @@ fn parse_schema_in_scope<'a>(
                 }
             }
             ("uniqueItems", Value::Bool(flag)) if ctx.draft().is_known_keyword("uniqueItems") => {
-                unique_items = *flag;
+                distinctness = if *flag {
+                    Distinctness::AllDistinct
+                } else {
+                    Distinctness::Unconstrained
+                };
             }
             ("minItems", Value::Number(number)) if ctx.draft().is_known_keyword("minItems") => {
                 match BoundCardinality::from_number(number) {
@@ -704,15 +708,11 @@ fn parse_schema_in_scope<'a>(
                     None => return Ok(None),
                 }
             }
-            // `additionalItems` constrains the elements beyond an array-form `items` tuple. It is
-            // inert when `items` is a schema or absent, and unknown in 2020-12, so its value is
-            // held raw and parsed only once a tuple makes it live.
-            ("additionalItems", value @ (Value::Object(_) | Value::Bool(_)))
-                if matches!(
-                    ctx.draft(),
-                    Draft::Draft4 | Draft::Draft6 | Draft::Draft7 | Draft::Draft201909
-                ) =>
-            {
+            // `additionalItems` constrains the elements beyond an array-form `items` tuple, and is
+            // inert when `items` is a schema or absent. Its value is held raw and parsed only once
+            // a tuple makes it live. 2020-12 spells the tuple `prefixItems`, which this keyword
+            // never tails, and an array-form `items` there keeps the document raw.
+            ("additionalItems", value @ (Value::Object(_) | Value::Bool(_))) => {
                 additional_items = Some(value);
             }
             ("contains", value @ (Value::Object(_) | Value::Bool(_)))
@@ -983,7 +983,7 @@ fn parse_schema_in_scope<'a>(
             // an inexpressible complement keeps the whole document raw.
             ("not", value) if ctx.draft().is_known_keyword("not") => {
                 match parse_schema(value, ctx, false, resolver, state)? {
-                    Some(child) => match negate::negate(&child, ctx) {
+                    Some(child) => match negate::negate_in_place(&child, &state.definitions, ctx) {
                         Some(complement) => conjuncts.push(complement),
                         None => return Ok(None),
                     },
@@ -1061,8 +1061,20 @@ fn parse_schema_in_scope<'a>(
             };
             (prefix, tail)
         }
-        Some(prefix) => (prefix, items),
-        None => (Vec::new(), items),
+        Some(prefix) => {
+            debug_assert!(
+                !matches!(map.get("items"), Some(Value::Array(_))),
+                "a prefix spelled `prefixItems` leaves no array-form `items` for `additionalItems` to tail"
+            );
+            (prefix, items)
+        }
+        None => {
+            debug_assert!(
+                !matches!(map.get("items"), Some(Value::Array(_))),
+                "an array-form `items` either builds a prefix or keeps the document raw"
+            );
+            (Vec::new(), items)
+        }
     };
     // `minContains`/`maxContains` constrain the `contains` count and say nothing without it.
     let contains: Vec<ContainsFacet> = contains_schema
@@ -1075,7 +1087,7 @@ fn parse_schema_in_scope<'a>(
         .collect();
     if min_items.is_some()
         || max_items.is_some()
-        || unique_items
+        || !matches!(distinctness, Distinctness::Unconstrained)
         || !prefix.is_empty()
         || tail.is_some()
         || !contains.is_empty()
@@ -1086,7 +1098,7 @@ fn parse_schema_in_scope<'a>(
                     minimum: min_items,
                     maximum: max_items,
                 },
-                unique: unique_items,
+                distinctness,
                 prefix,
                 items: tail,
                 contains,
@@ -1171,6 +1183,7 @@ fn parse_schema_in_scope<'a>(
                 properties,
                 pattern_properties,
                 additional: additional_schema,
+                violations: Vec::new(),
             },
             ctx,
         ));
@@ -1207,24 +1220,28 @@ fn parse_schema_in_scope<'a>(
     match (if_schema, then_schema, else_schema) {
         (None, _, _) | (Some(_), None, None) => {}
         // ¬if ∨ then: a value the condition rejects needs nothing further.
-        (Some(condition), Some(then), None) => match negate::negate(&condition, ctx) {
-            Some(complement) => conjuncts.push(algebra::union(vec![complement, then], ctx)),
-            None => return Ok(None),
-        },
+        (Some(condition), Some(then), None) => {
+            match negate::negate_in_place(&condition, &state.definitions, ctx) {
+                Some(complement) => conjuncts.push(algebra::union(vec![complement, then], ctx)),
+                None => return Ok(None),
+            }
+        }
         // if ∨ else: a value the condition admits needs nothing further, so the complement is
         // never needed - unlike every other arm here, this one cannot force the document raw.
         (Some(condition), None, Some(else_branch)) => {
             conjuncts.push(algebra::union(vec![condition, else_branch], ctx));
         }
         // (if ∧ then) ∨ (¬if ∧ else)
-        (Some(condition), Some(then), Some(else_branch)) => match negate::negate(&condition, ctx) {
-            Some(complement) => {
-                let holds = algebra::intersect(condition, then, ctx);
-                let fails = algebra::intersect(complement, else_branch, ctx);
-                conjuncts.push(algebra::union(vec![holds, fails], ctx));
+        (Some(condition), Some(then), Some(else_branch)) => {
+            match negate::negate_in_place(&condition, &state.definitions, ctx) {
+                Some(complement) => {
+                    let holds = algebra::intersect(condition, then, ctx);
+                    let fails = algebra::intersect(complement, else_branch, ctx);
+                    conjuncts.push(algebra::union(vec![holds, fails], ctx));
+                }
+                None => return Ok(None),
             }
-            None => return Ok(None),
-        },
+        }
     }
 
     let base = match (type_set, admitted_values(enum_values, const_value)) {
@@ -1868,7 +1885,7 @@ fn ensure_definition<'a>(
 
 /// Retain definitions referenced by the final IR. The registry resolves source references before algebra, but cannot know which
 /// symbolic references survive canonical rewriting, so this is a linear liveness walk over already-resolved definition keys.
-fn prune_unreachable_definitions(root: &Schema, definitions: &mut DefinitionMap) {
+pub(crate) fn prune_unreachable_definitions(root: &Schema, definitions: &mut DefinitionMap) {
     let mut pending = Vec::new();
     collect_live_definition_references(root, &mut pending);
     let mut reachable = AHashSet::new();
@@ -1979,6 +1996,7 @@ fn dependency_conjunct(key: &str, consequent: Schema, ctx: &CanonicalizationCont
             properties: BTreeMap::from([(Arc::from(key), Schema::new(SchemaKind::False))]),
             pattern_properties: BTreeMap::new(),
             additional: None,
+            violations: Vec::new(),
         },
         ctx,
     );
@@ -1995,6 +2013,7 @@ fn object_with_required(required: Vec<Arc<str>>, ctx: &CanonicalizationContext) 
             properties: BTreeMap::new(),
             pattern_properties: BTreeMap::new(),
             additional: None,
+            violations: Vec::new(),
         },
         ctx,
     )

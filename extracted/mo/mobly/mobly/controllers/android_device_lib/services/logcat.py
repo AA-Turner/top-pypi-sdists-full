@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import io
 import logging
 import os
 import time
@@ -64,6 +63,7 @@ class Logcat(base_service.BaseService):
     self._adb_logcat_process = None
     self._adb_logcat_file_obj = None
     self.adb_logcat_file_path = None
+    self._last_connection_time = None
     # Logcat service uses a single config obj, using singular internal
     # name: `_config`.
     self._config = configs if configs else Config()
@@ -121,8 +121,13 @@ class Logcat(base_service.BaseService):
         self.OUTPUT_FILE_TYPE, test_info, 'txt'
     )
     excerpt_file_path = os.path.join(dest_path, filename)
-    with io.open(
-        excerpt_file_path, 'w', encoding='utf-8', errors='replace'
+    with open(
+        excerpt_file_path,
+        'w',
+        encoding='utf-8',
+        errors='replace',
+        # When newline is '', line endings are written without conversion.
+        newline='',
     ) as out:
       # Devices may accidentally go offline during test,
       # check not None before readline().
@@ -195,8 +200,13 @@ class Logcat(base_service.BaseService):
               self._ad, 'Timeout while waiting for logcat file to be created.'
           )
         time.sleep(1)
-      self._adb_logcat_file_obj = io.open(
-          self.adb_logcat_file_path, 'r', encoding='utf-8', errors='replace'
+      self._adb_logcat_file_obj = open(
+          self.adb_logcat_file_path,  # pytype: disable=wrong-arg-types
+          'r',
+          encoding='utf-8',
+          errors='replace',
+          # When newline is '', line endings are read without conversion.
+          newline='',
       )
       self._adb_logcat_file_obj.seek(0, os.SEEK_END)
 
@@ -238,9 +248,15 @@ class Logcat(base_service.BaseService):
     # In debugging mode of IntelijIDEA, "patch_args" remove
     # double quotes in args if starting and ending with it.
     # Add spaces at beginning and at last to fix this issue.
-    cmd = ' "%s" -s %s logcat -v threadtime -T 1 %s >> "%s" ' % (
+    if self._last_connection_time is not None:
+      t_argument_value = self._last_connection_time
+      self._last_connection_time = None
+    else:
+      t_argument_value = '1'
+    cmd = ' "%s" -s %s logcat -v threadtime -T "%s" %s >> "%s" ' % (
         adb.ADB,
         self._ad.serial,
+        t_argument_value,
         self._config.logcat_params,
         self.adb_logcat_file_path,
     )
@@ -261,6 +277,7 @@ class Logcat(base_service.BaseService):
     except Exception:
       self._ad.log.exception('Failed to stop adb logcat.')
     self._adb_logcat_process = None
+    self._last_connection_time = None
 
   def pause(self):
     """Pauses logcat.
@@ -270,6 +287,12 @@ class Logcat(base_service.BaseService):
     some logs would be lost.
     """
     self._stop()
+    try:
+      response = self._ad.adb.shell(['date', r'+%Y-%m-%d\ %H:%M:%S.%3N'])
+      if response:
+        self._last_connection_time = response.decode('utf-8').strip()
+    except adb.AdbError:
+      self._ad.log.exception('Failed to get device time.')
 
   def resume(self):
     """Resumes a paused logcat service."""

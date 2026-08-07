@@ -12,22 +12,6 @@
 
 #include <utility>
 
-// This can be included here since we don't include Boost.Histogram's ostream
-namespace boost {
-namespace histogram {
-namespace accumulators {
-template <class CharT, class Traits, class W>
-std::basic_ostream<CharT, Traits>& operator<<(std::basic_ostream<CharT, Traits>& os,
-                                              const sum<W>& x) {
-    if(os.width() == 0)
-        return os << x.large_part() << " + " << x.small_part();
-    return handle_nonzero_width(os, x);
-}
-
-} // namespace accumulators
-} // namespace histogram
-} // namespace boost
-
 template <class A, class... Args>
 py::class_<A> register_accumulator(py::module acc, Args&&... args) {
     return py::class_<A>(std::move(acc), std::forward<Args>(args)...)
@@ -37,7 +21,7 @@ py::class_<A> register_accumulator(py::module acc, Args&&... args) {
         .def("__eq__",
              [](const A& self, const py::object& other) {
                  try {
-                     return self == py::cast<A>(other);
+                     return self == py::cast<const A&>(other);
                  } catch(const py::cast_error&) {
                      return false;
                  }
@@ -45,7 +29,7 @@ py::class_<A> register_accumulator(py::module acc, Args&&... args) {
         .def("__ne__",
              [](const A& self, const py::object& other) {
                  try {
-                     return self != py::cast<A>(other);
+                     return self != py::cast<const A&>(other);
                  } catch(const py::cast_error&) {
                      return true;
                  }

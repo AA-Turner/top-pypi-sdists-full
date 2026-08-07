@@ -12,7 +12,7 @@ import re
 import time as py_time
 import typing
 from functools import partial as _partial
-from typing import overload as _overload
+from typing import ClassVar as _ClassVar, overload as _overload
 
 try:
     from greenlet import getcurrent as get_ident
@@ -21,7 +21,7 @@ except ImportError:
 
 from jalali_core import GregorianToJalali, JalaliToGregorian, j_days_in_month
 
-__VERSION__ = '6.0.1'
+__VERSION__ = '6.0.2'
 MINYEAR = 1
 MAXYEAR = 9377
 
@@ -96,7 +96,7 @@ class time(py_datetime.time):
         return f'jdatetime.time({self.hour}, {self.minute}, {self.second})'
 
 
-_thread_local_locales = dict()
+_thread_local_locales = {}
 
 
 def set_locale(locale: str | None) -> str | None:
@@ -130,7 +130,15 @@ def get_locale() -> str | None:
 class date:
     """date(year, month, day) --> date object"""
 
-    j_months_en = [
+    """The earliest representable date, date(MINYEAR, 1, 1)"""
+    min: _ClassVar[date]
+    """The latest representable date, date(MAXYEAR, 12, 31)."""
+    max: _ClassVar[date]
+    """The smallest possible difference between
+    non-equal date objects, timedelta(days=1)."""
+    resolution: _ClassVar[timedelta] = py_datetime.date.resolution
+
+    j_months_en: _ClassVar = [
         'Farvardin',
         'Ordibehesht',
         'Khordad',
@@ -144,7 +152,7 @@ class date:
         'Bahman',
         'Esfand',
     ]
-    j_months_short_en = [
+    j_months_short_en: _ClassVar = [
         'Far',
         'Ord',
         'Kho',
@@ -158,7 +166,7 @@ class date:
         'Bah',
         'Esf',
     ]
-    j_weekdays_en = [
+    j_weekdays_en: _ClassVar = [
         'Saturday',
         'Sunday',
         'Monday',
@@ -167,7 +175,7 @@ class date:
         'Thursday',
         'Friday',
     ]
-    j_weekdays_short_en = [
+    j_weekdays_short_en: _ClassVar = [
         'Sat',
         'Sun',
         'Mon',
@@ -176,8 +184,8 @@ class date:
         'Thu',
         'Fri',
     ]
-    j_ampm_en = {'PM': 'PM', 'AM': 'AM'}
-    j_months_fa = [
+    j_ampm_en: _ClassVar = {'PM': 'PM', 'AM': 'AM'}
+    j_months_fa: _ClassVar = [
         'فروردین',
         'اردیبهشت',
         'خرداد',
@@ -191,7 +199,7 @@ class date:
         'بهمن',
         'اسفند',
     ]
-    j_months_short_fa = [
+    j_months_short_fa: _ClassVar = [
         'فرو',
         'ارد',
         'خرد',
@@ -205,7 +213,7 @@ class date:
         'بهم',
         'اسف',
     ]
-    j_weekdays_fa = [
+    j_weekdays_fa: _ClassVar = [
         'شنبه',
         'یک‌شنبه',
         'دوشنبه',
@@ -214,7 +222,7 @@ class date:
         'پنج‌شنبه',
         'جمعه',
     ]
-    j_ampm_fa = {'PM': 'بعد از ظهر', 'AM': 'قبل از ظهر'}
+    j_ampm_fa: _ClassVar = {'PM': 'بعد از ظهر', 'AM': 'قبل از ظهر'}
 
     @property
     def year(self) -> int:
@@ -246,9 +254,7 @@ class date:
     __locale = None
 
     def _check_arg(self, value) -> bool:
-        if isinstance(value, int):
-            return True
-        return False
+        return isinstance(value, int)
 
     def __init__(self, year: int, month: int, day: int, **kwargs):
         """date(year, month, day) --> date object"""
@@ -267,9 +273,9 @@ class date:
         if self.__month == 12 and day == 30 and self.isleap():
             # for leap years it's ok to have 30 days in Esfand
             pass
-        elif self.__month == 12 and day == 30 and not self.isleap():
-            raise ValueError('day is out of range for month')
-        elif day > j_days_in_month[self.__month - 1]:
+        elif (
+            self.__month == 12 and day == 30 and not self.isleap() or day > j_days_in_month[self.__month - 1]
+        ):
             raise ValueError('day is out of range for month')
         self.__day = day
         self.__locale = kwargs['locale'] if (kwargs.get('locale')) else get_locale()
@@ -294,13 +300,7 @@ class date:
             return True
         if None not in _locale.getlocale():
             return False
-        if FA_LOCALE in _locale.getdefaultlocale():
-            return True
-        return False
-
-    """The smallest possible difference between
-    non-equal date objects, timedelta(days=1)."""
-    resolution = timedelta(1)
+        return FA_LOCALE in _locale.getdefaultlocale()
 
     def isleap(self) -> bool:
         """check if year is leap year
@@ -452,14 +452,12 @@ class date:
             return self.__eq__(date.fromgregorian(date=other_date))
         if not isinstance(other_date, date):
             return NotImplemented
-        if (
+        return (
             self.year == other_date.year
             and self.month == other_date.month
             and self.day == other_date.day
             and self.locale == other_date.locale
-        ):
-            return True
-        return False
+        )
 
     def __ge__(self, other_date: date, /) -> bool:
         """x.__ge__(y) <==> x>=y"""
@@ -471,10 +469,9 @@ class date:
         if self.year > other_date.year:
             return True
         elif self.year == other_date.year:
-            if self.month > other_date.month:
-                return True
-            elif self.month == other_date.month and self.day >= other_date.day:
-                return True
+            return (
+                self.month > other_date.month or self.month == other_date.month and self.day >= other_date.day
+            )
         return False
 
     def __gt__(self, other_date: date, /) -> bool:
@@ -487,10 +484,9 @@ class date:
         if self.year > other_date.year:
             return True
         elif self.year == other_date.year:
-            if self.month > other_date.month:
-                return True
-            elif self.month >= other_date.month and self.day > other_date.day:
-                return True
+            return (
+                self.month > other_date.month or self.month >= other_date.month and self.day > other_date.day
+            )
         return False
 
     def __le__(self, other_date: date, /) -> bool:
@@ -538,7 +534,7 @@ class date:
     def yday(self) -> int:
         """return day of year"""
         day = 0
-        for i in range(0, self.month - 1):
+        for i in range(self.month - 1):
             day = day + j_days_in_month[i]
         day = day + self.day
         return day
@@ -628,10 +624,7 @@ class date:
         return date(self.year, self.month, self.day, locale=locale)
 
 
-"""The earliest representable date, date(MINYEAR, 1, 1)"""
 date.min = date(MINYEAR, 1, 1)
-
-"""The latest representable date, date(MAXYEAR, 12, 31)."""
 date.max = date(MAXYEAR, 12, 30)
 
 _DIRECTIVE_PATTERNS = {
@@ -663,6 +656,10 @@ class datetime(date):
     """datetime(
         year, month, day, [hour, [minute, [seconds, [microsecond, [tzinfo]]]]]
     )-> datetime objects"""
+
+    """The smallest possible difference between
+    non-equal datetime objects, timedelta(microseconds=1)."""
+    resolution: _ClassVar[timedelta] = py_datetime.datetime.resolution
 
     def time(self) -> time:
         """Return time object with same time but with tzinfo=None."""
@@ -1168,7 +1165,7 @@ class datetime(date):
         """tz -> convert to local time in new timezone tz"""
         gdt = self.togregorian()
         gdt = gdt.astimezone(tz)
-        return datetime.fromgregorian(datetime=gdt)
+        return datetime.fromgregorian(datetime=gdt, locale=self.locale)
 
     def ctime(self) -> str:
         """Return ctime() style string."""
@@ -1293,3 +1290,7 @@ class datetime(date):
 
     def _strftime_cap_z(self) -> str:
         return self.tzname() or ''
+
+
+datetime.max = datetime(MAXYEAR, 12, 12, 23, 59, 59, 999999)
+datetime.min = datetime(1, 1, 1)

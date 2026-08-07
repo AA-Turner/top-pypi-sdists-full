@@ -9,7 +9,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ibm_watsonx_ai"
-version = "1.6.0"
+version = "1.6.1"
 requires-python = ">=3.11,<3.15"
 authors = [
   {name = "IBM"}
@@ -142,6 +142,11 @@ dev = [
     { include-group = "test_core" },
     "matplotlib",
     "tensorflow>=2.18.0,<2.22.0; python_version < '3.14'",
+    "pyspark==3.5.*; python_version < '3.14'",
+    # Required for AutoAI unit tests
+    "scikit-learn==1.6.*; python_version == '3.12' and platform_machine == 'x86_64'",
+    "lale[fairness]>=0.9,<0.10; python_version == '3.12' and platform_machine == 'x86_64'",
+    "xgboost==2.1.*; python_version == '3.12' and platform_machine == 'x86_64'",
 ]
 dev_autoai_rt24_1 = [
     { include-group = "dev_common" },
@@ -297,6 +302,14 @@ conflicts = [
       { group = "dev-base-rt-24-1" },
     ],
     [
+      { group = "dev" },
+      { group = "dev-base-rt-25-1" },
+    ],
+    [
+      { group = "dev" },
+      { group = "dev-autoai-rag-genai-25a" },
+    ],
+    [
       { group = "dev-autoai-rt25-1" },
       { group = "dev-autoai-rag-genai-25a" },
     ],
@@ -382,21 +395,7 @@ omit = [
     "generate_changelog.py",
     "generate_version_changelog.py",
     "send_slack_notification.py",
-    "ibm_watsonx_ai/deployment/*",
-    "ibm_watsonx_ai/experiment/autoai/*",
-    "ibm_watsonx_ai/foundation_models/extensions/langchain/*",
-    "ibm_watsonx_ai/foundation_models/extensions/rag/pattern/default_*",
-    "ibm_watsonx_ai/foundation_models/extensions/rag/vector_stores/adapters/*",
-    "ibm_watsonx_ai/foundation_models/extensions/rag/vector_stores/langchain_vector_store_adapter.py",
-    "ibm_watsonx_ai/foundation_models/extensions/rag/vector_stores/vector_store_connector.py",
     "ibm_watsonx_ai/libs/*",
-    "ibm_watsonx_ai/utils/autoai/connection.py",
-    "ibm_watsonx_ai/utils/autoai/fairness.py",
-    "ibm_watsonx_ai/utils/autoai/local_training_message_handler.py",
-    "ibm_watsonx_ai/utils/autoai/progress_bar.py",
-    "ibm_watsonx_ai/utils/autoai/training.py",
-    "ibm_watsonx_ai/utils/autoai/utils.py",
-    "ibm_watsonx_ai/utils/utils.py",
     "tests/install_requirements.py",
     "tests/run_base.py",
     "tests/conftest*",
@@ -405,6 +404,7 @@ omit = [
     "tests/contract/*",
     "tests/deployment/*",
     "tests/foundation_models/*",
+    "tests/lsf_prediction/*",
     "tests/utils/*",
     "tests/unit/data/*"
 ]

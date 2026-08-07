@@ -12,6 +12,7 @@ import QuantConnect.Lean.Engine.Results.Analysis.Analyses.Messages
 import QuantConnect.Orders
 import System
 import System.Collections.Generic
+import System.Text.RegularExpressions
 
 
 class BaseResultsAnalysis(System.Object, metaclass=abc.ABCMeta):
@@ -27,6 +28,27 @@ class BaseResultsAnalysis(System.Object, metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def weight(self) -> int:
         """Gets the severity/impact weight (0–100). Higher values run first and rank higher in results."""
+        ...
+
+    @property
+    def runs_in_run(self) -> bool:
+        """
+        Whether this analysis can also run while the backtest is still in progress, against a
+        snapshot of the intermediate results. Most analyses read only the result snapshot, so
+        this defaults to true. Analyses that need the completed run (runtime errors, equity
+        curves, final statistics, completion logs) or that read algorithm state that is not
+        safe to access while it runs override this to leave them to the final analysis only.
+        """
+        ...
+
+    @property
+    def is_state_based(self) -> bool:
+        """
+        Whether this analysis reads the current backtest state (statistics, orders, charts)
+        instead of scanning the append-only order event and log streams. When run in-run, it
+        runs against the full current state on every run and its findings replace the
+        previous ones instead of accumulating.
+        """
         ...
 
     def create_aggregated_response(self, responses: typing.List[QuantConnect.Analysis]) -> typing.Sequence[QuantConnect.Analysis]:
@@ -78,6 +100,11 @@ class PerformanceRelativeToBenchmarkAnalysis(QuantConnect.Lean.Engine.Results.An
     """Compares the full-period Sharpe ratio of the strategy to the benchmark."""
 
     @property
+    def runs_in_run(self) -> bool:
+        """This analysis compares the equity and benchmark curves, which are only built for the final analysis."""
+        ...
+
+    @property
     def issue(self) -> str:
         """Gets the description of the underperformance relative to benchmark issue."""
         ...
@@ -109,6 +136,14 @@ class ParameterCountAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.
     """Warns when too many numeric parameters are detected in the algorithm."""
 
     @property
+    def runs_in_run(self) -> bool:
+        """
+        This analysis reads the algorithm's parameters, and its overfitting-risk warning is only
+        meaningful for the completed run.
+        """
+        ...
+
+    @property
     def issue(self) -> str:
         """Gets the description of the excessive parameter count issue."""
         ...
@@ -137,6 +172,14 @@ class ParameterCountAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.
 
 class PortfolioValueIsNotPositiveAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.BaseResultsAnalysis):
     """Flags backtests whose ending equity is zero or negative."""
+
+    @property
+    def is_state_based(self) -> bool:
+        """
+        This analysis reads the current portfolio statistics instead of scanning the order event
+        and log streams, so its in-run findings are replaced on every run.
+        """
+        ...
 
     @property
     def issue(self) -> str:
@@ -198,6 +241,11 @@ class FlatEquityCurveAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses
     """Detects prolonged flat (zero-change) segments in the equity curve."""
 
     @property
+    def runs_in_run(self) -> bool:
+        """This analysis scans the equity curve, which is only built for the final analysis."""
+        ...
+
+    @property
     def issue(self) -> str:
         """Gets the description of the flat equity curve issue."""
         ...
@@ -228,6 +276,14 @@ class TakeProfitAndStopLossOrdersAnalysis(QuantConnect.Lean.Engine.Results.Analy
     Detects TP/SL order pairs where both filled, or where the surviving leg
     was not cancelled when the other filled.
     """
+
+    @property
+    def is_state_based(self) -> bool:
+        """
+        This analysis reads the current orders collection instead of scanning the order event
+        and log streams, so its in-run findings are replaced on every run.
+        """
+        ...
 
     @property
     def issue(self) -> str:
@@ -290,44 +346,17 @@ class InsightsEmittedForDelistedSecuritiesAnalysis(QuantConnect.Lean.Engine.Resu
         ...
 
 
-class ExecutionSpeedAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.BaseResultsAnalysis):
-    """
-    Detects slow execution by parsing the last log line.
-    Benchmark speeds: https://www.quantconnect.com/performance
-    """
-
-    @property
-    def issue(self) -> str:
-        """Gets the description of the slow execution issue."""
-        ...
-
-    @property
-    def weight(self) -> int:
-        """Gets the severity weight for the execution speed analysis."""
-        ...
-
-    @overload
-    def run(self, parameters: QuantConnect.Lean.Engine.Results.Analysis.ResultsAnalysisRunParameters) -> typing.Sequence[QuantConnect.Analysis]:
-        """Runs the execution speed analysis against the provided backtest parameters."""
-        ...
-
-    @overload
-    def run(self, logs: typing.Sequence[str]) -> typing.Sequence[QuantConnect.Analysis]:
-        """
-        Parses the backtest logs to determine execution speed and flags backtests that ran slowly.
-        
-        :param logs: The full list of log lines produced by the backtest.
-        :returns: Analysis results flagging slow execution when below 40k data points per second and runtime is at least 10 seconds.
-        """
-        ...
-
-
 class StatisticalSignificanceOfDailyReturnsAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.BaseResultsAnalysis):
     """
     One-sample t-test: tests whether the strategy's excess daily returns
     (over benchmark) have a mean significantly greater than zero.
     Mirrors tests/statistical_significance_of_daily_returns.py.
     """
+
+    @property
+    def runs_in_run(self) -> bool:
+        """This analysis compares the equity and benchmark curves, which are only built for the final analysis."""
+        ...
 
     @property
     def issue(self) -> str:
@@ -359,6 +388,11 @@ class StatisticalSignificanceOfDailyReturnsAnalysis(QuantConnect.Lean.Engine.Res
 
 class OrderFillsDuringExtendedMarketHoursAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.BaseResultsAnalysis):
     """Detects order fills that occurred outside regular market hours."""
+
+    @property
+    def runs_in_run(self) -> bool:
+        """This analysis reads the algorithm's securities, which are not safe to access while it runs."""
+        ...
 
     @property
     def issue(self) -> str:
@@ -393,6 +427,11 @@ class MonteCarloPercentileAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Ana
     Block-bootstrap Monte Carlo test: flags strategies whose total return
     is in the top 10 % of simulated outcomes (potentially lucky).
     """
+
+    @property
+    def runs_in_run(self) -> bool:
+        """This analysis runs simulations over the equity curve, which is only built for the final analysis."""
+        ...
 
     @property
     def issue(self) -> str:
@@ -460,6 +499,14 @@ class PortfolioMarginUsageAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Ana
     """
 
     @property
+    def is_state_based(self) -> bool:
+        """
+        This analysis reads the current margin chart instead of scanning the order event
+        and log streams, so its in-run findings are replaced on every run.
+        """
+        ...
+
+    @property
     def issue(self) -> str:
         """Gets the description of the detected margin under-utilisation issue."""
         ...
@@ -494,6 +541,11 @@ class CrisisEventsAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.Ba
     """
 
     @property
+    def runs_in_run(self) -> bool:
+        """This analysis compares the equity and benchmark curves, which are only built for the final analysis."""
+        ...
+
+    @property
     def issue(self) -> str:
         """Gets the description indicating that the strategy underperformed the benchmark during crisis events."""
         ...
@@ -518,6 +570,161 @@ class CrisisEventsAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.Ba
         :param backtest_equity: Daily equity values for the strategy, keyed by date.
         :param benchmark_equity: Daily equity values for the benchmark (SPY), keyed by date.
         :returns: Analysis results listing crisis periods where the strategy underperformed the benchmark.
+        """
+        ...
+
+
+class SingleTimeLoopTimeoutRuntimeErrorAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.BaseResultsAnalysis):
+    """
+    Detects algorithms terminated by an Isolator time limit, inspecting the error
+    message for known text fragments. The runtime error is read from the result state, falling
+    back to the "Runtime Error:" log line for results that carry no state. It covers a single
+    time loop exceeding the per-loop limit ("Algorithm took longer than N minutes on a single
+    time loop"), the whole run outliving the maximum allowed wall-clock time ("Execution
+    Security Error: Operation timed out - N minutes max", "Failed to complete algorithm within
+    N seconds"), and code still running once the shutdown grace period expires after a stop
+    request ("Operation was canceled").
+    """
+
+    @property
+    def runs_in_run(self) -> bool:
+        """A timeout runtime error terminates the backtest, so there is no in-progress run to analyze."""
+        ...
+
+    @property
+    def issue(self) -> str:
+        """Gets the description of the timeout issue."""
+        ...
+
+    @property
+    def weight(self) -> int:
+        """
+        Gets the severity weight for this analysis. A timeout is a fatal error that terminated
+        the run, so it ranks above every non-fatal finding.
+        """
+        ...
+
+    @overload
+    def run(self, parameters: QuantConnect.Lean.Engine.Results.Analysis.ResultsAnalysisRunParameters) -> typing.Sequence[QuantConnect.Analysis]:
+        """Runs the runtime error analysis against the provided backtest parameters."""
+        ...
+
+    @overload
+    def run(self, state: System.Collections.Generic.IDictionary[str, str], logs: typing.Sequence[str], language: QuantConnect.Language) -> typing.Sequence[QuantConnect.Analysis]:
+        """
+        Runs the runtime error analysis against the algorithm state and logs.
+        
+        :param state: The algorithm state of the result, holding the runtime error message if any.
+        :param logs: The full list of log lines produced by the backtest.
+        :param language: The programming language the algorithm is written in.
+        :returns: A single response with the matched error message and solutions, or without them when the error is not found.
+        """
+        ...
+
+
+class AlgorithmSpeedAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.BaseResultsAnalysis):
+    """
+    Tracks the algorithm's execution speed from the throughput and progress metrics accumulated
+    by AlgorithmSpeedTracker, reporting slow processing speed, a long projected
+    remaining runtime, degrading throughput, and history-request-dominated data loads.
+    It runs periodically while the backtest is in progress, so the user can decide to stop a
+    slow backtest early, and again on the final analysis against the whole run's metrics.
+    When the tracked metrics cannot measure the processing speed, the engine's completion log
+    line is parsed for the whole-run average rate as a fallback; the line only exists once the
+    backtest ends, so the fallback can only fire on the final analysis.
+    Benchmark speeds: https://www.quantconnect.com/performance
+    """
+
+    SLOW_DATA_POINTS_PER_SECOND: int = ...
+    """The data points per second under which execution is reported as slow, from the platform benchmarks."""
+
+    MINIMUM_COMPLETED_RUNTIME_SECONDS: int = 10
+    """
+    The minimum runtime a completed backtest must have for its whole-run average rate,
+    parsed from the completion log line, to be worth reporting as slow.
+    """
+
+    DEGRADATION_RATIO: float = 0.5
+    """The recent-to-initial throughput ratio under which throughput is reported as degrading."""
+
+    HIGH_HISTORY_DATA_POINTS_SHARE: float = 0.5
+    """
+    The share of recently processed data points served by the history provider
+    over which the data load is reported as history-request dominated.
+    """
+
+    MINIMUM_RECENT_HISTORY_DATA_POINTS: int = ...
+    """
+    The minimum number of history data points in the recent window for the
+    history-request load to be worth reporting.
+    """
+
+    MINIMUM_SAMPLED_SPAN: datetime.timedelta = ...
+    """
+    The minimum wall-clock span the metrics must cover before any finding is reported,
+    so early warm-up noise doesn't produce false positives.
+    """
+
+    LONG_PROJECTED_REMAINING_TIME: datetime.timedelta = ...
+    """The projected remaining runtime over which the backtest is reported as long-running."""
+
+    SLOW_EXECUTION_NAME: str = "SlowExecution"
+    """The name of the slow execution sub-finding."""
+
+    LONG_PROJECTED_RUNTIME_NAME: str = "LongProjectedRuntime"
+    """The name of the long projected runtime sub-finding."""
+
+    THROUGHPUT_DEGRADATION_NAME: str = "ThroughputDegradation"
+    """The name of the degrading throughput sub-finding."""
+
+    HISTORY_REQUEST_LOAD_NAME: str = "HistoryRequestLoad"
+    """The name of the history-request load sub-finding."""
+
+    @property
+    def is_state_based(self) -> bool:
+        """
+        This analysis reads the current speed metrics instead of scanning the order event
+        and log streams, so its in-run findings are replaced on every run.
+        """
+        ...
+
+    @property
+    def issue(self) -> str:
+        """Gets the description of the slow algorithm issue."""
+        ...
+
+    @property
+    def weight(self) -> int:
+        """
+        Gets the severity weight for the algorithm speed analysis. High enough to run before the
+        order-response error analyses in the in-run chain: this analysis drives the user's decision
+        to stop a slow backtest, and it is one of the cheapest in the set, so it should not be the
+        one skipped when the time limit or the failed-analyses cap truncates a run.
+        """
+        ...
+
+    @overload
+    def run(self, parameters: QuantConnect.Lean.Engine.Results.Analysis.ResultsAnalysisRunParameters) -> typing.Sequence[QuantConnect.Analysis]:
+        """
+        Runs the algorithm speed analysis against the speed metrics tracked for the backtest,
+        falling back to the completion log line when they cannot measure the speed.
+        """
+        ...
+
+    @overload
+    def run(self, speed: QuantConnect.Lean.Engine.Results.Analysis.AlgorithmSpeedTracker, logs: typing.Sequence[str] = None) -> typing.Sequence[QuantConnect.Analysis]:
+        """
+        Runs the algorithm speed analysis against the given speed metrics.
+        Each detected condition is reported as its own sub-finding. Every condition must hold for
+        both the current recent window and the window as of the previous run, so a single noisy
+        sample doesn't flag or clear a finding.
+        When the metrics cannot measure the processing speed — the tracker isn't wired in, the
+        backtest finished before it got enough samples, or the data point counters aren't fed —
+        the completion log line's whole-run average is used to detect slow execution instead.
+        
+        :param speed: The speed metrics tracked for the running backtest, or null when not tracked.
+        :param logs: The log lines to search for the completion line, or null when not available.
+        :returns: The failed sub-findings, or empty when no speed condition failed or none could be measured.
         """
         ...
 
@@ -652,9 +859,11 @@ class AlgorithmWarmingUpOrderResponseErrorAnalysis(QuantConnect.Lean.Engine.Resu
         ...
 
     @property
-    def expected_message_text(self) -> typing.List[str]:
+    def expected_message_pattern(self) -> System.Text.RegularExpressions.Regex:
         """
-        Gets the message fragments that identify a warm-up period order error.
+        Gets the pattern that identifies a warm-up period order error. The method names are
+        language-formatted in the message (OnWarmupFinished for C#, on_warmup_finished for
+        Python), so a pattern is used instead of text fragments to match both.
         
         
         This Property is protected.

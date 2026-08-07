@@ -581,6 +581,32 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
+            title="Check whether an Instagram user follows the account",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def accounts_get_instagram_follow_status(
+        account_id: str, user_id: str, refresh: bool | None = None
+    ) -> str:
+        """Check whether an Instagram user follows the account
+
+        Args:
+            account_id: Instagram account ID (required)
+            user_id: Instagram-scoped user id (IGSID) from a webhook payload (required)
+            refresh: Bypass the cache and re-query Meta"""
+        client = _get_client()
+        try:
+            response = client.accounts.get_instagram_follow_status(
+                account_id=account_id, user_id=user_id, refresh=refresh
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
             title="Get TikTok creator info",
             readOnlyHint=True,
             destructiveHint=False,
@@ -2994,7 +3020,7 @@ def register_generated_tools(mcp, _get_client):
                 goal: Required on legacy and multi-creative shapes; the attach shape inherits it from the ad set. Available goals vary by platform.
 
         **Meta**
-        - `conversions`: OUTCOME_SALES. Requires `promotedObject.pixelId` and `promotedObject.customEventType` with a commerce event such as PURCHASE or START_TRIAL, or `promotedObject.customConversionId` to optimise against a Custom Conversion instead.
+        - `conversions`: OUTCOME_SALES. Requires `promotedObject.pixelId` and `promotedObject.customEventType` with a commerce event such as PURCHASE or START_TRIAL, or `promotedObject.customConversionId` to optimise against a Custom Conversion, or `customEventType: OTHER` + `customEventStr` to optimise against a pixel custom event.
         - `lead_conversion`: OUTCOME_LEADS optimizing website pixel leads. Same pixel and event fields, but with a leads-class event such as LEAD, SUBMIT_APPLICATION, SCHEDULE or CONTACT (or `promotedObject.customConversionId` to optimise against a Custom Conversion instead). Meta gates conversion events by objective, so leads-class events are rejected under `conversions`.
         - `lead_generation`: OUTCOME_LEADS with instant forms. Requires `leadGenFormId`. `promotedObject.pageId` is optional and auto-filled from the connected Page.
         - `app_promotion`: requires `promotedObject.applicationId` and `promotedObject.objectStoreUrl`.
@@ -3195,7 +3221,9 @@ def register_generated_tools(mcp, _get_client):
         with "The language asset feed includes an unsupported targeting field"
         (subcode 1885985).
 
-        Media DOES inherit and is uploaded once when shared. Note that Meta enforces
+        Media DOES inherit and is uploaded once when shared, and `linkUrl` inherits
+        too: each locale may name its own landing page and unlisted locales fall back
+        to the ad's top-level `linkUrl`. Note that Meta enforces
         Dynamic Creative image dimensions on language feeds, so an `imageUrl` that
         works on a normal ad may be rejected with "The following images have invalid
         dimensions for Dynamic Creative" (subcode 1885558). Video is not affected.
@@ -3307,7 +3335,7 @@ def register_generated_tools(mcp, _get_client):
         Required for goals whose ad-set optimization_goal points at a specific
         event/page/app (without it Meta rejects the ad-set create with
         `error_subcode: 1815430` "Please select a promoted object for your ad set"):
-          - `goal: conversions` / `lead_conversion` (OFFSITE_CONVERSIONS): requires `pixelId` + `customEventType`, or `customConversionId` when optimising against a Custom Conversion (the conversion carries its own event definition)
+          - `goal: conversions` / `lead_conversion` (OFFSITE_CONVERSIONS): requires `pixelId` + `customEventType`, or `customConversionId` when optimising against a Custom Conversion (the conversion carries its own event definition). For a pixel CUSTOM event (one you named yourself in CAPI/Events Manager), send `customEventType: OTHER` + `customEventStr` with the event name.
           - `goal: app_promotion` (APP_INSTALLS): requires `applicationId` + `objectStoreUrl`
           - `goal: lead_generation` (LEAD_GENERATION): `pageId` is auto-filled from the connected Page when omitted
 
@@ -5304,6 +5332,7 @@ def register_generated_tools(mcp, _get_client):
         scope: str = "full",
         profile_ids: list[str] | None = None,
         permission: str = "read-write",
+        disabled_resource_groups: list[str] | None = None,
     ) -> str:
         """Create key
 
@@ -5312,7 +5341,8 @@ def register_generated_tools(mcp, _get_client):
             expires_in: Days until expiry
             scope: 'full' grants access to all profiles (default), 'profiles' restricts to specific profiles
             profile_ids: Profile IDs this key can access. Required when scope is 'profiles'.
-            permission: 'read-write' allows all operations (default), 'read' restricts to GET requests only"""
+            permission: 'read-write' allows all operations (default), 'read' restricts to GET requests only
+            disabled_resource_groups: Resource groups to DISABLE on this key (opt-out denylist). Omit for a legacy full-access key. A key with any group disabled mints with the zrk_ prefix, gets 403 with code=insufficient_permissions and required_group on operations in disabled groups (each operation's group is published as x-resource-group), and can never manage API keys, invites, or member identity. With 'messages' disabled, the key cannot read or send private messages through any API surface and cannot create or edit a webhook subscription broader than itself. Subscriptions that already exist are governed by their own `disabledResourceGroups`, not by this key's. OAuth connector tokens resolve against the same registry, but their groups are not settable yet."""
         client = _get_client()
         try:
             response = client.api_keys.create_api_key(
@@ -5321,6 +5351,7 @@ def register_generated_tools(mcp, _get_client):
                 scope=scope,
                 profile_ids=profile_ids,
                 permission=permission,
+                disabled_resource_groups=disabled_resource_groups,
             )
             return _format_response(response)
         except Exception as e:
@@ -5761,12 +5792,16 @@ def register_generated_tools(mcp, _get_client):
         post_title: str | None = None,
         keywords: list[str] | None = None,
         match_mode: str = "contains",
+        exclude_keywords: list[str] | None = None,
+        typo_tolerance: bool | None = None,
         buttons: list[dict[str, Any]] | None = None,
         comment_reply: str | None = None,
         dm_message_variations: list[str] | None = None,
         comment_reply_variations: list[str] | None = None,
         link_tracking: bool = True,
         click_tag: str | None = None,
+        audience: dict[str, Any] | None = None,
+        follow_gate: dict[str, Any] | None = None,
     ) -> str:
         """Create comment-to-DM automation
 
@@ -5779,14 +5814,18 @@ def register_generated_tools(mcp, _get_client):
             post_title: Post content snippet for display
             name: Automation label (required)
             keywords: Trigger keywords (empty = any comment triggers)
-            match_mode
+            match_mode: How a keyword is compared with the comment. 'contains' (default) matches anywhere, even inside another word (keyword 'app' fires on 'happy'). 'word' matches the keyword only as a standalone word. 'exact' requires the whole comment to be exactly the keyword.
+            exclude_keywords: Comments containing one of these never trigger the automation, even when a trigger keyword also matches. Compared using the same matchMode.
+            typo_tolerance: Only with matchMode=word: also fire on close misspellings of a keyword (one edit for 4-7 character keywords, two from 8 up). Keywords shorter than 4 characters are never fuzzy-matched.
             dm_message: DM text to send to commenter. Max 640 chars when buttons are set, otherwise ~1000. (required)
             buttons: Optional inline DM buttons (1-3). Phone buttons are Facebook-only. Omit or pass [] for a plain-text DM.
             comment_reply: Optional public reply to the comment
             dm_message_variations: Optional alternate DM texts for random rotation. When set, each triggered comment sends one picked at random from [dmMessage, ...dmMessageVariations], so repeat commenters get slightly different DMs (helps avoid identical-message patterns). Up to 5. Buttons are attached to whichever text is picked, not varied.
             comment_reply_variations: Optional alternate public replies, rotated at random alongside commentReply (picked independently of the DM). Up to 5.
             link_tracking: Wrap link buttons in the DM in a tracked redirect so clicks are counted (Link Clicks / CTR). Pass false to send links exactly as written. Defaults to on.
-            click_tag: Optional tag applied to a contact when they click a tracked link (requires linkTracking). Lets you segment clickers for broadcasts/sequences."""
+            click_tag: Optional tag applied to a contact when they click a tracked link (requires linkTracking). Lets you segment clickers for broadcasts/sequences.
+            audience
+            follow_gate"""
         client = _get_client()
         try:
             response = client.comment_automations.create_comment_automation(
@@ -5799,6 +5838,8 @@ def register_generated_tools(mcp, _get_client):
                 name=name,
                 keywords=keywords,
                 match_mode=match_mode,
+                exclude_keywords=exclude_keywords,
+                typo_tolerance=typo_tolerance,
                 dm_message=dm_message,
                 buttons=buttons,
                 comment_reply=comment_reply,
@@ -5806,6 +5847,8 @@ def register_generated_tools(mcp, _get_client):
                 comment_reply_variations=comment_reply_variations,
                 link_tracking=link_tracking,
                 click_tag=click_tag,
+                audience=audience,
+                follow_gate=follow_gate,
             )
             return _format_response(response)
         except Exception as e:
@@ -5844,8 +5887,11 @@ def register_generated_tools(mcp, _get_client):
     def comment_automations_update_comment_automation(
         automation_id: str,
         name: str | None = None,
+        trigger: str | None = None,
         keywords: list[str] | None = None,
         match_mode: str | None = None,
+        exclude_keywords: list[str] | None = None,
+        typo_tolerance: bool | None = None,
         dm_message: str | None = None,
         buttons: list[dict[str, Any]] | None = None,
         comment_reply: str | None = None,
@@ -5853,6 +5899,8 @@ def register_generated_tools(mcp, _get_client):
         comment_reply_variations: list[str] | None = None,
         link_tracking: bool | None = None,
         click_tag: str | None = None,
+        audience: dict[str, Any] | None = None,
+        follow_gate: dict[str, Any] | None = None,
         is_active: bool | None = None,
     ) -> str:
         """Update automation settings
@@ -5860,8 +5908,11 @@ def register_generated_tools(mcp, _get_client):
         Args:
             automation_id: (required)
             name
+            trigger: What fires the automation. Changing it detaches the automation from its bound post or story (a post id and a story id are different objects), unless this same request sets a new binding. 'story_reply' is Instagram only.
             keywords
-            match_mode
+            match_mode: How a keyword is compared with the comment. 'contains' (default) matches anywhere, even inside another word (keyword 'app' fires on 'happy'). 'word' matches the keyword only as a standalone word. 'exact' requires the whole comment to be exactly the keyword.
+            exclude_keywords: Comments containing one of these never trigger the automation, even when a trigger keyword also matches. Compared using the same matchMode.
+            typo_tolerance: Only with matchMode=word: also fire on close misspellings of a keyword (one edit for 4-7 character keywords, two from 8 up). Keywords shorter than 4 characters are never fuzzy-matched.
             dm_message
             buttons: Inline DM buttons (1-3). Pass [] to clear all buttons.
             comment_reply
@@ -5869,14 +5920,19 @@ def register_generated_tools(mcp, _get_client):
             comment_reply_variations: Alternate public replies for random rotation. Pass [] to clear.
             link_tracking: Wrap link buttons in a tracked redirect to count clicks. Pass false to send links untouched.
             click_tag: Tag applied to a contact when they click a tracked link (requires linkTracking). Empty string clears it.
+            audience
+            follow_gate
             is_active"""
         client = _get_client()
         try:
             response = client.comment_automations.update_comment_automation(
                 automation_id=automation_id,
                 name=name,
+                trigger=trigger,
                 keywords=keywords,
                 match_mode=match_mode,
+                exclude_keywords=exclude_keywords,
+                typo_tolerance=typo_tolerance,
                 dm_message=dm_message,
                 buttons=buttons,
                 comment_reply=comment_reply,
@@ -5884,6 +5940,8 @@ def register_generated_tools(mcp, _get_client):
                 comment_reply_variations=comment_reply_variations,
                 link_tracking=link_tracking,
                 click_tag=click_tag,
+                audience=audience,
+                follow_gate=follow_gate,
                 is_active=is_active,
             )
             return _format_response(response)
@@ -10474,7 +10532,7 @@ def register_generated_tools(mcp, _get_client):
                 reply_markup: Telegram-native keyboard markup. Ignored on other platforms.
                 messaging_type: Facebook messaging type. Required when using messageTag.
                 message_tag: Facebook message tag for messaging outside 24h window. Requires messagingType MESSAGE_TAG. Instagram only supports HUMAN_AGENT.
-                reply_to: Platform message ID to quote-reply to. For WhatsApp, pass the wamid (available in message.platformMessageId from webhooks). For Telegram, pass the Telegram message ID.
+                reply_to: Platform message ID to quote-reply to. For WhatsApp, pass the wamid; for Telegram, the Telegram message ID; for Instagram, the Meta mid (all available in message.platformMessageId from webhooks or the list-messages endpoint). On Slack it threads the reply (thread_ts) instead of quoting. Silently ignored on platforms without reply support, including Facebook Messenger (Meta's Messenger Send API has no reply_to).
                 location: WhatsApp-only. Send a location pin.
                 contacts: WhatsApp-only. Send one or more contact cards."""
         client = _get_client()
@@ -14584,6 +14642,7 @@ def register_generated_tools(mcp, _get_client):
         secret: str | None = None,
         is_active: bool = True,
         custom_headers: dict[str, Any] | None = None,
+        disabled_resource_groups: list[str] | None = None,
     ) -> str:
         """Create webhook
 
@@ -14593,7 +14652,8 @@ def register_generated_tools(mcp, _get_client):
             secret: Secret key for HMAC-SHA256 signature verification
             events: Events to subscribe to (at least one required) (required)
             is_active: Enable or disable webhook delivery. Defaults to `true` when omitted.
-            custom_headers: Custom headers to include in webhook requests"""
+            custom_headers: Custom headers to include in webhook requests
+            disabled_resource_groups: Resource groups this subscription does not receive (opt-out denylist). Omit or send an empty array to receive every event in `events`. Listing a group here drops its events before delivery and on every replay path. Set at creation it applies to everything this subscription ever receives; changed later via PUT it applies to events emitted after the change, with a five-minute tail for events already queued (see that operation). When the caller is a restricted (zrk_) key, that key's own disabled groups are unioned into whatever you send here, so a restricted key can never create a subscription wider than itself."""
         client = _get_client()
         try:
             response = client.webhooks.create_webhook_settings(
@@ -14603,6 +14663,7 @@ def register_generated_tools(mcp, _get_client):
                 events=events,
                 is_active=is_active,
                 custom_headers=custom_headers,
+                disabled_resource_groups=disabled_resource_groups,
             )
             return _format_response(response)
         except Exception as e:
@@ -14624,6 +14685,7 @@ def register_generated_tools(mcp, _get_client):
         events: list[str] | None = None,
         is_active: bool | None = None,
         custom_headers: dict[str, Any] | None = None,
+        disabled_resource_groups: list[str] | None = None,
     ) -> str:
         """Update webhook
 
@@ -14634,7 +14696,8 @@ def register_generated_tools(mcp, _get_client):
             secret: Secret key for HMAC-SHA256 signature verification
             events: Events to subscribe to. Must contain at least one event if provided.
             is_active: Enable or disable webhook delivery
-            custom_headers: Custom headers to include in webhook requests"""
+            custom_headers: Custom headers to include in webhook requests
+            disabled_resource_groups: Replaces the subscription's denylist. Send an empty array to clear it and receive every event in `events` again. Omitting the field leaves the current denylist untouched. Applies to events emitted after the update; already-queued events can still deliver for up to five minutes after they were enqueued. When the caller is a restricted (zrk_) key, that key's own disabled groups are unioned back in either way, so a restricted key can neither clear nor widen a subscription past its own groups."""
         client = _get_client()
         try:
             response = client.webhooks.update_webhook_settings(
@@ -14645,6 +14708,7 @@ def register_generated_tools(mcp, _get_client):
                 events=events,
                 is_active=is_active,
                 custom_headers=custom_headers,
+                disabled_resource_groups=disabled_resource_groups,
             )
             return _format_response(response)
         except Exception as e:

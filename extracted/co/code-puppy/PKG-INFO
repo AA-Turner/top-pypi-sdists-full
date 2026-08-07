@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: code-puppy
-Version: 0.0.680
+Version: 0.0.681
 Summary: Code generation agent
 Project-URL: repository, https://github.com/mpfaffenberger/code_puppy
 Project-URL: HomePage, https://github.com/mpfaffenberger/code_puppy
@@ -144,6 +144,22 @@ to check, `/dbos off` to disable.
 [📋 View the full changelog on Kittylog](https://kittylog.app/c/mpfaffenberger/code_puppy)
 
 ## Usage
+
+### Meta Muse OAuth
+
+Code Puppy can use the same Meta account login as Muse Code. If Muse is already
+logged in, its credential at `~/.config/muse/auth.json` is detected automatically.
+You can also authenticate directly from Code Puppy:
+
+```text
+/meta-auth       # approve a device code with your Meta account
+/meta-status     # show the credential source and available Muse models
+/meta-logout     # remove only Code Puppy's saved Meta credential
+```
+
+Meta models are registered with a `meta-` prefix, including
+`meta-muse-spark-1.2-contributor` and `meta-muse-spark-1.2`. `META_API_KEY`
+remains supported and takes precedence over saved OAuth credentials.
 
 ### Adding Models from models.dev 🆕
 

@@ -45,6 +45,7 @@ from ibm_watsonx_ai.utils.autoai.errors import (
 )
 from ibm_watsonx_ai.utils.autoai.utils import try_import_lale
 from ibm_watsonx_ai.wml_client_error import InvalidValue
+from ibm_watsonx_ai.workspace.workspace import WorkSpace
 
 from .base_auto_pipelines import BaseAutoPipelines
 
@@ -206,6 +207,7 @@ class RemoteAutoPipelines(BaseAutoPipelines):
         early_stop_window_size: int = None,
         time_ordered_data: bool = None,
         feature_selector_mode: str = None,
+        workspace: WorkSpace | None = None,
         **kwargs,
     ):
         # Deprecation of excel_sheet as number:
@@ -291,7 +293,7 @@ class RemoteAutoPipelines(BaseAutoPipelines):
         self._engine: Union["WMLEngine", "ServiceEngine"] = engine
         self._engine.initiate_remote_resources(params=self.params, **kwargs)
         self.best_pipeline = None
-        self._workspace = None
+        self._workspace = workspace
 
     def _get_engine(self) -> Union["WMLEngine", "ServiceEngine"]:
         """Return Engine for development purposes."""
@@ -605,7 +607,7 @@ class RemoteAutoPipelines(BaseAutoPipelines):
             )
 
         results_reference._update_location_path_with_container_id(
-            self._engine._api_client
+            self._workspace.api_client
         )
 
         # note: results can be stored only on FS or COS

@@ -42,6 +42,11 @@ use tokio::sync::watch;
 use ciris_lens_core::capacity::CapacityAttestation;
 use ciris_lens_core::scoring;
 use ciris_persist::federation::envelope::paths;
+/// The four stances persist's ONE canonical scoped-consent fold can return.
+/// Named here rather than path-qualified at the match arm so the gate reads as
+/// the four-way question it is — and so a fifth stance CC might add would fail
+/// to compile at the arm rather than fold silently into "declined".
+use ciris_persist::federation::hard_case::ConsentState;
 use ciris_persist::federation::types::cohort_scope;
 use ciris_persist::federation::EmitAttestationInput;
 use ciris_persist::prelude::{CallerScope, Engine, ReadEngine, TraceFilter, TraceSummary};
@@ -292,6 +297,14 @@ pub async fn run_pass(engine: &Engine, node_key_id: &str, cfg: &ScorerConfig) ->
     let mut empty_matrix_agents = 0usize;
     let mut unchanged_agents = 0usize;
     let mut not_consented_agents = 0usize;
+    // CIRISServer#351 — counted SEPARATELY from `not_consented_agents`, and
+    // deliberately absent from `accounted` below: an unreadable consent fold
+    // must never help a zero-emission pass read as a healthy steady state.
+    let mut consent_unreadable_agents = 0usize;
+    // CIRISServer#374 — the same rule one plane over. A capacity-history read
+    // that FAILED is not "nothing stands", so it may not help a zero-emission
+    // pass read as a healthy steady state either.
+    let mut standing_unreadable_agents = 0usize;
     let mut unregistered_agents = 0usize;
     let mut emitted = 0usize;
     for (agent_id_hash, traces) in by_agent {
@@ -323,12 +336,44 @@ pub async fn run_pass(engine: &Engine, node_key_id: &str, cfg: &ScorerConfig) ->
             // from "nothing to say it with".
             // Declining to be scored is a permanent, legitimate choice. Count
             // it; do not alarm on it.
-            Ok(ScoreOutcome::NotConsented) => {
+            Ok(ScoreOutcome::NotConsented { stance }) => {
                 not_consented_agents += 1;
                 tracing::debug!(
                     agent = %attested_key_id,
+                    ?stance,
                     "capacity scorer: no live CC#46 `analyze` consent from this subject — \
                      skipping (an allowed choice, not a fault)"
+                );
+            }
+            // The subject's answer could not be READ (CIRISServer#351). Not the
+            // arm above: that one is the gate working. This one is the gate
+            // blind, and CC 3.4.5 makes `capacity:*` the only family whose
+            // admission turns on a consent read at all — so a failed read stops
+            // the whole family. Per-agent at DEBUG (the 24,500-lines-a-day
+            // lesson), aggregated into the pass line at WARN.
+            Ok(ScoreOutcome::ConsentUnreadable { error }) => {
+                consent_unreadable_agents += 1;
+                tracing::debug!(
+                    agent = %attested_key_id,
+                    %error,
+                    "capacity scorer: the CC#46 `analyze` consent fold FAILED TO READ for this \
+                     subject — this is NOT a decline; see the pass line"
+                );
+            }
+            // The capacity history could not be READ (CIRISServer#374). Not the
+            // `Unchanged` arm below — that one is the coalescing working, this
+            // one is the coalescing BLIND. Held out of `accounted` for the same
+            // reason as the arm above: the pass authored nothing because it
+            // could not tell whether it needed to, which is not a state this
+            // node is allowed to sit in quietly.
+            Ok(ScoreOutcome::StandingUnreadable { error }) => {
+                standing_unreadable_agents += 1;
+                tracing::debug!(
+                    agent = %attested_key_id,
+                    %error,
+                    "capacity scorer: the standing-rows read FAILED for this subject — this is \
+                     NOT \"nothing stands\"; nothing was authored because we cannot tell whether \
+                     we already did; see the pass line"
                 );
             }
             Ok(ScoreOutcome::Unchanged {
@@ -416,7 +461,18 @@ pub async fn run_pass(engine: &Engine, node_key_id: &str, cfg: &ScorerConfig) ->
             .await
             .map(|p| p.items.len())
             .unwrap_or(usize::MAX);
-        let narrowing = if raw_trace_events == usize::MAX {
+        let narrowing = if consent_unreadable_agents > 0 {
+            // FIRST, ahead of every corpus narrowing below: the traces arrived
+            // and were read fine; what failed is the CC#46 gate's own input.
+            // Reporting this as "feature semantics" would send the reader to the
+            // trace plane for a fault in the consent plane (CIRISServer#351).
+            "THE CONSENT FOLD FAILED TO READ — this is NOT a subject declining. CC 3.4.5              makes `capacity:*` the one family gated on a consent read, so a failed read stops              the family. Check the federation directory backend handle, then                `resolve_scoped_consent` for the (attester, subject, `analyze`) triple"
+        } else if standing_unreadable_agents > 0 {
+            // Also ahead of the corpus narrowings, and for the same reason: the
+            // traces arrived and were read fine. What failed is the read of what
+            // this node has ALREADY said (CIRISServer#374).
+            "THE STANDING-ROWS READ FAILED — this is NOT \"nothing stands\". The scorer suppresses              rather than author a row whose signed `asserted_at` would be derived from the read              that just failed. Check `list_attestations` (capacity:* about the subject) and              `revocations_for` on the attesting keys"
+        } else if raw_trace_events == usize::MAX {
             "read FAILED — the summary read itself errored; the scorer cannot see the corpus"
         } else if raw_trace_events == 0 {
             "nothing arrived — the corpus has no traces this scorer can read (delivery, not scoring)"
@@ -438,14 +494,79 @@ pub async fn run_pass(engine: &Engine, node_key_id: &str, cfg: &ScorerConfig) ->
         // So account for the agents first: if every agent this pass is either
         // already-standing, feature-less, or unregistered, the zero is EXPLAINED
         // and it is not a fault.
+        //
+        // `consent_unreadable_agents` is NOT in this sum, and that omission is
+        // the fix (CIRISServer#351). An outcome only accounts for a zero if it
+        // is a state the system is legitimately allowed to be in; a consent fold
+        // that cannot be read is not one, so it can never make a zero look
+        // healthy. Before the split it did exactly that twice over — it counted
+        // as `not_consented_agents`, which both entered this sum AND satisfies
+        // the `|| not_consented_agents > 0` trigger, so a total failure of the
+        // consent read logged INFO "steady state, not a fault" for every agent
+        // in the corpus.
+        //
+        // `standing_unreadable_agents` is out of the sum for the identical
+        // reason (CIRISServer#374), and its collapse was the same one aimed at
+        // the OTHER trigger: an unreadable capacity-history read used to look
+        // like "nothing stands", so the scorer re-authored — and once the row
+        // landed, the next pass counted it as `unchanged_agents`, which is the
+        // first of the two `|| ` triggers here. A blind coalescer therefore
+        // wrote a row a minute AND reported itself as the steady state.
         let accounted =
             unchanged_agents + not_consented_agents + empty_matrix_agents + unregistered_agents;
-        if (unchanged_agents > 0 || not_consented_agents > 0) && accounted >= n_agents {
+        if consent_unreadable_agents > 0 {
+            // Its own line, ahead of the generic zero WARN, because the MESSAGE
+            // is what an operator reads: "the agents do not account for it" sends
+            // them to the trace plane, and the trace plane is fine — the traces
+            // arrived, the read saw them, and the CC#46 gate's own input is what
+            // went missing. The `narrowing` field says the same thing; a fact
+            // that only exists in a structured field is a fact most readers of a
+            // log line do not have.
+            tracing::warn!(
+                n_summaries,
+                n_agents,
+                unchanged_agents,
+                not_consented_agents,
+                consent_unreadable_agents,
+                standing_unreadable_agents,
+                empty_matrix_agents,
+                unregistered_agents,
+                window = cfg.window,
+                raw_trace_events,
+                narrowing,
+                "capacity scorer pass emitted ZERO because the CC#46 `analyze` consent fold \
+                 FAILED TO READ — these subjects did NOT decline, their answer is unreadable, \
+                 and capacity:* is the one family CC 3.4.5 gates on that read"
+            );
+        } else if standing_unreadable_agents > 0 {
+            // Its own line, ahead of the quiet branch, for the CIRISServer#351
+            // reason applied to CIRISServer#374's plane: the generic zero WARN
+            // sends the reader to the trace plane, and the trace plane is fine.
+            // What failed is the read of what this node has ALREADY said.
+            tracing::warn!(
+                n_summaries,
+                n_agents,
+                unchanged_agents,
+                not_consented_agents,
+                consent_unreadable_agents,
+                standing_unreadable_agents,
+                empty_matrix_agents,
+                unregistered_agents,
+                window = cfg.window,
+                raw_trace_events,
+                narrowing,
+                "capacity scorer pass emitted ZERO because the STANDING-ROWS READ FAILED — this \
+                 is NOT \"nothing stands\"; the scorer cannot tell whether it has already \
+                 authored these scores, so it authored none"
+            );
+        } else if (unchanged_agents > 0 || not_consented_agents > 0) && accounted >= n_agents {
             tracing::info!(
                 n_summaries,
                 n_agents,
                 unchanged_agents,
                 not_consented_agents,
+                consent_unreadable_agents,
+                standing_unreadable_agents,
                 empty_matrix_agents,
                 unregistered_agents,
                 "capacity scorer pass authored nothing — every score already stands within its \
@@ -457,6 +578,8 @@ pub async fn run_pass(engine: &Engine, node_key_id: &str, cfg: &ScorerConfig) ->
                 n_agents,
                 unchanged_agents,
                 not_consented_agents,
+                consent_unreadable_agents,
+                standing_unreadable_agents,
                 empty_matrix_agents,
                 unregistered_agents,
                 window = cfg.window,
@@ -467,6 +590,42 @@ pub async fn run_pass(engine: &Engine, node_key_id: &str, cfg: &ScorerConfig) ->
                  `narrowing` for which plane stopped it"
             );
         }
+    } else if consent_unreadable_agents > 0 {
+        // A PARTIAL consent-fold failure is still a failure (CIRISServer#351).
+        // `emitted > 0` says some subjects' answers were readable; it says
+        // nothing about the ones whose were not, and folding those into the
+        // "pass complete" INFO is how a gate degrades silently — the majority
+        // path stays green while the gate goes blind for a subset.
+        tracing::warn!(
+            n_summaries,
+            n_agents,
+            emitted,
+            unchanged_agents,
+            not_consented_agents,
+            consent_unreadable_agents,
+            standing_unreadable_agents,
+            unregistered_agents,
+            "capacity scorer pass authored rows BUT the CC#46 `analyze` consent fold failed to \
+             read for some subjects — those are NOT declines and were not scored"
+        );
+    } else if standing_unreadable_agents > 0 {
+        // A PARTIAL standing-read failure is still a failure, same as above.
+        // `emitted > 0` says the capacity history was readable for SOME
+        // subjects; the ones it was not readable for were skipped, and folding
+        // them into the "pass complete" INFO is how a coalescer goes blind for a
+        // subset while the majority path stays green (CIRISServer#374).
+        tracing::warn!(
+            n_summaries,
+            n_agents,
+            emitted,
+            unchanged_agents,
+            not_consented_agents,
+            consent_unreadable_agents,
+            standing_unreadable_agents,
+            unregistered_agents,
+            "capacity scorer pass authored rows BUT the standing-rows read failed for some \
+             subjects — that is NOT \"nothing stands\", and those subjects were not scored"
+        );
     } else {
         tracing::info!(
             n_summaries,
@@ -474,6 +633,8 @@ pub async fn run_pass(engine: &Engine, node_key_id: &str, cfg: &ScorerConfig) ->
             emitted,
             unchanged_agents,
             not_consented_agents,
+            consent_unreadable_agents,
+            standing_unreadable_agents,
             unregistered_agents,
             "capacity scorer pass complete (capacity attestations authored → replication)"
         );
@@ -570,15 +731,19 @@ const CAPACITY_READ_LIMIT: i64 = 512;
 /// looking "unchanged". Honouring the bound is what makes the forged row stop
 /// counting while the key's pre-compromise measurements keep doing so.
 ///
-/// A revocation read that FAILS returns an empty row set, like every other
-/// failure in this function. That direction is safe: an empty set means "no
-/// standing assertion", so the scorer re-measures and re-emits. The unsafe
-/// direction would be returning the rows unfiltered.
+/// A revocation read that fails must never return the rows unfiltered — that
+/// is the direction the attack above needs. It returns `Err`, which suppresses;
+/// see [`StandingRows`] for why suppressing is safe on BOTH axes and an empty
+/// set was safe on only one.
+///
+/// `Err` carries the backend's own message and means **the read failed**. It is
+/// deliberately outside [`StandingRows`] rather than a fourth variant of it, for
+/// the reason spelled out on that type.
 async fn live_capacity_rows(
     engine: &Engine,
     attested_key_id: &str,
     now: chrono::DateTime<chrono::Utc>,
-) -> Vec<ciris_persist::federation::Attestation> {
+) -> Result<StandingRows, String> {
     use ciris_persist::ceg::list::federation::AttestationFilter;
 
     let mut filter = AttestationFilter::default();
@@ -590,7 +755,7 @@ async fn live_capacity_rows(
         .map(|(fam, _)| format!("{fam}:"))
         .unwrap_or_else(|| CAPACITY_DIMENSION.to_owned())];
 
-    let Ok(page) = engine
+    let page = match engine
         .list_attestations(
             filter,
             None,
@@ -598,9 +763,14 @@ async fn live_capacity_rows(
             ciris_persist::prelude::CallerScope::Unauthenticated,
         )
         .await
-    else {
-        return Vec::new();
+    {
+        Ok(page) => page,
+        Err(e) => return Err(format!("list_attestations(capacity): {e}")),
     };
+    // How many rows the corpus holds ABOUT this subject in this family, before
+    // any liveness filter. This is the number that separates "this subject has
+    // never been scored" from "rows exist and none of them stand".
+    let read = page.items.len();
     let rows: Vec<ciris_persist::federation::Attestation> = page
         .items
         .into_iter()
@@ -613,24 +783,155 @@ async fn live_capacity_rows(
 
     // `revoked_after` — one `revocations_for` per DISTINCT attester in the
     // page (in the steady state that is one key, this node's), never per row.
-    let Ok(held) =
-        key_standing::HeldRevocations::for_keys(engine, key_standing::attesting_keys(&rows)).await
-    else {
-        return Vec::new();
+    let held =
+        match key_standing::HeldRevocations::for_keys(engine, key_standing::attesting_keys(&rows))
+            .await
+        {
+            Ok(held) => held,
+            Err(e) => return Err(format!("revocations_for(attesters): {e}")),
+        };
+    let live: Vec<ciris_persist::federation::Attestation> = if held.is_empty() {
+        rows
+    } else {
+        rows.into_iter()
+            .filter(|a| {
+                let fold = held.statement_standing(a, now);
+                if fold.standing.is_suspect() {
+                    key_standing::warn_suspect("scorer", a, &fold);
+                    return false;
+                }
+                true
+            })
+            .collect()
     };
-    if held.is_empty() {
-        return rows;
+
+    // THREE ZEROES — every one of them a real answer, because the absence of an
+    // answer left through `Err` above and cannot arrive here.
+    Ok(if !live.is_empty() {
+        StandingRows::Standing(live)
+    } else if read == 0 {
+        StandingRows::NeverScored
+    } else {
+        StandingRows::NoneStanding { read }
+    })
+}
+
+/// What the standing-rows read actually returned — **the three zeroes kept
+/// apart** (CIRISServer#374).
+///
+/// This was `Vec<Attestation>`, and every failure inside
+/// [`live_capacity_rows`] returned `Vec::new()`. So "the standing-rows read
+/// FAILED" was reported to both callers as "nothing stands", which is the same
+/// swallow CIRISServer#351 fixed one function down in this module: a failed
+/// read wearing the costume of a real answer.
+///
+/// # Why an empty vec was not harmless
+///
+/// Both callers turn this read into a WRITE decision, and both degrade in the
+/// same direction:
+///
+/// - [`standing_assertion`] reads "nothing stands", so the scorer re-authors a
+///   row it may already have written — defeating the coalescing that took
+///   production capacity rows from ~900/day to 21. Nothing downstream catches
+///   it: `attestation_emit::assemble_and_put` stamps a fresh
+///   `uuid::Uuid::new_v4()` on every emit, so persist has no content-level
+///   dedupe and THIS suppression is the only thing standing between a failed
+///   read and a new permanent row. Measured, not assumed: with the read broken
+///   and the arm folded back to fail-open, the corpus went 1 → 2 rows on a pass
+///   whose score had not moved at all.
+/// - [`unchanged_for`] reads a zero-length run, so [`coalesce_bucket`] hands
+///   back the BASE (hourly) bucket instead of the attenuated one. A score that
+///   has held for a day is bucketed at 24h, so the fallback both narrows the
+///   bucket — up to 24 authorings a day per subject rather than one — and puts
+///   a DIFFERENT floored `asserted_at` inside the signed envelope than the row
+///   already standing carries. The failure does not merely lose a suppression,
+///   it re-creates the growth the suppression exists to stop.
+///
+/// # The zeroes
+///
+/// - [`Standing`](StandingRows::Standing) — rows stand. Never empty.
+/// - [`NoneStanding`](StandingRows::NoneStanding) — the corpus holds
+///   `capacity:*` rows about this subject and NONE of them are live: expired,
+///   or their attester's statements revoked over them. A real, informative
+///   zero — it is exactly what the CIRISServer#355 revocation filter is FOR.
+/// - [`NeverScored`](StandingRows::NeverScored) — the corpus holds no
+///   `capacity:*` row about this subject at all. A cold subject; the first pass
+///   of every agent's life sees this.
+///
+/// `NoneStanding` and `NeverScored` both proceed to author, and deliberately:
+/// they are the same DECISION reached from different facts, and collapsing them
+/// would leave the log unable to say whether a re-emission followed a
+/// revocation or a cold start. That is the distinction the previous shape
+/// destroyed for all three at once.
+///
+/// # Why "unreadable" is NOT a variant here
+///
+/// It is the `Err` of [`live_capacity_rows`], because a failed read is not a
+/// fourth kind of answer — it is the absence of one, and that is exactly the
+/// distinction this type exists to hold. The module already answers this
+/// question this way one gate up: `resolve_scoped_consent` returns
+/// `Result<ConsentState, _>`, and `score_and_emit` splits it three ways with
+/// the unreadable case in `Err`. Two shapes for one question is how the axes get
+/// fused in the first place.
+///
+/// It is also the difference between a defect that is *detectable* and one that
+/// is *unrepresentable*. An earlier draft of this fix made `Unreadable` a fourth
+/// variant whose `rows()` returned `&[]`, with a doc comment claiming "the type
+/// is what enforces it: a caller who ignores the arm cannot reach the rows
+/// without saying so." That claim was false. Dropping the early return compiled
+/// silently, `standing.rows()` handed back `&[]`, and the function walked
+/// straight back into the original bug — a failed read reported as "nothing
+/// stands" — with every test still green. With the failure in `Err`, there is no
+/// `StandingRows` value to call `rows()` on until the error has been discharged,
+/// so the silent form of that regression no longer compiles.
+#[derive(Debug)]
+enum StandingRows {
+    /// Live `capacity:*` rows about this subject. Non-empty by construction.
+    Standing(Vec<ciris_persist::federation::Attestation>),
+    /// Rows exist about this subject; none are live. `read` is how many were
+    /// seen before the liveness filters, so the log can say how many stopped.
+    NoneStanding { read: usize },
+    /// No `capacity:*` row about this subject exists at all.
+    NeverScored,
+}
+
+impl StandingRows {
+    /// The live rows, as a slice — empty for both real zeroes.
+    ///
+    /// Every value of this type is an answer, so an empty slice here always
+    /// means "nothing stands" and never "we could not tell". That is a property
+    /// of the type, not of the caller's discipline: see the note on the type
+    /// about why the unreadable case is `Err` rather than a variant.
+    fn rows(&self) -> &[ciris_persist::federation::Attestation] {
+        match self {
+            Self::Standing(rows) => rows,
+            _ => &[],
+        }
     }
-    rows.into_iter()
-        .filter(|a| {
-            let fold = held.statement_standing(a, now);
-            if fold.standing.is_suspect() {
-                key_standing::warn_suspect("scorer", a, &fold);
-                return false;
-            }
-            true
-        })
-        .collect()
+
+    /// For [`NoneStanding`](StandingRows::NoneStanding) only: how many rows
+    /// existed about this subject and STOPPED counting (expired, or their
+    /// attester's statements revoked over them).
+    ///
+    /// `None` on every other arm rather than `0`. This number is a fact about
+    /// that one zero; handing the other arms a count would put two questions
+    /// ("how many rows are live?" / "how many rows stopped?") on one name, which
+    /// is the class of defect this whole type exists to undo.
+    fn stopped(&self) -> Option<usize> {
+        match self {
+            Self::NoneStanding { read } => Some(*read),
+            _ => None,
+        }
+    }
+
+    /// The one-word fact for a log line: which of the three answers this was.
+    fn kind(&self) -> &'static str {
+        match self {
+            Self::Standing(_) => "standing",
+            Self::NoneStanding { .. } => "none_standing",
+            Self::NeverScored => "never_scored",
+        }
+    }
 }
 
 /// The already-standing assertion for `(subject, capacity dimension)`, if the
@@ -647,16 +948,20 @@ async fn live_capacity_rows(
 /// divergence would fail SILENTLY — the check would simply never match and the
 /// duplication would return, green. The stored fields cannot drift from
 /// themselves.
-async fn standing_assertion(
-    engine: &Engine,
-    attested_key_id: &str,
+///
+/// A PURE fold over rows the caller has already read and already decided about
+/// (CIRISServer#374). It used to issue its own [`live_capacity_rows`] call, as
+/// did [`unchanged_for`] — so one pass read the same subject's capacity history
+/// twice, at two instants, and derived the coalescing bucket from one corpus and
+/// the standing check from the other. Reading once removes both the second scan
+/// and that skew, and it is what lets the ONE read failure be handled in ONE
+/// place instead of being swallowed identically in two.
+fn standing_assertion(
+    rows: &[ciris_persist::federation::Attestation],
     score: f64,
     bucket_start: chrono::DateTime<chrono::Utc>,
-    now: chrono::DateTime<chrono::Utc>,
 ) -> Option<chrono::DateTime<chrono::Utc>> {
-    live_capacity_rows(engine, attested_key_id, now)
-        .await
-        .iter()
+    rows.iter()
         // Same measurement: the band we would author, already authored.
         .filter(|a| a.weight.is_some_and(|w| (w - score).abs() < f64::EPSILON))
         .map(|a| a.asserted_at)
@@ -670,15 +975,19 @@ async fn standing_assertion(
 /// that just changed has no such run and gets the base bucket, so a moving score
 /// is never coarsened — attenuation only ever slows down the restatement of
 /// something that is not moving.
-async fn unchanged_for(
-    engine: &Engine,
-    attested_key_id: &str,
+///
+/// Pure, for the reasons on [`standing_assertion`]. Note what the zero return
+/// means here and why it must never be reachable from a failed read: zero run
+/// ⇒ base bucket ⇒ a floored `asserted_at` that differs from the standing row's
+/// ⇒ a different content hash ⇒ a genuinely new signed row. "I could not read
+/// the history" and "the score just changed" produce the same number and
+/// opposite truths.
+fn unchanged_for(
+    rows: &[ciris_persist::federation::Attestation],
     score: f64,
     now: chrono::DateTime<chrono::Utc>,
 ) -> chrono::Duration {
-    live_capacity_rows(engine, attested_key_id, now)
-        .await
-        .iter()
+    rows.iter()
         .filter(|a| a.weight.is_some_and(|w| (w - score).abs() < f64::EPSILON))
         .map(|a| a.asserted_at)
         .min()
@@ -742,7 +1051,88 @@ enum ScoreOutcome {
     /// production canonical: 17 of 20 agents, 51 WARN lines every three minutes,
     /// roughly 24,500 a day, none of them actionable. An alarm that fires on a
     /// legitimate steady state trains people to ignore the log.
-    NotConsented,
+    ///
+    /// Carries the stance persist's fold actually returned, so the log can name
+    /// WHICH refusal it was: a subject who never spoke (`Unspecified`), one who
+    /// spoke and withdrew (`Revoked`), and one whose grant ran out (`Expired`)
+    /// are three different facts, and only the middle one is someone changing
+    /// their mind.
+    NotConsented { stance: ConsentState },
+    /// **The consent fold could not be READ** (CIRISServer#351).
+    ///
+    /// NOT [`ScoreOutcome::NotConsented`]. "The subject declined" and "we could
+    /// not ask the subject" are opposite facts: the first is the gate working,
+    /// the second is the gate's only input missing. CC 3.4.5 leaves `capacity:*`
+    /// as the ONE family whose admission turns on a consent read — the ruling
+    /// keeps this gate and gates nothing else on a subject's say-so — so a
+    /// consent read that FAILS is that whole gate failing, not a quiet no.
+    ///
+    /// They shared an arm. `resolve_scoped_consent` returns
+    /// `Result<ConsentState, _>` and the gate asked `!matches!(stance,
+    /// Ok(Granted))`, folding every backend error into the one outcome this
+    /// module declares must never alarm — while `not_consented_agents > 0` is
+    /// itself one of the two conditions that promote a zero-emission pass to
+    /// INFO *"steady state, not a fault"*. So a corpus-wide failure of the
+    /// consent read reported, once a minute, that every agent had declined and
+    /// all was well: `FSD/RCA_TRACE_PLANE_2026-07-31.md`'s shape landing on the
+    /// one gate CC 3.4.5 kept.
+    ///
+    /// Deliberately NOT an `Err`: the per-agent `Err` arm WARNs once per agent
+    /// per pass, which is the 24,500-lines-a-day failure the arm above records.
+    /// This is counted, named in the pass line, and — the load-bearing half —
+    /// excluded from the set of outcomes that can account for a zero.
+    ConsentUnreadable { error: String },
+    /// **The standing-rows read could not be READ** (CIRISServer#374).
+    ///
+    /// The same shape as [`ScoreOutcome::ConsentUnreadable`], one plane over:
+    /// [`live_capacity_rows`] swallowed every backend failure into an empty
+    /// `Vec`, so "I could not read what already stands" arrived at both callers
+    /// as "nothing stands". See [`StandingRows`] for what that costs.
+    ///
+    /// # Why this SUPPRESSES the write rather than proceeding
+    ///
+    /// The instinct is that re-authoring is harmless — the row would be
+    /// identical, and a capacity score is worth having. Both halves are wrong,
+    /// and the second is the load-bearing one.
+    ///
+    /// 1. **"Identical" would not save us even if it were true.** Persist
+    ///    stamps a fresh `uuid::Uuid::new_v4()` on every emit and does not
+    ///    dedupe by content, so a re-authored row is a NEW permanent row no
+    ///    matter how identical its envelope is. This suppression is the entire
+    ///    mechanism. Measured against the real backend: fail-open on a broken
+    ///    read took the corpus 1 → 2 on a pass whose score had not moved.
+    ///    And it is not identical anyway — `asserted_at` is inside the signed
+    ///    envelope, floored to a bucket derived from [`unchanged_for`], i.e.
+    ///    from the read that just failed; with no history the bucket falls back
+    ///    to the hourly base, so a score that has held for a day gets a
+    ///    different floored instant than the row already standing.
+    /// 2. **The content is derived from the failed read.** Not just the
+    ///    decision to write — the value of a signed field. Authoring here mints
+    ///    a permanent, replicating, hybrid-signed row whose own `asserted_at`
+    ///    is a fallback for data we did not have. That is CIRISPersist#541's
+    ///    shape (a row corrupt BY CONSTRUCTION because a field was rewritten
+    ///    from something other than the truth it claims to carry).
+    /// 3. **The cost is asymmetric and the recovery is cheap.** Suppressing
+    ///    costs one cadence — 60 seconds — and the next pass re-measures from
+    ///    the same trace window. Authoring costs a row that cannot be deleted,
+    ///    only superseded, and that replicates to every consenting peer.
+    /// 4. **Fail-open is safe on ONE axis; suppression is safe on BOTH.** The
+    ///    fail-open reasoning in [`live_capacity_rows`]'s own doc comment is
+    ///    correct on the axis it was written for: a forged row must not silence
+    ///    honest scoring, so a revocation read that fails must not return rows
+    ///    unfiltered. Suppression satisfies that too — NOT writing can never
+    ///    admit a forged suppression, and the forged row keeps being refused on
+    ///    the next readable pass. Only the write-amplification axis
+    ///    distinguishes them, and on that axis fail-open is the defect. One
+    ///    function's failure mode was answering two questions and had only ever
+    ///    been checked against one.
+    ///
+    /// The liveness objection — a sustained read failure lets the standing
+    /// score expire after `SCORE_VALIDITY_DAYS` — is real and is answered by
+    /// the counter, not by the write: a `list_attestations` that fails for days
+    /// has broken far more of this node than the scorer, and it now WARNs with
+    /// its own `narrowing` line every pass instead of quietly authoring rows.
+    StandingUnreadable { error: String },
     /// The score is unchanged and already stands, asserted within the current
     /// coalescing bucket. Nothing to say; saying it anyway would cost a
     /// permanent, replicated row carrying no new information.
@@ -782,23 +1172,6 @@ async fn score_and_emit(
 
     let now = chrono::Utc::now();
 
-    // ── Coalesce the assertion instant (CIRISPersist#519 item 2a-iii) ────────
-    //
-    // FLOOR, never ceiling or round-to-nearest. Persist's `coalesce_touch_ts`
-    // spells out why, and the reason inverts the usual instinct: this is a LOWER
-    // bound, so rounding UP could assert an instant past the real `now()` and
-    // trip the future-skew guard on a legitimate, just-unlucky emission.
-    // Flooring can only make the assertion more conservative, never less true.
-    // (An upper bound like `valid_until` would round the other way, for exactly
-    // the same reason — same operation, opposite direction, because the bound
-    // points the other way.)
-    let bucket = coalesce_bucket(unchanged_for(engine, attested_key_id, score, now).await);
-    let (asserted_at, valid_until) = coalesced_assertion(now, bucket);
-    // Derive validity from the COALESCED instant, not from raw `now`. Deriving
-    // it from `now` would leave `valid_until` varying every pass and the envelope
-    // would differ anyway — the coalescing would be real and completely
-    // ineffective, which is the worst of both.
-
     // ── CIRISConstitution#46, asked BEFORE the work ─────────────────────────
     //
     // persist enforces this at put_attestation; asking first is not a second
@@ -807,6 +1180,18 @@ async fn score_and_emit(
     // unconsented subject costs no hybrid signature, and — the reason this
     // exists — declining is reported as the ordinary state it is rather than as
     // a refused write.
+    // THREE ZEROES, NOT ONE (CIRISServer#351). `resolve_scoped_consent` returns
+    // `Result<ConsentState, _>`, so "did the subject permit this?" has three
+    // possible answers and the gate must not fold two of them together:
+    //   Ok(Granted)   → proceed.
+    //   Ok(_ )        → the subject declined. Legitimate, permanent, never an
+    //                   alarm — and the stance says WHICH decline it was.
+    //   Err(_)        → the subject's answer is UNREADABLE. The gate has no
+    //                   input; this is a fault, and it is the fault that used to
+    //                   be indistinguishable from the line above.
+    // Fail-closed is preserved in every arm — nothing is emitted unless the fold
+    // returns `Granted`. What changes is what the instrument SAYS about the two
+    // ways it can fail to.
     let stance = engine
         .federation_directory()
         .resolve_scoped_consent(
@@ -817,17 +1202,62 @@ async fn score_and_emit(
             now,
         )
         .await;
-    if !matches!(
-        stance,
-        Ok(ciris_persist::federation::hard_case::ConsentState::Granted)
-    ) {
-        return Ok(ScoreOutcome::NotConsented);
+    match stance {
+        Ok(ConsentState::Granted) => {}
+        Ok(declined) => return Ok(ScoreOutcome::NotConsented { stance: declined }),
+        Err(e) => {
+            return Ok(ScoreOutcome::ConsentUnreadable {
+                error: e.to_string(),
+            })
+        }
     }
+
+    // ── What already stands, read ONCE (CIRISServer#374) ────────────────────
+    //
+    // Read AFTER the consent gate, deliberately: a subject who declined is a
+    // decline whatever the corpus says, so asking the corpus first would let a
+    // capacity-plane read failure be reported about a subject whose answer was
+    // "no" — the same category error one plane over. It also means an
+    // unconsented subject costs no capacity scan, matching the comment above.
+    //
+    // ONE read feeds BOTH derivations. They used to issue one each, so the
+    // bucket came from one corpus and the standing check from another, and each
+    // swallowed its own failure into an empty vec independently.
+    //
+    // Split exactly like the consent gate above, and for the same reason:
+    //   Ok(rows) → a real answer about what stands (which of the three zeroes it
+    //              was is a fact for the log, not for the decision).
+    //   Err(_)   → NO answer. FAIL CLOSED. The argument is on
+    //              `ScoreOutcome::StandingUnreadable`; the short form is that
+    //              the row we would author carries an `asserted_at` derived from
+    //              the read that just failed, so "author it anyway, it would be
+    //              identical" is false precisely when it matters.
+    let standing = match live_capacity_rows(engine, attested_key_id, now).await {
+        Ok(standing) => standing,
+        Err(error) => return Ok(ScoreOutcome::StandingUnreadable { error }),
+    };
+
+    // ── Coalesce the assertion instant (CIRISPersist#519 item 2a-iii) ────────
+    //
+    // FLOOR, never ceiling or round-to-nearest. Persist's `coalesce_touch_ts`
+    // spells out why, and the reason inverts the usual instinct: this is a LOWER
+    // bound, so rounding UP could assert an instant past the real `now()` and
+    // trip the future-skew guard on a legitimate, just-unlucky emission.
+    // Flooring can only make the assertion more conservative, never less true.
+    // (An upper bound like `valid_until` would round the other way, for exactly
+    // the same reason — same operation, opposite direction, because the bound
+    // points the other way.)
+    let bucket = coalesce_bucket(unchanged_for(standing.rows(), score, now));
+    let (asserted_at, valid_until) = coalesced_assertion(now, bucket);
+    // Derive validity from the COALESCED instant, not from raw `now`. Deriving
+    // it from `now` would leave `valid_until` varying every pass and the envelope
+    // would differ anyway — the coalescing would be real and completely
+    // ineffective, which is the worst of both.
 
     // Already said this, in this bucket? Then there is nothing new to assert,
     // and a signed row carrying no new information is pure cost: it is permanent,
     // it replicates, and it dilutes the corpus a reader has to fold.
-    if let Some(prev) = standing_assertion(engine, attested_key_id, score, asserted_at, now).await {
+    if let Some(prev) = standing_assertion(standing.rows(), score, asserted_at) {
         tracing::debug!(
             attested = %attested_key_id,
             score,
@@ -890,6 +1320,14 @@ async fn score_and_emit(
         score,
         samples = matrix.len(),
         dim = derivation.feature_dim,
+        // WHICH zero preceded this write. `never_scored` is a cold subject's
+        // first row; `none_standing` means rows exist and stopped counting
+        // (expired, or CIRISServer#355 revoked-over); `standing` means live rows
+        // exist but none carries this score in this bucket — the score MOVED.
+        // Three different reasons to author, and the swallowed read used to make
+        // all three look like the first.
+        standing = standing.kind(),
+        standing_stopped = ?standing.stopped(),
         "emitted capacity:sustained_coherence:v1 attestation",
     );
     Ok(ScoreOutcome::Emitted)
@@ -899,9 +1337,14 @@ async fn score_and_emit(
 mod outcome_accounting_tests {
     /// **A legitimate steady state must never be an alarm.**
     ///
-    /// Every arm of [`super::ScoreOutcome`] except `Emitted` must be counted
-    /// into the zero-path accounting, or the pass WARNs that "the agents do not
-    /// account for" a zero it can perfectly well account for.
+    /// Every arm of [`super::ScoreOutcome`] that names a state the system is
+    /// ALLOWED to be in must be counted into the zero-path accounting, or the
+    /// pass WARNs that "the agents do not account for" a zero it can perfectly
+    /// well account for. The two arms that are not such a state —
+    /// `ConsentUnreadable` and `StandingUnreadable` — are held out by
+    /// [`an_unreadable_consent_fold_never_accounts_for_a_zero`] and
+    /// [`an_unreadable_standing_read_never_accounts_for_a_zero`], which are the
+    /// other half of this rule and not exceptions to it.
     ///
     /// Measured before this was fixed: 17 of 20 agents on the production
     /// canonical had not granted CC#46 `analyze` consent — a permanent, allowed
@@ -939,6 +1382,172 @@ mod outcome_accounting_tests {
                  gets missed.\naccounting: {accounted}"
             );
         }
+    }
+
+    /// **An unreadable consent fold never accounts for a zero** — the inverse
+    /// of the rule above, and the CIRISServer#351 fix (CC 3.4.5).
+    ///
+    /// CC 3.4.5 ratifies consent-before-scoring for `capacity:*` and for nothing
+    /// else: it is the ONE family whose admission turns on reading a subject's
+    /// answer. So the answer being UNREADABLE is not one of the states this pass
+    /// is allowed to sit in, and it must not be able to make a zero-emission
+    /// pass read as healthy.
+    ///
+    /// Before the split it could, twice over. `Err(_)` from
+    /// `resolve_scoped_consent` folded into `NotConsented`, which (a) entered
+    /// `accounted` and (b) is itself one of the two triggers for the INFO
+    /// *"steady state, not a fault"* line. A corpus-wide failure of the consent
+    /// read therefore printed, once a minute, that every agent had declined and
+    /// all was well — an instrument reporting its own blindness as the subjects'
+    /// choice, which is the `FSD/RCA_TRACE_PLANE_2026-07-31.md` shape landing on
+    /// the one gate the ruling kept.
+    ///
+    /// Source-asserted for the same reason as the test above: both conditions
+    /// are properties of expressions, not of any value they produce.
+    #[test]
+    fn an_unreadable_consent_fold_never_accounts_for_a_zero() {
+        let src = std::fs::read_to_string(
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src/scorer.rs"),
+        )
+        .expect("readable");
+        let code = src.split("#[cfg(test)]").next().expect("code");
+        let (_, after) = code
+            .split_once("let accounted =")
+            .expect("the zero-path accounting must exist");
+        let accounted = after.split(';').next().unwrap_or("");
+        assert!(
+            !accounted.contains("consent_unreadable_agents"),
+            "`consent_unreadable_agents` is in the zero-path accounting, so a pass whose \
+             consent fold failed for EVERY agent counts as fully explained. \"The subject \
+             declined\" and \"we could not read the subject's answer\" are opposite facts; \
+             only the first accounts for a zero.\naccounting: {accounted}"
+        );
+
+        // …and it must be DECIDED BEFORE the quiet branch, not merely left out
+        // of the sum: a single readable decline plus N unreadable folds would
+        // otherwise still satisfy `unchanged || not_consented` and log INFO.
+        // Everything between the accounting and the first `tracing::info!` is
+        // the guard the quiet line sits behind.
+        let before_the_quiet_line = after
+            .split_once("tracing::info!")
+            .map(|(guard, _)| guard)
+            .unwrap_or("");
+        assert!(
+            before_the_quiet_line.contains("consent_unreadable_agents > 0"),
+            "nothing between the zero-path accounting and the INFO \"steady state, not a \
+             fault\" line tests `consent_unreadable_agents`, so one readable decline is enough \
+             to let an otherwise-blind pass report itself healthy.\nguard: \
+             {before_the_quiet_line}"
+        );
+    }
+
+    /// **An unreadable standing-rows read never accounts for a zero**
+    /// (CIRISServer#374) — the same rule as above, one plane over.
+    ///
+    /// `live_capacity_rows` swallowed every backend failure into `Vec::new()`,
+    /// so "the capacity history could not be read" reached both of its callers
+    /// as "nothing stands". That is not a state this node is allowed to sit in,
+    /// and it is worse than it looks in the zero-path accounting: the swallow
+    /// made the scorer AUTHOR a row (it could not see the one already there),
+    /// and on the next pass that row counted as `unchanged_agents` — the first
+    /// of the two triggers for the INFO *"steady state, not a fault"* line. A
+    /// blind coalescer therefore wrote a permanent row a minute while reporting
+    /// itself as the steady state, which is how ~900 rows/day happened.
+    ///
+    /// Source-asserted, like its two neighbours, because the condition is a
+    /// property of an expression rather than of any value it produces.
+    #[test]
+    fn an_unreadable_standing_read_never_accounts_for_a_zero() {
+        let src = std::fs::read_to_string(
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src/scorer.rs"),
+        )
+        .expect("readable");
+        let code = src.split("#[cfg(test)]").next().expect("code");
+        let (_, after) = code
+            .split_once("let accounted =")
+            .expect("the zero-path accounting must exist");
+        let accounted = after.split(';').next().unwrap_or("");
+        assert!(
+            !accounted.contains("standing_unreadable_agents"),
+            "`standing_unreadable_agents` is in the zero-path accounting, so a pass whose \
+             capacity-history read failed for EVERY agent counts as fully explained. \"Nothing \
+             stands\" and \"we could not read what stands\" are opposite facts; only the first \
+             accounts for a zero.\naccounting: {accounted}"
+        );
+
+        // …and DECIDED BEFORE the quiet branch, not merely left out of the sum.
+        let before_the_quiet_line = after
+            .split_once("tracing::info!")
+            .map(|(guard, _)| guard)
+            .unwrap_or("");
+        assert!(
+            before_the_quiet_line.contains("standing_unreadable_agents > 0"),
+            "nothing between the zero-path accounting and the INFO \"steady state, not a \
+             fault\" line tests `standing_unreadable_agents`, so one genuinely-unchanged \
+             subject is enough to let a pass with a blind coalescer report itself \
+             healthy.\nguard: {before_the_quiet_line}"
+        );
+    }
+
+    /// **The CC#46 consent gate is asked BEFORE the standing-rows read**
+    /// (CIRISServer#374).
+    ///
+    /// A subject who declined is a decline whatever the corpus says. Asking the
+    /// corpus first would report a capacity-plane read failure about a subject
+    /// whose answer was "no" — the #351 category error, committed by the fix for
+    /// it — and would make an unconsented subject pay for a scan the gate is
+    /// about to render pointless.
+    ///
+    /// Source-asserted because the property IS a source ordering, and this is
+    /// the form of that assertion which can fail: move the read above the gate
+    /// and the two offsets swap. (`find` takes the first occurrence of each, so
+    /// the earliest mention of either is what is compared.)
+    ///
+    /// # What used to be here, and why it is gone
+    ///
+    /// This test also asserted that `score_and_emit` "returns
+    /// `StandingUnreadable` before reaching `emit_attestation_self`" — by
+    /// checking that the *string* `ScoreOutcome::StandingUnreadable` occurred
+    /// somewhere in the source ahead of the emit. **That assertion could not
+    /// fail.** Mutation D — hang the early return off the wrong arm, so an
+    /// unreadable read falls through and authors — leaves the string exactly
+    /// where it was, and the gate stayed green over the restored bug.
+    ///
+    /// It is not replaced by a stricter source scan, because the property is not
+    /// a source property. It has two better owners now:
+    ///
+    /// - the TYPE, which no longer admits the silent form of the regression at
+    ///   all (see [`StandingRows`]); and
+    /// - `an_unreadable_standing_read_is_not_nothing_standing` in
+    ///   `tests/capacity_scorer.rs`, which breaks the read against a real
+    ///   backend and counts the rows in the corpus — measuring the suppression
+    ///   rather than looking for a name. Its own justification for being
+    ///   source-asserted ("no return value distinguishes suppressed from would
+    ///   have suppressed") was simply untrue: `run_pass` returns the emitted
+    ///   count, and the corpus is countable.
+    #[test]
+    fn the_consent_gate_is_asked_before_the_standing_rows_read() {
+        let src = std::fs::read_to_string(
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src/scorer.rs"),
+        )
+        .expect("readable");
+        let code = src.split("#[cfg(test)]").next().expect("code");
+        let body = code
+            .split_once("async fn score_and_emit")
+            .expect("score_and_emit must exist")
+            .1;
+        let consent_at = body
+            .find("resolve_scoped_consent")
+            .expect("the CC#46 gate must exist");
+        let standing_at = body
+            .find("live_capacity_rows")
+            .expect("the standing-rows read must exist");
+        assert!(
+            consent_at < standing_at,
+            "the standing-rows read runs BEFORE the CC#46 consent gate, so a subject who \
+             declined can be reported as a capacity-plane read failure — and an unconsented \
+             subject pays for a capacity scan the gate is about to make pointless"
+        );
     }
 }
 

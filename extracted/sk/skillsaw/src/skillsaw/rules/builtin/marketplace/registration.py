@@ -10,6 +10,7 @@ from skillsaw.rule import Rule, RuleViolation, Severity, AutofixResult, AutofixC
 from skillsaw.context import RepositoryContext, RepositoryType
 from skillsaw.lint_target import MarketplaceConfigNode, PluginNode
 from skillsaw.rules.builtin.marketplace.json_valid import is_valid_plugin_root
+from skillsaw.paths import safe_resolve
 
 
 def _mutable_marketplace_data(original: str) -> Optional[dict]:
@@ -48,7 +49,9 @@ def _source_base(context: RepositoryContext, data: dict) -> Path:
     if isinstance(metadata, dict) and isinstance(metadata.get("pluginRoot"), str):
         plugin_root = metadata["pluginRoot"]
         if is_valid_plugin_root(plugin_root):
-            return (context.root_path / plugin_root).resolve()
+            return safe_resolve((context.root_path / plugin_root)) or (
+                context.root_path / plugin_root
+            )
     return context.root_path
 
 
@@ -73,9 +76,15 @@ class MarketplaceRegistrationRule(Rule):
 
     repo_types = {RepositoryType.MARKETPLACE}
 
+    # Codex-only plugins are published through the Codex catalog, not the
+    # Claude marketplace — codex-marketplace-registration owns them.
+    provenance_scope = "claude"
+
+    aliases = ("marketplace-registration",)
+
     @property
     def rule_id(self) -> str:
-        return "marketplace-registration"
+        return "claude-marketplace-registration"
 
     @property
     def description(self) -> str:
@@ -98,7 +107,7 @@ class MarketplaceRegistrationRule(Rule):
         marketplace_file = config_nodes[0].path
 
         unregistered = []
-        for plugin_node in context.lint_tree.find(PluginNode):
+        for plugin_node in self.scoped_find(context, PluginNode):
             plugin_name = context.get_plugin_name(plugin_node.path)
 
             if not context.is_registered_in_marketplace(plugin_name):

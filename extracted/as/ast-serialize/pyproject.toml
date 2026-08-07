@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "ast_serialize"
-version = "0.6.0"
+version = "0.7.0"
 description = "Python bindings for mypy AST serialization"
 readme = {text = """
 ast_serialize - Python Parser and AST Serializer
@@ -32,6 +32,7 @@ classifiers = [
 ]
 requires-python = ">=3.7"
 license = "MIT"
+license-files = ["LICENSE", "crates/LICENSE"]
 
 [project.urls]
 Homepage = "https://github.com/mypyc/ast_serialize"

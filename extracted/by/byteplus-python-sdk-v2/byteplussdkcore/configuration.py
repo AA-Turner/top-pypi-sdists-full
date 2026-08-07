@@ -86,7 +86,7 @@ class Configuration(six.with_metaclass(TypeWithDefault, object)):
         self.ak = ""
         self.sk = ""
         self.session_token = ""
-        self.region = ""
+        self.region = "ap-southeast-1"
 
         # Logging Settings
         self.logger = {}
@@ -287,7 +287,7 @@ class Configuration(six.with_metaclass(TypeWithDefault, object)):
                "OS: {env}\n" \
                "Python Version: {pyversion}\n" \
                "Version of the API: 0.1.0\n" \
-               "SDK Package Version: 3.0.57".\
+               "SDK Package Version: 3.0.58".\
             format(env=sys.platform, pyversion=sys.version)
 
     @property

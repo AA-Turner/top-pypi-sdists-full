@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: mypy-boto3-bedrock-agentcore-control
-Version: 1.43.65
-Summary: Type annotations for boto3 BedrockAgentCoreControl 1.43.65 service generated with mypy-boto3-builder 8.12.0
+Version: 1.43.66
+Summary: Type annotations for boto3 BedrockAgentCoreControl 1.43.66 service generated with mypy-boto3-builder 8.12.0
 Author-email: Vlad Emelianov <vlad.emelianov.nz@gmail.com>
 License-Expression: MIT
 Project-URL: Homepage, https://github.com/youtype/mypy_boto3_builder
@@ -43,7 +43,7 @@ Dynamic: license-file
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
 Type annotations for
-[boto3 BedrockAgentCoreControl 1.43.65](https://pypi.org/project/boto3/)
+[boto3 BedrockAgentCoreControl 1.43.66](https://pypi.org/project/boto3/)
 compatible with [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -106,7 +106,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.43.65' mypy-boto3-builder`
+   `uvx --with 'boto3==1.43.66' mypy-boto3-builder`
 2. Select `boto3-stubs` AWS SDK.
 3. Add `BedrockAgentCoreControl` service.
 4. Use provided commands to install generated packages.
@@ -343,11 +343,13 @@ from boto3.session import Session
 from mypy_boto3_bedrock_agentcore_control import BedrockAgentCoreControlClient
 from mypy_boto3_bedrock_agentcore_control.paginator import (
     ListAgentRuntimeEndpointsPaginator,
+    ListAgentRuntimeVersionsByCapacityProviderPaginator,
     ListAgentRuntimeVersionsPaginator,
     ListAgentRuntimesPaginator,
     ListApiKeyCredentialProvidersPaginator,
     ListBrowserProfilesPaginator,
     ListBrowsersPaginator,
+    ListCapacityProvidersPaginator,
     ListCodeInterpretersPaginator,
     ListConfigurationBundleVersionsPaginator,
     ListConfigurationBundlesPaginator,
@@ -355,6 +357,7 @@ from mypy_boto3_bedrock_agentcore_control.paginator import (
     ListDatasetVersionsPaginator,
     ListDatasetsPaginator,
     ListEvaluatorsPaginator,
+    ListGatewayRateLimitsPaginator,
     ListGatewayRulesPaginator,
     ListGatewayTargetsPaginator,
     ListGatewaysPaginator,
@@ -386,6 +389,9 @@ client: BedrockAgentCoreControlClient = Session().client("bedrock-agentcore-cont
 list_agent_runtime_endpoints_paginator: ListAgentRuntimeEndpointsPaginator = client.get_paginator(
     "list_agent_runtime_endpoints"
 )
+list_agent_runtime_versions_by_capacity_provider_paginator: ListAgentRuntimeVersionsByCapacityProviderPaginator = client.get_paginator(
+    "list_agent_runtime_versions_by_capacity_provider"
+)
 list_agent_runtime_versions_paginator: ListAgentRuntimeVersionsPaginator = client.get_paginator(
     "list_agent_runtime_versions"
 )
@@ -399,6 +405,9 @@ list_browser_profiles_paginator: ListBrowserProfilesPaginator = client.get_pagin
     "list_browser_profiles"
 )
 list_browsers_paginator: ListBrowsersPaginator = client.get_paginator("list_browsers")
+list_capacity_providers_paginator: ListCapacityProvidersPaginator = client.get_paginator(
+    "list_capacity_providers"
+)
 list_code_interpreters_paginator: ListCodeInterpretersPaginator = client.get_paginator(
     "list_code_interpreters"
 )
@@ -416,6 +425,9 @@ list_dataset_versions_paginator: ListDatasetVersionsPaginator = client.get_pagin
 )
 list_datasets_paginator: ListDatasetsPaginator = client.get_paginator("list_datasets")
 list_evaluators_paginator: ListEvaluatorsPaginator = client.get_paginator("list_evaluators")
+list_gateway_rate_limits_paginator: ListGatewayRateLimitsPaginator = client.get_paginator(
+    "list_gateway_rate_limits"
+)
 list_gateway_rules_paginator: ListGatewayRulesPaginator = client.get_paginator("list_gateway_rules")
 list_gateway_targets_paginator: ListGatewayTargetsPaginator = client.get_paginator(
     "list_gateway_targets"

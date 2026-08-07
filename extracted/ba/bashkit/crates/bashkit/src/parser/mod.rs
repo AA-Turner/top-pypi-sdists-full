@@ -42,7 +42,7 @@ const DEFAULT_MAX_AST_DEPTH: usize = 100;
 /// stack in debug builds). Each parser recursion level uses ~4-8KB of stack in debug
 /// mode. 100 levels × ~8KB = ~800KB, well within 2MB.
 /// In release builds this could safely be higher, but we use one value for consistency.
-const HARD_MAX_AST_DEPTH: usize = 100;
+pub(crate) const HARD_MAX_AST_DEPTH: usize = 100;
 
 /// Default maximum parser operations (matches ExecutionLimits default)
 const DEFAULT_MAX_PARSER_OPERATIONS: usize = 100_000;
@@ -73,6 +73,8 @@ pub struct Parser<'a> {
     /// when a `$(...)` body fails to parse; `parse_script` converts it into a
     /// hard parse error so the script is rejected the way bash rejects it.
     deferred_error: Cell<Option<Error>>,
+    /// Aggregate request budget shared by every child parser.
+    execution_budget: Option<crate::limits::ExecutionBudget>,
 }
 
 impl<'a> Parser<'a> {
@@ -93,9 +95,9 @@ impl<'a> Parser<'a> {
 
     /// Create a new parser with custom depth and fuel limits.
     ///
-    /// THREAT[TM-DOS-022]: `max_depth` is clamped to `HARD_MAX_AST_DEPTH` (500)
+    /// THREAT[TM-DOS-022]: `max_depth` is clamped to `HARD_MAX_AST_DEPTH` (100)
     /// to prevent stack overflow from misconfiguration. Even if the caller passes
-    /// `max_depth = 1_000_000`, the parser will cap it at 500.
+    /// `max_depth = 1_000_000`, the parser will cap it at 100.
     pub fn with_limits(input: &'a str, max_depth: usize, max_fuel: usize) -> Self {
         Self::with_limits_and_timeout(input, max_depth, max_fuel, None)
     }
@@ -126,7 +128,14 @@ impl<'a> Parser<'a> {
             timeout,
             started_at: Instant::now(),
             deferred_error: Cell::new(None),
+            execution_budget: None,
         }
+    }
+
+    /// Attach the non-resettable aggregate budget for this request.
+    pub fn with_execution_budget(mut self, budget: crate::limits::ExecutionBudget) -> Self {
+        self.execution_budget = Some(budget);
+        self
     }
 
     /// Get the current token's span.
@@ -174,6 +183,9 @@ impl<'a> Parser<'a> {
 
     /// Consume one unit of fuel, returning an error if exhausted
     fn tick(&mut self) -> Result<()> {
+        if let Some(budget) = &self.execution_budget {
+            budget.consume_work(1)?;
+        }
         if let Some(timeout) = self.timeout
             && self.started_at.elapsed() > timeout
         {
@@ -195,6 +207,9 @@ impl<'a> Parser<'a> {
     /// charge each copied character so repeated heredocs cannot hide quadratic work
     /// outside parser fuel accounting.
     fn tick_units(&mut self, units: usize) -> Result<()> {
+        if let Some(budget) = &self.execution_budget {
+            budget.consume_work(u64::try_from(units).unwrap_or(u64::MAX))?;
+        }
         if let Some(timeout) = self.timeout
             && self.started_at.elapsed() > timeout
         {
@@ -1324,37 +1339,82 @@ impl<'a> Parser<'a> {
         }))
     }
 
-    /// Parse a time command: time [-p] [command]
-    ///
-    /// The time keyword measures execution time of the following command.
-    /// Note: Bashkit only tracks wall-clock time, not CPU user/sys time.
+    /// Parse the reserved-word pipeline form, plus the useful GNU report flags.
     fn parse_time(&mut self) -> Result<CompoundCommand> {
         let start_span = self.current_span;
         self.advance(); // consume 'time'
         self.skip_newlines()?;
 
-        // Check for -p flag (POSIX format)
-        let posix_format = if let Some(tokens::Token::Word(w)) = &self.current_token {
-            if w == "-p" {
+        let mut posix_format = false;
+        let mut format = None;
+        let mut output = None;
+        let mut append = false;
+        let mut verbose = false;
+        let mut option_error = None;
+
+        while let Some(option) = self.current_word_str() {
+            if option == "--" {
                 self.advance();
                 self.skip_newlines()?;
-                true
-            } else {
-                false
+                break;
             }
-        } else {
-            false
-        };
+            if !option.starts_with('-') || option == "-" {
+                break;
+            }
 
-        // Parse the command to time (if any)
-        // time with no command is valid in bash (just outputs timing header)
+            self.advance();
+            match option.as_str() {
+                "-p" => posix_format = true,
+                "-a" | "--append" => append = true,
+                "-v" | "--verbose" => verbose = true,
+                "-f" | "--format" => {
+                    format = self.current_word_to_word();
+                    if format.is_some() {
+                        self.advance();
+                    } else {
+                        option_error = Some(format!("option '{option}' requires an argument"));
+                    }
+                }
+                "-o" | "--output" => {
+                    output = self.current_word_to_word();
+                    if output.is_some() {
+                        self.advance();
+                    } else {
+                        option_error = Some(format!("option '{option}' requires an argument"));
+                    }
+                }
+                _ if option.starts_with("--format=") => {
+                    format = Some(Word::literal(option[9..].to_string()));
+                }
+                _ if option.starts_with("--output=") => {
+                    output = Some(Word::literal(option[9..].to_string()));
+                }
+                _ if option.starts_with("-f") && option.len() > 2 => {
+                    format = Some(Word::literal(option[2..].to_string()));
+                }
+                _ if option.starts_with("-o") && option.len() > 2 => {
+                    output = Some(Word::literal(option[2..].to_string()));
+                }
+                _ => option_error = Some(format!("unrecognized option '{option}'")),
+            }
+            self.skip_newlines()?;
+            if option_error.is_some() {
+                break;
+            }
+        }
+
         let command = self.parse_pipeline()?;
 
-        Ok(CompoundCommand::Time(TimeCommand {
+        Ok(CompoundCommand::Time(Box::new(TimeCommand {
             posix_format,
+            format,
+            output,
+            append,
+            verbose,
+            option_error,
             command: command.map(Box::new),
             span: start_span.merge(self.current_span),
-        }))
+        })))
     }
 
     /// Parse a coproc command: `coproc [NAME] command`
@@ -2885,6 +2945,7 @@ impl<'a> Parser<'a> {
                         self.fuel,
                         self.timeout,
                     );
+                    inner_parser.execution_budget = self.execution_budget.clone();
                     inner_parser.current_depth = self.current_depth + 1;
                     inner_parser.started_at = self.started_at;
                     let result = inner_parser.parse_script();
@@ -3071,8 +3132,9 @@ impl<'a> Parser<'a> {
                         // THREAT[TM-DOS-021]: Propagate parent parser limits to child parser
                         // to prevent depth limit bypass via nested command substitution.
                         let remaining_depth = self.max_depth.saturating_sub(self.current_depth);
-                        let inner_parser =
+                        let mut inner_parser =
                             Parser::with_limits(&cmd_str, remaining_depth, self.fuel);
+                        inner_parser.execution_budget = self.execution_budget.clone();
                         // A failed inner parse must never make the part vanish:
                         // dropping it splices the literals on either side into a
                         // word that appears nowhere in the source (`a$(|)b` ->

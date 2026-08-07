@@ -255,7 +255,11 @@ pub async fn serve_with_adapter(cfg: ServerConfig, adapter: Arc<dyn Adapter>) ->
 
     // Seed the node's federation identity into the graph so the client's Graph page
     // is never empty on a fresh install (mirrors the agent's agent/identity seed).
-    crate::memory_api::seed_identity_graph(&engine, &cfg.key_id, "node").await;
+    // No key id is passed: the identity written into the graph is resolved from
+    // the ENGINE that will sign as it (CIRISServer#372 Level 2). `cfg.key_id` is
+    // that same value on this path — it was re-derived above — but a value that
+    // *happens* to agree is not the same fact as a value that *cannot* disagree.
+    crate::memory_api::seed_identity_graph(&engine, "node").await;
 
     // Project persist's rich CEG state (owner-binding, owned nodes, the humanity
     // accord family + holders, canonical servers, every config:* value, and the
@@ -263,7 +267,7 @@ pub async fn serve_with_adapter(cfg: ServerConfig, adapter: Arc<dyn Adapter>) ->
     // nodes + edges — so the client's Graph page is a contextual mesh of
     // AttestationCards, not a single lonely identity node (CIRISServer#127++).
     // Idempotent, version-safe, fail-secure (a projection error only logs).
-    crate::memory_api::seed_ceg_graph(&engine, &cfg.key_id).await;
+    crate::memory_api::seed_ceg_graph(&engine).await;
 
     crate::compose_status::phase("config_resolution");
     // ── CONFIG-AS-CEG resolution (Server 0.5 Phase 2) ─────────────────────────
@@ -666,6 +670,28 @@ pub async fn serve_with_adapter(cfg: ServerConfig, adapter: Arc<dyn Adapter>) ->
         config_sd_rx,
     );
 
+    // ── The MESH-CONFIG consumer refresh loop (CIRISServer#365) ───────────────
+    // The FEDERATION-scoped sibling of the loop above, and a different plane
+    // entirely: `config:*` is what this node's OWNER set (SELF, #324);
+    // `mesh_config:{key}` is what a subscribed TRUST ROOT set, folded
+    // most-restrictive across roots with expired rows dropped at read time.
+    //
+    // It exists because #365 found the plane operable and NOT EFFECTIVE — nine
+    // keys, and this repo had a caller for none, so an operator could set a
+    // relief, watch it admit, watch its TTL count down, and change nothing. Two
+    // consumers read this handle below: the lens read API's serve fidelity
+    // (`backpressure.summary_only`) and the HTTP trace-ingest relay
+    // (`feature.trace_replication`). It folds once here, so the first request
+    // already sees the plane, and re-folds on its own cadence, which is what
+    // makes an expiring relief actually expire.
+    let (mesh_config_sd_tx, mesh_config_sd_rx) = watch::channel(false);
+    let (mesh_config_effect, mesh_config_join) = crate::mesh_config_effect::spawn(
+        Arc::clone(&engine),
+        cfg.key_id.clone(),
+        mesh_config_sd_rx,
+    )
+    .await;
+
     // ── The responsible-USER signer for POST /v1/setup/claim-remote is no longer
     //    resolved at boot (it would be absent on a fresh node — the fed-ID is minted
     //    DURING the first-run wizard). The claim-remote router resolves it at request
@@ -694,7 +720,7 @@ pub async fn serve_with_adapter(cfg: ServerConfig, adapter: Arc<dyn Adapter>) ->
         );
     }
     let read = {
-        let read = LensCore::read_api_with_extra(
+        let read = LensCore::read_api_with_extra_at_fidelity(
             Arc::clone(&engine),
             cfg.read_api_addr(),
             PeerAcl::AllowAll,
@@ -853,7 +879,6 @@ pub async fn serve_with_adapter(cfg: ServerConfig, adapter: Arc<dyn Adapter>) ->
                     .merge(
                         crate::auth::portable_occurrence::router(
                             Arc::clone(&engine),
-                            node_code.key_id.clone(),
                             Arc::new(cfg.clone()),
                         )
                         .layer(axum::middleware::from_fn(
@@ -916,10 +941,18 @@ pub async fn serve_with_adapter(cfg: ServerConfig, adapter: Arc<dyn Adapter>) ->
                     // second time on a persist-side delegation scope
                     // (`review` / `moderate` / `slash`) re-walked from this
                     // node's own verified state.
-                    .merge(crate::admin_ops::router(
-                        Arc::clone(&engine),
-                        cfg.key_id.clone(),
-                    ))
+                    //
+                    // Plus the two rungs that do not act on someone else
+                    // (CIRISServer#345): tier S — /v1/admin/self, the three
+                    // self-directed standings and the six acts that move them,
+                    // the only rung reachable under partition — and tier R —
+                    // /v1/admin/reader/*, this reader's own accept/refuse
+                    // policy over other parties' judgements. Both take the
+                    // OWNER's own `infra:serve` grant, not a third party's.
+                    //
+                    // #372: takes no key id. The surface resolves the identity
+                    // its own signer uses; a CLI label cannot disagree with it.
+                    .merge(crate::admin_ops::router(Arc::clone(&engine)))
                     // THE MESH CONFIGURATION SURFACE (CIRISServer#346, the
                     // fourth tab): GET /v1/mesh-config (effective values,
                     // provenance, counting-down TTLs, the closed key registry)
@@ -931,7 +964,23 @@ pub async fn serve_with_adapter(cfg: ServerConfig, adapter: Arc<dyn Adapter>) ->
                     // substrate reversal needs no edit here. Reads are gated on
                     // the delegatable `read_node_state` verb; writes on the
                     // never-delegatable `wipe` verb, as the graded ladder is.
-                    .merge(crate::mesh_config_surface::router(
+                    .merge(crate::mesh_config_surface::router(Arc::clone(&engine)))
+                    // THE COMMONS SURFACE (CIRISServer#367): GET
+                    // /v1/commons/standing + POST /v1/commons/{objections,
+                    // ballots,dismissals}. Consent protects the private plane
+                    // structurally and gives the commons nothing, because in
+                    // the commons everyone has already consented to look — so
+                    // the commons polices itself by reverse quorum. ONE
+                    // objection raises the brake; the cohort's own m-of-n
+                    // lifts it; silence past the steward deadline escalates to
+                    // a quorum of RESPONDENTS rather than of the roster, which
+                    // is what lets a quiet community still resolve. Every
+                    // threshold, window and verdict is persist's
+                    // `resolve_reverse_quorum`, folded at read time; this node
+                    // encodes none of them. Reads on the delegatable
+                    // `read_node_state` verb, writes on the never-delegatable
+                    // `wipe` verb — a session gate, never a second threshold.
+                    .merge(crate::commons_surface::router(
                         Arc::clone(&engine),
                         cfg.key_id.clone(),
                     ))
@@ -985,6 +1034,12 @@ pub async fn serve_with_adapter(cfg: ServerConfig, adapter: Arc<dyn Adapter>) ->
                             // must not make it gossip/halt-loop back to itself).
                             peers: accord_peers.clone(),
                             exit_on_halt: true,
+                            // #347: the latch's release binding names THIS node,
+                            // so an offline release token is not replayable
+                            // against any other node in the mesh. `cfg.key_id` is
+                            // the FSD-003 fingerprinted federation identity by
+                            // this point (derived above from the ed25519 pubkey).
+                            node_id: Some(cfg.key_id.clone()),
                         },
                     ))
                     // ACCORD-HOLDER PROVISIONING (CIRISServer#41, the safe-mesh
@@ -1013,10 +1068,7 @@ pub async fn serve_with_adapter(cfg: ServerConfig, adapter: Arc<dyn Adapter>) ->
                     // data was there; the route was missing → 404). Read-only,
                     // unauthenticated like the other directory read surfaces;
                     // excludes the node's own self key.
-                    .merge(crate::federation_peers::router(
-                        Arc::clone(&engine),
-                        cfg.key_id.clone(),
-                    ))
+                    .merge(crate::federation_peers::router(Arc::clone(&engine)))
                     // THE AGENT-COMPAT FEDERATION EDGE SURFACE (CIRISServer#261):
                     // GET /v1/federation/identity + /metrics, POST
                     // /v1/federation/content/{content_id}, and the SSE bridge
@@ -1031,7 +1083,6 @@ pub async fn serve_with_adapter(cfg: ServerConfig, adapter: Arc<dyn Adapter>) ->
                     // agent's SYSTEM_ADMIN gate.
                     .merge(crate::federation_surface::router(
                         Arc::clone(&engine),
-                        cfg.key_id.clone(),
                         Arc::clone(&edge),
                     ))
                     // THE OPERATOR SURFACE (CIRISServer#356): GET /v1/node/state
@@ -1045,10 +1096,39 @@ pub async fn serve_with_adapter(cfg: ServerConfig, adapter: Arc<dyn Adapter>) ->
                     // is never "nothing to report". Read-only on every arm —
                     // persist's fold uses the read-only overdue query, so a
                     // dashboard may poll it at any rate without writing a row.
-                    .merge(crate::operator_surface::router(
+                    // CIRISServer#369/#370 — the two 2026-08-05 detection gaps
+                    // ride the same read: `trace_plane` bands when a trace was
+                    // last ADMITTED (the one thing this node exists to do, and
+                    // the one thing that was unwatched when the plane died for
+                    // two days), and `ingest` reads the refusal rate + the
+                    // DISTINCT refused signers off the very ledger the ingest
+                    // route below counts into. Same handle both sides — a
+                    // second ledger would be a second answer to one question,
+                    // which is why the two are no longer mounted separately:
+                    // `trace_plane_router` MINTS the ledger and hands it to
+                    // both halves, so a composition cannot give them different
+                    // ones. It also mounts the HTTP TRACE INGEST routes:
+                    // POST /lens-api/api/v1/accord/events (legacy path,
+                    // forwarded verbatim by the Caddy bridge) + POST
+                    // /v1/ingest/accord-events (canonical alias). The agent's
+                    // CIRIS-AccordMetrics/1.0 emitter ships a signed
+                    // AccordEventsBatch JSON; this feeds it to the SAME
+                    // Engine::receive_and_persist verify-before-persist path
+                    // the Reticulum relay uses (LensCoreHandler).
+                    // Unauthenticated like the relay — the per-trace CEG
+                    // signature IS the auth.
+                    //
+                    // CIRISServer#365: the ingest half carries the live
+                    // mesh-config reading, so a trust root that sets
+                    // `feature.trace_replication = 0` pauses this node's
+                    // heaviest inbound plane — refused before verification,
+                    // nothing persisted, lifting itself when the relief's TTL
+                    // closes.
+                    .merge(crate::operator_surface::trace_plane_router(
                         Arc::clone(&engine),
                         cfg.key_id.clone(),
                         Some(edge.metrics()),
+                        mesh_config_effect.clone(),
                     ))
                     // MEMORY READ SURFACE (agent-compat Memory + GraphMemory cards):
                     // GET /v1/memory/stats, GET /v1/memory/timeline, POST /v1/memory/query,
@@ -1063,16 +1143,7 @@ pub async fn serve_with_adapter(cfg: ServerConfig, adapter: Arc<dyn Adapter>) ->
                     .merge(crate::telemetry_logs::router(cfg.home.join("logs")))
                     // Data page: owner-gated data wipe (reset-account = data-only;
                     // wipe-signing-key = data+keys) + GET /v1/my-data/lens-identifier.
-                    .merge(crate::system_data::router(Arc::clone(&engine), cfg.clone()))
-                    // HTTP TRACE INGEST (the listen+1 relay runbook §3.4 promised):
-                    // POST /lens-api/api/v1/accord/events (legacy path, forwarded
-                    // verbatim by the Caddy bridge) + POST /v1/ingest/accord-events
-                    // (canonical alias). The agent's CIRIS-AccordMetrics/1.0 emitter
-                    // ships a signed AccordEventsBatch JSON; this feeds it to the
-                    // SAME Engine::receive_and_persist verify-before-persist path the
-                    // Reticulum relay uses (LensCoreHandler). Unauthenticated like the
-                    // relay — the per-trace CEG signature IS the auth.
-                    .merge(crate::ingest_http::router(Arc::clone(&engine)));
+                    .merge(crate::system_data::router(Arc::clone(&engine), cfg.clone()));
                 // ── ADAPTER SEAM (get_services_to_register) ──────────────────
                 // Fold the downstream adapter's HTTP surface onto the SAME
                 // read-API listener, AFTER all built-in routers. NoopAdapter
@@ -1101,8 +1172,49 @@ pub async fn serve_with_adapter(cfg: ServerConfig, adapter: Arc<dyn Adapter>) ->
                 // enforced BEFORE any dispatch, so mounting the full surface here
                 // widens nothing.
                 let _ = mesh_dispatch_router.set(r.clone());
+                // CIRISServer#369 follow-on — THE PERIODIC READER.
+                //
+                // #369 built the trace-plane liveness band and #370 the refusal
+                // reading, and `GET /v1/node/state` renders both. But that
+                // surface is PULL. This process runs seven periodic loops —
+                // retention, scorer, config reconcile, replication reconcile,
+                // federation delivery, equivocation, mesh-config refresh — and
+                // not one of them asks whether the plane this node exists to
+                // receive on is alive. A node running only those would hold a
+                // correct red band that nobody requested, which is the
+                // 2026-08-05 outage moved up one level: the signal exists and
+                // has no reader.
+                //
+                // Spawned HERE, after the router chain, because
+                // `ingest_http::router` publishes the ledger to `held()` at
+                // construction — asking earlier would hand the watch `None` and
+                // degrade an honest reading into `unreadable`.
+                crate::trace_plane_watch::spawn(Arc::clone(&engine), crate::ingest_http::held());
                 r
             },
+            // CIRISServer#365 — `backpressure.summary_only`, the serve path's
+            // half. The frozen `/lens/api/v1/*` read API is the ONE row-serving
+            // surface this build mounts, and under a trust root's backpressure
+            // relief it thins each row to its summary (identity, detector,
+            // severity, timestamp) and withholds the opaque per-score payload,
+            // marking that it did so. Invoked PER REQUEST off the live fold, so
+            // the relief arrives — and expires — with no restart.
+            //
+            // lens-core reads no mesh-config plane of its own: it is handed a
+            // verdict. Deciding what an UNREADABLE plane means belongs to the
+            // half that reads it, and it means `Full` — the owner default, and
+            // what this API served before the knob existed.
+            Some({
+                let effect = mesh_config_effect.clone();
+                Arc::new(move || match effect.serve_fidelity() {
+                    crate::mesh_config_effect::ServeFidelity::Full => {
+                        ciris_lens_core::RowFidelity::Full
+                    }
+                    crate::mesh_config_effect::ServeFidelity::SummaryOnly => {
+                        ciris_lens_core::RowFidelity::SummaryOnly
+                    }
+                }) as ciris_lens_core::ServeFidelityProvider
+            }),
         )
         .await
         .context("start read API")?;
@@ -1242,6 +1354,10 @@ pub async fn serve_with_adapter(cfg: ServerConfig, adapter: Arc<dyn Adapter>) ->
     // first would race its shutdown branch against a `changed()` error break.
     let _ = retention_sd_tx.send(true);
     let _ = retention_join.await;
+    // Tear down the mesh-config consumer refresh loop (CIRISServer#365). Its
+    // readers (the read API, the ingest router) are already gone by here.
+    let _ = mesh_config_sd_tx.send(true);
+    let _ = mesh_config_join.await;
     // Tear down the CEG-driven config reconcile loop (Server 0.5 Phase 2).
     let _ = config_sd_tx.send(true);
     let _ = config_reconcile_join.await;

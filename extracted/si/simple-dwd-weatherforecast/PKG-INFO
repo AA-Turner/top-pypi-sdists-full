@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: simple_dwd_weatherforecast
-Version: 3.4.7
+Version: 3.5.0
 Summary: A simple tool to retrieve a weather forecast from DWD OpenData
 Home-page: https://github.com/FL550/simple_dwd_weatherforecast.git
 Author: Max Fermor

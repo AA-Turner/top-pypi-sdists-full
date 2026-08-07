@@ -1,6 +1,6 @@
 [project]
 name = "django-unfold"
-version = "0.102.0"
+version = "0.103.0"
 description = "Modern Django Admin"
 authors = []
 requires-python = ">=3.12,<4.0"
@@ -41,8 +41,9 @@ dev = [
     "django-import-export~=4.4.1",
     "django-location-field~=2.7.3",
     "django-money~=3.6.1",
-    "django-simple-history==3.13.0",
+    "django-simple-history~=3.13.0",
     "django-stubs~=6.0.7",
+    "django-waffle~=5.0.0",
     "pillow~=12.3.0",
     "pytest~=9.1.1",
     "pytest-cov~=7.1.0",
@@ -103,6 +104,7 @@ ignore = [
     "C901",    # too complex
     "PLC0415", # `import` should be at the top-level of a file
     "PLR0913", # Too many arguments in function definition
+    "PLR0917", # Too many positional arguments
 ]
 
 [tool.semantic_release]

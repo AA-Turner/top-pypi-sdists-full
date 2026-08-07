@@ -18192,16 +18192,6 @@ class mode(String, AllowedValuesMixin):
     FDM: Final[str] = 'fdm'
     _allowed_values: list[str]
 
-class cl_cd_interpolation_model(String, AllowedValuesMixin):
-    exposure_level: ExposureLevel
-    _version: str
-    fluent_name: str
-    _python_name: str
-    AVE: Final[str] = 'ave'
-    IDW: Final[str] = 'idw'
-    RBF: Final[str] = 'rbf'
-    _allowed_values: list[str]
-
 class name_9(String):
     exposure_level: ExposureLevel
     _version: str
@@ -18455,6 +18445,24 @@ class tip_loss(Group):
     tip_loss_limit: tip_loss_limit
     prandtl_tuning_coefficient: prandtl_tuning_coefficient
 
+class cl_cd_interpolation_model(String, AllowedValuesMixin):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+    AVERAGE: Final[str] = 'Average'
+    IDW: Final[str] = 'IDW'
+    RBF: Final[str] = 'RBF'
+    _allowed_values: list[str]
+
+class cl_cd_interpolation(Group):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+    child_names: list[str]
+    cl_cd_interpolation_model: cl_cd_interpolation_model
+
 class general_1(Group):
     exposure_level: ExposureLevel
     _version: str
@@ -18468,6 +18476,7 @@ class general_1(Group):
     blade_pitch_angles: blade_pitch_angles
     blade_flap_angles: blade_flap_angles
     tip_loss: tip_loss
+    cl_cd_interpolation: cl_cd_interpolation
 
 class name_11(String):
     exposure_level: ExposureLevel
@@ -18716,7 +18725,6 @@ class virtual_blade_model(Group):
     command_names: list[str]
     enabled: enabled_27
     mode: mode
-    cl_cd_interpolation_model: cl_cd_interpolation_model
     rotor: rotor
     def apply(self):
         """
@@ -87713,6 +87721,12 @@ class invert_normals_for_avz(Boolean):
     fluent_name: str
     _python_name: str
 
+class export_all_windows(Boolean):
+    exposure_level: ExposureLevel
+    _version: str
+    fluent_name: str
+    _python_name: str
+
 class picture(Group):
     exposure_level: ExposureLevel
     _version: str
@@ -87732,6 +87746,7 @@ class picture(Group):
     standard_resolution: standard_resolution
     jpeg_hardcopy_quality: jpeg_hardcopy_quality
     invert_normals_for_avz: invert_normals_for_avz
+    export_all_windows: export_all_windows
     def preview(self):
         """
         Display a preview image of a hardcopy.

@@ -84,12 +84,12 @@ and anything under a ``testdata/`` directory at any depth (bundled
 scripts routinely ship self-tests and fixtures nothing documents —
 e.g. ai-helpers' ``scripts/test_validate.py`` + ``scripts/testdata/``),
 hidden files or directories, and symlinks (which are also never
-followed).  The ``exclude`` config option adds glob patterns on top of
+followed). The ``exclude`` config option adds glob patterns on top of
 (not replacing) these defaults.
 
-A skill-root README.md additionally counts as a reference root alongside
-SKILL.md: it is standard human-facing documentation, so a bundled file
-documented there is neither dead weight nor hidden from review.
+A skill-root README.md and OpenAI ``agents/openai.yaml`` additionally count
+as reference roots alongside SKILL.md: human-facing documentation and host
+metadata are both legitimate entrypoints into the package.
 """
 
 import ast
@@ -102,11 +102,15 @@ from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Set, Tuple
 
 from skillsaw.rule import Rule, RuleViolation, Severity
-from skillsaw.context import RepositoryContext, RepositoryType, _pattern_variants
+from skillsaw.context import RepositoryContext
 from skillsaw.lint_target import SkillNode
 from skillsaw.markdown_doc import MarkdownDoc
 from skillsaw.blocks import ContentBlock
 from skillsaw.utils import read_text
+
+from skillsaw.paths import safe_resolve
+
+from ._helpers import SKILL_REPO_TYPES, contained_skill_file
 
 # A path mention must not be embedded in a longer word/path-like token:
 # `scripts/run.py` must not match inside `myscripts/run.py` or
@@ -148,12 +152,7 @@ _PY_FENCE_INFOS = {"", "python", "py", "python3"}
 class AgentSkillUnreferencedFilesRule(Rule):
     """Detect bundled skill files that SKILL.md never references"""
 
-    repo_types = {
-        RepositoryType.AGENTSKILLS,
-        RepositoryType.SINGLE_PLUGIN,
-        RepositoryType.MARKETPLACE,
-        RepositoryType.DOT_CLAUDE,
-    }
+    repo_types = SKILL_REPO_TYPES
     since = "0.15.0"
 
     config_schema = {
@@ -202,6 +201,9 @@ class AgentSkillUnreferencedFilesRule(Rule):
             self.config_schema["directory_mention_covers"]["default"],
         )
         exclude_patterns = list(self.config.get("exclude", []) or [])
+        exclude_variants = [
+            variant for pattern in exclude_patterns for variant in context.pattern_variants(pattern)
+        ]
 
         violations: List[RuleViolation] = []
         for skill_node in context.lint_tree.find(SkillNode):
@@ -215,19 +217,26 @@ class AgentSkillUnreferencedFilesRule(Rule):
                 continue
 
             roots = [skill_md]
-            readme = skill_path / "README.md"
-            if readme.is_file():
+            # Contained, like the eval file: this README is read, and what
+            # it references suppresses findings about the skill's own
+            # files. A symlink out of the owning Codex plugin would let an
+            # arbitrary external document decide what this rule reports.
+            readme = contained_skill_file(context, skill_path, "README.md")
+            if readme is not None:
                 roots.append(readme)
+            openai_metadata = contained_skill_file(context, skill_path, "agents", "openai.yaml")
+            if openai_metadata is not None and not context.is_path_excluded(openai_metadata):
+                roots.append(openai_metadata)
             referenced = self._reachable_files(
                 skill_node, skill_path, roots, all_files, directory_covers
             )
 
-            skill_resolved = skill_path.resolve()
+            skill_resolved = safe_resolve(skill_path) or skill_path
             for file_path in all_files:
                 if file_path in referenced:
                     continue
-                rel = file_path.resolve().relative_to(skill_resolved).as_posix()
-                if self._is_excluded(rel, file_path.name, exclude_patterns):
+                rel = (safe_resolve(file_path) or file_path).relative_to(skill_resolved).as_posix()
+                if self._is_excluded(rel, file_path.name, exclude_variants):
                     continue
                 violations.append(
                     self.violation(
@@ -274,7 +283,8 @@ class AgentSkillUnreferencedFilesRule(Rule):
         return files
 
     @staticmethod
-    def _is_excluded(rel: str, name: str, extra_patterns: List[str]) -> bool:
+    def _is_excluded(rel: str, name: str, extra_variants: List[str]) -> bool:
+        """Return whether a bundled path matches built-in or configured exclusions."""
         if rel == "SKILL.md":
             return True
         if name in ("README.md", "CHANGELOG.md"):
@@ -287,13 +297,12 @@ class AgentSkillUnreferencedFilesRule(Rule):
             return True
         if "testdata" in rel.split("/")[:-1]:
             return True
-        for pattern in extra_patterns:
-            # Same gitignore-style leading-**/ expansion as the global and
-            # per-rule excludes (see context._pattern_variants, issue #322):
-            # **/generated/** must also match a top-level generated/ dir.
-            for variant in _pattern_variants(pattern):
-                if fnmatch.fnmatch(rel, variant) or fnmatch.fnmatch(name, variant):
-                    return True
+        # Same gitignore-style leading-**/ expansion as the global and
+        # per-rule excludes (see RepositoryContext.pattern_variants, issue
+        # #322): **/generated/** must also match a top-level generated/ dir.
+        for variant in extra_variants:
+            if fnmatch.fnmatch(rel, variant) or fnmatch.fnmatch(name, variant):
+                return True
         return False
 
     # -- reachability --------------------------------------------------------
@@ -307,21 +316,27 @@ class AgentSkillUnreferencedFilesRule(Rule):
         directory_covers: bool,
     ) -> Set[Path]:
         """Files referenced from the roots, following every referenced local file."""
-        skill_resolved = skill_path.resolve()
-        resolved_of = {f: f.resolve() for f in all_files}
+        skill_resolved = safe_resolve(skill_path) or skill_path
+        resolved_of = {f: (safe_resolve(f) or f) for f in all_files}
         resolved_files = set(resolved_of.values())
         rel_of = {f: resolved_of[f].relative_to(skill_resolved).as_posix() for f in all_files}
         all_dirs = self._candidate_dirs(rel_of.values())
-        block_by_path = {block.path.resolve(): block for block in skill_node.find(ContentBlock)}
+        block_by_path = {
+            (safe_resolve(block.path) or block.path): block
+            for block in skill_node.find(ContentBlock)
+        }
 
-        referenced: Set[Path] = set()
+        root_paths = {(safe_resolve(root) or root) for root in roots}
+        referenced: Set[Path] = {
+            candidate for candidate in all_files if resolved_of[candidate] in root_paths
+        }
         covered_dirs: Set[str] = set()
         queue: deque = deque(roots)
         processed: Set[Path] = set()
 
         while queue:
             source = queue.popleft()
-            resolved_source = source.resolve()
+            resolved_source = safe_resolve(source) or source
             if resolved_source in processed:
                 continue
             processed.add(resolved_source)
@@ -422,9 +437,13 @@ class AgentSkillUnreferencedFilesRule(Rule):
             target = target.split("#")[0]
             if not target:
                 continue
-            try:
-                resolved = (base_dir / target).resolve()
-            except OSError:
+            # ``safe_resolve`` rather than a bare ``.resolve()``: a symlink
+            # loop raises RuntimeError before Python 3.13 and OSError from
+            # 3.13 on, and this project supports 3.9 through 3.14. An
+            # escaping RuntimeError turns the rule into a
+            # rule-execution-error and discards all its findings.
+            resolved = safe_resolve(base_dir / target)
+            if resolved is None:
                 continue
             if not resolved.is_relative_to(skill_resolved) or resolved == skill_resolved:
                 continue

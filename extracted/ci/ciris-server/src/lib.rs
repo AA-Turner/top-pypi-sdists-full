@@ -46,6 +46,12 @@ pub mod accord_provision;
 /// `accord reactivate` op: a verified 2/3 `accord:lifecycle:active` clears the halt
 /// latch (the quorum brings the node back, never an operator restart).
 pub mod accord_reactivate;
+/// **Offline-verifiable halt release** (CIRISServer#347) — an accord-cosigned
+/// token, bound to one node and one latch instance, that a dark node verifies at
+/// boot against the BAKED accord genesis: no network, no peer, no live quorum, no
+/// database. Removes the O(nodes) physical recovery from a mistaken tier-5 halt
+/// without softening the halt (the same accord quorum authorizes both).
+pub mod accord_release;
 /// The public **adapter seam** — a Rust mirror of CIRISAgent's
 /// `BaseAdapterProtocol`. A downstream crate (e.g. CIRISStatus) implements
 /// [`adapter::Adapter`] and boots via [`serve_with_adapter`] to become
@@ -53,9 +59,12 @@ pub mod accord_reactivate;
 /// lifecycle to the SAME shared core, instead of re-composing the substrate.
 pub mod adapter;
 /// The **graded admin-op ladder, tiers 0–4** (CIRISServer#346) — owner-gated
-/// `POST /v1/admin/{preview,annotate,throttle,quarantine,descend,deadmit}` (+
-/// the three reversals) over persist's removal primitives, every mutating call
-/// committing the hash its preview returned. Public so the integration test
+/// `POST /v1/admin/{preview,annotate,throttle,quarantine,descend,deadmit,refuse-writes}`
+/// (+ the four reversals) over persist's removal primitives, every mutating call
+/// committing the hash its preview returned. `refuse-writes` is tier 4's write
+/// door (CIRISServer#375): it emits persist's AV-77 row, which is the one
+/// primitive that stops a hostile admitted peer's NEXT write — `deadmit`'s
+/// revocation is evidence a reader folds. Public so the integration test
 /// (`tests/admin_ops.rs`) can drive the router directly.
 pub mod admin_ops;
 /// The fabric auth subsystem — CIRISServer as the single auth authority
@@ -75,6 +84,16 @@ pub mod benchmarks;
 /// to the target's `POST /v1/setup/root`. The app does NO crypto. Public so the
 /// integration test (`tests/claim_remote.rs`) can drive build + apply directly.
 pub mod claim_remote;
+/// **The commons surface** (CIRISServer#367) — the owner-gated read and the
+/// three write doors onto persist's
+/// [`reverse_quorum`](ciris_persist::federation::reverse_quorum) plane:
+/// `GET /v1/commons/standing` plus `POST /v1/commons/{objections,ballots,dismissals}`.
+/// One member raises the brake, the cohort's m-of-n lifts it, and silence
+/// escalates to a quorum of respondents rather than of the roster. Every
+/// threshold is persist's, folded at read time; this module encodes none.
+/// Public so the integration test (`tests/commons_surface.rs`) can drive the
+/// router directly.
+pub mod commons_surface;
 /// **CC 4.5.2.2 `compliance-vertical`** — the machine-readable vertical/statutory
 /// compliance map (CIRISServer#159). Bakes `evidence/cc_compliance_map.tsv` (a faithful
 /// transcription of CC 4.5.2.2 + CC 8.8.5 Annex C) into the binary and parses it into
@@ -230,6 +249,12 @@ pub mod location;
 /// `cirisgraph_nodes` / `cirisgraph_edges` SQLite tables onto the client's
 /// wire contract so both cards work in server mode.
 pub mod memory_api;
+/// CIRISServer#365 — **the mesh-config CONSUMERS**: the loops in this build
+/// that read persist's `mesh_config` plane and change what they do, plus the
+/// registry the read surface's `consumed` flag is DERIVED from. A plane with no
+/// consumer confirms; this is the module that stops it lying and the module
+/// that stops it being empty.
+pub mod mesh_config_effect;
 /// CIRISServer#346 — **the Mesh Configuration surface** (the fourth tab): the
 /// owner-gated read of persist's `mesh_config:{key}` plane (effective values,
 /// provenance, counting-down TTLs, full signed history) plus the two write
@@ -312,6 +337,13 @@ pub mod retention_loop;
 /// integration test (`tests/safety.rs`) can drive the modules + routers directly.
 pub mod safety;
 pub mod scorer;
+/// **This node's own signing identity, resolved from the engine rather than
+/// accepted as a parameter** (CIRISServer#372 Level 2). The `--key-id` CLI flag
+/// is an operator LABEL; `Engine::local_derived_key_id()` is what the engine
+/// actually signs with, and in the embedded fold they differ. A surface that
+/// acts or signs as this node asks [`self_identity::resolve`] instead of taking
+/// a `node_key_id` argument a caller could disagree with.
+pub mod self_identity;
 /// The capacity score→emit pipeline — a periodic task that derives per-agent
 /// N_eff from ingested traces and emits federation-tier `capacity:*` attestations
 /// (CIRISServer federation Round 1, deliverable 2). Public so the integration
@@ -321,11 +353,52 @@ pub mod system_data;
 pub mod telemetry_logs;
 #[cfg(feature = "test-anchor")]
 mod test_bless;
+/// CIRISServer#369 follow-on — **the periodic reader for the trace-plane band.**
+/// #369 built the signal and `GET /v1/node/state` renders it, but that surface is
+/// PULL: this process runs seven periodic loops and not one of them asks whether
+/// the plane this node exists to receive on is alive. This is the eighth, and it
+/// writes the verdict to the node log — edge-triggered, so it cannot become the
+/// log volume nobody read.
+pub mod trace_plane_watch;
 // TEST-ANCHOR-ONLY QA — mint a portable trust root (accord + canonical) in
 // substrate test mode and USE it: the acceptance gate for the next persist
-// repin (CIRISPersist#486/#488). Test-only by construction.
-#[cfg(all(test, feature = "test-anchor"))]
-mod trust_root_qa;
+// repin (CIRISPersist#486/#488). It lives in `tests/trust_root_qa.rs`, NOT here,
+// and that is load-bearing: the fixture arms the process-global
+// `CIRIS_TEST_TRUST_ROOT*` vars that persist re-reads on EVERY
+// `Engine::with_signer`, so as a `#[cfg(test)]` module of this crate it raced
+// every other test in the `--lib` binary that builds an engine — silently
+// booting them against the QA roster instead of the baked genesis
+// (CIRISServer#362). An integration test is its own process, which is the only
+// scope in which those vars stop being shared. Do not move it back.
+
+/// **CIRISServer#362 tripwire.** Assert the test anchor is NOT armed in this
+/// process, so a test whose premise is "a fresh node ships the baked genesis"
+/// says *that* when the premise is violated.
+///
+/// Under `--features test-anchor`, an armed `CIRIS_TESTING_MODE` +
+/// `CIRIS_TEST_TRUST_ROOT` makes persist swap the whole accord roster and skip
+/// the baked 2-of-3 canonical seed. A test that then reads the genesis surface
+/// gets `{"servers":[]}`, or a `GenesisSeed("accord quorum unreachable: floor 1
+/// exceeds the 0 qualifying roster member(s)")` — verdicts that point at
+/// `canonical_seed.json` when the defect is in the harness. #362 cost exactly
+/// that misdirection once; this turns the next occurrence into its own name.
+///
+/// Inert without the feature (verify's `test_anchor_active` is a `false`
+/// constant there), so it costs nothing on the default surface.
+#[cfg(test)]
+pub(crate) fn assert_test_anchor_disarmed(context: &str) {
+    assert!(
+        !ciris_verify_core::test_anchor::test_anchor_active(),
+        "{context}: the test-anchor override is ARMED in this process, so persist \
+         will boot this engine against the synthesized QA roster and SKIP the baked \
+         canonical genesis seed. This is a test-harness env race, NOT a genesis \
+         defect — do not go looking in canonical_seed.json. Some test in this binary \
+         is setting CIRIS_TESTING_MODE / CIRIS_TEST_TRUST_ROOT*; those vars are \
+         process-global and persist re-reads them on every Engine::with_signer, so \
+         they belong in a dedicated integration-test binary (see \
+         tests/trust_root_qa.rs). CIRISServer#362."
+    );
+}
 /// **CC 4.1.4** — the `withdraws`:`recants` arbitrage countermeasure
 /// (CIRISServer#159). Consumer-policy behavioral analysis: per-attester
 /// precedence-collapsed `withdraws:recants` ratio over a rolling window, with a
@@ -335,6 +408,44 @@ mod trust_root_qa;
 pub mod withdraws_arbitrage;
 
 pub use config::{Mode, PeerB, ServerConfig, Slices};
+
+/// The **`derive_key_id` namespace, made a type** (CIRISServer#371).
+///
+/// `signing_key_id` was one `String` carrying identities minted by two different
+/// derivations — verify's `fedcode::derive_key_id` (what `federation_keys`
+/// registers) and CIRISAgent's agent-credits `agent-{hash[:12]}`. Every layer
+/// accepted the wrong one because at every layer it is a string that looks like
+/// a key id; it failed at a directory lookup, 8,631 times a day for 71 hours,
+/// and the trace plane was dead for two days
+/// (`FSD/RCA_INGEST_REJECTION_2026-08-05.md`).
+///
+/// Defined in the in-tree `ciris-lens-core` — the lowest crate in this workspace
+/// that stamps the value — and re-exported here so the server's own boundaries
+/// name one type.
+///
+/// The incident is now a compile error:
+///
+/// ```compile_fail
+/// use ciris_server::FederationKeyId;
+///
+/// let id: FederationKeyId = "agent-55fe8d181727".to_string().into();
+/// ```
+///
+/// …and the value that *was* posted is refused by name rather than by shrug:
+///
+/// ```
+/// use ciris_server::{FederationKeyId, KeyIdNamespaceError};
+///
+/// assert_eq!(
+///     FederationKeyId::parse("agent-55fe8d181727"),
+///     Err(KeyIdNamespaceError::AgentCredits),
+/// );
+/// assert!(FederationKeyId::parse("ciris-agent-bootstrap-25uzoxtlro").is_ok());
+/// ```
+pub use ciris_lens_core::key_id;
+pub use ciris_lens_core::key_id::{
+    classify as classify_key_id, FederationKeyId, KeyIdNamespace, KeyIdNamespaceError, NotEd25519,
+};
 
 /// The config-as-CEG schema types (Server 0.5 Phase 1) — re-exported at the crate
 /// root for downstream/test use.
@@ -1606,12 +1717,20 @@ mod python {
     /// string. Read-only on every arm; it writes NOTHING and may be polled at
     /// any rate.
     ///
-    /// # This is the COMPOSED view, and it has two halves
+    /// # This is the COMPOSED view, and it has four halves
     ///
     /// | half | source | question |
     /// |---|---|---|
     /// | `node` | persist `Engine.node_state_json()` | *how is this node* — trust root + drill freshness, key standing, quarantine, consent SLA, peer quota |
     /// | `carriage` / `receive` | edge `metrics_snapshot()` | *did anything move, and if not, what stopped it* — the withhold ledger, apply refusals |
+    /// | `trace_plane` | persist `Engine.storage_summary()` | **#369** *is the plane this node exists to receive on alive* — `last_admitted_at`, banded `live` / `quiet` / `dark` |
+    /// | `ingest` | this process's HTTP admission gate | **#370** *is the gate working overtime* — the refusal rate, the DISTINCT signers behind it, and who they are |
+    ///
+    /// `trace_plane` and `ingest` are read together. A `dark` plane beside
+    /// `stuck_producer` is a producer being correctly refused and unable to
+    /// self-correct (the 2026-08-05 condition); a `dark` plane beside `clean` or
+    /// `not_exercised` means nothing is reaching this node at all. Different
+    /// faults, different owners, same colour on the roll-up.
     ///
     /// Persist's `Engine.node_state_json()` is ONE HALF of this, not a
     /// competitor to it: this call carries that value verbatim under `node` and
@@ -1628,6 +1747,18 @@ mod python {
     /// (`never_drilled` vs `stale` — persist bands both red on purpose), and
     /// for `peer_quota` (`no_quota` / `not_exercised` / `clean`).
     ///
+    /// It holds hardest on the two readings added by the 2026-08-05 RCA.
+    /// `trace_plane.standing` separates `unreadable` (the corpus could not be
+    /// asked) from `never_admitted` (it was asked and holds nothing) from `dark`
+    /// (it holds traces and none is recent) — three different facts that a bare
+    /// `last_admitted_at` renders identically. `ingest.standing` does the same
+    /// for a refusal count, and adds the inverse rule: a LARGE number of
+    /// individually-correct refusals must name its cause too, which is why
+    /// `stuck_producer` (sustained, small stable signer set) is a different
+    /// token from `background` (churn) and from `unattributed` (refusals that
+    /// failed before there was an identity to record — `distinct_signers == 0`
+    /// is a state, not a small identity set).
+    ///
     /// # A missing edge is a READING, not an exception
     ///
     /// If the in-process Edge is not up, this still returns: `sources.edge_metrics`
@@ -1635,6 +1766,13 @@ mod python {
     /// read `unavailable`. An exception is raised only when there is no persist
     /// engine or the delivery runtime has not started — i.e. when there is
     /// nothing to compose at all.
+    ///
+    /// The same holds for `ingest`: a process that has not mounted the HTTP
+    /// ingest route has no admission gate to have refused anything, so
+    /// `ingest.standing` is `unreadable` and `sources.ingest_refusals.present`
+    /// is `false`. That is a statement about this process, not a fault — and it
+    /// is deliberately not `clean`, because a gate that was never asked and a
+    /// gate that refused nothing are different facts.
     ///
     /// # The return is a TRUTHY Python string on every arm
     ///

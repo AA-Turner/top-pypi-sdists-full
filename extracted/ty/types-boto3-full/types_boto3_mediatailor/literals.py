@@ -129,7 +129,9 @@ ChannelStateType = Literal["RUNNING", "STOPPED"]
 CompressionMethodType = Literal["GZIP", "NONE"]
 EventNameType = Literal["PRE_ADS_REQUEST", "PRE_SESSION_INITIALIZATION"]
 FillPolicyType = Literal["FULL_AVAIL_ONLY", "PARTIAL_AVAIL"]
-FunctionTypeType = Literal["CUSTOM_OUTPUT", "HTTP_REQUEST", "SEQUENTIAL_EXECUTOR"]
+FunctionTypeType = Literal[
+    "CONCURRENT_EXECUTOR", "CUSTOM_OUTPUT", "HTTP_REQUEST", "SEQUENTIAL_EXECUTOR"
+]
 GetChannelSchedulePaginatorName = Literal["get_channel_schedule"]
 InsertionModeType = Literal["PLAYER_SELECT", "STITCHED_ONLY"]
 ListAlertsPaginatorName = Literal["list_alerts"]
@@ -203,6 +205,8 @@ ServiceName = Literal[
     "account",
     "acm",
     "acm-pca",
+    "agent-registry",
+    "agent-registry-control",
     "aiops",
     "amp",
     "amplify",

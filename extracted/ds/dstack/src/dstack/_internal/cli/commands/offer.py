@@ -59,6 +59,16 @@ class OfferCommand(APIBaseCommand):
             type=int,
             default=50,
         )
+        self._parser.add_argument(
+            "--full-offers",
+            action="store_true",
+            help="Show full offers not adjusted by requirements",
+        )
+        self._parser.add_argument(
+            "--unallocated",
+            action="store_true",
+            help="Subtract allocated resources to show only unallocated resources",
+        )
         resources_group = self._parser.add_argument_group("Resources")
         register_resources_args(resources_group)
         # TODO: register only relevant options
@@ -79,6 +89,9 @@ class OfferCommand(APIBaseCommand):
             project_name=self.api.project,
             run_spec=run_spec,
             max_offers=args.max_offers,
+            full_offers=args.full_offers,
+            unallocated_resources=args.unallocated,
+            for_offers_only=True,
         )
         job_plan = run_plan.job_plans[0]
         if args.format == "plain":
@@ -103,6 +116,8 @@ class OfferCommand(APIBaseCommand):
             project_name=self.api.project,
             run_spec=run_spec,
             group_by=[g for g in group_by if g != "gpu"],
+            full_offers=args.full_offers,
+            unallocated_resources=args.unallocated,
         )
         if args.format == "plain":
             print_gpu_table(gpus, run_spec, group_by, self.api.project)
@@ -238,4 +253,4 @@ def _print_offers_json(run_plan: RunPlan):
         offers=job_plan.offers,
         total_offers=job_plan.total_offers,
     )
-    print(output.json())
+    print(output.model_dump_json())

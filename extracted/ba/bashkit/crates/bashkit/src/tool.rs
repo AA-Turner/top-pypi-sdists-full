@@ -62,7 +62,7 @@
 
 use crate::builtins::{Builtin, Extension};
 use crate::error::Error;
-use crate::{Bash, ExecResult, ExecutionLimits, OutputCallback};
+use crate::{Bash, ExecResult, ExecutionLimits, ExecutionProfile, OutputCallback};
 use async_trait::async_trait;
 use futures_core::Stream;
 use serde::{Deserialize, Serialize};
@@ -254,7 +254,7 @@ const BUILTINS: &str = "\
 echo printf cat read \
 grep sed awk jq head tail sort uniq cut tr wc nl paste column comm diff strings tac rev \
 cd pwd ls find mkdir mktemp rm rmdir cp mv touch chmod chown ln \
-file stat less tar gzip gunzip du df \
+file stat less tar gzip gunzip bzip2 bunzip2 bzcat du df \
 test [ true false exit return break continue \
 export set unset local shift source eval declare typeset readonly shopt getopts \
 sleep date seq expr yes wait timeout xargs tee watch \
@@ -270,7 +270,7 @@ const BUILTINS: &str = "\
 echo printf cat read \
 grep sed awk head tail sort uniq cut tr wc nl paste column comm diff strings tac rev \
 cd pwd ls find mkdir mktemp rm rmdir cp mv touch chmod chown ln \
-file stat less tar gzip gunzip du df \
+file stat less tar gzip gunzip bzip2 bunzip2 bzcat du df \
 test [ true false exit return break continue \
 export set unset local shift source eval declare typeset readonly shopt getopts \
 sleep date seq expr yes wait timeout xargs tee watch \
@@ -329,8 +329,8 @@ pub struct ToolResponse {
 impl From<ExecResult> for ToolResponse {
     fn from(result: ExecResult) -> Self {
         Self {
-            stdout: result.stdout,
-            stderr: result.stderr,
+            stdout: result.stdout.text_lossy().into_owned(),
+            stderr: result.stderr.text_lossy().into_owned(),
             exit_code: result.exit_code,
             error: None,
             stdout_truncated: result.stdout_truncated,
@@ -563,6 +563,8 @@ pub struct BashToolBuilder {
     hostname: Option<String>,
     /// Execution limits
     limits: Option<ExecutionLimits>,
+    /// Coherent policy baseline applied before explicit overrides.
+    profile: Option<ExecutionProfile>,
     /// Initial working directory for the shell
     cwd: Option<PathBuf>,
     /// Environment variables to set
@@ -630,6 +632,12 @@ impl BashToolBuilder {
         self
     }
 
+    /// Apply a coherent execution profile before fine-grained overrides.
+    pub fn profile(mut self, profile: ExecutionProfile) -> Self {
+        self.profile = Some(profile);
+        self
+    }
+
     /// Set the initial working directory for the shell
     pub fn cwd(mut self, cwd: impl Into<PathBuf>) -> Self {
         self.cwd = Some(cwd.into());
@@ -680,7 +688,12 @@ impl BashToolBuilder {
     /// `BASHKIT_ALLOW_INPROCESS_PYTHON=1` before invoking `python`/`python3`.
     #[cfg(feature = "python")]
     pub fn python(self) -> Self {
-        self.python_with_limits(crate::builtins::PythonLimits::default())
+        let limits = self
+            .profile
+            .as_ref()
+            .map(|profile| profile.python_limits().clone())
+            .unwrap_or_default();
+        self.python_with_limits(limits)
     }
 
     /// Enable embedded Python with custom resource limits.
@@ -696,7 +709,12 @@ impl BashToolBuilder {
     /// Requires the `typescript` feature flag.
     #[cfg(feature = "typescript")]
     pub fn typescript(self) -> Self {
-        self.typescript_with_config(crate::builtins::TypeScriptConfig::default())
+        let limits = self
+            .profile
+            .as_ref()
+            .map(|profile| profile.typescript_limits().clone())
+            .unwrap_or_default();
+        self.typescript_with_limits(limits)
     }
 
     /// Enable embedded TypeScript with custom resource limits.
@@ -766,6 +784,7 @@ impl BashToolBuilder {
             username: self.username.clone(),
             hostname: self.hostname.clone(),
             limits: self.limits.clone(),
+            profile: self.profile.clone(),
             cwd: self.cwd.clone(),
             env_vars: self.env_vars.clone(),
             builtins: self.builtins.clone(),
@@ -822,6 +841,7 @@ pub struct BashTool {
     username: Option<String>,
     hostname: Option<String>,
     limits: Option<ExecutionLimits>,
+    profile: Option<ExecutionProfile>,
     cwd: Option<PathBuf>,
     env_vars: Vec<(String, String)>,
     builtins: Vec<(String, Arc<dyn Builtin>)>,
@@ -845,6 +865,10 @@ impl BashTool {
     /// build an isolated shell per execution from cloneable configuration.
     fn create_bash(&self) -> Bash {
         let mut builder = Bash::builder();
+
+        if let Some(ref profile) = self.profile {
+            builder = builder.profile(profile.clone());
+        }
 
         if let Some(ref username) = self.username {
             builder = builder.username(username);
@@ -960,25 +984,15 @@ impl BashTool {
             }
         };
 
-        // wasm32-unknown-unknown has no timer driver. Reject requested timeouts
-        // rather than silently running an async callback without a deadline.
-        #[cfg(not(target_family = "wasm"))]
-        let out = if let Some(ms) = req.timeout_ms {
+        if let Some(ms) = req.timeout_ms {
             let duration = Duration::from_millis(ms);
-            match tokio::time::timeout(duration, fut).await {
+            match crate::time_compat::timeout(duration, fut).await {
                 Ok(response) => response,
                 Err(_) => timeout_response(duration),
             }
         } else {
             fut.await
-        };
-        #[cfg(target_family = "wasm")]
-        let out = if req.timeout_ms.is_some() {
-            unsupported_timeout_response()
-        } else {
-            fut.await
-        };
-        out
+        }
     }
 }
 
@@ -1067,24 +1081,15 @@ impl Tool for BashTool {
             }
         };
 
-        // wasm32 has no timer driver; reject rather than bypass the deadline.
-        #[cfg(not(target_family = "wasm"))]
-        let out = if let Some(ms) = req.timeout_ms {
+        if let Some(ms) = req.timeout_ms {
             let dur = Duration::from_millis(ms);
-            match tokio::time::timeout(dur, fut).await {
+            match crate::time_compat::timeout(dur, fut).await {
                 Ok(resp) => resp,
                 Err(_elapsed) => timeout_response(dur),
             }
         } else {
             fut.await
-        };
-        #[cfg(target_family = "wasm")]
-        let out = if req.timeout_ms.is_some() {
-            unsupported_timeout_response()
-        } else {
-            fut.await
-        };
-        out
+        }
     }
 
     async fn execute_with_status(
@@ -1117,10 +1122,10 @@ impl Tool for BashTool {
         let output_cb: OutputCallback = Box::new(move |stdout_chunk, stderr_chunk| {
             if let Ok(mut cb) = status_cb_output.lock() {
                 if !stdout_chunk.is_empty() {
-                    cb(ToolStatus::stdout(stdout_chunk));
+                    cb(ToolStatus::stdout(stdout_chunk.text_lossy()));
                 }
                 if !stderr_chunk.is_empty() {
-                    cb(ToolStatus::stderr(stderr_chunk));
+                    cb(ToolStatus::stderr(stderr_chunk.text_lossy()));
                 }
             }
         });
@@ -1146,24 +1151,15 @@ impl Tool for BashTool {
             response
         };
 
-        // wasm32 has no timer driver; reject rather than bypass the deadline.
-        #[cfg(not(target_family = "wasm"))]
-        let out = if let Some(ms) = timeout_ms {
+        if let Some(ms) = timeout_ms {
             let dur = Duration::from_millis(ms);
-            match tokio::time::timeout(dur, fut).await {
+            match crate::time_compat::timeout(dur, fut).await {
                 Ok(resp) => resp,
                 Err(_elapsed) => timeout_response(dur),
             }
         } else {
             fut.await
-        };
-        #[cfg(target_family = "wasm")]
-        let out = if timeout_ms.is_some() {
-            unsupported_timeout_response()
-        } else {
-            fut.await
-        };
-        out
+        }
     }
 }
 
@@ -1187,8 +1183,6 @@ fn error_kind(e: &Error) -> String {
 
 /// Build a ToolResponse for a timed-out execution (exit code 124, like bash `timeout`).
 ///
-/// Only native timeout paths use this; wasm rejects requested timeouts.
-#[cfg(not(target_family = "wasm"))]
 pub(crate) fn timeout_response(dur: Duration) -> ToolResponse {
     ToolResponse {
         stdout: String::new(),
@@ -1198,17 +1192,6 @@ pub(crate) fn timeout_response(dur: Duration) -> ToolResponse {
         ),
         exit_code: 124,
         error: Some("timeout".to_string()),
-        ..Default::default()
-    }
-}
-
-/// Reject a timeout contract that wasm cannot enforce safely.
-#[cfg(target_family = "wasm")]
-pub(crate) fn unsupported_timeout_response() -> ToolResponse {
-    ToolResponse {
-        stderr: "bashkit: timeout is unsupported on this wasm target\n".to_string(),
-        exit_code: 125,
-        error: Some("unsupported_timeout".to_string()),
         ..Default::default()
     }
 }
@@ -1612,6 +1595,154 @@ mod tests {
         assert_eq!(output.result["stdout"], "hello\n");
         assert_eq!(output.metadata.extra["exit_code"], 0);
         assert!(output.metadata.duration >= Duration::from_millis(0));
+    }
+
+    #[tokio::test]
+    async fn test_execution_forwards_limits_and_output_caps() {
+        let tool = BashTool::builder()
+            .limits(ExecutionLimits::new().max_commands(10).max_stdout_bytes(3))
+            .build();
+        let output = tool
+            .execution(serde_json::json!({"commands": "printf 12345"}))
+            .unwrap_or_else(|err| panic!("execution should be created: {err}"))
+            .execute()
+            .await
+            .unwrap_or_else(|err| panic!("execution should succeed: {err}"));
+
+        assert_eq!(output.result["stdout"], "123");
+        assert_eq!(output.result["stdout_truncated"], true);
+    }
+
+    #[tokio::test]
+    async fn test_configure_forwards_virtual_filesystem_seed() {
+        let tool = BashTool::builder()
+            .configure(|builder| builder.mount_text("/policy.txt", "configured\n"))
+            .build();
+        let output = tool
+            .execution(serde_json::json!({"commands": "cat /policy.txt"}))
+            .unwrap_or_else(|err| panic!("execution should be created: {err}"))
+            .execute()
+            .await
+            .unwrap_or_else(|err| panic!("execution should succeed: {err}"));
+
+        assert_eq!(output.result["stdout"], "configured\n");
+    }
+
+    #[tokio::test]
+    async fn test_configure_forwards_lazy_mount() {
+        let tool = BashTool::builder()
+            .configure(|builder| {
+                builder.mount_lazy("/mounted/value.txt", 8, Arc::new(|| b"mounted\n".to_vec()))
+            })
+            .build();
+        let output = tool
+            .execution(serde_json::json!({"commands": "cat /mounted/value.txt"}))
+            .unwrap_or_else(|err| panic!("execution should be created: {err}"))
+            .execute()
+            .await
+            .unwrap_or_else(|err| panic!("execution should succeed: {err}"));
+
+        assert_eq!(output.result["stdout"], "mounted\n");
+    }
+
+    #[cfg(feature = "sqlite")]
+    #[tokio::test]
+    async fn test_configure_forwards_sqlite_runtime_opt_in() {
+        let tool = BashTool::builder()
+            .configure(|builder| builder.sqlite().env("BASHKIT_ALLOW_INPROCESS_SQLITE", "1"))
+            .build();
+        let output = tool
+            .execution(serde_json::json!({
+                "commands": "sqlite :memory: 'SELECT 4'"
+            }))
+            .unwrap_or_else(|err| panic!("execution should be created: {err}"))
+            .execute()
+            .await
+            .unwrap_or_else(|err| panic!("execution should succeed: {err}"));
+
+        assert_eq!(
+            output.result["exit_code"], 0,
+            "unexpected result: {}",
+            output.result
+        );
+        assert_eq!(output.result["stdout"], "4\n");
+    }
+
+    #[cfg(feature = "python")]
+    #[tokio::test]
+    async fn test_python_runtime_opt_in_executes_through_tool() {
+        let tool = BashTool::builder()
+            .env("BASHKIT_ALLOW_INPROCESS_PYTHON", "1")
+            .python()
+            .build();
+        let output = tool
+            .execution(serde_json::json!({
+                "commands": "python -c 'print(2 + 2)'"
+            }))
+            .unwrap_or_else(|err| panic!("execution should be created: {err}"))
+            .execute()
+            .await
+            .unwrap_or_else(|err| panic!("execution should succeed: {err}"));
+
+        assert_eq!(output.result["stdout"], "4\n");
+    }
+
+    #[cfg(feature = "typescript")]
+    #[tokio::test]
+    async fn test_typescript_runtime_opt_in_executes_through_tool() {
+        let tool = BashTool::builder().typescript().build();
+        let output = tool
+            .execution(serde_json::json!({
+                "commands": "ts -e \"console.log(2 + 2)\""
+            }))
+            .unwrap_or_else(|err| panic!("execution should be created: {err}"))
+            .execute()
+            .await
+            .unwrap_or_else(|err| panic!("execution should succeed: {err}"));
+
+        assert_eq!(output.result["stdout"], "4\n");
+    }
+
+    #[cfg(feature = "http_client")]
+    #[tokio::test]
+    async fn test_configure_forwards_network_policy_and_transport() {
+        use crate::{
+            HttpResponse, HttpTransport, HttpTransportError, HttpTransportRequest, NetworkAllowlist,
+        };
+
+        struct MockTransport;
+
+        #[async_trait]
+        impl HttpTransport for MockTransport {
+            async fn execute(
+                &self,
+                _request: HttpTransportRequest,
+            ) -> std::result::Result<HttpResponse, HttpTransportError> {
+                Ok(HttpResponse {
+                    status: 200,
+                    headers: vec![],
+                    body: b"forwarded".to_vec(),
+                })
+            }
+        }
+
+        let tool = BashTool::builder()
+            .configure(|builder| {
+                builder
+                    .network(NetworkAllowlist::allow_all())
+                    .http_transport(Arc::new(MockTransport))
+            })
+            .build();
+        let output = tool
+            .execution(serde_json::json!({
+                "commands": "curl -s http://93.184.216.34"
+            }))
+            .unwrap_or_else(|err| panic!("execution should be created: {err}"))
+            .execute()
+            .await
+            .unwrap_or_else(|err| panic!("execution should succeed: {err}"));
+
+        assert_eq!(output.result["stdout"], "forwarded");
     }
 
     #[tokio::test]

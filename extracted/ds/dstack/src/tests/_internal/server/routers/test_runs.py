@@ -79,6 +79,7 @@ from dstack._internal.server.testing.common import (
     list_events,
 )
 from dstack._internal.server.testing.matchers import SomeUUID4Str
+from dstack._internal.utils.common import render_datetime_as_api
 
 pytestmark = pytest.mark.usefixtures("image_config_mock", "disable_sshproxy")
 
@@ -181,13 +182,13 @@ def get_dev_env_run_plan_dict(
             "type": "dev-environment",
             "name": None,
             "resources": {
-                "cpu": {"min": 2, "max": None},
+                "cpu": {"arch": "x86", "count": {"min": 2, "max": None}},
                 "memory": {"min": 8.0, "max": None},
                 "disk": None,
                 "gpu": None,
                 "shm_size": None,
             },
-            "volumes": [json.loads(v.json()) for v in volumes],
+            "volumes": [json.loads(v.model_dump_json()) for v in volumes],
             "repos": [
                 {
                     "url": "https://github.com/dstackai/dstack",
@@ -290,7 +291,7 @@ def get_dev_env_run_plan_dict(
                     "registry_auth": None,
                     "requirements": {
                         "resources": {
-                            "cpu": {"min": 2, "max": None},
+                            "cpu": {"arch": "x86", "count": {"min": 2, "max": None}},
                             "memory": {"min": 8.0, "max": None},
                             "disk": None,
                             "gpu": None,
@@ -303,7 +304,7 @@ def get_dev_env_run_plan_dict(
                         "backend_options": None,
                     },
                     "retry": None,
-                    "volumes": volumes,
+                    "volumes": [json.loads(v.model_dump_json()) for v in volumes],
                     "ssh_key": None,
                     "working_dir": None,
                     "repo_code_hash": None,
@@ -321,12 +322,12 @@ def get_dev_env_run_plan_dict(
                     "service_port": None,
                     "probes": [],
                 },
-                "offers": [json.loads(o.json()) for o in offers],
+                "offers": [json.loads(o.model_dump_json()) for o in offers],
                 "total_offers": total_offers,
                 "max_price": max_price,
             }
         ],
-        "current_resource": current_resource.dict() if current_resource else None,
+        "current_resource": current_resource.model_dump() if current_resource else None,
         "action": action.value,
     }
 
@@ -338,9 +339,9 @@ def get_dev_env_run_dict(
     username: str = "test_user",
     run_name: Optional[str] = "run_name",
     repo_id: str = "test_repo",
-    submitted_at: str = "2023-01-02T03:04:00+00:00",
-    last_processed_at: str = "2023-01-02T03:04:00+00:00",
-    finished_at: Optional[str] = "2023-01-02T03:04:00+00:00",
+    submitted_at: str = "2023-01-02T03:04:00Z",
+    last_processed_at: str = "2023-01-02T03:04:00Z",
+    finished_at: Optional[str] = "2023-01-02T03:04:00Z",
     privileged: bool = False,
     docker: Optional[bool] = None,
     deleted: bool = False,
@@ -433,7 +434,7 @@ def get_dev_env_run_dict(
                 "name": None,
                 "type": "dev-environment",
                 "resources": {
-                    "cpu": {"min": 2, "max": None},
+                    "cpu": {"arch": "x86", "count": {"min": 2, "max": None}},
                     "memory": {"min": 8.0, "max": None},
                     "disk": None,
                     "gpu": None,
@@ -537,7 +538,7 @@ def get_dev_env_run_dict(
                     "registry_auth": None,
                     "requirements": {
                         "resources": {
-                            "cpu": {"min": 2, "max": None},
+                            "cpu": {"arch": "x86", "count": {"min": 2, "max": None}},
                             "memory": {"min": 8.0, "max": None},
                             "disk": None,
                             "gpu": None,
@@ -695,14 +696,14 @@ class TestListRuns:
             fleet=fleet,
             submitted_at=run1_submitted_at,
         )
-        run1_spec = RunSpec.parse_raw(run1.run_spec)
+        run1_spec = RunSpec.model_validate_json(run1.run_spec)
         job = await create_job(
             session=session,
             run=run1,
             submitted_at=run1_submitted_at,
             last_processed_at=run1_submitted_at,
         )
-        job_spec = JobSpec.parse_raw(job.job_spec_data)
+        job_spec = JobSpec.model_validate_json(job.job_spec_data)
         run2_submitted_at = datetime(2023, 1, 1, 3, 4, tzinfo=timezone.utc)
         run2 = await create_run(
             session=session,
@@ -712,7 +713,7 @@ class TestListRuns:
             fleet=fleet,
             submitted_at=run2_submitted_at,
         )
-        run2_spec = RunSpec.parse_raw(run2.run_spec)
+        run2_spec = RunSpec.model_validate_json(run2.run_spec)
         response = await client.post(
             "/api/runs/list",
             headers=get_auth_headers(user.token),
@@ -728,21 +729,21 @@ class TestListRuns:
                     "id": str(fleet.id),
                     "name": fleet.name,
                 },
-                "submitted_at": run1_submitted_at.isoformat(),
-                "last_processed_at": run1_submitted_at.isoformat(),
+                "submitted_at": render_datetime_as_api(run1_submitted_at),
+                "last_processed_at": render_datetime_as_api(run1_submitted_at),
                 "status": "submitted",
                 "status_message": "submitted",
-                "run_spec": run1_spec.dict(),
+                "run_spec": run1_spec.model_dump(),
                 "jobs": [
                     {
-                        "job_spec": job_spec.dict(),
+                        "job_spec": job_spec.model_dump(),
                         "job_submissions": [
                             {
                                 "id": str(job.id),
                                 "submission_num": 0,
                                 "deployment_num": 0,
-                                "submitted_at": run1_submitted_at.isoformat(),
-                                "last_processed_at": run1_submitted_at.isoformat(),
+                                "submitted_at": render_datetime_as_api(run1_submitted_at),
+                                "last_processed_at": render_datetime_as_api(run1_submitted_at),
                                 "finished_at": None,
                                 "inactivity_secs": None,
                                 "status": "submitted",
@@ -764,8 +765,8 @@ class TestListRuns:
                     "id": str(job.id),
                     "submission_num": 0,
                     "deployment_num": 0,
-                    "submitted_at": run1_submitted_at.isoformat(),
-                    "last_processed_at": run1_submitted_at.isoformat(),
+                    "submitted_at": render_datetime_as_api(run1_submitted_at),
+                    "last_processed_at": render_datetime_as_api(run1_submitted_at),
                     "finished_at": None,
                     "inactivity_secs": None,
                     "status": "submitted",
@@ -779,7 +780,7 @@ class TestListRuns:
                     "probes": [],
                     "image_pull_progress": None,
                 },
-                "cost": 0,
+                "cost": 0.0,
                 "service": None,
                 "deployment_num": 0,
                 "termination_reason": None,
@@ -795,14 +796,14 @@ class TestListRuns:
                     "id": str(fleet.id),
                     "name": fleet.name,
                 },
-                "submitted_at": run2_submitted_at.isoformat(),
-                "last_processed_at": run2_submitted_at.isoformat(),
+                "submitted_at": render_datetime_as_api(run2_submitted_at),
+                "last_processed_at": render_datetime_as_api(run2_submitted_at),
                 "status": "submitted",
                 "status_message": "submitted",
-                "run_spec": run2_spec.dict(),
+                "run_spec": run2_spec.model_dump(),
                 "jobs": [],
                 "latest_job_submission": None,
-                "cost": 0,
+                "cost": 0.0,
                 "service": None,
                 "deployment_num": 0,
                 "termination_reason": None,
@@ -895,7 +896,7 @@ class TestListRuns:
             user=user,
             submitted_at=run_submitted_at,
         )
-        run_spec = RunSpec.parse_raw(run.run_spec)
+        run_spec = RunSpec.model_validate_json(run.run_spec)
         await create_job(
             session=session,
             run=run,
@@ -909,7 +910,7 @@ class TestListRuns:
             submitted_at=run_submitted_at,
             last_processed_at=run_submitted_at,
         )
-        job2_spec = JobSpec.parse_raw(job2.job_spec_data)
+        job2_spec = JobSpec.model_validate_json(job2.job_spec_data)
         response = await client.post(
             "/api/runs/list",
             headers=get_auth_headers(user.token),
@@ -922,21 +923,21 @@ class TestListRuns:
                 "project_name": project.name,
                 "user": user.name,
                 "fleet": None,
-                "submitted_at": run_submitted_at.isoformat(),
-                "last_processed_at": run_submitted_at.isoformat(),
+                "submitted_at": render_datetime_as_api(run_submitted_at),
+                "last_processed_at": render_datetime_as_api(run_submitted_at),
                 "status": "submitted",
                 "status_message": "submitted",
-                "run_spec": run_spec.dict(),
+                "run_spec": run_spec.model_dump(),
                 "jobs": [
                     {
-                        "job_spec": job2_spec.dict(),
+                        "job_spec": job2_spec.model_dump(),
                         "job_submissions": [
                             {
                                 "id": str(job2.id),
                                 "submission_num": 1,
                                 "deployment_num": 0,
-                                "submitted_at": run_submitted_at.isoformat(),
-                                "last_processed_at": run_submitted_at.isoformat(),
+                                "submitted_at": render_datetime_as_api(run_submitted_at),
+                                "last_processed_at": render_datetime_as_api(run_submitted_at),
                                 "finished_at": None,
                                 "inactivity_secs": None,
                                 "status": "submitted",
@@ -958,8 +959,8 @@ class TestListRuns:
                     "id": str(job2.id),
                     "submission_num": 1,
                     "deployment_num": 0,
-                    "submitted_at": run_submitted_at.isoformat(),
-                    "last_processed_at": run_submitted_at.isoformat(),
+                    "submitted_at": render_datetime_as_api(run_submitted_at),
+                    "last_processed_at": render_datetime_as_api(run_submitted_at),
                     "finished_at": None,
                     "inactivity_secs": None,
                     "status": "submitted",
@@ -973,7 +974,7 @@ class TestListRuns:
                     "probes": [],
                     "image_pull_progress": None,
                 },
-                "cost": 0,
+                "cost": 0.0,
                 "service": None,
                 "deployment_num": 0,
                 "termination_reason": None,
@@ -1574,6 +1575,116 @@ class TestGetRunPlan:
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("test_db", ["sqlite", "postgres"], indirect=True)
+    @pytest.mark.parametrize(
+        ("body_full_offers", "expected_full_offers"),
+        [
+            pytest.param(None, False, id="omitted-defaults-to-false"),
+            pytest.param(True, True, id="true"),
+            pytest.param(False, False, id="false"),
+        ],
+    )
+    async def test_forwards_full_offers_to_compute_get_offers(
+        self,
+        test_db,
+        session: AsyncSession,
+        client: AsyncClient,
+        body_full_offers: Optional[bool],
+        expected_full_offers: bool,
+    ):
+        user = await create_user(session=session, global_role=GlobalRole.USER)
+        project = await create_project(session=session, owner=user)
+        await add_project_member(
+            session=session, project=project, user=user, project_role=ProjectRole.USER
+        )
+        fleet_spec = get_fleet_spec()
+        fleet_spec.configuration.nodes = FleetNodesSpec(min=0, target=0, max=None)
+        await create_fleet(session=session, project=project, spec=fleet_spec)
+        repo = await create_repo(session=session, project_id=project.id)
+        run_spec = get_run_spec(
+            repo_id=repo.name,
+            configuration=DevEnvironmentConfiguration(ide="vscode"),
+        )
+        body: dict = {"run_spec": json.loads(run_spec.model_dump_json())}
+        if body_full_offers is not None:
+            body["full_offers"] = body_full_offers
+
+        with patch("dstack._internal.server.services.backends.get_project_backends") as m:
+            backend_mock = Mock()
+            backend_mock.TYPE = BackendType.AWS
+            get_offers_mock = backend_mock.compute.return_value.get_offers
+            get_offers_mock.return_value = []
+            m.return_value = [backend_mock]
+            response = await client.post(
+                f"/api/project/{project.name}/runs/get_plan",
+                headers=get_auth_headers(user.token),
+                json=body,
+            )
+
+        assert response.status_code == 200, response.json()
+        get_offers_mock.assert_called()
+        # get_offers is called as get_offers(requirements, full_offers)
+        assert all(
+            call_args.args[1] is expected_full_offers
+            for call_args in get_offers_mock.call_args_list
+        )
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("test_db", ["sqlite", "postgres"], indirect=True)
+    @pytest.mark.parametrize(
+        ("body_unallocated_resources", "expected_unallocated_resources"),
+        [
+            pytest.param(None, False, id="omitted-defaults-to-false"),
+            pytest.param(True, True, id="true"),
+            pytest.param(False, False, id="false"),
+        ],
+    )
+    async def test_forwards_unallocated_resources_to_compute_get_offers(
+        self,
+        test_db,
+        session: AsyncSession,
+        client: AsyncClient,
+        body_unallocated_resources: Optional[bool],
+        expected_unallocated_resources: bool,
+    ):
+        user = await create_user(session=session, global_role=GlobalRole.USER)
+        project = await create_project(session=session, owner=user)
+        await add_project_member(
+            session=session, project=project, user=user, project_role=ProjectRole.USER
+        )
+        fleet_spec = get_fleet_spec()
+        fleet_spec.configuration.nodes = FleetNodesSpec(min=0, target=0, max=None)
+        await create_fleet(session=session, project=project, spec=fleet_spec)
+        repo = await create_repo(session=session, project_id=project.id)
+        run_spec = get_run_spec(
+            repo_id=repo.name,
+            configuration=DevEnvironmentConfiguration(ide="vscode"),
+        )
+        body: dict = {"run_spec": json.loads(run_spec.model_dump_json())}
+        if body_unallocated_resources is not None:
+            body["unallocated_resources"] = body_unallocated_resources
+
+        with patch("dstack._internal.server.services.backends.get_project_backends") as m:
+            backend_mock = Mock()
+            backend_mock.TYPE = BackendType.AWS
+            get_offers_mock = backend_mock.compute.return_value.get_offers
+            get_offers_mock.return_value = []
+            m.return_value = [backend_mock]
+            response = await client.post(
+                f"/api/project/{project.name}/runs/get_plan",
+                headers=get_auth_headers(user.token),
+                json=body,
+            )
+
+        assert response.status_code == 200, response.json()
+        get_offers_mock.assert_called()
+        # get_offers is called as get_offers(requirements, full_offers, unallocated_resources)
+        assert all(
+            call_args.args[2] is expected_unallocated_resources
+            for call_args in get_offers_mock.call_args_list
+        )
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("test_db", ["sqlite", "postgres"], indirect=True)
     async def test_returns_run_plan_privileged_true(
         self,
         test_db,
@@ -1664,7 +1775,7 @@ class TestGetRunPlan:
             repo_id=repo.name,
             configuration=TaskConfiguration(commands=["echo hi"], nodes=2),
         )
-        body = {"run_spec": json.loads(run_spec.json())}
+        body = {"run_spec": json.loads(run_spec.model_dump_json())}
         with patch("dstack._internal.server.services.backends.get_project_backends") as m:
             backend_mock = Mock()
             backend_mock.TYPE = BackendType.AWS
@@ -1743,9 +1854,11 @@ class TestGetRunPlan:
                 ],
             ),
         )
-        body = {"run_spec": json.loads(run_spec.json())}
+        body = {"run_spec": json.loads(run_spec.model_dump_json())}
 
-        def offers_by_requirements(requirements: Requirements):
+        def offers_by_requirements(
+            requirements: Requirements, full_offers: bool, unallocated_resources: bool
+        ):
             if (
                 requirements.resources.gpu is not None
                 and requirements.resources.gpu.count.min is not None
@@ -1802,7 +1915,7 @@ class TestGetRunPlan:
                 ],
             ),
         )
-        body = {"run_spec": json.loads(run_spec.json())}
+        body = {"run_spec": json.loads(run_spec.model_dump_json())}
 
         with patch("dstack._internal.server.services.backends.get_project_backends") as m:
             aws_backend_mock = Mock()
@@ -1962,13 +2075,10 @@ class TestGetRunPlan:
     @pytest.mark.asyncio
     @pytest.mark.parametrize("test_db", ["sqlite", "postgres"], indirect=True)
     @pytest.mark.parametrize(
-        "configuration",
+        "for_offers_only",
         [
-            pytest.param({"type": "dev-environment", "ide": "vscode"}, id="regular-configuration"),
-            pytest.param(
-                {"type": "task", "commands": [":"], "image": "scratch"},
-                id="special-configuration-used-by-dstack-offer-cli-command",
-            ),
+            pytest.param(False, id="run-plan"),
+            pytest.param(True, id="offer-collection"),
         ],
     )
     async def test_returns_run_plan_with_offer_from_imported_fleet(
@@ -1976,7 +2086,7 @@ class TestGetRunPlan:
         test_db,
         session: AsyncSession,
         client: AsyncClient,
-        configuration: dict,
+        for_offers_only: bool,
     ) -> None:
         importer_user = await create_user(session, global_role=GlobalRole.USER)
         exporter_project = await create_project(session, name="exporter-project")
@@ -2008,8 +2118,8 @@ class TestGetRunPlan:
             exported_fleets=[fleet],
         )
 
-        run_spec = {"configuration": configuration}
-        body = {"run_spec": run_spec}
+        run_spec = {"configuration": {"type": "dev-environment", "ide": "vscode"}}
+        body = {"run_spec": run_spec, "for_offers_only": for_offers_only}
         response = await client.post(
             "/api/project/importer-project/runs/get_plan",
             headers=get_auth_headers(importer_user.token),
@@ -2221,16 +2331,14 @@ class TestGetRunPlan:
     @pytest.mark.asyncio
     @pytest.mark.parametrize("test_db", ["sqlite", "postgres"], indirect=True)
     @pytest.mark.parametrize(
-        "configuration",
+        ("configuration", "for_offers_only"),
         [
-            pytest.param({"type": "dev-environment"}, id="regular-configuration"),
+            pytest.param({"type": "dev-environment"}, False, id="run-plan"),
+            pytest.param({"type": "dev-environment"}, True, id="offer-collection"),
             pytest.param(
-                {"type": "task", "commands": [":"], "image": "scratch"},
-                id="special-configuration-used-by-dstack-offer-cli-command",
-            ),
-            pytest.param(
-                {"type": "task", "commands": [":"], "image": "scratch", "fleets": ["test-fleet"]},
-                id="special-configuration-used-by-dstack-offer-cli-command-with-fleets",  # --fleet
+                {"type": "dev-environment", "fleets": ["test-fleet"]},
+                True,
+                id="offer-collection-with-fleets",  # `dstack offer --fleet`
             ),
         ],
     )
@@ -2240,6 +2348,7 @@ class TestGetRunPlan:
         session: AsyncSession,
         client: AsyncClient,
         configuration: dict,
+        for_offers_only: bool,
     ) -> None:
         user = await create_user(session=session, global_role=GlobalRole.USER)
         project = await create_project(session=session, owner=user)
@@ -2259,7 +2368,7 @@ class TestGetRunPlan:
         run_spec = get_run_spec(
             repo_id=repo.name, configuration=parse_run_configuration(configuration)
         )
-        body = {"run_spec": run_spec.dict()}
+        body = {"run_spec": run_spec.model_dump(), "for_offers_only": for_offers_only}
 
         backend_mock_aws = Mock()
         backend_mock_aws.TYPE = BackendType.AWS
@@ -2330,7 +2439,7 @@ class TestGetRunPlan:
                 fleets=["fleet-aws", "fleet-vastai"],
             ),
         )
-        body = {"run_spec": run_spec.dict()}
+        body = {"run_spec": run_spec.model_dump(), "for_offers_only": True}
 
         backend_mock_aws = Mock()
         backend_mock_aws.TYPE = BackendType.AWS
@@ -2431,7 +2540,7 @@ class TestGetRunPlan:
         response = await client.post(
             f"/api/project/{project.name}/runs/get_plan",
             headers=get_auth_headers(user.token),
-            json={"run_spec": run_spec.dict()},
+            json={"run_spec": run_spec.model_dump(), "for_offers_only": True},
         )
 
         assert response.status_code == 200, response.json()
@@ -2478,7 +2587,7 @@ class TestGetRunPlan:
                 fleets=["fleet-a", "fleet-b"],
             ),
         )
-        body = {"run_spec": run_spec.dict()}
+        body = {"run_spec": run_spec.model_dump(), "for_offers_only": True}
 
         with patch("dstack._internal.server.services.backends.get_project_backends") as m:
             backend_mock_aws = Mock()
@@ -2566,7 +2675,7 @@ class TestGetRunPlan:
         response = await client.post(
             f"/api/project/{project.name}/runs/get_plan",
             headers=get_auth_headers(user.token),
-            json={"run_spec": run_spec.dict()},
+            json={"run_spec": run_spec.model_dump(), "for_offers_only": True},
         )
 
         assert response.status_code == 200, response.json()
@@ -2600,7 +2709,7 @@ class TestGetRunPlan:
                 user="root",
             ),
         )
-        body = {"run_spec": run_spec.dict()}
+        body = {"run_spec": run_spec.model_dump(), "for_offers_only": True}
         with patch("dstack._internal.server.services.backends.get_project_backends") as m:
             backend_mock_aws = Mock()
             backend_mock_aws.TYPE = BackendType.AWS
@@ -2692,7 +2801,7 @@ class TestGetRunPlan:
             response = await client.post(
                 f"/api/project/{project.name}/runs/get_plan",
                 headers=get_auth_headers(user.token),
-                json={"run_spec": run_spec.dict()},
+                json={"run_spec": run_spec.model_dump(), "for_offers_only": True},
             )
 
         assert response.status_code == 200, response.json()
@@ -2755,7 +2864,7 @@ class TestGetRunPlan:
             response = await client.post(
                 f"/api/project/{project.name}/runs/get_plan",
                 headers=get_auth_headers(user.token),
-                json={"run_spec": run_spec.dict()},
+                json={"run_spec": run_spec.model_dump(), "for_offers_only": True},
             )
 
         assert response.status_code == 200, response.json()
@@ -2819,7 +2928,7 @@ class TestGetRunPlan:
             response = await client.post(
                 f"/api/project/{project.name}/runs/get_plan",
                 headers=get_auth_headers(user.token),
-                json={"run_spec": run_spec.dict()},
+                json={"run_spec": run_spec.model_dump()},
             )
 
         assert response.status_code == 200, response.json()
@@ -2831,78 +2940,82 @@ class TestGetRunPlan:
         assert job_plan["total_offers"] == 1
         assert job_plan["offers"][0]["price"] == 3.0
 
-    @pytest.mark.parametrize(
-        ("client_version", "expected_availability"),
-        [
-            ("0.20.3", InstanceAvailability.NOT_AVAILABLE),
-            ("0.20.4", InstanceAvailability.NO_BALANCE),
-            (None, InstanceAvailability.NO_BALANCE),
-        ],
-    )
     @pytest.mark.asyncio
     @pytest.mark.parametrize("test_db", ["sqlite", "postgres"], indirect=True)
-    async def test_replaces_no_balance_with_not_available_for_old_clients(
+    @pytest.mark.parametrize(
+        ("client_version", "for_offers_only", "expected_offer_collection"),
+        [
+            pytest.param(None, True, True, id="dev-client-with-flag"),
+            pytest.param("0.21.0", True, True, id="new-client-with-flag"),
+            pytest.param("0.20.30", None, True, id="old-client-without-flag"),
+            pytest.param("0.21.0", None, False, id="new-client-without-flag"),
+            pytest.param(None, None, False, id="dev-client-without-flag"),
+        ],
+    )
+    async def test_collects_offers_only_if_requested_by_for_offers_only(
         self,
         test_db,
         session: AsyncSession,
         client: AsyncClient,
         client_version: Optional[str],
-        expected_availability: InstanceAvailability,
+        for_offers_only: Optional[bool],
+        expected_offer_collection: bool,
     ) -> None:
-        user = await create_user(session=session)
+        """
+        Clients prior to 0.21.0 don't send `for_offers_only`, so the synthetic run spec that
+        `dstack offer` sends still triggers offer collection. For newer clients, the same run
+        spec is planned as a regular run unless `for_offers_only` is set.
+        """
+        user = await create_user(session=session, global_role=GlobalRole.USER)
         project = await create_project(session=session, owner=user)
-        fleet_spec = get_fleet_spec()
-        fleet_spec.configuration.nodes = FleetNodesSpec(min=0, target=0, max=None)
-        await create_fleet(session=session, project=project, spec=fleet_spec)
-        repo = await create_repo(session=session, project_id=project.id)
-        offers = [
-            InstanceOfferWithAvailability(
-                backend=BackendType.AWS,
-                instance=InstanceType(
-                    name="instance-1",
-                    resources=Resources(cpus=1, memory_mib=512, spot=False, gpus=[]),
-                ),
-                region="us",
-                price=1.0,
-                availability=InstanceAvailability.AVAILABLE,
-            ),
-            InstanceOfferWithAvailability(
-                backend=BackendType.AWS,
-                instance=InstanceType(
-                    name="instance-2",
-                    resources=Resources(cpus=2, memory_mib=1024, spot=False, gpus=[]),
-                ),
-                region="us",
-                price=2.0,
-                availability=InstanceAvailability.NO_BALANCE,
-            ),
-        ]
-        run_plan_dict = get_dev_env_run_plan_dict(
-            project_name=project.name,
-            username=user.name,
-            repo_id=repo.name,
-            offers=offers,
-            total_offers=1,
-            max_price=1.0,
+        await add_project_member(
+            session=session,
+            project=project,
+            user=user,
+            project_role=ProjectRole.USER,
         )
-        body = {"run_spec": run_plan_dict["run_spec"]}
+        repo = await create_repo(session=session, project_id=project.id)
+        run_spec = get_run_spec(
+            repo_id=repo.name,
+            configuration=TaskConfiguration(
+                commands=[":"],
+                image="scratch",
+                user="root",
+            ),
+        )
+        body: dict = {"run_spec": run_spec.model_dump()}
+        if for_offers_only is not None:
+            body["for_offers_only"] = for_offers_only
         headers = get_auth_headers(user.token)
         if client_version is not None:
             headers["X-API-Version"] = client_version
-        with patch("dstack._internal.server.services.backends.get_project_backends") as m:
-            backend_mock = Mock()
-            backend_mock.TYPE = BackendType.AWS
-            backend_mock.compute.return_value.get_offers.return_value = offers
-            m.return_value = [backend_mock]
+        offer = get_instance_offer_with_availability(price=1.0)
+        with (
+            patch(
+                "dstack._internal.server.services.runs.plan.get_non_fleet_offers",
+                new=AsyncMock(return_value=([(Mock(), offer)], [])),
+            ) as get_non_fleet_offers_mock,
+            patch(
+                "dstack._internal.server.services.runs.plan._select_candidate_fleet_models",
+                new=AsyncMock(return_value=[Mock()]),
+            ) as select_candidate_fleet_models_mock,
+            patch(
+                "dstack._internal.server.services.runs.plan.find_optimal_fleet_with_offers",
+                new=AsyncMock(return_value=(Mock(), [(Mock(), offer)], [])),
+            ) as find_optimal_fleet_with_offers_mock,
+        ):
             response = await client.post(
                 f"/api/project/{project.name}/runs/get_plan",
                 headers=headers,
                 json=body,
             )
-        offers = response.json()["job_plans"][0]["offers"]
-        assert len(offers) == 2
-        assert offers[0]["availability"] == InstanceAvailability.AVAILABLE.value
-        assert offers[1]["availability"] == expected_availability.value
+
+        assert response.status_code == 200, response.json()
+        assert get_non_fleet_offers_mock.await_count == int(expected_offer_collection)
+        assert select_candidate_fleet_models_mock.await_count == int(not expected_offer_collection)
+        assert find_optimal_fleet_with_offers_mock.await_count == int(
+            not expected_offer_collection
+        )
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize(
@@ -2998,12 +3111,12 @@ class TestGetRunPlan:
         response = await client.post(
             f"/api/project/{project.name}/runs/get_plan",
             headers=get_auth_headers(user.token),
-            json={"run_spec": run_spec.dict()},
+            json={"run_spec": run_spec.model_dump()},
         )
         assert response.status_code == 200
         response_json = response.json()
         assert response_json["action"] == action
-        assert response_json["current_resource"] == json.loads(run.json())
+        assert response_json["current_resource"] == json.loads(run.model_dump_json())
 
     @pytest.mark.asyncio
     @pytest.mark.usefixtures("test_db")
@@ -3021,7 +3134,7 @@ class TestGetRunPlan:
         response = await client.post(
             f"/api/project/{project.name}/runs/get_plan",
             headers=get_auth_headers(user.token),
-            json={"run_spec": run_spec.dict()},
+            json={"run_spec": run_spec.model_dump()},
         )
 
         assert response.status_code == 200, response.json()
@@ -3072,7 +3185,7 @@ class TestGetRunPlan:
             run_name="test-service",
         )
 
-        body = {"run_spec": run_spec.dict()}
+        body = {"run_spec": run_spec.model_dump()}
         headers = get_auth_headers(user.token)
         if client_version is not None:
             headers["X-API-Version"] = client_version
@@ -3106,9 +3219,14 @@ class TestApplyPlan:
         assert response.status_code == 403
 
     @pytest.mark.asyncio
+    @pytest.mark.parametrize("privileged", [None, False, True])
     @pytest.mark.parametrize("test_db", ["sqlite", "postgres"], indirect=True)
     async def test_submits_new_run_if_no_current_resource(
-        self, test_db, session: AsyncSession, client: AsyncClient
+        self,
+        test_db,
+        session: AsyncSession,
+        client: AsyncClient,
+        privileged: Optional[bool],
     ):
         user = await create_user(session=session, global_role=GlobalRole.USER)
         project = await create_project(session=session, owner=user)
@@ -3116,7 +3234,7 @@ class TestApplyPlan:
             session=session, project=project, user=user, project_role=ProjectRole.USER
         )
         submitted_at = datetime(2023, 1, 2, 3, 4, tzinfo=timezone.utc)
-        submitted_at_formatted = "2023-01-02T03:04:00+00:00"
+        submitted_at_formatted = "2023-01-02T03:04:00Z"
         last_processed_at_formatted = submitted_at_formatted
         repo = await create_repo(session=session, project_id=project.id)
         run_dict = get_dev_env_run_dict(
@@ -3129,6 +3247,58 @@ class TestApplyPlan:
             finished_at=None,
             run_name="test-run",
             repo_id=repo.name,
+            privileged=bool(privileged),
+        )
+        run_spec = copy.deepcopy(run_dict["run_spec"])
+        if privileged is None:
+            del run_spec["configuration"]["privileged"]
+        with patch("dstack._internal.utils.common.get_current_datetime") as datetime_mock:
+            datetime_mock.return_value = submitted_at
+            response = await client.post(
+                f"/api/project/{project.name}/runs/apply",
+                headers=get_auth_headers(user.token),
+                json={
+                    "plan": {
+                        "run_spec": run_spec,
+                        "current_resource": None,
+                    },
+                    "force": False,
+                },
+            )
+        assert response.status_code == 200, response.json()
+        assert response.json() == run_dict
+        res = await session.execute(select(RunModel))
+        run = res.scalar()
+        assert run is not None
+        res = await session.execute(select(JobModel))
+        job = res.scalar()
+        assert job is not None
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("test_db", ["sqlite", "postgres"], indirect=True)
+    async def test_submits_new_run_docker_true(
+        self, test_db, session: AsyncSession, client: AsyncClient
+    ):
+        user = await create_user(session=session, global_role=GlobalRole.USER)
+        project = await create_project(session=session, owner=user)
+        await add_project_member(
+            session=session, project=project, user=user, project_role=ProjectRole.USER
+        )
+        submitted_at = datetime(2023, 1, 2, 3, 4, tzinfo=timezone.utc)
+        submitted_at_formatted = "2023-01-02T03:04:00Z"
+        repo = await create_repo(session=session, project_id=project.id)
+        run_dict = get_dev_env_run_dict(
+            run_id=SomeUUID4Str(),
+            job_id=SomeUUID4Str(),
+            project_name=project.name,
+            username=user.name,
+            submitted_at=submitted_at_formatted,
+            last_processed_at=submitted_at_formatted,
+            finished_at=None,
+            run_name="test-run",
+            repo_id=repo.name,
+            docker=True,
+            privileged=True,  # docker=True automatically enables privileged mode
         )
         with patch("dstack._internal.utils.common.get_current_datetime") as datetime_mock:
             datetime_mock.return_value = submitted_at
@@ -3145,12 +3315,138 @@ class TestApplyPlan:
             )
         assert response.status_code == 200, response.json()
         assert response.json() == run_dict
-        res = await session.execute(select(RunModel))
-        run = res.scalar()
-        assert run is not None
-        res = await session.execute(select(JobModel))
-        job = res.scalar()
-        assert job is not None
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("test_db", ["sqlite", "postgres"], indirect=True)
+    async def test_submits_new_run_without_run_name(
+        self, test_db, session: AsyncSession, client: AsyncClient
+    ):
+        user = await create_user(session=session, global_role=GlobalRole.USER)
+        project = await create_project(session=session, owner=user)
+        await add_project_member(
+            session=session, project=project, user=user, project_role=ProjectRole.USER
+        )
+        repo = await create_repo(session=session, project_id=project.id)
+        run_dict = get_dev_env_run_dict(
+            project_name=project.name,
+            username=user.name,
+            run_name=None,
+            repo_id=repo.name,
+        )
+        response = await client.post(
+            f"/api/project/{project.name}/runs/apply",
+            headers=get_auth_headers(user.token),
+            json={
+                "plan": {
+                    "run_spec": run_dict["run_spec"],
+                    "current_resource": None,
+                },
+                "force": False,
+            },
+        )
+        assert response.status_code == 200, response.json()
+        assert response.json()["run_spec"]["run_name"] is not None
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("test_db", ["sqlite", "postgres"], indirect=True)
+    @pytest.mark.parametrize(
+        "run_name",
+        [
+            "run_with_underscores",
+            "RunWithUppercase",
+            "тест_ран",
+        ],
+    )
+    async def test_returns_400_if_bad_run_name(
+        self, test_db, session: AsyncSession, client: AsyncClient, run_name: str
+    ):
+        user = await create_user(session=session, global_role=GlobalRole.USER)
+        project = await create_project(session=session, owner=user)
+        await add_project_member(
+            session=session, project=project, user=user, project_role=ProjectRole.USER
+        )
+        repo = await create_repo(session=session, project_id=project.id)
+        run_dict = get_dev_env_run_dict(
+            project_name=project.name,
+            username=user.name,
+            run_name=run_name,
+            repo_id=repo.name,
+        )
+        response = await client.post(
+            f"/api/project/{project.name}/runs/apply",
+            headers=get_auth_headers(user.token),
+            json={
+                "plan": {
+                    "run_spec": run_dict["run_spec"],
+                    "current_resource": None,
+                },
+                "force": False,
+            },
+        )
+        assert response.status_code == 400
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("test_db", ["sqlite", "postgres"], indirect=True)
+    async def test_returns_400_if_dstack_in_runs_forbidden(
+        self, test_db, session: AsyncSession, client: AsyncClient
+    ):
+        user = await create_user(session=session, global_role=GlobalRole.USER)
+        project = await create_project(session=session, owner=user)
+        await add_project_member(
+            session=session, project=project, user=user, project_role=ProjectRole.USER
+        )
+        repo = await create_repo(session=session, project_id=project.id)
+        run_dict = get_dev_env_run_dict(
+            project_name=project.name,
+            username=user.name,
+            run_name="test-run",
+            repo_id=repo.name,
+        )
+        run_dict["run_spec"]["configuration"]["dstack"] = True
+        with patch(
+            "dstack._internal.server.services.runs.server_settings.FORBID_DSTACK_IN_RUNS", True
+        ):
+            response = await client.post(
+                f"/api/project/{project.name}/runs/apply",
+                headers=get_auth_headers(user.token),
+                json={
+                    "plan": {
+                        "run_spec": run_dict["run_spec"],
+                        "current_resource": None,
+                    },
+                    "force": False,
+                },
+            )
+        assert response.status_code == 400
+        assert "forbids" in response.json()["detail"][0]["msg"]
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("test_db", ["sqlite", "postgres"], indirect=True)
+    async def test_returns_400_if_repo_does_not_exist(
+        self, test_db, session: AsyncSession, client: AsyncClient
+    ):
+        user = await create_user(session=session, global_role=GlobalRole.USER)
+        project = await create_project(session=session, owner=user)
+        await add_project_member(
+            session=session, project=project, user=user, project_role=ProjectRole.USER
+        )
+        run_dict = get_dev_env_run_dict(
+            project_name=project.name,
+            username=user.name,
+            repo_id="repo1234",
+        )
+        response = await client.post(
+            f"/api/project/{project.name}/runs/apply",
+            headers=get_auth_headers(user.token),
+            json={
+                "plan": {
+                    "run_spec": run_dict["run_spec"],
+                    "current_resource": None,
+                },
+                "force": False,
+            },
+        )
+        assert response.status_code == 400
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("test_db", ["sqlite", "postgres"], indirect=True)
@@ -3184,7 +3480,7 @@ class TestApplyPlan:
         )
         run = run_model_to_run(run_model)
         run_spec.configuration_path = "new.dstack.yml"
-        run_spec.configuration.replicas = Range(min=2, max=2)
+        run_spec.configuration.replicas = Range[int](min=2, max=2)
         response = await client.post(
             f"/api/project/{project.name}/runs/apply",
             headers=get_auth_headers(user.token),
@@ -3196,7 +3492,7 @@ class TestApplyPlan:
                         current_resource=run,
                     ),
                     force=False,
-                ).json()
+                ).model_dump_json()
             ),
         )
         assert response.status_code == 200, response.json()
@@ -3236,7 +3532,7 @@ class TestApplyPlan:
                 headers=get_auth_headers(user.token),
                 json={
                     "plan": {
-                        "run_spec": json.loads(run_spec.json()),
+                        "run_spec": json.loads(run_spec.model_dump_json()),
                         "current_resource": None,
                     },
                     "force": False,
@@ -3267,7 +3563,7 @@ class TestApplyPlan:
             headers=get_auth_headers(user.token),
             json={
                 "plan": {
-                    "run_spec": run_spec.dict(),
+                    "run_spec": run_spec.model_dump(),
                     "current_resource": None,
                 },
                 "force": False,
@@ -3322,7 +3618,7 @@ class TestApplyPlan:
             headers=headers,
             json={
                 "plan": {
-                    "run_spec": run_spec.dict(),
+                    "run_spec": run_spec.model_dump(),
                     "current_resource": None,
                 },
                 "force": False,
@@ -3331,232 +3627,6 @@ class TestApplyPlan:
 
         assert response.status_code == 200
         assert response.json()["run_spec"]["configuration"]["probes"] == expected_probes
-
-
-class TestSubmitRun:
-    @pytest.mark.asyncio
-    @pytest.mark.parametrize("test_db", ["sqlite", "postgres"], indirect=True)
-    async def test_returns_403_if_not_project_member(
-        self, test_db, session: AsyncSession, client: AsyncClient
-    ):
-        user = await create_user(session=session, global_role=GlobalRole.USER)
-        project = await create_project(session=session, owner=user)
-        response = await client.post(
-            f"/api/project/{project.name}/runs/submit",
-            headers=get_auth_headers(user.token),
-        )
-        assert response.status_code == 403
-
-    @pytest.mark.asyncio
-    @pytest.mark.parametrize("privileged", [None, False, True])
-    @pytest.mark.parametrize("test_db", ["sqlite", "postgres"], indirect=True)
-    async def test_submits_run(
-        self, test_db, session: AsyncSession, client: AsyncClient, privileged: Optional[bool]
-    ):
-        user = await create_user(session=session, global_role=GlobalRole.USER)
-        project = await create_project(session=session, owner=user)
-        await add_project_member(
-            session=session, project=project, user=user, project_role=ProjectRole.USER
-        )
-        submitted_at = datetime(2023, 1, 2, 3, 4, tzinfo=timezone.utc)
-        submitted_at_formatted = "2023-01-02T03:04:00+00:00"
-        last_processed_at_formatted = submitted_at_formatted
-        repo = await create_repo(session=session, project_id=project.id)
-        run_dict = get_dev_env_run_dict(
-            run_id=SomeUUID4Str(),
-            job_id=SomeUUID4Str(),
-            project_name=project.name,
-            username=user.name,
-            submitted_at=submitted_at_formatted,
-            last_processed_at=last_processed_at_formatted,
-            finished_at=None,
-            run_name="test-run",
-            repo_id=repo.name,
-            privileged=bool(privileged),
-        )
-        run_spec = copy.deepcopy(run_dict["run_spec"])
-        if privileged is None:
-            del run_spec["configuration"]["privileged"]
-        body = {"run_spec": run_spec}
-        with patch("dstack._internal.utils.common.get_current_datetime") as datetime_mock:
-            datetime_mock.return_value = submitted_at
-            response = await client.post(
-                f"/api/project/{project.name}/runs/submit",
-                headers=get_auth_headers(user.token),
-                json=body,
-            )
-        assert response.status_code == 200, response.json()
-        assert response.json() == run_dict
-        res = await session.execute(select(RunModel))
-        run = res.scalar()
-        assert run is not None
-        res = await session.execute(select(JobModel))
-        job = res.scalar()
-        assert job is not None
-
-    @pytest.mark.asyncio
-    @pytest.mark.parametrize("test_db", ["sqlite", "postgres"], indirect=True)
-    async def test_submits_run_docker_true(
-        self, test_db, session: AsyncSession, client: AsyncClient
-    ):
-        user = await create_user(session=session, global_role=GlobalRole.USER)
-        project = await create_project(session=session, owner=user)
-        await add_project_member(
-            session=session, project=project, user=user, project_role=ProjectRole.USER
-        )
-        submitted_at = datetime(2023, 1, 2, 3, 4, tzinfo=timezone.utc)
-        submitted_at_formatted = "2023-01-02T03:04:00+00:00"
-        last_processed_at_formatted = submitted_at_formatted
-        repo = await create_repo(session=session, project_id=project.id)
-        run_dict = get_dev_env_run_dict(
-            run_id=SomeUUID4Str(),
-            job_id=SomeUUID4Str(),
-            project_name=project.name,
-            username=user.name,
-            submitted_at=submitted_at_formatted,
-            last_processed_at=last_processed_at_formatted,
-            finished_at=None,
-            run_name="test-run",
-            repo_id=repo.name,
-            docker=True,
-            privileged=True,  # docker=True automatically enables privileged mode
-        )
-        body = {"run_spec": run_dict["run_spec"]}
-        with patch("dstack._internal.utils.common.get_current_datetime") as datetime_mock:
-            datetime_mock.return_value = submitted_at
-            response = await client.post(
-                f"/api/project/{project.name}/runs/submit",
-                headers=get_auth_headers(user.token),
-                json=body,
-            )
-        assert response.status_code == 200, response.json()
-        assert response.json() == run_dict
-        res = await session.execute(select(RunModel))
-        run = res.scalar()
-        assert run is not None
-        res = await session.execute(select(JobModel))
-        job = res.scalar()
-        assert job is not None
-
-    @pytest.mark.asyncio
-    @pytest.mark.parametrize("test_db", ["sqlite", "postgres"], indirect=True)
-    async def test_submits_run_without_run_name(
-        self, test_db, session: AsyncSession, client: AsyncClient
-    ):
-        user = await create_user(session=session, global_role=GlobalRole.USER)
-        project = await create_project(session=session, owner=user)
-        await add_project_member(
-            session=session, project=project, user=user, project_role=ProjectRole.USER
-        )
-        repo = await create_repo(session=session, project_id=project.id)
-        run_dict = get_dev_env_run_dict(
-            project_name=project.name,
-            username=user.name,
-            run_name=None,
-            repo_id=repo.name,
-        )
-        body = {"run_spec": run_dict["run_spec"]}
-        response = await client.post(
-            f"/api/project/{project.name}/runs/submit",
-            headers=get_auth_headers(user.token),
-            json=body,
-        )
-        assert response.status_code == 200
-        assert response.json()["run_spec"]["run_name"] is not None
-        res = await session.execute(select(RunModel))
-        run = res.scalar()
-        assert run is not None
-        res = await session.execute(select(JobModel))
-        job = res.scalar()
-        assert job is not None
-
-    @pytest.mark.asyncio
-    @pytest.mark.parametrize("test_db", ["sqlite", "postgres"], indirect=True)
-    @pytest.mark.parametrize(
-        "run_name",
-        [
-            "run_with_underscores",
-            "RunWithUppercase",
-            "тест_ран",
-        ],
-    )
-    async def test_returns_400_if_bad_run_name(
-        self, test_db, session: AsyncSession, client: AsyncClient, run_name: str
-    ):
-        user = await create_user(session=session, global_role=GlobalRole.USER)
-        project = await create_project(session=session, owner=user)
-        await add_project_member(
-            session=session, project=project, user=user, project_role=ProjectRole.USER
-        )
-        repo = await create_repo(session=session, project_id=project.id)
-        run_dict = get_dev_env_run_dict(
-            project_name=project.name,
-            username=user.name,
-            run_name=run_name,
-            repo_id=repo.name,
-        )
-        body = {"run_spec": run_dict["run_spec"]}
-        with patch("uuid.uuid4") as uuid_mock:
-            uuid_mock.return_value = UUID(run_dict["id"])
-            response = await client.post(
-                f"/api/project/{project.name}/runs/submit",
-                headers=get_auth_headers(user.token),
-                json=body,
-            )
-        assert response.status_code == 400
-
-    @pytest.mark.asyncio
-    @pytest.mark.parametrize("test_db", ["sqlite", "postgres"], indirect=True)
-    async def test_returns_400_if_dstack_in_runs_forbidden(
-        self, test_db, session: AsyncSession, client: AsyncClient
-    ):
-        user = await create_user(session=session, global_role=GlobalRole.USER)
-        project = await create_project(session=session, owner=user)
-        await add_project_member(
-            session=session, project=project, user=user, project_role=ProjectRole.USER
-        )
-        repo = await create_repo(session=session, project_id=project.id)
-        run_dict = get_dev_env_run_dict(
-            project_name=project.name,
-            username=user.name,
-            run_name="test-run",
-            repo_id=repo.name,
-        )
-        run_dict["run_spec"]["configuration"]["dstack"] = True
-        body = {"run_spec": run_dict["run_spec"]}
-        with patch(
-            "dstack._internal.server.services.runs.server_settings.FORBID_DSTACK_IN_RUNS", True
-        ):
-            response = await client.post(
-                f"/api/project/{project.name}/runs/submit",
-                headers=get_auth_headers(user.token),
-                json=body,
-            )
-        assert response.status_code == 400
-        assert "forbids" in response.json()["detail"][0]["msg"]
-
-    @pytest.mark.asyncio
-    @pytest.mark.parametrize("test_db", ["sqlite", "postgres"], indirect=True)
-    async def test_returns_400_if_repo_does_not_exist(
-        self, test_db, session: AsyncSession, client: AsyncClient
-    ):
-        user = await create_user(session=session, global_role=GlobalRole.USER)
-        project = await create_project(session=session, owner=user)
-        await add_project_member(
-            session=session, project=project, user=user, project_role=ProjectRole.USER
-        )
-        run_dict = get_dev_env_run_dict(
-            project_name=project.name,
-            username=user.name,
-            repo_id="repo1234",
-        )
-        body = {"run_spec": run_dict["run_spec"]}
-        response = await client.post(
-            f"/api/project/{project.name}/runs/submit",
-            headers=get_auth_headers(user.token),
-            json=body,
-        )
-        assert response.status_code == 400
 
 
 class TestStopRuns:
@@ -3894,9 +3964,15 @@ class TestSubmitService:
             model=model,
         )
         response = await client.post(
-            f"/api/project/{project.name}/runs/submit",
+            f"/api/project/{project.name}/runs/apply",
             headers=get_auth_headers(user.token),
-            json={"run_spec": run_spec},
+            json={
+                "plan": {
+                    "run_spec": run_spec,
+                    "current_resource": None,
+                },
+                "force": False,
+            },
         )
         assert response.status_code == 200
         assert response.json()["service"]["url"] == expected_service_url
@@ -3941,9 +4017,15 @@ class TestSubmitService:
             gateway="my-gateway",
         )
         response = await client.post(
-            f"/api/project/{project.name}/runs/submit",
+            f"/api/project/{project.name}/runs/apply",
             headers=get_auth_headers(user.token),
-            json={"run_spec": run_spec},
+            json={
+                "plan": {
+                    "run_spec": run_spec,
+                    "current_resource": None,
+                },
+                "force": False,
+            },
         )
         assert response.status_code == 200
         assert response.json()["service"]["url"] == "https://test-service.my-gateway.example"
@@ -3962,9 +4044,15 @@ class TestSubmitService:
         repo = await create_repo(session=session, project_id=project.id)
         run_spec = get_service_run_spec(repo_id=repo.name, gateway="nonexistent")
         response = await client.post(
-            f"/api/project/{project.name}/runs/submit",
+            f"/api/project/{project.name}/runs/apply",
             headers=get_auth_headers(user.token),
-            json={"run_spec": run_spec},
+            json={
+                "plan": {
+                    "run_spec": run_spec,
+                    "current_resource": None,
+                },
+                "force": False,
+            },
         )
         assert response.status_code == 400
         assert response.json() == {
@@ -3988,9 +4076,15 @@ class TestSubmitService:
         repo = await create_repo(session=session, project_id=project.id)
         run_spec = get_service_run_spec(repo_id=repo.name, gateway=True)
         response = await client.post(
-            f"/api/project/{project.name}/runs/submit",
+            f"/api/project/{project.name}/runs/apply",
             headers=get_auth_headers(user.token),
-            json={"run_spec": run_spec},
+            json={
+                "plan": {
+                    "run_spec": run_spec,
+                    "current_resource": None,
+                },
+                "force": False,
+            },
         )
         assert response.status_code == 400
         assert response.json() == {
@@ -4064,9 +4158,15 @@ class TestSubmitService:
             gateway="exporter-project/exported-gateway",
         )
         response = await client.post(
-            f"/api/project/{importer_project.name}/runs/submit",
+            f"/api/project/{importer_project.name}/runs/apply",
             headers=get_auth_headers(importer_user.token),
-            json={"run_spec": importer_run_spec},
+            json={
+                "plan": {
+                    "run_spec": importer_run_spec,
+                    "current_resource": None,
+                },
+                "force": False,
+            },
         )
         assert response.status_code == 200
         assert response.json()["service"]["url"] == "https://test-service.exported-gateway.example"
@@ -4076,9 +4176,15 @@ class TestSubmitService:
             gateway="exporter-project/exported-gateway",
         )
         response = await client.post(
-            f"/api/project/{not_importer_project.name}/runs/submit",
+            f"/api/project/{not_importer_project.name}/runs/apply",
             headers=get_auth_headers(not_importer_user.token),
-            json={"run_spec": not_importer_run_spec},
+            json={
+                "plan": {
+                    "run_spec": not_importer_run_spec,
+                    "current_resource": None,
+                },
+                "force": False,
+            },
         )
         assert response.status_code == 400
         assert response.json() == {
@@ -4124,9 +4230,15 @@ class TestSubmitService:
             gateway=True,
         )
         response = await client.post(
-            f"/api/project/{service_project.name}/runs/submit",
+            f"/api/project/{service_project.name}/runs/apply",
             headers=get_auth_headers(user.token),
-            json={"run_spec": run_spec},
+            json={
+                "plan": {
+                    "run_spec": run_spec,
+                    "current_resource": None,
+                },
+                "force": False,
+            },
         )
         assert response.status_code == 400
         assert response.json() == {
@@ -4186,9 +4298,15 @@ class TestSubmitService:
             gateway="exporter-project/exported-gateway",
         )
         response = await client.post(
-            f"/api/project/{importer_project.name}/runs/submit",
+            f"/api/project/{importer_project.name}/runs/apply",
             headers=get_auth_headers(importer_user.token),
-            json={"run_spec": run_spec},
+            json={
+                "plan": {
+                    "run_spec": run_spec,
+                    "current_resource": None,
+                },
+                "force": False,
+            },
         )
         assert response.status_code == 200
         assert (
@@ -4244,9 +4362,15 @@ class TestSubmitService:
             gateway="exporter-project/exported-gateway",
         )
         response = await client.post(
-            f"/api/project/{importer_project.name}/runs/submit",
+            f"/api/project/{importer_project.name}/runs/apply",
             headers=get_auth_headers(importer_user.token),
-            json={"run_spec": run_spec},
+            json={
+                "plan": {
+                    "run_spec": run_spec,
+                    "current_resource": None,
+                },
+                "force": False,
+            },
         )
         assert response.status_code == 400
         assert response.json() == {
@@ -4293,9 +4417,15 @@ class TestSubmitService:
         ]
 
         response = await client.post(
-            "/api/project/test-project/runs/submit",
+            f"/api/project/{project.name}/runs/apply",
             headers=get_auth_headers(user.token),
-            json={"run_spec": get_service_run_spec(repo_id=repo.name, run_name="test-service")},
+            json={
+                "plan": {
+                    "run_spec": get_service_run_spec(repo_id=repo.name, run_name="test-service"),
+                    "current_resource": None,
+                },
+                "force": False,
+            },
         )
 
         assert response.status_code == 200
@@ -4335,9 +4465,15 @@ class TestSubmitService:
         await session.commit()
 
         response = await client.post(
-            "/api/project/test-project/runs/submit",
+            f"/api/project/{project.name}/runs/apply",
             headers=get_auth_headers(user.token),
-            json={"run_spec": get_service_run_spec(repo_id=repo.name, run_name="test-service")},
+            json={
+                "plan": {
+                    "run_spec": get_service_run_spec(repo_id=repo.name, run_name="test-service"),
+                    "current_resource": None,
+                },
+                "force": False,
+            },
         )
 
         assert response.status_code == 400
@@ -4371,14 +4507,18 @@ class TestSubmitService:
         await create_gateway_compute(session=session, backend_id=backend.id, gateway_id=gateway.id)
 
         response = await client.post(
-            "/api/project/test-project/runs/submit",
+            f"/api/project/{project.name}/runs/apply",
             headers=get_auth_headers(user.token),
             json={
-                "run_spec": get_service_run_spec(
-                    repo_id=repo.name,
-                    run_name="test-service",
-                    gateway="restricted-gateway",
-                )
+                "plan": {
+                    "run_spec": get_service_run_spec(
+                        repo_id=repo.name,
+                        run_name="test-service",
+                        gateway="restricted-gateway",
+                    ),
+                    "current_resource": None,
+                },
+                "force": False,
             },
         )
 

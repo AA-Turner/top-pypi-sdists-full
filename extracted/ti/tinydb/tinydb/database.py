@@ -1,7 +1,8 @@
 """
 This module contains the main component of TinyDB: the database.
 """
-from typing import Dict, Iterator, Set, Type
+
+from collections.abc import Iterator
 
 from . import JSONStorage
 from .storages import Storage
@@ -10,7 +11,7 @@ from .utils import with_typehint
 
 # The table's base class. This is used to add type hinting from the Table
 # class to TinyDB. Currently, this supports PyCharm, Pyright/VS Code and MyPy.
-TableBase: Type[Table] = with_typehint(Table)
+TableBase: type[Table] = with_typehint(Table)
 
 
 class TinyDB(TableBase):
@@ -94,16 +95,15 @@ class TinyDB(TableBase):
         self._storage: Storage = storage(*args, **kwargs)
 
         self._opened = True
-        self._tables: Dict[str, Table] = {}
+        self._tables: dict[str, Table] = {}
 
     def __repr__(self):
+
         args = [
-            'tables={}'.format(list(self.tables())),
-            'tables_count={}'.format(len(self.tables())),
-            'default_table_documents_count={}'.format(self.__len__()),
-            'all_tables_documents_count={}'.format(
-                ['{}={}'.format(table, len(self.table(table)))
-                 for table in self.tables()]),
+            f'tables={list(self.tables())}',
+            f'tables_count={len(self.tables())}',
+            f'default_table_documents_count={self.__len__()}',
+            f'all_tables_documents_count={[f"{table}={len(self.table(table))}" for table in self.tables()]}',
         ]
 
         return '<{} {}>'.format(type(self).__name__, ', '.join(args))
@@ -132,7 +132,7 @@ class TinyDB(TableBase):
 
         return table
 
-    def tables(self) -> Set[str]:
+    def tables(self) -> set[str]:
         """
         Get the names of all tables in the database.
 

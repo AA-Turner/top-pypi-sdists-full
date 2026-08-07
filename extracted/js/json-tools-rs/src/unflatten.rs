@@ -1017,7 +1017,18 @@ fn serialize_unflatten_tree(
     capacity_hint: usize,
 ) -> String {
     let mut output = String::with_capacity(capacity_hint);
-    serialize_node(root, &mut output, filtering, value_exclusions);
+    // Precomputed once per call rather than re-checked in serialize_node's
+    // Null arm on every array-gap Null node visited -- "null" and
+    // value_exclusions are both invariant for the whole tree walk.
+    let null_is_excluded =
+        !value_exclusions.is_empty() && matches_any_pattern("null", value_exclusions);
+    serialize_node(
+        root,
+        &mut output,
+        filtering,
+        value_exclusions,
+        null_is_excluded,
+    );
     output
 }
 
@@ -1044,6 +1055,7 @@ fn serialize_node(
     output: &mut String,
     filtering: &FilteringConfig,
     value_exclusions: &[String],
+    null_is_excluded: bool,
 ) -> bool {
     match node {
         UnflatNode::Leaf(vr) => {
@@ -1058,7 +1070,7 @@ fn serialize_node(
             if filtering.remove_nulls {
                 return false;
             }
-            if !value_exclusions.is_empty() && matches_any_pattern("null", value_exclusions) {
+            if null_is_excluded {
                 return false;
             }
             output.push_str("null");
@@ -1087,7 +1099,7 @@ fn serialize_node(
                 write_json_escaped_key(output, key);
                 output.push_str("\":");
 
-                if !serialize_node(child, output, filtering, value_exclusions) {
+                if !serialize_node(child, output, filtering, value_exclusions, null_is_excluded) {
                     output.truncate(child_saved);
                 } else {
                     first = false;
@@ -1128,7 +1140,7 @@ fn serialize_node(
                     output.push(',');
                 }
 
-                if !serialize_node(child, output, filtering, value_exclusions) {
+                if !serialize_node(child, output, filtering, value_exclusions, null_is_excluded) {
                     output.truncate(child_saved);
                 } else {
                     first = false;

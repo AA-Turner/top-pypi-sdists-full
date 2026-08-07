@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Collection, Iterable
+from dataclasses import dataclass
+from datetime import datetime
 
 from django.conf import settings
 from django.contrib.auth.hashers import check_password, make_password
@@ -54,6 +56,14 @@ class Client(models.Model):
     class Type(models.TextChoices):
         CONFIDENTIAL = "confidential", _("Confidential")
         PUBLIC = "public", _("Public")
+
+    class AuthenticationMethod(models.TextChoices):
+        # token_endpoint_auth_method values this server supports (the IANA
+        # registry is open-ended; only add a value once the token endpoint
+        # actually honors it).
+        NONE = "none", _("None")
+        CLIENT_SECRET_BASIC = "client_secret_basic", _("Client secret basic")
+        CLIENT_SECRET_POST = "client_secret_post", _("Client secret post")
 
     id = models.CharField(
         primary_key=True,
@@ -200,11 +210,22 @@ class TokenQuerySet(models.query.QuerySet["Token"]):
             Q(expires_at__isnull=True) | Q(expires_at__gt=timezone.now())
         )
 
+    def expired(self) -> TokenQuerySet:
+        return self.filter(expires_at__isnull=False, expires_at__lte=timezone.now())
+
     def by_value(self, value: str) -> TokenQuerySet:
         return self.filter(hash=get_adapter().hash_token(value))
 
     def lookup(self, type, value: str) -> Token | None:
         return self.valid().by_value(value).filter(type=type).first()
+
+    def lookup_by_value(
+        self, types: Collection[Token.Type], value: str
+    ) -> Token | None:
+        try:
+            return self.valid().by_value(value).get(type__in=types)
+        except (Token.DoesNotExist, Token.MultipleObjectsReturned):
+            return None
 
 
 class Token(models.Model):
@@ -279,3 +300,11 @@ class Token(models.Model):
         if not isinstance(self.data, dict):
             raise ValueError
         self.data["resources"] = list(resources)
+
+
+@dataclass(frozen=True, kw_only=True)
+class PrivateKey:
+    not_before: datetime | None = None
+    expires_at: datetime | None = None
+    issued_at: datetime | None = None
+    pem: str

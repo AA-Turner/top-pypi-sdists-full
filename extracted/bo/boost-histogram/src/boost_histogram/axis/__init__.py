@@ -9,7 +9,6 @@ from typing import (
     ClassVar,
     Literal,
     TypedDict,
-    TypeVar,
 )
 
 import numpy as np  # pylint: disable=unused-import
@@ -43,14 +42,33 @@ def __dir__() -> list[str]:
 
 def _isstr(value: Any) -> bool:
     """
-    Check to see if this is a stringlike or a (nested) iterable of stringlikes
+    Check to see if this is a stringlike or a non-empty (nested) iterable of
+    stringlikes. Empty iterables are not considered stringlike. Iterables
+    without a length (one-shot iterators) are not inspected, since checking
+    them would consume them.
     """
 
     if isinstance(value, (str, bytes)):
         return True
-    if hasattr(value, "__iter__"):
-        return all(_isstr(v) for v in value)
+    if isinstance(value, np.ndarray):
+        if value.dtype.kind in {"S", "U"}:
+            return True
+        if value.dtype.kind == "O":
+            return value.size > 0 and all(_isstr(v) for v in value.flat)
+        return False
+    if hasattr(value, "__iter__") and hasattr(value, "__len__"):
+        return len(value) > 0 and all(_isstr(v) for v in value)
     return False
+
+
+def _is_empty_sized(value: Any) -> bool:
+    """
+    Check for a sized, empty iterable (without consuming one-shot iterators).
+    """
+    try:
+        return len(value) == 0
+    except TypeError:
+        return False
 
 
 def _opts(**kwargs: bool) -> set[str]:
@@ -73,9 +91,6 @@ class Traits:
     def discrete(self) -> bool:
         "True if axis is not continuous"
         return not self.continuous
-
-
-T = TypeVar("T", bound="Axis")
 
 
 # Contains common methods and properties to all axes
@@ -195,7 +210,13 @@ class Axis:
             return default
         if callable(value):
             return value(self)
-        return value
+        # Normalize plain integer bounds like NumPy slicing: negative values
+        # count from the end, and out-of-range values clamp to [0, len].
+        # Locators (callables) are handled above and keep flow access (e.g.
+        # tag.at(-1) for underflow).
+        if value < 0:
+            value += len(self)
+        return min(max(int(value), 0), len(self))
 
     def _process_loc(
         self, start: AxCallOrInt | None, stop: AxCallOrInt | None
@@ -274,11 +295,13 @@ class Axis:
         if callable(i):
             i = i(self)
         else:
+            size: int = self._ax.size
+            requested = i
             if i < 0:
-                i += self._ax.size
-            if i >= self._ax.size:
+                i += size
+            if i < 0 or i >= size:
                 raise IndexError(
-                    f"Out of range access, {i} is more than {self._ax.size}"
+                    f"Out of range access, {requested} is out of range for axis with size {size}"
                 )
         assert not callable(i)
         return self.bin(i)
@@ -371,11 +394,14 @@ class Regular(Axis, family=boost_histogram):
             if options != {"underflow", "overflow"}:
                 raise KeyError("Transform supplied, cannot change other options")
 
-            if (
-                not isinstance(transform, AxisTransform)
-                and AxisTransform in transform.__bases__  # type: ignore[unreachable]
-            ):
-                raise TypeError(f"You must pass an instance, use {transform}()")
+            if not isinstance(transform, AxisTransform):
+                if isinstance(transform, type) and issubclass(  # type: ignore[unreachable]
+                    transform, AxisTransform
+                ):
+                    msg = f"You must pass an instance, use {transform.__name__}()"
+                    raise TypeError(msg)
+                msg = f"transform must be an AxisTransform instance, got {transform!r}"
+                raise TypeError(msg)
 
             ax = transform._produce(bins, start, stop)
 
@@ -695,7 +721,7 @@ class StrCategory(BaseCategory, family=boost_histogram):
         Return the fractional index(es) given a value (or values) on the axis.
         """
 
-        if _isstr(value):
+        if _isstr(value) or _is_empty_sized(value):
             return self._ax.index(value)  # type: ignore[no-any-return]
 
         msg = f"index({value}) must be a string or iterable of strings for a StrCategory axis"
@@ -808,9 +834,6 @@ class MGridOpts(TypedDict):
     indexing: Literal["ij", "xy"]
 
 
-A = TypeVar("A", bound="ArrayTuple")
-
-
 class ArrayTuple(tuple):  # type: ignore[type-arg]
     __slots__ = ()
     # This is an exhaustive list as of NumPy 1.19
@@ -823,7 +846,7 @@ class ArrayTuple(tuple):  # type: ignore[type-arg]
         return self.__class__(getattr(a, name) for a in self)
 
     def __dir__(self) -> list[str]:
-        names = dir(self.__class__) + dir("np.typing.NDArray[Any]")
+        names = set(dir(self.__class__)) | set(dir(np.ndarray)) | self._REDUCTIONS
         return sorted(n for n in names if not n.startswith("_"))
 
     def __call__(self, *args: Any, **kwargs: Any) -> Any:
@@ -836,9 +859,6 @@ class ArrayTuple(tuple):  # type: ignore[type-arg]
         representation.
         """
         return self.__class__(np.broadcast_arrays(*self))
-
-
-B = TypeVar("B", bound="AxesTuple")
 
 
 class AxesTuple(tuple):  # type: ignore[type-arg]
@@ -890,7 +910,7 @@ class AxesTuple(tuple):  # type: ignore[type-arg]
             )
         return tuple(self[i].bin(indexes[i]) for i in range(len(indexes)))
 
-    def index(self, *values: float) -> tuple[float, ...]:  # type: ignore[override, override]
+    def index(self, *values: float) -> tuple[int, ...]:  # type: ignore[override]
         if len(values) != len(self):
             raise IndexError(
                 "Must have the same number of arguments as the number of axes"

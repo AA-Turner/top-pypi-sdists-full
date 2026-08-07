@@ -12,6 +12,10 @@ from typing import TYPE_CHECKING, Any
 
 import click
 
+from apm_cli.install.argv import (
+    _get_invocation_argv,
+    _split_argv_at_double_dash,
+)
 from apm_cli.install.artifactory_resolver import _resolve_artifactory_boundary
 from apm_cli.install.errors import (
     AuthenticationError,
@@ -54,8 +58,9 @@ from apm_cli.install.package_resolution import (
     cli_skill_subset,
     dependency_reference_to_yaml_entry,
     persist_dependency_list_if_changed,
+    propagate_existing_registry_source,
     resolve_parsed_dependency_reference,
-    update_existing_dependency_entry_if_needed,
+    try_update_existing_dependency_entry,
     user_scope_rejection_reason,
 )
 from apm_cli.install.package_selection import only_packages_from_validation
@@ -102,6 +107,9 @@ from ..constants import (
 )
 from ..core.auth import AuthResolver
 from ..core.command_logger import InstallLogger, _ValidationOutcome
+from ..core.project_name import (
+    resolve_bootstrap_project_name as _resolve_bootstrap_project_name,
+)
 from ..core.target_catalog import target_help_fragment
 from ..core.target_detection import TargetParamType, manifest_targets_from_target_option
 
@@ -180,41 +188,6 @@ class InstallContext:
     audit_override: str | None = None
     install_result: InstallResult | None = None
     target_decision: "EffectiveTargetDecision | None" = None
-
-
-# ---------------------------------------------------------------------------
-# Argv `--` boundary helpers (W3 --mcp flag)
-# ---------------------------------------------------------------------------
-#
-# Click's ``nargs=-1`` silently swallows the ``--`` separator and merges
-# everything after it into the positional argument tuple.  For
-# ``apm install --mcp foo -- npx -y srv`` we cannot distinguish that from
-# ``apm install --mcp foo npx -y srv`` once Click is done parsing.
-#
-# We therefore inspect ``sys.argv`` ourselves to detect the boundary and
-# extract the post-``--`` portion as the stdio command argv.  ``--`` IS
-# present in ``sys.argv`` even though Click strips it from the parsed
-# arguments.  The pre-``--`` portion is used to flag conflicts (E1).
-#
-# ``_get_invocation_argv`` exists as a tiny seam so tests using
-# ``CliRunner`` (which does not modify ``sys.argv``) can patch it without
-# resorting to ``monkeypatch.setattr('sys.argv', ...)``.
-
-
-def _get_invocation_argv():
-    """Return the process invocation argv. Wrapped for test injection."""
-    return sys.argv
-
-
-def _split_argv_at_double_dash(argv):
-    """Return ``(clean_argv, command_argv_tuple)``.
-
-    If ``--`` is not present, ``command_argv_tuple`` is ``()``.
-    """
-    if "--" not in argv:
-        return argv, ()
-    idx = argv.index("--")
-    return argv[:idx], builtins.tuple(argv[idx + 1 :])
 
 
 # APM Dependencies (conditional import for graceful degradation)
@@ -413,6 +386,13 @@ def _resolve_package_references(
             )
             canonical = dep_ref.to_canonical()
             identity = dep_ref.get_identity()
+            existing_source_is_registry = propagate_existing_registry_source(
+                dep_ref,
+                current_deps,
+                identity,
+                dependency_reference_cls=DependencyReference,
+                logger=logger,
+            )
             apply_cli_skill_pin(
                 dep_ref,
                 skill_subset,
@@ -453,10 +433,6 @@ def _resolve_package_references(
                 logger.validation_fail(package, scope_reject)
             continue
 
-        # Ensure structured entry is used for apm.yml persistence when skill
-        # filter is active (normal non-marketplace/non-insecure path doesn't
-        # set _apm_yml_entries; _merge_packages_into_yml falls back to the
-        # plain canonical string without this).
         if skill_subset and canonical not in _apm_yml_entries:
             _apm_yml_entries[canonical] = dep_ref.to_apm_yml_entry()
         _apm_yml_entries.setdefault(canonical, dep_ref.to_apm_yml_entry())
@@ -465,7 +441,10 @@ def _resolve_package_references(
         already_in_deps = identity in existing_identities
 
         verbose = bool(logger and logger.verbose)
-        if should_skip_github_probe_for_dep(dep_ref, default_registry):
+        # An already-known registry identity also skips the probe.
+        if existing_source_is_registry or should_skip_github_probe_for_dep(
+            dep_ref, default_registry
+        ):
             ref_ok, ref_err = validate_registry_ref(dep_ref)
             if not ref_ok:
                 invalid_outcomes.append((package, ref_err))
@@ -482,7 +461,7 @@ def _resolve_package_references(
                 dep_ref=dep_ref,
             )
         if package_accessible:
-            updates_existing_entry = update_existing_dependency_entry_if_needed(
+            updates_existing_entry, update_error = try_update_existing_dependency_entry(
                 current_deps,
                 already_in_deps=identity in manifest_identities,
                 apm_yml_entries=_apm_yml_entries,
@@ -492,6 +471,11 @@ def _resolve_package_references(
                 dependency_reference_cls=DependencyReference,
                 logger=logger,
             )
+            if update_error:
+                invalid_outcomes.append((package, update_error))
+                if logger:
+                    logger.validation_fail(package, update_error)
+                continue
             valid_outcomes.append((canonical, already_in_deps))
             if logger:
                 logger.validation_pass(canonical, already_in_deps, updates_existing_entry)
@@ -1460,7 +1444,15 @@ def install(  # noqa: PLR0913
         )
 
         if not apm_yml_exists and packages:
-            project_name = Path.cwd().name if scope is InstallScope.PROJECT else Path.home().name
+            derived_project_name = (
+                Path.cwd().name if scope is InstallScope.PROJECT else Path.home().name
+            )
+            project_name = _resolve_bootstrap_project_name(derived_project_name)
+            if project_name != derived_project_name:
+                logger.verbose_detail(
+                    f'Using default project name "{project_name}" because '
+                    f"derived name {derived_project_name!a} is invalid"
+                )
             config = _get_default_config(project_name)
             if manifest_targets := manifest_targets_from_target_option(target):
                 config["targets"] = manifest_targets

@@ -15,7 +15,7 @@ from jsonschema import ValidationError
 import nbformat
 from nbformat import read
 from nbformat.json_compat import VALIDATORS
-from nbformat.validator import isvalid, iter_validate, validate
+from nbformat.validator import get_validator, isvalid, iter_validate, normalize, validate
 from nbformat.warnings import DuplicateCellId, MissingIDFieldWarning
 
 from .base import TestsBase
@@ -30,6 +30,20 @@ def clean_env_before_and_after_tests():
     os.environ.pop("NBFORMAT_VALIDATOR", None)
     yield
     os.environ.pop("NBFORMAT_VALIDATOR", None)
+
+
+@pytest.fixture
+def restore_validator_cache():
+    """Undo any additions these tests make to the global validator cache.
+
+    Deliberately snapshots rather than clearing: wiping the cache forces every
+    schema to be recompiled, and fastjsonschema codegen is ~17ms a go -- a cost
+    that lands on whichever unrelated test happens to run next.
+    """
+    saved = dict(nbformat.validator.validators)
+    yield
+    nbformat.validator.validators.clear()
+    nbformat.validator.validators.update(saved)
 
 
 # Helpers
@@ -245,8 +259,8 @@ def test_iter_validation_empty(validator_name):
     """Test that an empty notebook (invalid) fails validation via iter_validate"""
     set_validator(validator_name)
     errors = list(iter_validate({}))
-    assert len(errors)
-    assert type(errors[0]) == ValidationError
+    assert errors
+    assert type(errors[0]) is ValidationError
 
 
 @pytest.mark.parametrize("validator_name", VALIDATORS)
@@ -292,11 +306,11 @@ def test_non_unique_cell_ids():
     with TestsBase.fopen("invalid_unique_cell_id.ipynb", "r") as f:
         # Avoids validate call from `.read`
         nb = nbformat.from_dict(json.load(f))
-    with pytest.raises(ValidationError), pytest.warns(DeprecationWarning):
-        validate(nb, repair_duplicate_cell_ids=False)
+    with pytest.raises(ValidationError):
+        nbformat.validator._validate(nb, repair_duplicate_cell_ids=False)
     # try again to verify that we didn't modify the content
-    with pytest.raises(ValidationError), pytest.warns(DeprecationWarning):
-        validate(nb, repair_duplicate_cell_ids=False)
+    with pytest.raises(ValidationError):
+        nbformat.validator._validate(nb, repair_duplicate_cell_ids=False)
 
 
 def test_repair_non_unique_cell_ids():
@@ -317,11 +331,11 @@ def test_no_cell_ids():
     with TestsBase.fopen("v4_5_no_cell_id.ipynb", "r") as f:
         # Avoids validate call from `.read`
         nb = nbformat.from_dict(json.load(f))
-    with pytest.raises(ValidationError), pytest.warns(DeprecationWarning):
-        validate(nb, repair_duplicate_cell_ids=False)
+    with pytest.raises(ValidationError):
+        nbformat.validator._validate(nb, repair_duplicate_cell_ids=False)
     # try again to verify that we didn't modify the content
-    with pytest.raises(ValidationError), pytest.warns(DeprecationWarning):
-        validate(nb, repair_duplicate_cell_ids=False)
+    with pytest.raises(ValidationError):
+        nbformat.validator._validate(nb, repair_duplicate_cell_ids=False)
 
 
 @pytest.mark.filterwarnings("ignore::nbformat.warnings.MissingIDFieldWarning")
@@ -365,6 +379,43 @@ def test_strip_invalid_metadata():
     with TestsBase.fopen("v4_5_invalid_metadata.ipynb", "r") as f:
         nb = nbformat.from_dict(json.load(f))
     assert not isvalid(nb)
-    with pytest.warns(DeprecationWarning):
-        validate(nb, strip_invalid_metadata=True)
+    _changes, nb = normalize(nb, strip_invalid_metadata=True)
     assert isvalid(nb)
+
+
+@pytest.mark.parametrize("validator_name", VALIDATORS)
+def test_get_validator_caches_per_relax_add_props(validator_name, restore_validator_cache):
+    """Test that relaxed and strict validators are cached separately.
+
+    `relax_add_props` builds a different schema, so it has to be part of the cache
+    key -- otherwise a relaxed validator gets handed out to a caller that asked for
+    a strict one, and unknown properties silently stop being rejected.
+    """
+    set_validator(validator_name)
+
+    strict = get_validator(4, 5, relax_add_props=False)
+    relaxed = get_validator(4, 5, relax_add_props=True)
+    assert strict is not relaxed
+
+    # asking again either way must return the same cached objects, not rebuild
+    assert get_validator(4, 5, relax_add_props=False) is strict
+    assert get_validator(4, 5, relax_add_props=True) is relaxed
+
+
+@pytest.mark.parametrize("validator_name", VALIDATORS)
+def test_relax_add_props_does_not_leak_into_strict_validation(
+    validator_name, restore_validator_cache
+):
+    """Test that a relaxed validation does not weaken later strict validations."""
+    set_validator(validator_name)
+
+    with TestsBase.fopen("test4.5.ipynb", "r") as f:
+        nb = read(f, as_version=4)
+    nb.cells[0]["not_a_real_property"] = "should not be allowed"
+
+    # relax_add_props=True tolerates the unknown property ...
+    validate(nb, relax_add_props=True)
+
+    # ... but that must not make the strict path tolerate it too.
+    with pytest.raises(ValidationError):
+        validate(nb)

@@ -31,6 +31,7 @@ __all__ = (
     "BrowserActionStatusType",
     "BrowserEnterprisePolicyTypeType",
     "BrowserSessionStatusType",
+    "CapacityProviderSessionStatusType",
     "CloudWatchLogsFilterOperatorType",
     "CodeInterpreterSessionStatusType",
     "CommandExecutionStatusType",
@@ -116,6 +117,9 @@ BlockchainChainIdType = Literal["BASE", "BASE_SEPOLIA", "ETHEREUM", "SOLANA", "S
 BrowserActionStatusType = Literal["FAILED", "SUCCESS"]
 BrowserEnterprisePolicyTypeType = Literal["MANAGED", "RECOMMENDED"]
 BrowserSessionStatusType = Literal["READY", "TERMINATED"]
+CapacityProviderSessionStatusType = Literal[
+    "Active", "Deleted", "Deleting", "Deprovisioning", "Provisioning", "Stopped"
+]
 CloudWatchLogsFilterOperatorType = Literal[
     "Contains",
     "Equals",
@@ -270,6 +274,8 @@ ServiceName = Literal[
     "account",
     "acm",
     "acm-pca",
+    "agent-registry",
+    "agent-registry-control",
     "aiops",
     "amp",
     "amplify",
@@ -574,6 +580,7 @@ ServiceName = Literal[
     "pipes",
     "polly",
     "pricing",
+    "pricing-plan-manager",
     "proton",
     "qapps",
     "qbusiness",

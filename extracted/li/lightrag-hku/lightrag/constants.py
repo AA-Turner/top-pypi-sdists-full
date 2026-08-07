@@ -113,6 +113,18 @@ DEFAULT_R_SEPARATORS: tuple[str, ...] = (
     " ",
     "",
 )
+# Bounds on any separator cascade, wherever it comes from. The recursive splitter
+# descends one level per remaining separator and re-scans the text at every level,
+# so total work is O(len(separators) x len(text)); with both factors supplied by
+# one request that is an amplifier (GHSA-26pm-px5v-8c4w). The request model caps
+# the list, but CHUNK_R_SEPARATORS, addon_params, direct SDK calls and per-doc
+# snapshots persisted before that cap existed all bypass it, so the chunker
+# normalizes whatever it is handed. 64 leaves ample room for a multi-language
+# cascade — the built-in one is 9 entries.
+MAX_R_SEPARATORS = 64
+# Per-entry length. A single huge separator is re-escaped and re-scanned at every
+# level, so it is expensive for the same reason a long list is.
+MAX_R_SEPARATOR_CHARS = 256
 # DEFAULT_SENTENCE_SPLIT_REGEX: pattern fed to langchain SemanticChunker.
 # Two alternates so the English branch keeps its ``\s+`` requirement
 # (avoiding ``0.95`` mid-token splits) while the Chinese branch matches
@@ -260,7 +272,7 @@ FULL_DOCS_FORMAT_PENDING_PARSE = (
     "pending_parse"  # file saved but not yet parsed; parse_native will read from disk
 )
 # Marker prefix for full_docs.content when format=lightrag.
-# Per docs/FileProcessingConfiguration-zh.md, the content is "{{LRdoc}}" + a
+# Per docs/FileProcessingPipeline.md, the content is "{{LRdoc}}" + a
 # leading summary of the parsed document so paginated APIs can show a real
 # preview without loading the full LightRAG Document file.
 LIGHTRAG_DOC_CONTENT_PREFIX = "{{LRdoc}}"
@@ -279,6 +291,34 @@ PARSED_DIR_NAME = "__parsed__"  # Dir for parsed files (renamed from __enqueued_
 # include its staged chunk IDs. Lives here (not utils_pipeline) so that
 # base.py can derive the scheduling projection without an import cycle.
 CUSTOM_CHUNK_PATCH_METADATA_KEY = "custom_chunk_patch"
+# Reserved doc_status.metadata key recording how far this document's KG write
+# has progressed (issue #3400 fail-closed purge). Stamped ``pre_graph`` when the
+# document enters PROCESSING and promoted to ``graph_mutation_started`` only
+# once the write-ahead recovery anchors are durable — i.e. the value answers
+# "could this document have touched the graph?" without reading the graph.
+# ``pre_graph`` is therefore a valid RECOVERY PROOF on its own: a purge may
+# clean up staged chunks even with no anchor rows, because no graph mutation
+# can have happened yet. MONOTONIC and never cleared: a PROCESSED document
+# keeps ``graph_mutation_started`` (its anchors serve as the proof from then
+# on). Absent means UNKNOWN — a pre-#3416 document, which fails closed.
+KG_WRITE_STATE_METADATA_KEY = "kg_write_state"
+KG_WRITE_STATE_PRE_GRAPH = "pre_graph"
+KG_WRITE_STATE_GRAPH_MUTATION_STARTED = "graph_mutation_started"
+# Reserved doc_status.metadata key holding the whole-document purge journal
+# (issue #3400 fail-closed purge). Required BY fail-closed, not merely nice to
+# have: purge's last step deletes the recovery anchors, so without a journal a
+# failure in any later step (LLM cache, full_docs) would make the retry see
+# "anchors missing" and refuse forever. The journal distinguishes "anchors were
+# legitimately deleted by a purge that got this far" from "anchors were never
+# there". Phases are ordered — each is written only after the work it names has
+# been persisted, so a crash resumes at the recorded phase instead of redoing
+# the expensive candidate re-analysis and LLM-cache-backed rebuild.
+KG_PURGE_METADATA_KEY = "kg_purge"
+KG_PURGE_PHASE_PREPARED = "prepared"  # proof verified; nothing deleted yet
+KG_PURGE_PHASE_DERIVED_COMMITTED = "derived_committed"  # graph/vdb/tracking clean
+KG_PURGE_PHASE_ANCHORS_PENDING = "anchors_pending"  # chunks gone; anchors may go
+KG_PURGE_PHASE_COMPLETED = "completed"  # anchors gone; caller finalizes
+KG_PURGE_SCHEMA_VERSION = 1
 # doc_status.metadata keys that record a DEMOTION: this row is not the primary
 # claimant of its canonical source. ``is_duplicate`` is what every backend's
 # primary-candidate predicate keys off (``_basename_of`` returns None for it),
@@ -316,7 +356,7 @@ PARSED_ARTIFACT_DIR_SUFFIXES: tuple[str, ...] = (
 )
 
 # Per-file processing options carried by filename hints / LIGHTRAG_PARSER rules.
-# See docs/FileProcessingConfiguration-zh.md for the full specification.
+# See docs/FileProcessingPipeline.md for the full specification.
 PROCESS_OPTION_IMAGES = "i"  # Enable VLM analysis for drawings/images
 PROCESS_OPTION_TABLES = "t"  # Enable VLM analysis for tables
 PROCESS_OPTION_EQUATIONS = "e"  # Enable VLM analysis for equations
@@ -412,12 +452,82 @@ DEFAULT_MAX_PENDING_DOCUMENTS = 0
 # otherwise do all of them before being refused.
 DEFAULT_MAX_TEXTS_PER_REQUEST = 0
 
-# Hard ceiling on the raw request body an ingestion endpoint may receive, counted
-# as it streams through the ASGI ``receive`` channel (LR2 §9.4). ``0`` disables
-# it. Distinct from ``MAX_UPLOAD_SIZE``, which bounds one uploaded FILE after
-# multipart parsing: this bounds the bytes the server agrees to read at all, so a
-# body that lies about (or omits) Content-Length is still cut off.
-DEFAULT_MAX_REQUEST_BODY_BYTES = 0
+# Hard ceiling on the raw request body ANY route may receive, counted as it
+# streams through the ASGI ``receive`` channel. ``0`` disables every body limit,
+# including the upload one derived below. Distinct from ``MAX_UPLOAD_SIZE``,
+# which bounds one uploaded FILE after multipart parsing: this bounds the bytes
+# the server agrees to read at all, so a body that lies about (or omits)
+# Content-Length is still cut off.
+#
+# Enabled by default. It used to be ``0`` and to cover three ingestion routes
+# only, which meant an operator could set it, watch /documents/text reject an
+# oversized body in milliseconds, and still have /api/chat accept the same body
+# and stall the process on it (GHSA-r8jh-295g-vv42).
+DEFAULT_MAX_REQUEST_BODY_BYTES = 1024 * 1024
+
+# The text-ingestion routes (/documents/text, /documents/texts) get their own,
+# far more generous ceiling. 1 MiB is right for a query or a chat turn and wrong
+# for pasting a document or batching several of them, and a batch insert has no
+# equivalent on the upload route (a batch is not several single-file uploads).
+# Not an env knob: an operator who needs a different value sets
+# MAX_REQUEST_BODY_BYTES, which then governs every non-upload route.
+DEFAULT_MAX_INGEST_BODY_BYTES = 50 * 1024 * 1024
+
+# Slack added to MAX_UPLOAD_SIZE to obtain the raw-body ceiling of
+# /documents/upload. Multipart framing (boundaries, part headers, any extra form
+# fields) rides along with the file, so the raw body is always somewhat larger
+# than the file the route is willing to keep.
+MULTIPART_OVERHEAD_BYTES = 1024 * 1024
+
+# Input ceilings for the model-facing request fields. Deliberately NOT env knobs:
+# a limit that exists to keep an unauthenticated caller from choosing how much
+# CPU the server spends is worth nothing if it can be misconfigured away.
+#
+# Only the *volume* limits are load-bearing. Cost is proportional to bytes, not
+# to message count, and nothing on the path is super-linear in the number of
+# messages (``messages.extend(history_messages)``), so under a byte ceiling 5000
+# tiny messages and one large message cost the same.
+MAX_QUERY_CHARS = 64 * 1024
+MAX_MESSAGE_CHARS = 32 * 1024
+# All normalized model-facing request input, summed. Without this a per-message
+# limit is trivially rebuilt out of many messages. Both query surfaces measure
+# their history as serialized JSON so roles, structure, and permitted extra
+# fields cannot escape this one budget.
+MAX_REQUEST_TEXT_CHARS = 128 * 1024
+
+# Sanity guards, NOT security boundaries — the volume limits above already bound
+# the work. They exist so obviously-abnormal input is refused at the request
+# boundary with a clear error instead of failing further upstream at the model
+# provider. 128 rather than something smaller because /api/chat serves clients
+# that send the whole conversation, where ~64 turns is ordinary use.
+MAX_MESSAGES_PER_REQUEST = 128
+MAX_ROLE_CHARS = 64
+MAX_KEYWORDS_PER_LIST = 64
+MAX_KEYWORD_CHARS = 512
+MAX_MODEL_NAME_CHARS = 256
+MAX_IMAGES_PER_MESSAGE = 16
+MAX_RESPONSE_TYPE_CHARS = 256
+
+# Upper bounds on the numeric retrieval knobs. Character limits alone do not
+# bound the work: ``top_k=10**6`` with ``max_total_tokens=10**9`` leaves the
+# retrieval volume — and the tokenization that follows it — under the caller's
+# control regardless of how short the query is.
+MAX_QUERY_TOP_K = 1000
+MAX_QUERY_TOKEN_BUDGET = 1_000_000
+
+# Submission ceilings for the two single-worker CPU pools (tokenizer, chunking).
+# A ``ThreadPoolExecutor`` wait queue is unbounded, and freeing the event loop
+# means more requests can be in flight at once, so submissions need their own
+# limit. Deliberately fixed process-wide constants rather than anything derived
+# from ``max_parallel_insert``: the submitting helpers are module level and are
+# called from places holding no ``LightRAG`` instance, several instances sharing
+# one event loop would each build their own semaphore and lose the global
+# ceiling, and — the substantive reason — the pools have ONE worker, so queue
+# depth beyond single digits buys no throughput and only pins more pending data
+# in memory. Over the limit the submitting coroutine waits; it is backpressure,
+# not refusal.
+TOKENIZER_SUBMIT_LIMIT = 8
+CHUNKING_SUBMIT_LIMIT = 8
 
 # Per-workspace ceiling on manual retry requests that have been published but
 # not yet ACKed (LR2 §10.1). The channel is sticky — a request survives until an
@@ -490,6 +600,13 @@ DEFAULT_MM_IMAGE_MIN_PIXEL = 64
 # Embedding configuration defaults
 DEFAULT_EMBEDDING_FUNC_MAX_ASYNC = 8  # Default max async for embedding functions
 DEFAULT_EMBEDDING_BATCH_NUM = 10  # Default batch size for embedding computations
+
+# Overlap (in tokens) borrowed from the previous chunk's tail when the
+# embedding hard fallback has to token-window-split a chunk that is still
+# over the embedding model's context limit after chunking. Independent from
+# the semantic chunker's own `chunk_overlap_token_size` — see
+# `LightRAG.embedding_chunk_overlap_token_size`.
+DEFAULT_EMBEDDING_CHUNK_OVERLAP_TOKEN_SIZE = 100
 
 # Gunicorn worker timeout
 DEFAULT_TIMEOUT = 300

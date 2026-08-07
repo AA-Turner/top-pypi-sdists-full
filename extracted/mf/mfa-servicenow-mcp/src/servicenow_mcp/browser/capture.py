@@ -112,13 +112,39 @@ def _write_image(raw: bytes, destination: str) -> str:
         return destination
 
 
-# Said whenever 'full' could not be full. A shorter image that looks complete
-# is the failure this whole path exists to stop.
-_WHY_ONE_SCREEN = (
-    "this page does not scroll in its top document, and the frame that scrolls "
-    "could not be captured (install the 'browser' extra for stitching) — this is "
-    "one screen, not the whole page"
-)
+def _why_one_screen(page: Any) -> str:
+    """Why 'full' came back as one screen — the reason that actually applied.
+
+    This was one fixed sentence, and it named a cause nobody had checked:
+    "install the 'browser' extra for stitching". Measured on a live instance
+    against a Next Experience analytics page, with Pillow installed and working
+    (every other screenshot that session came back as WebP, which needs it), the
+    note still told the reader to install it. A shorter image that looks
+    complete is the failure this path exists to stop; a note that misnames the
+    cause sends the reader to fix something that is not broken, which is the
+    same failure with an extra errand attached.
+
+    So the branches are separated and each says only what it established.
+    """
+    tail = " — this is one screen, not the whole page"
+    try:
+        from PIL import Image  # type: ignore[import-not-found]  # noqa: F401
+    except ImportError:
+        return (
+            "this page does not scroll in its top document, and stitching needs Pillow, "
+            "which is not installed (pip install 'mfa-servicenow-mcp[browser]')" + tail
+        )
+    if scroll_shot.find_scrolling_frame(page) is None:
+        return (
+            "this page does not scroll in its top document, and no same-origin FRAME "
+            "scrolls either — on Next Experience the scroller is often a component "
+            "inside a shadow root rather than an iframe, and this cannot drive that" + tail
+        )
+    return (
+        "this page does not scroll in its top document, and the frame that does "
+        "scroll could not be captured (it stopped answering, or its box could not "
+        "be measured)" + tail
+    )
 
 
 class NoPageFound(RuntimeError):
@@ -397,41 +423,48 @@ def _screenshot(
     scroller is checked now, and when it is a frame the shot is stitched from
     real scrolling (scroll_shot). Nothing on the page is changed either way.
 
-    **The badge is hidden only for a scrolling capture.** It is ``position:
-    fixed``, so it rides every screen and would come out stamped down the
-    stitched image once per tile. A single shot keeps it: this is a screenshot
-    OF the debug window, and which window — which instance, which account, and
-    whether that account is currently impersonating — is exactly what the badge
-    answers. Cropping it out of the picture threw that away every time.
+    **The badge is hidden for EVERY capture.** It is ``position: fixed`` and
+    sits over the page, so in a screenshot it is not information — it is an
+    occlusion, covering whatever is under the bottom-right corner, which on a
+    list is a row and on a form is a field.
+
+    v1.24.3 made the single shot an exception, on the argument that a screenshot
+    OF the debug window should say which window it is. That was answered
+    elsewhere all along: every response carries ``instance_target``, and the
+    badge is on screen for the person watching, which is its actual job. The
+    exception traded page pixels the caller asked for against a fact they
+    already had — and it contradicted this module's own stated constraint, that
+    screenshots are used to judge visual breakage so the badge must not appear
+    in them.
     """
     if mode == "none":
         return None, None
 
     os.makedirs(os.path.dirname(destination), exist_ok=True)
 
-    if mode == "element":
-        if not selector:
-            raise ValueError("screenshot='element' needs a selector.")
-        return _write_image(page.locator(selector).first.screenshot(), destination), None
+    hidden = _hide_badge(page)
+    try:
+        if mode == "element":
+            if not selector:
+                raise ValueError("screenshot='element' needs a selector.")
+            return _write_image(page.locator(selector).first.screenshot(), destination), None
 
-    if mode == "full" and not scroll_shot.page_scrolls(page):
-        hidden = _hide_badge(page)
-        try:
+        if mode == "full" and not scroll_shot.page_scrolls(page):
             stitched = scroll_shot.capture(page, destination=destination)
-        finally:
-            if hidden:
-                _show_badge(page)
-        if stitched:
-            return stitched.pop("path", destination), stitched
-        # Nothing better was possible here (no inner scroller, no Pillow, a
-        # frame that would not answer). The ordinary shot is taken, and it is
-        # NOT described as a full-page capture.
-        return (
-            _write_image(page.screenshot(full_page=False), destination),
-            {"only_viewport": _WHY_ONE_SCREEN},
-        )
+            if stitched:
+                return stitched.pop("path", destination), stitched
+            # Nothing better was possible here (no inner scroller, no Pillow, a
+            # frame that would not answer). The ordinary shot is taken, and it is
+            # NOT described as a full-page capture.
+            return (
+                _write_image(page.screenshot(full_page=False), destination),
+                {"only_viewport": _why_one_screen(page)},
+            )
 
-    return _write_image(page.screenshot(full_page=(mode == "full")), destination), None
+        return _write_image(page.screenshot(full_page=(mode == "full")), destination), None
+    finally:
+        if hidden:
+            _show_badge(page)
 
 
 def _hide_badge(page: Any) -> bool:

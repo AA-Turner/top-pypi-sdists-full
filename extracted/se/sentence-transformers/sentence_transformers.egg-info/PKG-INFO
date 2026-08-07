@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sentence-transformers
-Version: 5.6.1
+Version: 5.7.0
 Summary: Embeddings, Retrieval, and Reranking
 Author-email: Nils Reimers <info@nils-reimers.de>, Tom Aarsen <tom.aarsen@huggingface.co>
 Maintainer-email: Tom Aarsen <tom.aarsen@huggingface.co>
@@ -20,6 +20,7 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: NOTICE.txt
 Requires-Dist: transformers<6.0.0,>=4.41.0
+Requires-Dist: tokenizers>=0.19
 Requires-Dist: huggingface-hub>=0.23.0
 Requires-Dist: torch>=1.11.0
 Requires-Dist: numpy>=1.20.0

@@ -1,25 +1,100 @@
-//! Archive builtins - tar, gzip, gunzip
+//! Archive builtins - tar, gzip, gunzip, bzip2, bunzip2, bzcat
 //!
 //! # Zip Bomb Protection
 //!
 //! All decompression operations check output size against filesystem limits
 //! to prevent zip bomb attacks. Decompression is aborted early if the
 //! output would exceed limits.
+//!
+//! Design decision: tar's first bare argv is the historical option bundle;
+//! normalize it to the regular short-option path instead of maintaining a
+//! second parser.
+//!
+//! bzip2 0.6 uses the maintained pure-Rust libbz2-rs backend by default. Its
+//! fixed codec state plus bounded, pre-charged output avoids native-library
+//! deployment differences while retaining standard bzip2 CRC validation.
 
 // Uses expect() for verified safe unwraps (e.g., strip_suffix after ends_with check)
 #![allow(clippy::unwrap_used)]
 
 use async_trait::async_trait;
+use bzip2::Compression as BzCompression;
+use bzip2::read::BzDecoder;
+use bzip2::write::BzEncoder;
 use flate2::Compression;
 use flate2::read::GzDecoder;
 use flate2::write::GzEncoder;
+use std::collections::HashSet;
 use std::io::{Read, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use super::limits::ARCHIVE_MAX_DECOMPRESSION_RATIO as MAX_DECOMPRESSION_RATIO;
 use super::{Builtin, Context, resolve_path};
 use crate::error::Result;
 use crate::interpreter::ExecResult;
+use crate::limits::{BudgetedBytes, BudgetedString, BudgetedVec, LimitExceeded};
+
+fn archive_io_error(context: &str, error: std::io::Error) -> crate::error::Error {
+    if let Some(limit) = error
+        .get_ref()
+        .and_then(|source| source.downcast_ref::<LimitExceeded>())
+    {
+        return crate::error::Error::ResourceLimit(limit.clone());
+    }
+    crate::error::Error::Execution(format!("{context}: {error}"))
+}
+
+fn with_execution_budget<T>(
+    ctx: &Context<'_>,
+    use_budget: impl FnOnce(Option<&crate::limits::ExecutionBudget>) -> Result<T>,
+) -> Result<T> {
+    match ctx.execution_budget() {
+        Some(budget) => budget
+            .try_with(|budget| use_budget(Some(budget)))
+            .map_err(|_| crate::error::Error::Cancelled)?,
+        None => use_budget(None),
+    }
+}
+
+fn budgeted_bytes(ctx: &Context<'_>) -> Result<BudgetedBytes> {
+    with_execution_budget(ctx, |budget| BudgetedBytes::new(budget).map_err(Into::into))
+}
+
+fn budgeted_bytes_with_capacity(ctx: &Context<'_>, capacity: usize) -> Result<BudgetedBytes> {
+    with_execution_budget(ctx, |budget| {
+        BudgetedBytes::try_with_capacity(budget, capacity).map_err(Into::into)
+    })
+}
+
+fn budgeted_string(ctx: &Context<'_>) -> Result<BudgetedString> {
+    with_execution_budget(ctx, |budget| {
+        BudgetedString::new(budget).map_err(Into::into)
+    })
+}
+
+fn budgeted_vec<T>(ctx: &Context<'_>) -> Result<BudgetedVec<T>> {
+    with_execution_budget(ctx, |budget| BudgetedVec::new(budget).map_err(Into::into))
+}
+
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+enum ArchiveCompression {
+    #[default]
+    None,
+    Gzip,
+    Bzip2,
+}
+
+impl ArchiveCompression {
+    fn detect(data: &[u8]) -> Self {
+        if data.starts_with(b"BZh") {
+            Self::Bzip2
+        } else if data.starts_with(&[0x1f, 0x8b]) {
+            Self::Gzip
+        } else {
+            Self::None
+        }
+    }
+}
 
 /// Read from a decoder with size limits to prevent zip bombs.
 ///
@@ -29,8 +104,9 @@ fn read_with_limit<R: Read>(
     mut reader: R,
     compressed_size: usize,
     max_size: u64,
-) -> std::io::Result<Vec<u8>> {
-    let mut output = Vec::new();
+    budget: Option<&crate::limits::ExecutionBudget>,
+) -> std::io::Result<BudgetedBytes> {
+    let mut output = BudgetedBytes::new(budget).map_err(std::io::Error::other)?;
     let mut buffer = [0u8; 8192];
 
     loop {
@@ -39,10 +115,12 @@ fn read_with_limit<R: Read>(
             break;
         }
 
-        output.extend_from_slice(&buffer[..n]);
-
-        // Check absolute size limit
-        if output.len() as u64 > max_size {
+        // THREAT[TM-DOS-102]: Reject decoder growth before reserving or
+        // copying attacker-controlled expansion into the output buffer.
+        let next_len = output.len().checked_add(n).ok_or_else(|| {
+            std::io::Error::other("decompressed size overflow (zip bomb protection)")
+        })?;
+        if u64::try_from(next_len).unwrap_or(u64::MAX) > max_size {
             return Err(std::io::Error::other(format!(
                 "decompressed size exceeds {} byte limit (zip bomb protection)",
                 max_size
@@ -50,15 +128,74 @@ fn read_with_limit<R: Read>(
         }
 
         // Check decompression ratio (zip bomb detection)
-        if compressed_size > 0 && output.len() > compressed_size * MAX_DECOMPRESSION_RATIO {
+        let ratio_limit = compressed_size.saturating_mul(MAX_DECOMPRESSION_RATIO);
+        if compressed_size > 0 && next_len > ratio_limit {
             return Err(std::io::Error::other(format!(
                 "decompression ratio exceeds {}:1 (zip bomb protection)",
                 MAX_DECOMPRESSION_RATIO
             )));
         }
+
+        output
+            .try_extend_from_slice(&buffer[..n])
+            .map_err(std::io::Error::other)?;
     }
 
     Ok(output)
+}
+
+fn compress_bytes(
+    compression: ArchiveCompression,
+    input: &[u8],
+    command: &str,
+    budget: Option<&crate::limits::ExecutionBudget>,
+) -> Result<BudgetedBytes> {
+    match compression {
+        ArchiveCompression::None => {
+            let mut output = BudgetedBytes::try_with_capacity(budget, input.len())?;
+            output.try_extend_from_slice(input)?;
+            Ok(output)
+        }
+        ArchiveCompression::Gzip => {
+            let sink = BudgetedBytes::new(budget)?;
+            let mut encoder = GzEncoder::new(sink, Compression::default());
+            encoder.write_all(input).map_err(|error| {
+                archive_io_error(&format!("{command}: gzip compression failed"), error)
+            })?;
+            encoder.finish().map_err(|error| {
+                archive_io_error(&format!("{command}: gzip compression failed"), error)
+            })
+        }
+        ArchiveCompression::Bzip2 => {
+            let sink = BudgetedBytes::new(budget)?;
+            let mut encoder = BzEncoder::new(sink, BzCompression::best());
+            encoder.write_all(input).map_err(|error| {
+                archive_io_error(&format!("{command}: bzip2 compression failed"), error)
+            })?;
+            encoder.finish().map_err(|error| {
+                archive_io_error(&format!("{command}: bzip2 compression failed"), error)
+            })
+        }
+    }
+}
+
+fn decompress_bytes(
+    compression: ArchiveCompression,
+    input: &[u8],
+    max_size: u64,
+    command: &str,
+    budget: Option<&crate::limits::ExecutionBudget>,
+) -> Result<BudgetedBytes> {
+    let decoded = match compression {
+        ArchiveCompression::None => return compress_bytes(compression, input, command, budget),
+        ArchiveCompression::Gzip => {
+            read_with_limit(GzDecoder::new(input), input.len(), max_size, budget)
+        }
+        ArchiveCompression::Bzip2 => {
+            read_with_limit(BzDecoder::new(input), input.len(), max_size, budget)
+        }
+    };
+    decoded.map_err(|error| archive_io_error(command, error))
 }
 
 /// The tar builtin - create and extract tar archives.
@@ -79,7 +216,7 @@ impl Builtin for Tar {
     async fn execute(&self, ctx: Context<'_>) -> Result<ExecResult> {
         if let Some(r) = super::check_help_version(
             ctx.args,
-            "Usage: tar [OPTION]... [FILE]...\nCreate, extract, or list tar archives.\n\n  -c\tcreate archive\n  -x\textract archive\n  -t\tlist archive contents\n  -v\tverbose output\n  -f ARCHIVE\tarchive file name\n  -z\tfilter through gzip\n  -C DIR\tchange to directory DIR\n  -O\textract files to stdout\n  --help\tdisplay this help and exit\n  --version\toutput version information and exit\n",
+            "Usage: tar [OPTION]... [FILE]...\nCreate, extract, or list tar archives.\n\n  -c\tcreate archive\n  -x\textract archive\n  -t\tlist archive contents\n  -v\tverbose output\n  -f ARCHIVE\tarchive file name\n  -z, --gzip\tfilter through gzip\n  -j, --bzip2\tfilter through bzip2\n  -C DIR\tchange to directory DIR\n  -O\textract files to stdout\n  --help\tdisplay this help and exit\n  --version\toutput version information and exit\n",
             Some("tar (bashkit) 0.1"),
         ) {
             return Ok(r);
@@ -88,16 +225,39 @@ impl Builtin for Tar {
         let mut extract = false;
         let mut list = false;
         let mut verbose = false;
-        let mut gzip = false;
+        let mut compression = ArchiveCompression::None;
         let mut to_stdout = false;
         let mut archive_file: Option<String> = None;
         let mut change_dir: Option<String> = None;
-        let mut files: Vec<String> = Vec::new();
+        let mut files = budgeted_vec(&ctx)?;
+
+        // GNU/bsdtar treat a bare first word as the historical option bundle.
+        // Normalize only that argv position so the regular short-option parser
+        // remains the single source of truth for flags and option arguments.
+        let normalized_args;
+        let args = if ctx
+            .args
+            .first()
+            .is_some_and(|arg| !arg.starts_with('-') && !arg.starts_with('+'))
+        {
+            normalized_args = std::iter::once(format!("-{}", ctx.args[0]))
+                .chain(ctx.args[1..].iter().cloned())
+                .collect::<Vec<_>>();
+            normalized_args.as_slice()
+        } else {
+            ctx.args
+        };
 
         // Parse arguments
-        let mut p = super::arg_parser::ArgParser::new(ctx.args);
+        let mut p = super::arg_parser::ArgParser::new(args);
         while !p.is_done() {
-            if let Some(val) = p.flag_value_opt("-f") {
+            if p.current() == Some("--bzip2") {
+                compression = ArchiveCompression::Bzip2;
+                p.advance();
+            } else if p.current() == Some("--gzip") {
+                compression = ArchiveCompression::Gzip;
+                p.advance();
+            } else if let Some(val) = p.flag_value_opt("-f") {
                 archive_file = Some(val.to_string());
             } else if let Some(val) = p.flag_value_opt("-C") {
                 change_dir = Some(val.to_string());
@@ -112,7 +272,8 @@ impl Builtin for Tar {
                         'x' => extract = true,
                         't' => list = true,
                         'v' => verbose = true,
-                        'z' => gzip = true,
+                        'z' => compression = ArchiveCompression::Gzip,
+                        'j' => compression = ArchiveCompression::Bzip2,
                         'O' => to_stdout = true,
                         'f' => match p.positional() {
                             Some(val) => archive_file = Some(val.to_string()),
@@ -141,7 +302,7 @@ impl Builtin for Tar {
                     }
                 }
             } else if let Some(arg) = p.positional() {
-                files.push(arg.to_string());
+                files.try_push(arg)?;
             }
         }
 
@@ -174,7 +335,7 @@ impl Builtin for Tar {
                 &archive_name,
                 &files,
                 verbose,
-                gzip,
+                compression,
                 change_dir.as_deref(),
             )
             .await
@@ -183,13 +344,13 @@ impl Builtin for Tar {
                 &ctx,
                 &archive_name,
                 verbose,
-                gzip,
+                compression,
                 change_dir.as_deref(),
                 to_stdout,
             )
             .await
         } else {
-            list_tar(&ctx, &archive_name, verbose, gzip).await
+            list_tar(&ctx, &archive_name, verbose, compression).await
         }
     }
 }
@@ -201,13 +362,13 @@ const TAR_BLOCK_SIZE: usize = 512;
 async fn create_tar(
     ctx: &Context<'_>,
     archive_name: &str,
-    files: &[String],
+    files: &[&str],
     verbose: bool,
-    gzip: bool,
+    compression: ArchiveCompression,
     change_dir: Option<&str>,
 ) -> Result<ExecResult> {
-    let mut output_data: Vec<u8> = Vec::new();
-    let mut verbose_output = String::new();
+    let mut output_data = budgeted_bytes(ctx)?;
+    let mut verbose_output = budgeted_string(ctx)?;
 
     let base_dir = if let Some(dir) = change_dir {
         resolve_path(ctx.cwd, dir)
@@ -253,27 +414,23 @@ async fn create_tar(
     }
 
     // Add two zero blocks at end
-    output_data.extend_from_slice(&[0u8; TAR_BLOCK_SIZE * 2]);
+    output_data.try_extend_from_slice(&[0u8; TAR_BLOCK_SIZE * 2])?;
 
-    // Compress if -z
-    let final_data = if gzip {
-        let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
-        encoder.write_all(&output_data).map_err(|e| {
-            crate::error::Error::Execution(format!("tar: gzip compression failed: {}", e))
-        })?;
-        encoder.finish().map_err(|e| {
-            crate::error::Error::Execution(format!("tar: gzip compression failed: {}", e))
-        })?
-    } else {
+    let final_data = if compression == ArchiveCompression::None {
         output_data
+    } else {
+        with_execution_budget(ctx, |budget| {
+            compress_bytes(compression, &output_data, "tar", budget)
+        })?
     };
+    let (final_data, _final_lease) = final_data.into_parts();
+    let (verbose_output, _verbose_lease) = verbose_output.into_parts();
 
     // Write to file or stdout
     if archive_name == "-" {
-        // Convert to lossy string for stdout
         return Ok(ExecResult {
-            stdout: String::from_utf8_lossy(&final_data).to_string(),
-            stderr: verbose_output,
+            stdout: final_data.into(),
+            stderr: verbose_output.into(),
             exit_code: 0,
             control_flow: crate::interpreter::ControlFlow::None,
             ..Default::default()
@@ -284,8 +441,8 @@ async fn create_tar(
     ctx.fs.write_file(&archive_path, &final_data).await?;
 
     Ok(ExecResult {
-        stdout: String::new(),
-        stderr: verbose_output,
+        stdout: crate::StreamData::new(),
+        stderr: verbose_output.into(),
         exit_code: 0,
         control_flow: crate::interpreter::ControlFlow::None,
         ..Default::default()
@@ -297,16 +454,18 @@ async fn add_file_to_tar(
     ctx: &Context<'_>,
     path: &Path,
     name: &str,
-    output: &mut Vec<u8>,
-    verbose_output: &mut String,
+    output: &mut BudgetedBytes,
+    verbose_output: &mut BudgetedString,
     verbose: bool,
 ) -> Result<()> {
     let metadata = ctx.fs.stat(path).await?;
     let content = ctx.fs.read_file(path).await?;
+    ctx.consume_budget_input(content.len())?;
+    ctx.consume_budget_work(u64::try_from(content.len().div_ceil(64)).unwrap_or(u64::MAX))?;
 
     if verbose {
-        verbose_output.push_str(name);
-        verbose_output.push('\n');
+        verbose_output.try_push_str(name)?;
+        verbose_output.try_push('\n')?;
     }
 
     // Create tar header
@@ -353,12 +512,12 @@ async fn add_file_to_tar(
     let checksum: u32 = header.iter().map(|&b| b as u32).sum();
     write_octal(&mut header[148..156], checksum as u64, 7);
 
-    output.extend_from_slice(&header);
+    output.try_extend_from_slice(&header)?;
 
     // Write file content with padding
-    output.extend_from_slice(&content);
+    output.try_extend_from_slice(&content)?;
     let padding = (TAR_BLOCK_SIZE - (content.len() % TAR_BLOCK_SIZE)) % TAR_BLOCK_SIZE;
-    output.extend(std::iter::repeat_n(0u8, padding));
+    output.try_extend_from_slice(&[0u8; TAR_BLOCK_SIZE][..padding])?;
 
     Ok(())
 }
@@ -368,15 +527,15 @@ fn add_directory_to_tar<'a>(
     ctx: &'a Context<'_>,
     path: &'a Path,
     name: &'a str,
-    output: &'a mut Vec<u8>,
-    verbose_output: &'a mut String,
+    output: &'a mut BudgetedBytes,
+    verbose_output: &'a mut BudgetedString,
     verbose: bool,
 ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<()>> + Send + 'a>> {
     Box::pin(async move {
         // Add directory entry
         if verbose {
-            verbose_output.push_str(name);
-            verbose_output.push_str("/\n");
+            verbose_output.try_push_str(name)?;
+            verbose_output.try_push_str("/\n")?;
         }
 
         let metadata = ctx.fs.stat(path).await?;
@@ -422,7 +581,7 @@ fn add_directory_to_tar<'a>(
         let checksum: u32 = header.iter().map(|&b| b as u32).sum();
         write_octal(&mut header[148..156], checksum as u64, 7);
 
-        output.extend_from_slice(&header);
+        output.try_extend_from_slice(&header)?;
 
         // Add directory contents
         let entries = ctx.fs.read_dir(path).await?;
@@ -466,12 +625,88 @@ fn write_octal(buf: &mut [u8], value: u64, width: usize) {
     buf[len] = 0;
 }
 
+// THREAT[TM-FS-015]: Validate the complete archive before the first VFS
+// mutation. A late malformed or escaping entry must not leave earlier files
+// behind as a misleading partial extraction.
+fn validate_tar_for_extraction(
+    tar_data: &[u8],
+    extract_base: &Path,
+    to_stdout: bool,
+    limits: &crate::FsLimits,
+) -> std::result::Result<(u64, u64, u64), String> {
+    let mut offset = 0;
+    let mut output_bytes = 0u64;
+    let mut file_count = 0u64;
+    let mut directories = HashSet::<PathBuf>::new();
+    while offset + TAR_BLOCK_SIZE <= tar_data.len() {
+        let header = &tar_data[offset..offset + TAR_BLOCK_SIZE];
+        if header.iter().all(|&byte| byte == 0) {
+            return Ok((output_bytes, file_count, directories.len() as u64));
+        }
+
+        let name_end = header[..100]
+            .iter()
+            .position(|&byte| byte == 0)
+            .unwrap_or(100);
+        let name = String::from_utf8_lossy(&header[..name_end]);
+        if name.is_empty() {
+            return Ok((output_bytes, file_count, directories.len() as u64));
+        }
+        let size = parse_tar_size(&header[124..136])
+            .ok_or_else(|| format!("tar: {name}: invalid size field\n"))?;
+        offset += TAR_BLOCK_SIZE;
+        let content_end = tar_content_end(offset, size)
+            .filter(|end| *end <= tar_data.len())
+            .ok_or_else(|| format!("tar: {name}: Unexpected end of archive\n"))?;
+
+        if !to_stdout {
+            let entry = Path::new(name.as_ref());
+            if entry.is_absolute()
+                || entry
+                    .components()
+                    .any(|component| matches!(component, std::path::Component::ParentDir))
+                || !resolve_path(extract_base, name.as_ref()).starts_with(extract_base)
+            {
+                return Err(format!("tar: {name}: path traversal blocked\n"));
+            }
+            if matches!(header[156], b'0' | b'\0') && !name.ends_with('/') {
+                limits
+                    .check_file_size(size as u64)
+                    .map_err(|error| format!("tar: {name}: {error}\n"))?;
+                output_bytes = output_bytes.saturating_add(size as u64);
+                file_count = file_count.saturating_add(1);
+                let mut parent = entry.parent();
+                while let Some(path) = parent {
+                    if path.as_os_str().is_empty() {
+                        break;
+                    }
+                    directories.insert(path.to_path_buf());
+                    parent = path.parent();
+                }
+            } else if matches!(header[156], b'5' | b'\0') && name.ends_with('/') {
+                directories.insert(entry.to_path_buf());
+            }
+        } else if matches!(header[156], b'0' | b'\0') && !name.ends_with('/') {
+            limits
+                .check_file_size(size as u64)
+                .map_err(|error| format!("tar: {name}: {error}\n"))?;
+            limits
+                .check_total_bytes(output_bytes, size as u64)
+                .map_err(|error| format!("tar: {name}: {error}\n"))?;
+            output_bytes = output_bytes.saturating_add(size as u64);
+        }
+        offset = content_end;
+    }
+
+    Err("tar: Unexpected end of archive\n".to_string())
+}
+
 /// Extract a tar archive
 async fn extract_tar(
     ctx: &Context<'_>,
     archive_name: &str,
     verbose: bool,
-    gzip: bool,
+    compression: ArchiveCompression,
     change_dir: Option<&str>,
     to_stdout: bool,
 ) -> Result<ExecResult> {
@@ -481,8 +716,11 @@ async fn extract_tar(
     } else {
         ctx.cwd.clone()
     };
-    let data = if archive_name == "-" {
-        ctx.stdin.map(|s| s.as_bytes().to_vec()).unwrap_or_default()
+    let (data, data_lease) = if archive_name == "-" {
+        let input = ctx.stdin_bytes().unwrap_or_default();
+        let mut data = budgeted_bytes_with_capacity(ctx, input.len())?;
+        data.try_extend_from_slice(input)?;
+        data.into_parts()
     } else {
         let archive_path = resolve_path(ctx.cwd, archive_name);
         if !ctx.fs.exists(&archive_path).await.unwrap_or(false) {
@@ -494,26 +732,65 @@ async fn extract_tar(
                 2,
             ));
         }
-        ctx.fs.read_file(&archive_path).await?
+        let data = ctx.fs.read_file(&archive_path).await?;
+        let lease = ctx.lease_budget_bytes(data.len())?;
+        (data, lease)
     };
+    ctx.consume_budget_input(data.len())?;
 
     // Get filesystem limits for zip bomb protection
     let limits = ctx.fs.limits();
     let max_size = limits.max_total_bytes;
 
-    // Decompress if -z, with size limits
-    let tar_data = if gzip {
-        let compressed_size = data.len();
-        let decoder = GzDecoder::new(data.as_slice());
-        read_with_limit(decoder, compressed_size, max_size)
-            .map_err(|e| crate::error::Error::Execution(format!("tar: {}", e)))?
+    let detected = ArchiveCompression::detect(&data);
+    let compression = if compression == ArchiveCompression::None {
+        detected
     } else {
-        data
+        compression
     };
+    let (tar_data, _tar_lease) = if compression == ArchiveCompression::None {
+        (data, data_lease)
+    } else {
+        match with_execution_budget(ctx, |budget| {
+            decompress_bytes(compression, &data, max_size, "tar", budget)
+        }) {
+            Ok(data) => data.into_parts(),
+            Err(err) => return Ok(ExecResult::err(format!("{err}\n"), 2)),
+        }
+    };
+    ctx.consume_budget_input(tar_data.len())?;
+    ctx.consume_budget_work(u64::try_from(tar_data.len().div_ceil(64)).unwrap_or(u64::MAX))?;
 
-    let mut verbose_output = String::new();
-    let mut stdout_output = String::new();
+    let mut verbose_output = budgeted_string(ctx)?;
+    let mut stdout_output = budgeted_string(ctx)?;
     let mut offset = 0;
+
+    let (planned_bytes, planned_files, planned_dirs) =
+        match validate_tar_for_extraction(&tar_data, &extract_base, to_stdout, &limits) {
+            Ok(planned) => planned,
+            Err(stderr) => return Ok(ExecResult::err(stderr, 2)),
+        };
+    if !to_stdout {
+        let usage = ctx.fs.usage();
+        if let Err(error) = limits.check_total_bytes(usage.total_bytes, planned_bytes) {
+            return Ok(ExecResult::err(format!("tar: {error}\n"), 2));
+        }
+        if let Err(error) =
+            limits.check_final_file_count(usage.file_count.saturating_add(planned_files))
+        {
+            return Ok(ExecResult::err(format!("tar: {error}\n"), 2));
+        }
+        if planned_dirs > 0
+            && let Err(error) = limits.check_dir_count(
+                usage
+                    .dir_count
+                    .saturating_add(planned_dirs)
+                    .saturating_sub(1),
+            )
+        {
+            return Ok(ExecResult::err(format!("tar: {error}\n"), 2));
+        }
+    }
 
     // Ensure extract_base directory exists when -C is used
     if change_dir.is_some() {
@@ -551,8 +828,8 @@ async fn extract_tar(
         let type_flag = header[156];
 
         if verbose {
-            verbose_output.push_str(&name);
-            verbose_output.push('\n');
+            verbose_output.try_push_str(&name)?;
+            verbose_output.try_push('\n')?;
         }
 
         offset += TAR_BLOCK_SIZE;
@@ -608,7 +885,7 @@ async fn extract_tar(
                     }
 
                     // -O: write content to stdout after applying VFS-sized quotas.
-                    stdout_output.push_str(&output);
+                    stdout_output.try_push_str(&output)?;
                 } else {
                     let file_path = resolve_path(&extract_base, &name);
 
@@ -623,9 +900,9 @@ async fn extract_tar(
             }
             b'1' => {
                 // Hard link — not supported in VFS
-                verbose_output.push_str(&format!(
+                verbose_output.try_push_str(&format!(
                     "tar: {name}: hard link skipped (not supported in VFS)\n"
-                ));
+                ))?;
                 let Some(content_end) = tar_content_end(offset, size) else {
                     return Ok(ExecResult::err(
                         format!("tar: {}: invalid size field\n", name),
@@ -636,9 +913,9 @@ async fn extract_tar(
             }
             b'2' => {
                 // Symbolic link — not supported in VFS
-                verbose_output.push_str(&format!(
+                verbose_output.try_push_str(&format!(
                     "tar: {name}: symbolic link skipped (not supported in VFS)\n"
-                ));
+                ))?;
                 let Some(content_end) = tar_content_end(offset, size) else {
                     return Ok(ExecResult::err(
                         format!("tar: {}: invalid size field\n", name),
@@ -649,7 +926,8 @@ async fn extract_tar(
             }
             _ => {
                 // Other unsupported types (char/block device, FIFO, contiguous, etc.)
-                verbose_output.push_str(&format!("tar: {name}: unsupported entry type skipped\n"));
+                verbose_output
+                    .try_push_str(&format!("tar: {name}: unsupported entry type skipped\n"))?;
                 let Some(content_end) = tar_content_end(offset, size) else {
                     return Ok(ExecResult::err(
                         format!("tar: {}: invalid size field\n", name),
@@ -661,9 +939,11 @@ async fn extract_tar(
         }
     }
 
+    let (stdout_output, _stdout_lease) = stdout_output.into_parts();
+    let (verbose_output, _verbose_lease) = verbose_output.into_parts();
     Ok(ExecResult {
-        stdout: stdout_output,
-        stderr: verbose_output,
+        stdout: stdout_output.into(),
+        stderr: verbose_output.into(),
         exit_code: 0,
         control_flow: crate::interpreter::ControlFlow::None,
         ..Default::default()
@@ -675,10 +955,13 @@ async fn list_tar(
     ctx: &Context<'_>,
     archive_name: &str,
     verbose: bool,
-    gzip: bool,
+    compression: ArchiveCompression,
 ) -> Result<ExecResult> {
-    let data = if archive_name == "-" {
-        ctx.stdin.map(|s| s.as_bytes().to_vec()).unwrap_or_default()
+    let (data, data_lease) = if archive_name == "-" {
+        let input = ctx.stdin_bytes().unwrap_or_default();
+        let mut data = budgeted_bytes_with_capacity(ctx, input.len())?;
+        data.try_extend_from_slice(input)?;
+        data.into_parts()
     } else {
         let archive_path = resolve_path(ctx.cwd, archive_name);
         if !ctx.fs.exists(&archive_path).await.unwrap_or(false) {
@@ -690,24 +973,36 @@ async fn list_tar(
                 2,
             ));
         }
-        ctx.fs.read_file(&archive_path).await?
+        let data = ctx.fs.read_file(&archive_path).await?;
+        let lease = ctx.lease_budget_bytes(data.len())?;
+        (data, lease)
     };
+    ctx.consume_budget_input(data.len())?;
 
     // Get filesystem limits for zip bomb protection
     let limits = ctx.fs.limits();
     let max_size = limits.max_total_bytes;
 
-    // Decompress if -z, with size limits
-    let tar_data = if gzip {
-        let compressed_size = data.len();
-        let decoder = GzDecoder::new(data.as_slice());
-        read_with_limit(decoder, compressed_size, max_size)
-            .map_err(|e| crate::error::Error::Execution(format!("tar: {}", e)))?
+    let detected = ArchiveCompression::detect(&data);
+    let compression = if compression == ArchiveCompression::None {
+        detected
     } else {
-        data
+        compression
     };
+    let (tar_data, _tar_lease) = if compression == ArchiveCompression::None {
+        (data, data_lease)
+    } else {
+        match with_execution_budget(ctx, |budget| {
+            decompress_bytes(compression, &data, max_size, "tar", budget)
+        }) {
+            Ok(data) => data.into_parts(),
+            Err(err) => return Ok(ExecResult::err(format!("{err}\n"), 2)),
+        }
+    };
+    ctx.consume_budget_input(tar_data.len())?;
+    ctx.consume_budget_work(u64::try_from(tar_data.len().div_ceil(64)).unwrap_or(u64::MAX))?;
 
-    let mut output = String::new();
+    let mut output = budgeted_string(ctx)?;
     let mut offset = 0;
 
     while offset + TAR_BLOCK_SIZE <= tar_data.len() {
@@ -749,7 +1044,7 @@ async fn list_tar(
                 _ => '-',
             };
 
-            output.push_str(&format!(
+            output.try_push_str(&format!(
                 "{}{}{}{}{}{}{}{}{}{} {:>8} {}\n",
                 type_char,
                 if mode & 0o400 != 0 { 'r' } else { '-' },
@@ -763,10 +1058,10 @@ async fn list_tar(
                 if mode & 0o001 != 0 { 'x' } else { '-' },
                 size_val,
                 name
-            ));
+            ))?;
         } else {
-            output.push_str(&name);
-            output.push('\n');
+            output.try_push_str(&name)?;
+            output.try_push('\n')?;
         }
 
         offset += TAR_BLOCK_SIZE;
@@ -781,7 +1076,7 @@ async fn list_tar(
         offset = content_end;
     }
 
-    Ok(ExecResult::ok(output))
+    Ok(ExecResult::ok(output.into_inner()))
 }
 
 fn tar_content_end(offset: usize, size: usize) -> Option<usize> {
@@ -840,7 +1135,7 @@ impl Builtin for Gzip {
         let mut decompress = false;
         let mut keep = false;
         let mut force = false;
-        let mut files: Vec<String> = Vec::new();
+        let mut files = budgeted_vec(&ctx)?;
 
         for arg in ctx.args {
             if arg.starts_with('-') && arg.len() > 1 {
@@ -858,7 +1153,7 @@ impl Builtin for Gzip {
                     }
                 }
             } else {
-                files.push(arg.clone());
+                files.try_push(arg.as_str())?;
             }
         }
 
@@ -872,7 +1167,10 @@ impl Builtin for Gzip {
                 if decompress {
                     let compressed_size = stdin.len();
                     let decoder = GzDecoder::new(stdin.as_bytes());
-                    match read_with_limit(decoder, compressed_size, max_size) {
+                    match with_execution_budget(&ctx, |budget| {
+                        read_with_limit(decoder, compressed_size, max_size, budget)
+                            .map_err(|error| archive_io_error("gzip: stdin", error))
+                    }) {
                         Ok(output) => {
                             return Ok(ExecResult::ok(
                                 String::from_utf8_lossy(&output).to_string(),
@@ -881,13 +1179,14 @@ impl Builtin for Gzip {
                         Err(e) => return Ok(ExecResult::err(format!("gzip: stdin: {}\n", e), 1)),
                     }
                 } else {
-                    let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
-                    encoder.write_all(stdin.as_bytes()).map_err(|e| {
-                        crate::error::Error::Execution(format!("gzip: compression failed: {}", e))
-                    })?;
-                    let compressed = encoder.finish().map_err(|e| {
-                        crate::error::Error::Execution(format!("gzip: compression failed: {}", e))
-                    })?;
+                    let sink = budgeted_bytes(&ctx)?;
+                    let mut encoder = GzEncoder::new(sink, Compression::default());
+                    encoder
+                        .write_all(stdin.as_bytes())
+                        .map_err(|error| archive_io_error("gzip: compression failed", error))?;
+                    let compressed = encoder
+                        .finish()
+                        .map_err(|error| archive_io_error("gzip: compression failed", error))?;
                     return Ok(ExecResult::ok(
                         String::from_utf8_lossy(&compressed).to_string(),
                     ));
@@ -896,7 +1195,7 @@ impl Builtin for Gzip {
             return Ok(ExecResult::ok(String::new()));
         }
 
-        for file in &files {
+        for file in files.iter() {
             let path = resolve_path(ctx.cwd, file);
 
             if !ctx.fs.exists(&path).await.unwrap_or(false) {
@@ -934,11 +1233,18 @@ impl Builtin for Gzip {
                 }
 
                 let data = ctx.fs.read_file(&path).await?;
+                ctx.consume_budget_input(data.len())?;
+                let _input_lease = ctx.lease_budget_bytes(data.len())?;
                 let compressed_size = data.len();
                 let decoder = GzDecoder::new(data.as_slice());
-                let output = read_with_limit(decoder, compressed_size, max_size).map_err(|e| {
-                    crate::error::Error::Execution(format!("gzip: {}: {}", file, e))
+                let output = with_execution_budget(&ctx, |budget| {
+                    read_with_limit(decoder, compressed_size, max_size, budget)
+                        .map_err(|error| archive_io_error(&format!("gzip: {file}"), error))
                 })?;
+                ctx.consume_budget_input(output.len())?;
+                ctx.consume_budget_work(
+                    u64::try_from(output.len().div_ceil(64)).unwrap_or(u64::MAX),
+                )?;
 
                 ctx.fs.write_file(&output_path, &output).await?;
 
@@ -965,13 +1271,19 @@ impl Builtin for Gzip {
                 }
 
                 let data = ctx.fs.read_file(&path).await?;
-                let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
-                encoder.write_all(&data).map_err(|e| {
-                    crate::error::Error::Execution(format!("gzip: {}: {}", file, e))
-                })?;
-                let compressed = encoder.finish().map_err(|e| {
-                    crate::error::Error::Execution(format!("gzip: {}: {}", file, e))
-                })?;
+                ctx.consume_budget_input(data.len())?;
+                let _input_lease = ctx.lease_budget_bytes(data.len())?;
+                let sink = budgeted_bytes(&ctx)?;
+                let mut encoder = GzEncoder::new(sink, Compression::default());
+                encoder
+                    .write_all(&data)
+                    .map_err(|error| archive_io_error(&format!("gzip: {file}"), error))?;
+                let compressed = encoder
+                    .finish()
+                    .map_err(|error| archive_io_error(&format!("gzip: {file}"), error))?;
+                ctx.consume_budget_work(
+                    u64::try_from(data.len().div_ceil(64)).unwrap_or(u64::MAX),
+                )?;
 
                 ctx.fs.write_file(&output_path, &compressed).await?;
 
@@ -1025,6 +1337,227 @@ impl Builtin for Gunzip {
         };
 
         Gzip.execute(new_ctx).await
+    }
+}
+
+/// The bzip2 family shares one bounded codec implementation.
+pub struct Bzip2;
+pub struct Bunzip2;
+pub struct Bzcat;
+
+#[derive(Clone, Copy)]
+enum Bzip2Invocation {
+    Compress,
+    Decompress,
+    DecompressStdout,
+}
+
+#[async_trait]
+impl Builtin for Bzip2 {
+    async fn execute(&self, ctx: Context<'_>) -> Result<ExecResult> {
+        execute_bzip2(ctx, Bzip2Invocation::Compress, "bzip2").await
+    }
+}
+
+#[async_trait]
+impl Builtin for Bunzip2 {
+    async fn execute(&self, ctx: Context<'_>) -> Result<ExecResult> {
+        execute_bzip2(ctx, Bzip2Invocation::Decompress, "bunzip2").await
+    }
+}
+
+#[async_trait]
+impl Builtin for Bzcat {
+    async fn execute(&self, ctx: Context<'_>) -> Result<ExecResult> {
+        execute_bzip2(ctx, Bzip2Invocation::DecompressStdout, "bzcat").await
+    }
+}
+
+async fn execute_bzip2(
+    ctx: Context<'_>,
+    invocation: Bzip2Invocation,
+    command: &str,
+) -> Result<ExecResult> {
+    if let Some(result) = super::check_help_version(
+        ctx.args,
+        &format!(
+            "Usage: {command} [OPTION]... [FILE]...\nCompress or decompress files with bzip2.\n\n  -c, --stdout\twrite to standard output\n  -d, --decompress\tdecompress\n  -z, --compress\tcompress\n  -k, --keep\tkeep input files\n  -f, --force\toverwrite output files\n  --help\tdisplay this help and exit\n  --version\toutput version information and exit\n"
+        ),
+        Some(&format!("{command} (bashkit) 0.1")),
+    ) {
+        return Ok(result);
+    }
+
+    let mut decompress = !matches!(invocation, Bzip2Invocation::Compress);
+    let mut stdout = matches!(invocation, Bzip2Invocation::DecompressStdout);
+    let mut keep = stdout;
+    let mut force = false;
+    let mut files = budgeted_vec(&ctx)?;
+    let mut parse_options = true;
+
+    for arg in ctx.args {
+        if parse_options && arg == "--" {
+            parse_options = false;
+        } else if parse_options && arg.starts_with("--") {
+            match arg.as_str() {
+                "--stdout" => stdout = true,
+                "--decompress" => decompress = true,
+                "--compress" => decompress = false,
+                "--keep" => keep = true,
+                "--force" => force = true,
+                _ => {
+                    return Ok(ExecResult::err(
+                        format!("{command}: unrecognized option '{arg}'\n"),
+                        1,
+                    ));
+                }
+            }
+        } else if parse_options && arg.starts_with('-') && arg != "-" {
+            for flag in arg[1..].chars() {
+                match flag {
+                    'c' => stdout = true,
+                    'd' => decompress = true,
+                    'z' => decompress = false,
+                    'k' => keep = true,
+                    'f' => force = true,
+                    _ => {
+                        return Ok(ExecResult::err(
+                            format!("{command}: invalid option -- '{flag}'\n"),
+                            1,
+                        ));
+                    }
+                }
+            }
+        } else {
+            files.try_push(arg.as_str())?;
+        }
+    }
+
+    if files.is_empty() {
+        let input = ctx.stdin_bytes().unwrap_or_default();
+        ctx.consume_budget_input(input.len())?;
+        let _input_lease = ctx.lease_budget_bytes(input.len())?;
+        let output = if decompress {
+            match with_execution_budget(&ctx, |budget| {
+                decompress_bytes(
+                    ArchiveCompression::Bzip2,
+                    input,
+                    ctx.fs.limits().max_file_size,
+                    command,
+                    budget,
+                )
+            }) {
+                Ok(output) => output,
+                Err(err) => return Ok(ExecResult::err(format!("{err}\n"), 1)),
+            }
+        } else {
+            with_execution_budget(&ctx, |budget| {
+                compress_bytes(ArchiveCompression::Bzip2, input, command, budget)
+            })?
+        };
+        ctx.consume_budget_input(output.len())?;
+        ctx.consume_budget_work(u64::try_from(output.len().div_ceil(64)).unwrap_or(u64::MAX))?;
+        let (output, _output_lease) = output.into_parts();
+        return Ok(ExecResult {
+            stdout: output.into(),
+            ..ExecResult::default()
+        });
+    }
+
+    let mut stdout_data = budgeted_bytes(&ctx)?;
+    for file in files.iter() {
+        let input_path = resolve_path(ctx.cwd, file);
+        if !ctx.fs.exists(&input_path).await.unwrap_or(false) {
+            return Ok(ExecResult::err(
+                format!("{command}: {file}: No such file or directory\n"),
+                1,
+            ));
+        }
+        if ctx.fs.stat(&input_path).await?.file_type.is_dir() {
+            return Ok(ExecResult::err(
+                format!("{command}: {file}: Is a directory\n"),
+                1,
+            ));
+        }
+
+        let input = ctx.fs.read_file(&input_path).await?;
+        ctx.consume_budget_input(input.len())?;
+        let _input_lease = ctx.lease_budget_bytes(input.len())?;
+        let output = if decompress {
+            match with_execution_budget(&ctx, |budget| {
+                decompress_bytes(
+                    ArchiveCompression::Bzip2,
+                    &input,
+                    ctx.fs.limits().max_file_size,
+                    command,
+                    budget,
+                )
+            }) {
+                Ok(output) => output,
+                Err(err) => return Ok(ExecResult::err(format!("{err}\n"), 1)),
+            }
+        } else {
+            if file.ends_with(".bz2") {
+                return Ok(ExecResult::err(
+                    format!("{command}: {file}: already has .bz2 suffix\n"),
+                    1,
+                ));
+            }
+            with_execution_budget(&ctx, |budget| {
+                compress_bytes(ArchiveCompression::Bzip2, &input, command, budget)
+            })?
+        };
+        ctx.consume_budget_input(output.len())?;
+        ctx.consume_budget_work(u64::try_from(output.len().div_ceil(64)).unwrap_or(u64::MAX))?;
+        if stdout {
+            let next_len = stdout_data.len().checked_add(output.len()).ok_or_else(|| {
+                crate::error::Error::Execution(format!("{command}: output size overflow"))
+            })?;
+            if let Err(err) = ctx.fs.limits().check_total_bytes(0, next_len as u64) {
+                return Ok(ExecResult::err(format!("{command}: {err}\n"), 1));
+            }
+            stdout_data.try_extend_from_slice(&output)?;
+            continue;
+        }
+
+        let output_name = if decompress {
+            let Some(output_name) = decompressed_bzip2_name(file) else {
+                return Ok(ExecResult::err(
+                    format!("{command}: {file}: unknown suffix -- ignored\n"),
+                    1,
+                ));
+            };
+            output_name
+        } else {
+            format!("{file}.bz2")
+        };
+        let output_path = resolve_path(ctx.cwd, &output_name);
+        if ctx.fs.exists(&output_path).await.unwrap_or(false) && !force {
+            return Ok(ExecResult::err(
+                format!("{command}: {output_name}: already exists\n"),
+                1,
+            ));
+        }
+        ctx.fs.write_file(&output_path, &output).await?;
+        if !keep {
+            ctx.fs.remove(&input_path, false).await?;
+        }
+    }
+
+    let (stdout_data, _stdout_lease) = stdout_data.into_parts();
+    Ok(ExecResult {
+        stdout: stdout_data.into(),
+        ..ExecResult::default()
+    })
+}
+
+fn decompressed_bzip2_name(file: &str) -> Option<String> {
+    if let Some(stem) = file.strip_suffix(".bz2") {
+        Some(stem.to_string())
+    } else if let Some(stem) = file.strip_suffix(".tbz2") {
+        Some(format!("{stem}.tar"))
+    } else {
+        file.strip_suffix(".tbz").map(|stem| format!("{stem}.tar"))
     }
 }
 
@@ -1106,6 +1639,88 @@ mod tests {
         let result = Tar.execute(ctx).await.unwrap();
         assert_eq!(result.exit_code, 0);
         assert!(result.stdout.contains("test.txt"));
+    }
+
+    #[tokio::test]
+    async fn test_tar_bzip2_old_style_create_list_extract_roundtrip() {
+        let (fs, mut cwd, mut variables) = create_test_ctx().await;
+        let env = HashMap::new();
+        fs.write_file(&cwd.join("payload.txt"), b"bzip2 archive payload")
+            .await
+            .unwrap();
+
+        let create_args = vec![
+            "cjf".to_string(),
+            "archive.tbz2".to_string(),
+            "payload.txt".to_string(),
+        ];
+        let create_ctx = Context::new_for_test(
+            &create_args,
+            &env,
+            &mut variables,
+            &mut cwd,
+            fs.clone(),
+            None,
+        );
+        let created = Tar.execute(create_ctx).await.unwrap();
+        assert_eq!(created.exit_code, 0, "{}", created.stderr);
+
+        let archive = fs.read_file(&cwd.join("archive.tbz2")).await.unwrap();
+        assert!(archive.starts_with(b"BZh"));
+
+        let list_args = vec![
+            "--bzip2".to_string(),
+            "-tf".to_string(),
+            "archive.tbz2".to_string(),
+        ];
+        let list_ctx =
+            Context::new_for_test(&list_args, &env, &mut variables, &mut cwd, fs.clone(), None);
+        let listed = Tar.execute(list_ctx).await.unwrap();
+        assert_eq!(listed.exit_code, 0, "{}", listed.stderr);
+        assert_eq!(listed.stdout, "payload.txt\n");
+
+        fs.remove(&cwd.join("payload.txt"), false).await.unwrap();
+        let extract_args = vec!["-xjf".to_string(), "archive.tbz2".to_string()];
+        let extract_ctx = Context::new_for_test(
+            &extract_args,
+            &env,
+            &mut variables,
+            &mut cwd,
+            fs.clone(),
+            None,
+        );
+        let extracted = Tar.execute(extract_ctx).await.unwrap();
+        assert_eq!(extracted.exit_code, 0, "{}", extracted.stderr);
+        assert_eq!(
+            fs.read_file(&cwd.join("payload.txt")).await.unwrap(),
+            b"bzip2 archive payload"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_tar_rejects_unknown_old_style_option() {
+        let (fs, mut cwd, mut variables) = create_test_ctx().await;
+        let env = HashMap::new();
+        let args = vec!["qf".to_string(), "archive.tar".to_string()];
+        let ctx = Context {
+            args: &args,
+            env: &env,
+            variables: &mut variables,
+            cwd: &mut cwd,
+            fs,
+            stdin: None,
+            #[cfg(feature = "http_client")]
+            http_client: None,
+            #[cfg(feature = "git")]
+            git_client: None,
+            #[cfg(feature = "ssh")]
+            ssh_client: None,
+            shell: None,
+        };
+
+        let result = Tar.execute(ctx).await.unwrap();
+        assert_eq!(result.exit_code, 2);
+        assert_eq!(result.stderr, "tar: invalid option -- 'q'\n");
     }
 
     #[tokio::test]
@@ -1587,20 +2202,39 @@ mod tests {
         assert!(fs.exists(&cwd.join("test.txt")).await.unwrap());
     }
 
+    #[tokio::test]
+    async fn test_bunzip2_invalid_stream_error_does_not_leak_debug_shapes() {
+        let (fs, mut cwd, mut variables) = create_test_ctx().await;
+        let env = HashMap::new();
+        let args = vec!["-c".to_string()];
+        let ctx = Context::new_for_test(
+            &args,
+            &env,
+            &mut variables,
+            &mut cwd,
+            fs,
+            Some("not a bzip2 stream"),
+        );
+
+        let result = Bunzip2.execute(ctx).await.unwrap();
+        assert_eq!(result.exit_code, 1);
+        crate::builtins::debug_leak_check::assert_no_leak(&result, "bunzip2_invalid_stream", &[]);
+    }
+
     // ==================== zip bomb protection tests ====================
 
     #[test]
     fn test_read_with_limit_normal() {
         let data = b"hello world";
-        let result = read_with_limit(data.as_slice(), data.len(), 1000);
+        let result = read_with_limit(data.as_slice(), data.len(), 1000, None);
         assert!(result.is_ok());
-        assert_eq!(result.unwrap(), data);
+        assert_eq!(&*result.unwrap(), data);
     }
 
     #[test]
     fn test_read_with_limit_exceeds_max() {
         let data = vec![0u8; 1000];
-        let result = read_with_limit(data.as_slice(), data.len(), 500);
+        let result = read_with_limit(data.as_slice(), data.len(), 500, None);
         assert!(result.is_err());
         let err = result.unwrap_err().to_string();
         assert!(err.contains("exceeds") || err.contains("limit"));
@@ -1611,10 +2245,74 @@ mod tests {
         // Simulate a high decompression ratio scenario
         // We can't easily create a real gzip bomb, but we test the ratio check
         let data = vec![0u8; 10100]; // 101x the "compressed" size
-        let result = read_with_limit(data.as_slice(), 100, u64::MAX);
+        let result = read_with_limit(data.as_slice(), 100, u64::MAX, None);
         assert!(result.is_err());
         let err = result.unwrap_err().to_string();
         assert!(err.contains("ratio") || err.contains("bomb"));
+    }
+
+    #[test]
+    fn test_read_with_limit_releases_budget_after_reader_error() {
+        struct FailsAfterFirstRead(bool);
+
+        impl Read for FailsAfterFirstRead {
+            fn read(&mut self, buffer: &mut [u8]) -> std::io::Result<usize> {
+                if self.0 {
+                    return Err(std::io::Error::other("injected read failure"));
+                }
+                self.0 = true;
+                buffer[..4].copy_from_slice(b"data");
+                Ok(4)
+            }
+        }
+
+        let limits = crate::limits::ExecutionLimits::new().max_live_intermediate_bytes(8);
+        let budget = crate::limits::ExecutionBudget::new(
+            &limits,
+            Arc::new(std::sync::atomic::AtomicBool::new(false)),
+        );
+
+        let result = read_with_limit(FailsAfterFirstRead(false), 4, 8, Some(&budget));
+        assert!(result.is_err());
+        assert!(
+            budget.lease_bytes(8).is_ok(),
+            "reader errors must release buffer accounting"
+        );
+    }
+
+    #[test]
+    fn test_read_with_limit_aggregates_nested_live_work() {
+        let limits = crate::limits::ExecutionLimits::new().max_live_intermediate_bytes(8);
+        let budget = crate::limits::ExecutionBudget::new(
+            &limits,
+            Arc::new(std::sync::atomic::AtomicBool::new(false)),
+        );
+        let outer = budget.lease_bytes(4).unwrap();
+
+        let result = read_with_limit(&b"12345"[..], 5, 8, Some(&budget));
+        let error = result.unwrap_err().to_string();
+        assert!(error.contains("live intermediate bytes"), "{error}");
+        drop(outer);
+    }
+
+    #[test]
+    fn test_gzip_sink_preserves_resource_limit_error() {
+        let limits = crate::limits::ExecutionLimits::new().max_live_intermediate_bytes(0);
+        let budget = crate::limits::ExecutionBudget::new(
+            &limits,
+            Arc::new(std::sync::atomic::AtomicBool::new(false)),
+        );
+        let sink = BudgetedBytes::new(Some(&budget)).unwrap();
+        let mut encoder = GzEncoder::new(sink, Compression::default());
+
+        let io_error = match encoder.write_all(b"untrusted input") {
+            Err(error) => error,
+            Ok(()) => encoder.finish().unwrap_err(),
+        };
+        assert!(matches!(
+            archive_io_error("gzip", io_error),
+            crate::error::Error::ResourceLimit(crate::limits::LimitExceeded::ExecutionBudget(_))
+        ));
     }
 
     #[tokio::test]

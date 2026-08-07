@@ -36,6 +36,8 @@ from .paginator import (
 from .type_defs import (
     AssociateWhatsAppBusinessAccountInputTypeDef,
     AssociateWhatsAppBusinessAccountOutputTypeDef,
+    CreateWhatsAppDatasetInputTypeDef,
+    CreateWhatsAppDatasetOutputTypeDef,
     CreateWhatsAppFlowInputTypeDef,
     CreateWhatsAppFlowOutputTypeDef,
     CreateWhatsAppMessageTemplateFromLibraryInputTypeDef,
@@ -78,6 +80,8 @@ from .type_defs import (
     PostWhatsAppMessageMediaOutputTypeDef,
     PublishWhatsAppFlowInputTypeDef,
     PutWhatsAppBusinessAccountEventDestinationsInputTypeDef,
+    SendWhatsAppConversionEventInputTypeDef,
+    SendWhatsAppConversionEventOutputTypeDef,
     SendWhatsAppMessageInputTypeDef,
     SendWhatsAppMessageOutputTypeDef,
     TagResourceInputTypeDef,
@@ -153,6 +157,16 @@ class EndUserMessagingSocialClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/socialmessaging/client/associate_whatsapp_business_account.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_socialmessaging/client/#associate_whatsapp_business_account)
+        """
+
+    def create_whatsapp_dataset(
+        self, **kwargs: Unpack[CreateWhatsAppDatasetInputTypeDef]
+    ) -> CreateWhatsAppDatasetOutputTypeDef:
+        """
+        Creates a Meta Conversions API dataset for a WhatsApp Business Account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/socialmessaging/client/create_whatsapp_dataset.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_socialmessaging/client/#create_whatsapp_dataset)
         """
 
     def create_whatsapp_flow(
@@ -400,6 +414,17 @@ class EndUserMessagingSocialClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/socialmessaging/client/put_whatsapp_business_account_event_destinations.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_socialmessaging/client/#put_whatsapp_business_account_event_destinations)
+        """
+
+    def send_whatsapp_conversion_event(
+        self, **kwargs: Unpack[SendWhatsAppConversionEventInputTypeDef]
+    ) -> SendWhatsAppConversionEventOutputTypeDef:
+        """
+        Sends a conversion event to Meta's Conversions API for the specified WhatsApp
+        Business Account dataset.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/socialmessaging/client/send_whatsapp_conversion_event.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_socialmessaging/client/#send_whatsapp_conversion_event)
         """
 
     def send_whatsapp_message(

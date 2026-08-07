@@ -589,12 +589,14 @@ KNOWN_TARGETS: dict[str, TargetProfile] = {
         unsupported_user_primitives=("instructions",),
         hooks_config_display=".cursor/hooks.json",
     ),
-    # Kiro IDE -- spec-driven development editor.
+    # Kiro IDE/CLI v3 -- spec-driven development editor.
+    # Agents are Markdown files under .kiro/agents/; identity derives from
+    # the relative path (no redundant 'name' frontmatter field).
     # Steering files use Kiro frontmatter under .kiro/steering/.
     # Skills use the open Agent Skills SKILL.md layout under .kiro/skills/.
     # Hooks are individual JSON files under .kiro/hooks/.
     # MCP config lives at .kiro/settings/mcp.json and ~/.kiro/settings/mcp.json.
-    # Kiro CLI config divergence is intentionally out of scope for this v1 target.
+    # Ref: https://kiro.dev/docs/custom-agents/ (accessed 2026-08-03)
     # Ref: https://kiro.dev/docs/steering/
     # Ref: https://kiro.dev/docs/skills/
     # Ref: https://kiro.dev/docs/hooks/
@@ -602,6 +604,7 @@ KNOWN_TARGETS: dict[str, TargetProfile] = {
         capability=TARGET_CAPABILITIES["kiro"],
         root_dir=".kiro",
         primitives={
+            "agents": PrimitiveMapping("agents", ".md", "kiro_agent"),
             "instructions": PrimitiveMapping(
                 "steering",
                 ".md",
@@ -662,6 +665,37 @@ KNOWN_TARGETS: dict[str, TargetProfile] = {
         user_supported=True,
         user_root_dir=".gemini",
         hooks_config_display=".gemini/settings.json",
+    ),
+    # Grok Build -- project and user configuration live under .grok/.
+    # Grok reads AGENTS.md for compiled project context and supports native
+    # rules, agents, legacy command markdown, and Agent Skills.
+    # Ref: https://github.com/xai-org/grok-build/tree/main/crates/codegen/xai-grok-pager/docs/user-guide
+    "grok-build": TargetProfile(
+        capability=TARGET_CAPABILITIES["grok-build"],
+        root_dir=".grok",
+        primitives={
+            "instructions": PrimitiveMapping("rules", ".md", "grok_rules"),
+            "agents": PrimitiveMapping("agents", ".md", "grok_agent"),
+            "commands": PrimitiveMapping("commands", ".md", "claude_command"),
+            "skills": PrimitiveMapping("skills", "/SKILL.md", "skill_standard"),
+        },
+        auto_create=False,
+        detect_by_dir=True,
+        user_supported=True,
+        user_root_dir=".grok",
+    ),
+    # Grok Cloud -- xAI docs verify project ``./.grok/skills/`` and user
+    # ``~/.grok/skills/``.  Skills are the only deployed primitive.
+    "grok-cloud": TargetProfile(
+        capability=TARGET_CAPABILITIES["grok-cloud"],
+        root_dir=".grok",
+        primitives={
+            "skills": PrimitiveMapping("skills", "/SKILL.md", "skill_standard"),
+        },
+        auto_create=True,
+        detect_by_dir=False,
+        user_supported=True,
+        user_root_dir=".grok",
     ),
     # Antigravity CLI (agy) -- Google's Gemini-derived agentic CLI.
     # Workspace config lives under the cross-tool .agents/ root (the same

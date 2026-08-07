@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: wllegal
-Version: 2026.5
+Version: 2026.6
 Summary: Hosted Weblate legal stuff
 Author-email: Michal Čihař <michal@weblate.org>
 License-Expression: GPL-3.0-or-later
@@ -33,16 +33,8 @@ Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content
 Requires-Python: >=3.11
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: Django<6.1,>=5.2
-Requires-Dist: weblate-language-data>=2026.8
-Provides-Extra: dev
-Requires-Dist: wllegal[lint,test]; extra == "dev"
-Provides-Extra: lint
-Requires-Dist: prek==0.4.10; extra == "lint"
-Provides-Extra: test
-Requires-Dist: wllegal[weblate]; extra == "test"
-Requires-Dist: coverage==7.15.2; extra == "test"
-Requires-Dist: translate-toolkit; extra == "test"
+Requires-Dist: Django<6.2,>=5.2
+Requires-Dist: weblate-language-data>=2026.10
 Provides-Extra: weblate
 Requires-Dist: Weblate[postgres]>=5.0; extra == "weblate"
 Requires-Dist: django-otp<1.7.0; python_version < "3.12" and extra == "weblate"

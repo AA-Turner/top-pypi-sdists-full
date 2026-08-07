@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-cms
-Version: 5.1.0
+Version: 5.1.1
 Summary: Lean enterprise content management powered by Django.
 Author-email: Django CMS Association and contributors <info@django-cms.org>
 Maintainer-email: Django CMS Association and contributors <info@django-cms.org>
@@ -38,7 +38,7 @@ License-File: AUTHORS
 Requires-Dist: Django>=5.2
 Requires-Dist: django-classy-tags>=0.7.2
 Requires-Dist: django-formtools>=2.1
-Requires-Dist: django-treebeard>=4.3
+Requires-Dist: django-treebeard<6,>=4.3
 Requires-Dist: django-sekizai>=0.7
 Provides-Extra: admin-style
 Requires-Dist: djangocms-simple-admin-style; extra == "admin-style"
@@ -168,14 +168,10 @@ If your business depends on django CMS, consider supporting its long-term health
 Credits
 =======
 
-* Includes icons and adapted icons from `Bootstrap <https://icons.getbootstrap.com>`_.
-* Includes icons from `FamFamFam <http://www.famfamfam.com>`_.
-* Python tree engine powered by
-  `django-treebeard <https://tabo.pe/projects/django-treebeard/>`_.
-* JavaScript tree in admin uses `jsTree <https://www.jstree.com>`_.
-* Many thanks to
-  `all the contributors <https://github.com/django-cms/django-cms/graphs/contributors>`_
-  to django CMS!
+Many thanks to `all the contributors <https://github.com/django-cms/django-cms/graphs/contributors>`_
+to django CMS!
+
+See `LICENSE <LICENSE>`_ for credits to third-party contributions.
 
 .. |PyPiVersion| image:: https://img.shields.io/pypi/v/django-cms.svg
     :target: https://pypi.python.org/pypi/django-cms/

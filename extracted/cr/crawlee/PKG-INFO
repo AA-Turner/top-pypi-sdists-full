@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: crawlee
-Version: 1.9.0
+Version: 1.9.1
 Summary: Crawlee for Python
 Keywords: apify,automation,chrome,crawlee,crawler,headless,scraper,scraping
 Author: Apify Technologies s.r.o.
@@ -26,7 +26,6 @@ Requires-Dist: protego>=0.5.0
 Requires-Dist: psutil>=6.0.0
 Requires-Dist: pydantic-settings>=2.12.0
 Requires-Dist: pydantic>=2.11.0
-Requires-Dist: pyee>=9.0.0
 Requires-Dist: tldextract>=5.3.0
 Requires-Dist: typing-extensions>=4.10.0
 Requires-Dist: yarl>=1.18.0
@@ -34,7 +33,7 @@ Requires-Dist: crawlee[beautifulsoup,parsel] ; extra == 'adaptive-crawler'
 Requires-Dist: jaro-winkler>=2.0.3 ; extra == 'adaptive-crawler'
 Requires-Dist: playwright>=1.27.0 ; extra == 'adaptive-crawler'
 Requires-Dist: scikit-learn>=1.6.0 ; extra == 'adaptive-crawler'
-Requires-Dist: apify-fingerprint-datapoints>=0.0.3,<0.14.0 ; extra == 'adaptive-crawler'
+Requires-Dist: apify-fingerprint-datapoints>=0.0.3 ; extra == 'adaptive-crawler'
 Requires-Dist: browserforge>=1.2.4 ; extra == 'adaptive-crawler'
 Requires-Dist: crawlee[adaptive-crawler,pydantic-ai,beautifulsoup,cli,curl-impersonate,httpx,parsel,playwright,otel,sql-sqlite,sql-postgres,sql-mysql,stagehand,redis] ; extra == 'all'
 Requires-Dist: beautifulsoup4[lxml]>=4.12.0 ; extra == 'beautifulsoup'
@@ -43,9 +42,9 @@ Requires-Dist: cookiecutter>=2.6.0 ; extra == 'cli'
 Requires-Dist: inquirer>=3.3.0 ; extra == 'cli'
 Requires-Dist: rich>=13.9.0 ; extra == 'cli'
 Requires-Dist: typer>=0.26.0 ; extra == 'cli'
-Requires-Dist: curl-cffi>=0.9.0,<0.16.0 ; extra == 'curl-impersonate'
+Requires-Dist: curl-cffi>=0.9.0 ; extra == 'curl-impersonate'
 Requires-Dist: httpx[brotli,http2,zstd]>=0.27.0 ; extra == 'httpx'
-Requires-Dist: apify-fingerprint-datapoints>=0.0.2,<0.14.0 ; extra == 'httpx'
+Requires-Dist: apify-fingerprint-datapoints>=0.0.2 ; extra == 'httpx'
 Requires-Dist: browserforge>=1.2.3 ; extra == 'httpx'
 Requires-Dist: opentelemetry-api>=1.34.1 ; extra == 'otel'
 Requires-Dist: opentelemetry-distro[otlp]>=0.54 ; extra == 'otel'
@@ -56,7 +55,7 @@ Requires-Dist: opentelemetry-semantic-conventions>=0.54 ; extra == 'otel'
 Requires-Dist: wrapt>=1.17.0 ; extra == 'otel'
 Requires-Dist: parsel>=1.10.0 ; extra == 'parsel'
 Requires-Dist: playwright>=1.27.0 ; extra == 'playwright'
-Requires-Dist: apify-fingerprint-datapoints>=0.0.2,<0.14.0 ; extra == 'playwright'
+Requires-Dist: apify-fingerprint-datapoints>=0.0.2 ; extra == 'playwright'
 Requires-Dist: browserforge>=1.2.3 ; extra == 'playwright'
 Requires-Dist: pydantic-ai-slim[openai]>=2.1.0 ; extra == 'pydantic-ai'
 Requires-Dist: parsel>=1.10.0 ; extra == 'pydantic-ai'
@@ -71,7 +70,7 @@ Requires-Dist: sqlalchemy[asyncio]>=2.0.0,<3.0.0 ; extra == 'sql-sqlite'
 Requires-Dist: aiosqlite>=0.21.0 ; extra == 'sql-sqlite'
 Requires-Dist: stagehand>=3.19.5 ; extra == 'stagehand'
 Requires-Dist: playwright>=1.27.0 ; extra == 'stagehand'
-Requires-Dist: apify-fingerprint-datapoints>=0.0.2,<0.14.0 ; extra == 'stagehand'
+Requires-Dist: apify-fingerprint-datapoints>=0.0.2 ; extra == 'stagehand'
 Requires-Dist: browserforge>=1.2.3 ; extra == 'stagehand'
 Requires-Python: >=3.10
 Project-URL: Apify Homepage, https://apify.com

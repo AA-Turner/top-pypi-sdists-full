@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: meshioplusplus
-Version: 9.25.0
+Version: 10.0.0
 Summary: meshio++: I/O for many mesh formats (C++20 core + Python bindings)
 Keywords: mesh,file formats,scientific,engineering,fem,finite elements
 Author: Vicente Mataix Ferrándiz
@@ -62,10 +62,18 @@ Provides-Extra: trimesh
 Requires-Dist: trimesh>=4.0; extra == "trimesh"
 Provides-Extra: arrow
 Requires-Dist: pyarrow>=14; extra == "arrow"
+Provides-Extra: pandas
+Requires-Dist: pandas>=2.0; extra == "pandas"
+Provides-Extra: polars
+Requires-Dist: polars>=1.0; extra == "polars"
+Provides-Extra: zarr
+Requires-Dist: zarr>=2.16; extra == "zarr"
 Provides-Extra: interop
 Requires-Dist: pyvista>=0.44; extra == "interop"
 Requires-Dist: trimesh>=4.0; extra == "interop"
 Requires-Dist: pyarrow>=14; extra == "interop"
+Requires-Dist: pandas>=2.0; extra == "interop"
+Requires-Dist: polars>=1.0; extra == "interop"
 Provides-Extra: mcp
 Requires-Dist: mcp<2,>=1.2; extra == "mcp"
 Provides-Extra: all
@@ -548,7 +556,7 @@ out = meshioplusplus.data_rename(out, "point", "T", "temperature")
 arrays = meshioplusplus.data_info(out)                     # list of per-array dicts
 ```
 
-These are likewise exposed across every binding surface, and as the nine CLI verbs under the `meshioplusplus data` group (`info`, `rename`, `drop`, `keep`, `to-cell`, `to-point`, `calc`, `clamp`, `normalize`). See `doc/data_operations.md`.
+These are likewise exposed across every binding surface, and as the nine CLI verbs under the `meshioplusplus data` group (`info`, `rename`, `drop`, `keep`, `to-cell`, `to-point`, `calc`, `clamp`, `normalize`). See `doc/data_operations.md`. A second nested group, `meshioplusplus dataset` (`add`, `list`, `split`, `tag`, `annotate`), curates the hand-editable [dataset manifests](https://loumalouomega.github.io/meshioplusplus/datasets.html) used for ML training collections (Python CLI only, like `data export`).
 
 #### Time series
 
@@ -634,6 +642,12 @@ meshioplusplus.screenshot(mesh, "part.png", color_by="temperature")
 
 The **[browser](https://loumalouomega.github.io/meshioplusplus/viewer/)** backend needs nothing extra. The same app is hosted as a live demo: drag in any supported format, colour by point or cell data, and convert and download to another format — all client-side, with no server and no upload. Since it runs the WebAssembly build, every format meshio++ reads works there too.
 
+A second page, the **[dataset manager](https://loumalouomega.github.io/meshioplusplus/viewer/dataset.html)**, curates the [dataset manifests](https://loumalouomega.github.io/meshioplusplus/datasets.html) used for ML training collections visually — directory picking with in-place manifest save (Chromium), per-entry previews with a time-series scrubber, and NaN/Inf scanning — against the same hand-editable JSON the CLI and Python API use:
+
+<img alt="the meshio++ dataset manager, previewing a transient case with a step scrubber and a per-array NaN/Inf summary table" src="https://loumalouomega.github.io/meshioplusplus/viewer/dataset-manager.png" width="85%">
+
+*Splits, tags and groups on the left; a live preview and per-array summary on the right — all against the manifest JSON the CLI and Python API read and write.*
+
 From the command line:
 
 ```sh
@@ -660,11 +674,14 @@ tm = meshioplusplus.to_trimesh(mesh)        # a trimesh.Trimesh (triangles only)
 
 Both directions exist (`from_pyvista`, `from_trimesh`). Mixed-type meshes are the normal case, and named regions ride along as `region:<name>` mask arrays plus a metadata sidecar, so even a gmsh physical group's integer tag survives a PyVista round-trip. `zero_copy_only=True` turns any step that would copy into a named error instead of a silent one.
 
-Data arrays also export to Apache Arrow and Parquet for the analytics stack:
+Data arrays also export to Apache Arrow and Parquet for the analytics stack, or straight to a pandas / polars frame with no Parquet detour:
 
 <!--pytest-codeblocks:skip-->
 
 ```python
+df = meshioplusplus.to_pandas(mesh, location="cell")    # a pandas.DataFrame
+pf = meshioplusplus.to_polars(mesh, location="point")   # a polars.DataFrame
+
 meshioplusplus.write_parquet(mesh, "cells.parquet", location="cell")
 
 import pandas
@@ -677,9 +694,9 @@ pandas.read_parquet("cells.parquet").head()
 meshioplusplus data export bracket.msh cells.parquet --location cell
 ```
 
-Multi-component arrays keep their shape (as Arrow `fixed_size_list` columns), and the mesh's counts, cell types and region names travel in the schema metadata. This is a **data** export, not a mesh format — it does not round-trip geometry and is deliberately not in the format registry.
+Multi-component arrays keep their shape wherever the target can hold it — Arrow `fixed_size_list` columns, polars `pl.Array` columns — while `to_pandas` (whose columns are one-dimensional) flattens them into suffixed columns `v_0`/`v_1`/`v_2` with the grouping recorded in `df.attrs`. The mesh's counts, cell types and region names travel in the Arrow schema metadata / `df.attrs`. This is a **data** export, not a mesh format — it does not round-trip geometry and is deliberately not in the format registry.
 
-PyVista, trimesh and pyarrow are Python-only optional extras (`pip install meshioplusplus[interop]`, or one at a time with `[pyvista]` / `[trimesh]` / `[arrow]`). They are kept out of `[all]`, which means "the optional dependencies the *formats* need". None of them reaches the C++/WebAssembly/C/Fortran core, which stays dependency-free.
+PyVista, trimesh, pyarrow, pandas and polars are Python-only optional extras (`pip install meshioplusplus[interop]`, or one at a time with `[pyvista]` / `[trimesh]` / `[arrow]` / `[pandas]` / `[polars]`). They are kept out of `[all]`, which means "the optional dependencies the *formats* need". None of them reaches the C++/WebAssembly/C/Fortran core, which stays dependency-free.
 
 Meshes also hand off to the GPU through the standard exchange protocols — DLPack as the primary export (which covers host arrays too), `__cuda_array_interface__` consumed on the way back:
 
@@ -693,6 +710,21 @@ meshioplusplus.write("out.vtu", meshioplusplus.from_cupy(gpu))
 
 The host→device move is always a bus transfer — what this removes is the file round-trip and every *extra* copy around it. `to_dlpack(mesh)` exports host arrays any DLPack consumer (PyTorch, JAX, Numba, …) adopts in place. There is deliberately no `[gpu]` extra: CuPy wheels are CUDA-version-specific, so install the one matching your toolkit (e.g. `pip install cupy-cuda13x` for CUDA 13.x, `cupy-cuda12x` for 12.x).
 
+And for machine-learning pipelines, meshes become graphs, feature matrices, datasets and framework tensors directly:
+
+<!--pytest-codeblocks:skip-->
+
+```python
+ei = meshioplusplus.edge_index(mesh)                  # (2, E) int64 — PyG/DGL layout
+fm = meshioplusplus.feature_matrix(mesh, "point")     # (N, F) float64 + recorded columns
+meshioplusplus.write_dataset("out_*.vtu", "dataset/") # mesh_id-keyed partitioned Parquet
+t = meshioplusplus.to_torch(mesh)                     # torch tensors, adopted zero-copy
+```
+
+`feature_matrix`'s column order is a stated, versioned contract recorded in the returned schema, so training and inference cannot silently disagree; `write_dataset` streams a glob / directory / transient series into hive-partitioned Parquet (or chunked zarr/hdf5 groups, `[zarr]`/h5py) with a strict shared schema and a JSON manifest; `to_torch`/`to_jax` adopt the DLPack payload per framework (no `[torch]`/`[jax]` extra, deliberately — the CuPy precedent). See [the ML docs](https://loumalouomega.github.io/meshioplusplus/ml.html).
+
+A *collection* of solution outputs is catalogued by a hand-editable [dataset manifest](https://loumalouomega.github.io/meshioplusplus/datasets.html) (`DatasetManifest` — sources, train/valid/test splits, tags, groups, notes; curated in Python, by the `meshioplusplus dataset` CLI group, over MCP, or with a text editor, all against the same JSON), and the [PhysicsNeMo adapter](https://loumalouomega.github.io/meshioplusplus/physicsnemo.html) (`meshioplusplus.physicsnemo`) trains straight off it: `graph_sample` builds the MeshGraphNet tensor set per mesh, `field_stats`/`edge_stats` stream normalization stats in PhysicsNeMo's own convention, `make_dataset` yields a PyTorch Geometric dataset and `make_reader` a Gen-2 `Reader` — with a worked, GPU-executed end-to-end example in [`example/physicsnemo/`](example/physicsnemo/).
+
 See [the interoperability docs](https://loumalouomega.github.io/meshioplusplus/interop.html) for the full mapping tables, the zero-copy contract, and the Open3D/DOLFINx design sketch, and [the GPU docs](https://loumalouomega.github.io/meshioplusplus/gpu.html) for the device handoff.
 
 ### MCP server
@@ -704,7 +736,7 @@ pip install "meshioplusplus[mcp]"     # the mcp SDK needs Python >= 3.10
 claude mcp add meshioplusplus -- meshioplusplus-mcp
 ```
 
-Then ask the agent to convert, inspect, slice, partition, … and it drives the 42 tools itself. Tools are stateless and file-path based (optionally sandboxed with `--root DIR`), and every report is strict JSON. See [the MCP docs](https://loumalouomega.github.io/meshioplusplus/mcp.html) for the tool table and client setup.
+Then ask the agent to convert, inspect, slice, partition, … and it drives the 45 tools itself. Tools are stateless and file-path based (optionally sandboxed with `--root DIR`), and every report is strict JSON. See [the MCP docs](https://loumalouomega.github.io/meshioplusplus/mcp.html) for the tool table and client setup.
 
 ### ParaView plugin
 
@@ -793,7 +825,7 @@ cmake --build build && cmake --install build --prefix /opt/meshioplusplus
 ```
 
 ```cmake
-find_package(meshioplusplus 9.25.0 EXACT CONFIG REQUIRED COMPONENTS CXX)
+find_package(meshioplusplus 10.0.0 EXACT CONFIG REQUIRED COMPONENTS CXX)
 target_link_libraries(my_solver PRIVATE meshioplusplus::core)
 ```
 
@@ -804,7 +836,7 @@ headers. The finer pin is `MESHIOPLUSPLUS_ABI_VERSION`, which moves only when a
 change really would break an already-compiled consumer — so a release that
 cannot affect you costs no rebuild. Either way a mismatch now fails at **link**
 time rather than corrupting memory, and the C API is the stable one — pin
-`find_package(meshioplusplus 9 … COMPONENTS C)` there. See
+`find_package(meshioplusplus 10 … COMPONENTS C)` there. See
 [ABI compatibility](https://loumalouomega.github.io/meshioplusplus/abi).
 
 ```cpp
@@ -942,6 +974,9 @@ The C++ core is dependency-free by design. Everything below is either optional, 
 | [PyVista](https://pyvista.org/) | `[pyvista]` / `[interop]` | `to_pyvista()` / `from_pyvista()` | BSD-3-Clause |
 | [trimesh](https://trimesh.org/) | `[trimesh]` / `[interop]` | `to_trimesh()` / `from_trimesh()` | MIT |
 | [pyarrow](https://arrow.apache.org/) | `[arrow]` / `[interop]` | the Arrow/Parquet data export | Apache-2.0 |
+| [pandas](https://pandas.pydata.org/) | `[pandas]` / `[interop]` | `to_pandas()` | BSD-3-Clause |
+| [polars](https://pola.rs/) | `[polars]` / `[interop]` | `to_polars()` | MIT |
+| [zarr](https://zarr.dev/) | `[zarr]` | the `write_dataset(format="zarr")` chunked-dataset backend | MIT |
 | [CuPy](https://cupy.dev/) | — (wheels are CUDA-version-specific, e.g. `cupy-cuda13x` — see the GPU docs) | `to_cupy()` / `from_cupy()` | MIT |
 | [MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk) | `[mcp]` | the `meshioplusplus-mcp` server exposing every operation to AI agents | MIT |
 | [h5py](https://www.h5py.org/) | `[all]` | the Python fallback for CGNS, H5M, MED, XDMF | BSD-3-Clause |

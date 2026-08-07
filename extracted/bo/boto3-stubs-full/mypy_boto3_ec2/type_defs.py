@@ -21955,10 +21955,10 @@ class CreateRouteTableRequestVpcCreateRouteTableTypeDef(TypedDict):
 
 
 class CreateSecondaryNetworkRequestTypeDef(TypedDict):
+    Ipv4CidrBlock: str
     NetworkType: Literal["rdma"]
     ClientToken: NotRequired[str]
     DryRun: NotRequired[bool]
-    Ipv4CidrBlock: NotRequired[str]
     TagSpecifications: NotRequired[Sequence[TagSpecificationUnionTypeDef]]
 
 
@@ -24163,6 +24163,7 @@ class GetSpotPlacementScoresRequestPaginateTypeDef(TypedDict):
     RegionNames: NotRequired[Sequence[str]]
     InstanceRequirementsWithMetadata: NotRequired[InstanceRequirementsWithMetadataRequestTypeDef]
     DryRun: NotRequired[bool]
+    IncludeLocalZones: NotRequired[bool]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
@@ -24176,6 +24177,7 @@ class GetSpotPlacementScoresRequestTypeDef(TypedDict):
     DryRun: NotRequired[bool]
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
+    IncludeLocalZones: NotRequired[bool]
 
 
 class CreateLaunchTemplateRequestTypeDef(TypedDict):

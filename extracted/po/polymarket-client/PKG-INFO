@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: polymarket-client
-Version: 0.3.0
+Version: 0.4.0
 Summary: Official Python client for Polymarket
 Project-URL: Homepage, https://polymarket.com
 Project-URL: Documentation, https://docs.polymarket.com
@@ -168,6 +168,17 @@ Build package artifacts:
 ```bash
 make build
 ```
+
+Build the Mintlify-compatible Sphinx JSON API-reference artifact:
+
+```bash
+make api-reference
+```
+
+The ZIP is written to `build/api-reference/polymarket-client-sphinx.zip`. The
+`API Reference` GitHub Actions workflow can also generate it manually for a
+selected branch or commit. Successful package releases attach a versioned copy
+to the corresponding GitHub Release.
 
 The `Makefile` is a thin convenience wrapper around `uv`. Running the underlying commands directly is also fine.
 

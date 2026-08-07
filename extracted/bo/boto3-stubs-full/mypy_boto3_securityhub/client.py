@@ -46,6 +46,7 @@ from .paginator import (
     ListConfigurationPolicyAssociationsPaginator,
     ListEnabledProductsForImportPaginator,
     ListFindingAggregatorsPaginator,
+    ListFreeTrialStatusesV2Paginator,
     ListInvitationsPaginator,
     ListMembersPaginator,
     ListOrganizationAdminAccountsPaginator,
@@ -211,6 +212,8 @@ from .type_defs import (
     ListEnabledProductsForImportResponseTypeDef,
     ListFindingAggregatorsRequestTypeDef,
     ListFindingAggregatorsResponseTypeDef,
+    ListFreeTrialStatusesV2RequestTypeDef,
+    ListFreeTrialStatusesV2ResponseTypeDef,
     ListInvitationsRequestTypeDef,
     ListInvitationsResponseTypeDef,
     ListMembersRequestTypeDef,
@@ -1251,6 +1254,16 @@ class SecurityHubClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityhub/client/#list_finding_aggregators)
         """
 
+    def list_free_trial_statuses_v2(
+        self, **kwargs: Unpack[ListFreeTrialStatusesV2RequestTypeDef]
+    ) -> ListFreeTrialStatusesV2ResponseTypeDef:
+        """
+        Lists the free trial status of Security Hub features.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/list_free_trial_statuses_v2.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityhub/client/#list_free_trial_statuses_v2)
+        """
+
     def list_invitations(
         self, **kwargs: Unpack[ListInvitationsRequestTypeDef]
     ) -> ListInvitationsResponseTypeDef:
@@ -1692,6 +1705,17 @@ class SecurityHubClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_finding_aggregators"]
     ) -> ListFindingAggregatorsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_securityhub/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_free_trial_statuses_v2"]
+    ) -> ListFreeTrialStatusesV2Paginator:
         """
         Create a paginator for an operation.
 

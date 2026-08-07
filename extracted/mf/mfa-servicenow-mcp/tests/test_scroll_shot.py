@@ -7,9 +7,12 @@ called itself full.
 """
 
 import io
+import json
+from types import SimpleNamespace
 
 import pytest
 
+from servicenow_mcp.browser import badge
 from servicenow_mcp.browser import capture as capture_module
 from servicenow_mcp.browser import scroll_shot
 
@@ -352,16 +355,39 @@ def test_a_screenshot_is_written_as_lossless_webp(tmp_path):
         assert image.getpixel((60, 30)) == (200, 30, 30)
 
 
-def test_a_single_shot_keeps_the_badge_in_the_picture(tmp_path):
-    # Which window, which instance, which account, impersonating or not — that
-    # is what the badge answers, and cropping it out threw it away every time.
+def test_every_capture_hides_the_badge(tmp_path):
+    """v1.24.3 kept the badge in a single shot, so that a screenshot OF the
+    debug window would say which window it was. But it is ``position: fixed``
+    over the page: in an image it is not information, it is an occlusion, and
+    what it covers is a row on a list or a field on a form. The fact it carried
+    was already in every response as ``instance_target``, and on screen for the
+    person watching, which is the badge's actual job.
+    """
     page = ShotPage(scroll_h=2000, frames=[_frame(scroll_h=100, client_h=100)])
 
     capture_module._screenshot(
         page, mode="viewport", selector=None, destination=str(tmp_path / "shot.png")
     )
 
-    assert _badge_calls(page) == []
+    assert len(_badge_calls(page)) == 2, "hidden before the shot, restored after"
+
+
+def test_an_element_shot_hides_it_too(tmp_path):
+    """An element crop is the mode most likely to sit under the badge."""
+
+    class WithLocator(ShotPage):
+        def locator(self, selector):
+            return SimpleNamespace(
+                first=SimpleNamespace(screenshot=lambda: _png(40, 20, (7, 7, 7)))
+            )
+
+    page = WithLocator(scroll_h=743, frames=[_frame(scroll_h=100, client_h=100)])
+
+    capture_module._screenshot(
+        page, mode="element", selector="#thing", destination=str(tmp_path / "shot.png")
+    )
+
+    assert len(_badge_calls(page)) == 2
 
 
 def test_a_scrolling_capture_hides_the_badge_for_the_whole_scroll(tmp_path):
@@ -378,3 +404,79 @@ def test_a_scrolling_capture_hides_the_badge_for_the_whole_scroll(tmp_path):
     assert path.endswith(".webp")
     hides = _badge_calls(page)
     assert len(hides) == 2, "hidden once before the scroll, restored once after"
+
+
+# ---------------------------------------------------------------------------
+# The badge colours the INSTANCE, not the window (v1.24.12)
+# ---------------------------------------------------------------------------
+
+
+def test_each_configured_instance_gets_its_own_colour(monkeypatch):
+    """Before the window merge the colour identified the WINDOW, which was fine
+    while a window was one instance. v1.24.7 put every instance in one window as
+    a tab, so every tab wore one colour and the channel carried nothing."""
+    monkeypatch.setenv(
+        "SERVICENOW_INSTANCE_CONFIG",
+        json.dumps(
+            {
+                "dev": {"url": "https://dev.example.com"},
+                "test": {"url": "https://test.example.com"},
+            }
+        ),
+    )
+
+    accents = badge.instance_accents()
+
+    assert set(accents) == {"dev.example.com", "test.example.com"}
+    assert accents["dev.example.com"] != accents["test.example.com"]
+
+
+def test_the_colour_is_resolved_in_the_page_not_baked_in(monkeypatch):
+    """A colour fixed when the script was built is right for at most one tab —
+    the same mistake that once drew 'dev' on a prod window."""
+    monkeypatch.setenv(
+        "SERVICENOW_INSTANCE_CONFIG",
+        json.dumps({"dev": {"url": "https://dev.example.com"}}),
+    )
+
+    script = badge.badge_init_script("dev", account="alice", window_id="/tmp/p")
+
+    assert "KNOWN_ACCENTS" in script
+    assert "location.hostname" in script
+    assert "dev.example.com" in script
+
+
+def test_an_unknown_host_still_gets_the_window_colour(monkeypatch):
+    """Colourless is not an improvement on 'coloured by the wrong axis'."""
+    monkeypatch.delenv("SERVICENOW_INSTANCE_CONFIG", raising=False)
+
+    script = badge.badge_init_script("dev", window_id="/tmp/p")
+
+    assert "WINDOW_ACCENT" in script
+    assert badge.instance_accents() == {}
+
+
+def test_the_one_screen_note_names_the_reason_that_applied(tmp_path):
+    """It was one fixed sentence telling the reader to install Pillow.
+
+    Measured live against a Next Experience analytics page, with Pillow
+    installed and working — every other screenshot that session came back as
+    WebP, which needs it — and the note still said to install it. A note that
+    misnames the cause sends the reader to fix something that is not broken.
+    """
+    page = ShotPage(scroll_h=743, frames=[])  # nothing scrolls anywhere
+
+    note = capture_module._why_one_screen(page)
+
+    assert "not installed" not in note, "Pillow is here; do not send anyone to install it"
+    assert "no same-origin FRAME" in note
+    assert "shadow root" in note, "the reader needs to know why this one cannot be driven"
+
+
+def test_a_frame_that_scrolls_but_could_not_be_shot_says_that_instead(tmp_path):
+    page = ShotPage(scroll_h=743, frames=[_frame(scroll_h=4000, client_h=700)])
+
+    note = capture_module._why_one_screen(page)
+
+    assert "could not be captured" in note
+    assert "no same-origin FRAME" not in note

@@ -1,12 +1,12 @@
 Metadata-Version: 2.4
 Name: azure-ai-agentserver-core
-Version: 2.0.0b11
+Version: 2.0.0
 Summary: Foundation utilities and host framework for Azure AI Hosted Agents
 Author-email: Microsoft Corporation <azpysdkhelp@microsoft.com>
 License-Expression: MIT
 Project-URL: repository, https://github.com/Azure/azure-sdk-for-python
 Keywords: azure,azure sdk,agent,agentserver,core
-Classifier: Development Status :: 4 - Beta
+Classifier: Development Status :: 5 - Production/Stable
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3

@@ -5,6 +5,27 @@ requires = [
   "translate-toolkit"
 ]
 
+[dependency-groups]
+dev = [
+  {include-group = "lint"},
+  {include-group = "test"}
+]
+lint = [
+  {include-group = "pre-commit"}
+]
+pre-commit = [
+  "prek==0.4.11"
+]
+test = [
+  "wllegal[weblate]",
+  "coverage==7.15.3",
+  "pytest-cov==7.1.0",
+  "pytest-django==4.13.0",
+  "pytest-github-actions-annotate-failures==0.4.2",
+  "pytest-profiling==1.8.1",
+  "pytest==9.1.1"
+]
+
 [project]
 classifiers = [
   "Development Status :: 5 - Production/Stable",
@@ -26,8 +47,8 @@ classifiers = [
   "Topic :: Internet :: WWW/HTTP :: Dynamic Content"
 ]
 dependencies = [
-  "Django>=5.2,<6.1",
-  "weblate-language-data>=2026.8"
+  "Django>=5.2,<6.2",
+  "weblate-language-data>=2026.10"
 ]
 description = "Hosted Weblate legal stuff"
 keywords = [
@@ -42,24 +63,13 @@ license = "GPL-3.0-or-later"
 license-files = ["LICENSE"]
 name = "wllegal"
 requires-python = ">=3.11"
-version = "2026.5"
+version = "2026.6"
 
 [[project.authors]]
 email = "michal@weblate.org"
 name = "Michal Čihař"
 
 [project.optional-dependencies]
-dev = [
-  "wllegal[lint,test]"
-]
-lint = [
-  "prek==0.4.10"
-]
-test = [
-  "wllegal[weblate]",
-  "coverage==7.15.2",
-  "translate-toolkit"
-]
 weblate = [
   "Weblate[postgres]>=5.0",
   "django-otp<1.7.0; python_version < '3.12'"
@@ -139,6 +149,11 @@ profile = "django"
 [tool.isort]
 profile = "black"
 
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "wllegal.settings_test"
+addopts = "--cov"
+python_files = ["test_*.py", "*_test.py", "tests.py"]
+
 [tool.ruff.format]
 docstring-code-format = true
 
@@ -153,6 +168,11 @@ ignore = [
   "COM"  # CONFIG: No trailing commas
 ]
 select = ["ALL"]
+
+[tool.ruff.lint.flake8-copyright]
+min-file-size = 2
+# Copyright without a year, see https://github.com/astral-sh/ruff/issues/10062
+notice-rgx = "(?i)Copyright\\s+©\\s+"
 
 [tool.ruff.lint.mccabe]
 max-complexity = 16

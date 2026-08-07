@@ -5,7 +5,6 @@ import copy
 
 import numpy as np
 import pytest
-from numpy.testing import assert_allclose, assert_array_equal
 from pytest import approx
 
 import boost_histogram as bh
@@ -167,11 +166,10 @@ class TestRegular(Axis):
 
         with pytest.raises(TypeError):
             bh.axis.Regular(1, 1.0, 2.0, bad_keyword="ra")
-        with pytest.raises(AttributeError):
+        with pytest.raises(TypeError):
             bh.axis.Regular(1, 1.0, 2.0, transform=lambda _: 2)
         with pytest.raises(TypeError):
             bh.axis.Regular(1, 1.0, 2.0, transform=bh.axis.transform.Pow)
-        # TODO: These errors could be better
 
     def test_traits(self):
         STD_TRAITS = {"continuous": True, "ordered": True}
@@ -254,8 +252,8 @@ class TestRegular(Axis):
         a = bh.axis.Regular(2, 1.0, 2.0)
         ref = [1.0, 1.5, 2.0]
         for i in range(2):
-            assert_allclose(a.bin(i), ref[i : i + 2])
-            assert_allclose(a[i], ref[i : i + 2])
+            assert a.bin(i) == approx(ref[i : i + 2])
+            assert a[i] == approx(ref[i : i + 2])
 
         assert a[-1] == a[1]
         with pytest.raises(IndexError):
@@ -264,8 +262,8 @@ class TestRegular(Axis):
         assert a.bin(-1)[0] == -np.inf
         assert a.bin(2)[1] == np.inf
 
-        assert_allclose(a[bh.underflow], a.bin(-1))
-        assert_allclose(a[bh.overflow], a.bin(2))
+        assert a[bh.underflow] == approx(a.bin(-1))
+        assert a[bh.overflow] == approx(a.bin(2))
 
         with pytest.raises(IndexError):
             a.bin(-2)
@@ -275,7 +273,7 @@ class TestRegular(Axis):
     def test_iter(self):
         a = bh.axis.Regular(2, 1.0, 2.0)
         ref = [(1.0, 1.5), (1.5, 2.0)]
-        assert_allclose(a, ref)
+        assert np.asarray(a) == approx(np.array(ref))
 
     def test_index(self):
         a = bh.axis.Regular(4, 1.0, 2.0)
@@ -363,9 +361,9 @@ class TestRegular(Axis):
 
     def test_edges_centers_widths(self):
         a = bh.axis.Regular(2, 0, 1)
-        assert_allclose(a.edges, [0, 0.5, 1])
-        assert_allclose(a.centers, [0.25, 0.75])
-        assert_allclose(a.widths, [0.5, 0.5])
+        assert a.edges == approx([0, 0.5, 1])
+        assert a.centers == approx([0.25, 0.75])
+        assert a.widths == approx([0.5, 0.5])
 
 
 class TestCircular(Axis):
@@ -419,8 +417,8 @@ class TestCircular(Axis):
         a = bh.axis.Regular(2, 1, 1 + np.pi * 2, circular=True)
         ref = [1.0, 1.0 + np.pi, 1.0 + 2.0 * np.pi]
         for i in range(2):
-            assert_allclose(a.bin(i), ref[i : i + 2])
-            assert_allclose(a[i], ref[i : i + 2])
+            assert a.bin(i) == approx(ref[i : i + 2])
+            assert a[i] == approx(ref[i : i + 2])
 
         assert a[-1] == a[1]
         with pytest.raises(IndexError):
@@ -429,7 +427,7 @@ class TestCircular(Axis):
         with pytest.raises(IndexError):
             a[bh.underflow]
 
-        assert_allclose(a[bh.overflow], a.bin(2))
+        assert a[bh.overflow] == approx(a.bin(2))
 
         assert a.bin(2)[0] == approx(1 + 2 * np.pi)
         assert a.bin(2)[1] == approx(1 + 3 * np.pi)
@@ -442,7 +440,7 @@ class TestCircular(Axis):
     def test_iter(self):
         a = bh.axis.Regular(2, 1, 2, circular=True)
         ref = [(1, 1.5), (1.5, 2)]
-        assert_allclose(a, ref)
+        assert np.asarray(a) == approx(np.array(ref))
 
     def test_index(self):
         a = bh.axis.Regular(4, 1, 1 + np.pi * 2, circular=True)
@@ -463,9 +461,9 @@ class TestCircular(Axis):
 
     def test_edges_centers_widths(self):
         a = bh.axis.Regular(2, 0, 1, circular=True)
-        assert_allclose(a.edges, [0, 0.5, 1])
-        assert_allclose(a.centers, [0.25, 0.75])
-        assert_allclose(a.widths, [0.5, 0.5])
+        assert a.edges == approx([0, 0.5, 1])
+        assert a.centers == approx([0.25, 0.75])
+        assert a.widths == approx([0.5, 0.5])
 
 
 class TestVariable(Axis):
@@ -533,15 +531,15 @@ class TestVariable(Axis):
         a = bh.axis.Variable(ref)
 
         for i in range(2):
-            assert_allclose(a.bin(i), ref[i : i + 2])
-            assert_allclose(a[i], ref[i : i + 2])
+            assert a.bin(i) == approx(ref[i : i + 2])
+            assert a[i] == approx(ref[i : i + 2])
 
         assert a[-1] == a[1]
         with pytest.raises(IndexError):
             a[2]
 
-        assert_allclose(a[bh.underflow], a.bin(-1))
-        assert_allclose(a[bh.overflow], a.bin(2))
+        assert a[bh.underflow] == approx(a.bin(-1))
+        assert a[bh.overflow] == approx(a.bin(2))
 
         assert a.bin(-1)[0] == -np.inf
         assert a.bin(-1)[1] == ref[0]
@@ -558,7 +556,7 @@ class TestVariable(Axis):
         ref = [-0.1, 0.2, 0.3]
         a = bh.axis.Variable(ref)
         for i, bin in enumerate(a):
-            assert_array_equal(bin, ref[i : i + 2])
+            assert bin == approx(ref[i : i + 2])
 
     def test_index(self):
         a = bh.axis.Variable([-0.1, 0.2, 0.3])
@@ -576,9 +574,9 @@ class TestVariable(Axis):
 
     def test_edges_centers_widths(self):
         a = bh.axis.Variable([0, 1, 3])
-        assert_allclose(a.edges, [0, 1, 3])
-        assert_allclose(a.centers, [0.5, 2])
-        assert_allclose(a.widths, [1, 2])
+        assert a.edges == approx([0, 1, 3])
+        assert a.centers == approx([0.5, 2])
+        assert a.widths == approx([1, 2])
 
 
 class TestInteger:
@@ -674,13 +672,13 @@ class TestInteger:
         assert a.bin(-1) == -2
         assert a.bin(4) == 3
 
-        assert_allclose(a[bh.underflow], a.bin(-1))
-        assert_allclose(a[bh.overflow], a.bin(4))
+        assert a[bh.underflow] == approx(a.bin(-1))
+        assert a[bh.overflow] == approx(a.bin(4))
 
     def test_iter(self):
         a = bh.axis.Integer(-1, 3)
         ref = (-1, 0, 1, 2)
-        assert_array_equal(a, ref)
+        assert np.asarray(a) == approx(ref)
 
     def test_index(self):
         a = bh.axis.Integer(-1, 3)
@@ -695,9 +693,9 @@ class TestInteger:
 
     def test_edges_centers_widths(self):
         a = bh.axis.Integer(1, 3)
-        assert_allclose(a.edges, [1, 2, 3])
-        assert_allclose(a.centers, [1.5, 2.5])
-        assert_allclose(a.widths, [1, 1])
+        assert a.edges == approx([1, 2, 3])
+        assert a.centers == approx([1.5, 2.5])
+        assert a.widths == approx([1, 1])
 
 
 class TestCategory(Axis):
@@ -800,7 +798,7 @@ class TestCategory(Axis):
     def test_iter(self, ref, growth):
         Cat = bh.axis.StrCategory if isinstance(ref[0], str) else bh.axis.IntCategory
         a = Cat(ref, growth=growth)
-        assert_array_equal(a, ref)
+        assert np.asarray(a) == approx(ref)
 
     @pytest.mark.parametrize(
         "ref", [[1, 2, 3, 4], ("A", "B", "C", "D")], ids=("int", "str")
@@ -810,8 +808,8 @@ class TestCategory(Axis):
         a = Cat(ref, growth=growth)
         for i, r in enumerate(ref):
             assert a.index(r) == i
-        assert_array_equal(a.index(ref), [0, 1, 2, 3])
-        assert_array_equal(a.index(np.reshape(ref, (2, 2))), [[0, 1], [2, 3]])
+        assert a.index(ref) == approx([0, 1, 2, 3])
+        assert a.index(np.reshape(ref, (2, 2))) == approx(np.array([[0, 1], [2, 3]]))
 
         if isinstance(ref[0], str):
             with pytest.raises(KeyError):
@@ -828,12 +826,10 @@ class TestCategory(Axis):
         a = Cat(ref, growth=growth)
         for i, r in enumerate(ref):
             assert a.value(i) == r
-        assert_array_equal(a.value(range(3)), ref)
+        assert a.value(range(3)) == approx(ref)
         assert a.value(3) is None
-        assert_array_equal(a.value((0, 3)), [ref[0], None])
-        assert_array_equal(
-            a.value(np.array((0, 1, 2, 3))), [ref[0], ref[1], ref[2], None]
-        )
+        assert a.value((0, 3)) == approx([ref[0], None])
+        assert a.value(np.array((0, 1, 2, 3))) == approx([ref[0], ref[1], ref[2], None])
         # may be added in the future
         with pytest.raises(ValueError):
             a.value([[2], [2]])
@@ -842,12 +838,12 @@ class TestCategory(Axis):
     def test_edges_centers_widths(self, ref, growth):
         Cat = bh.axis.StrCategory if isinstance(ref[0], str) else bh.axis.IntCategory
         a = Cat(ref, growth=growth)
-        assert_allclose(a.edges, [0, 1, 2, 3])
-        assert_allclose(a.centers, [0.5, 1.5, 2.5])
-        assert_allclose(a.widths, [1, 1, 1])
+        assert a.edges == approx([0, 1, 2, 3])
+        assert a.centers == approx([0.5, 1.5, 2.5])
+        assert a.widths == approx([1, 1, 1])
 
 
-class TestBoolean:
+class TestBoolean(Axis):
     def test_init(self):
         bh.axis.Boolean()
         bh.axis.Boolean(metadata="foo")
@@ -898,7 +894,8 @@ class TestBoolean:
     def test_iter(self):
         a = bh.axis.Boolean()
         ref = (False, True)
-        assert_array_equal(a, ref)
+        # approx() does not support booleans; compare exactly
+        assert np.asarray(a).tolist() == list(ref)
 
     def test_index(self):
         a = bh.axis.Boolean()
@@ -907,6 +904,104 @@ class TestBoolean:
 
     def test_edges_centers_widths(self):
         a = bh.axis.Boolean()
-        assert_allclose(a.edges, [0.0, 1.0, 2.0])
-        assert_allclose(a.centers, [0.5, 1.5])
-        assert_allclose(a.widths, [1, 1])
+        assert a.edges == approx([0.0, 1.0, 2.0])
+        assert a.centers == approx([0.5, 1.5])
+        assert a.widths == approx([1, 1])
+
+
+# Issue #1143 regression tests
+
+
+def test_getitem_negative_wraparound():
+    # Issue #1143 (B8b): ax[-size-1] used to wrap into the underflow bin
+    ax = bh.axis.Regular(10, 0, 1)
+
+    assert ax[-10] == ax[0]
+    assert ax[-1] == ax[9]
+
+    with pytest.raises(IndexError, match="-11"):
+        ax[-11]
+    with pytest.raises(IndexError, match="10"):
+        ax[10]
+
+
+def test_index_empty_sequence():
+    # Issue #1143 (B9): empty sequences are not strings
+    assert bh.axis.Regular(10, 0, 1).index([]).size == 0
+    assert bh.axis.Regular(10, 0, 1).index(np.array([])).size == 0
+    assert bh.axis.Integer(0, 5).index(()).size == 0
+
+    # Still rejects actual strings
+    with pytest.raises(TypeError):
+        bh.axis.Regular(10, 0, 1).index("hi")
+    with pytest.raises(TypeError):
+        bh.axis.Regular(10, 0, 1).index(["hi", "ho"])
+
+    # StrCategory still accepts empty and string input
+    ax = bh.axis.StrCategory(["a", "b"])
+    assert ax.index([]).size == 0
+    assert ax.index(np.array([])).size == 0
+    assert ax.index("a") == 0
+    assert ax.index(["b", "a"]) == approx([1, 0])
+
+    with pytest.raises(TypeError):
+        ax.index([1, 2])
+
+
+def test_transform_validation():
+    # Issue #1143 (B14c): clear TypeErrors for invalid transform arguments
+    with pytest.raises(TypeError, match=r"use Pow\(\)"):
+        bh.axis.Regular(10, 1, 100, transform=bh.axis.transform.Pow)
+
+    with pytest.raises(TypeError, match="AxisTransform"):
+        bh.axis.Regular(10, 1, 100, transform="log")
+
+    with pytest.raises(TypeError, match="AxisTransform"):
+        bh.axis.Regular(10, 1, 100, transform=42)
+
+
+class TestNonContiguousIndex:
+    """Regression tests for gh-1143: category axis index() must honor the
+    input array's memory layout (Fortran order, slices, reversed views)."""
+
+    def test_intcategory_fortran_order(self):
+        ax = bh.axis.IntCategory([1, 2, 3])
+        arr = np.asfortranarray([[1, 2], [3, 1]])
+        assert ax.index(arr) == approx(np.array([[0, 1], [2, 0]]))
+
+    def test_intcategory_negative_stride(self):
+        ax = bh.axis.IntCategory([1, 2, 3])
+        arr = np.array([1, 2, 3, 1])[::-1]
+        assert ax.index(arr) == approx([0, 2, 1, 0])
+
+    def test_intcategory_strided(self):
+        ax = bh.axis.IntCategory([1, 2, 3])
+        arr = np.array([1, 2, 3, 1])[::2]
+        assert ax.index(arr) == approx([0, 2])
+
+    def test_strcategory_strided(self):
+        ax = bh.axis.StrCategory(["a", "b", "c"])
+        arr = np.array(["a", "b", "c", "a"])[::2]
+        assert ax.index(arr) == approx([0, 2])
+
+    def test_strcategory_negative_stride(self):
+        ax = bh.axis.StrCategory(["a", "b", "c"])
+        arr = np.array(["a", "b", "c"])[::-1]
+        assert ax.index(arr) == approx([2, 1, 0])
+
+    def test_strcategory_bytes_strided(self):
+        ax = bh.axis.StrCategory(["a", "b", "c"])
+        arr = np.array([b"a", b"b", b"c", b"a"])[::2]
+        assert ax.index(arr) == approx([0, 2])
+
+
+def test_to_numpy_upper_edge_nudge_direction():
+    # Regression test for gh-1143: the last edge returned by to_numpy() is
+    # nudged one ulp *below* the true edge, which must also hold for
+    # negative and zero upper edges.
+    for start, stop in [(-2, -1), (-1, 0), (1, 2)]:
+        ax = bh.axis.Regular(4, start, stop)
+        h = bh.Histogram(ax)
+        edges = h.to_numpy()[1]
+        assert edges[-1] == np.nextafter(ax.edges[-1], -np.inf)
+        assert edges[-1] < stop

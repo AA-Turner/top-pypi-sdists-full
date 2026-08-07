@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: renderers
-Version: 0.1.8
+Version: 0.1.9
 Summary: Chat template renderers — deterministic message-to-token conversion for LLM training
 License-Expression: Apache-2.0
 License-File: LICENSE

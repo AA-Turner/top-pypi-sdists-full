@@ -150,7 +150,7 @@ fn arbitrary_instance(tc: TestCase) -> Value {
 
 // A modeled leaf: value sets, type sets, string facets, integer interval bounds, and container sizes.
 fn draw_leaf(tc: &TestCase) -> Value {
-    match tc.draw(gs::integers::<u8>().min_value(0).max_value(86)) {
+    match tc.draw(gs::integers::<u8>().min_value(0).max_value(93)) {
         0 => json!({}),
         1 => json!(true),
         2 => json!(false),
@@ -373,6 +373,22 @@ fn draw_leaf(tc: &TestCase) -> Value {
         86 => {
             json!({ "type": "array", "allOf": [{ "items": [{ "type": draw_type(tc) }] }], "unevaluatedItems": { "type": draw_type(tc) } })
         }
+        // Positional elements: 2020-12 spells the tuple `prefixItems` and the drafts before it
+        // spell it as an array-form `items`, each meta-invalid where the other one is the spelling.
+        87 => json!({ "type": "array", "prefixItems": [{ "type": draw_type(tc) }] }),
+        88 => {
+            json!({ "type": "array", "items": [{ "type": draw_type(tc) }, { "type": draw_type(tc) }] })
+        }
+        89 => {
+            json!({ "type": "array", "items": [{ "type": draw_type(tc) }], "additionalItems": false })
+        }
+        // A tail past a tuple, which the complement has no branch for.
+        90 => {
+            json!({ "type": "array", "prefixItems": [{ "type": draw_type(tc) }], "items": { "type": draw_type(tc) } })
+        }
+        91 => {
+            json!({ "type": "array", "items": [{ "type": draw_type(tc) }], "additionalItems": { "type": draw_type(tc) } })
+        }
         63 => {
             let (first, second) = (draw_type(tc), draw_type(tc));
             let types = if first == second {
@@ -381,6 +397,11 @@ fn draw_leaf(tc: &TestCase) -> Value {
                 vec![first, second]
             };
             json!({ "type": types })
+        }
+        // A repeat demand: the dual of distinctness, which only a complement spells.
+        92 => json!({ "not": { "type": "array", "uniqueItems": true } }),
+        93 => {
+            json!({ "type": "array", "allOf": [{ "not": { "type": "array", "uniqueItems": true } }] })
         }
         _ => json!({ "type": ["string", "integer"] }),
     }

@@ -5,8 +5,11 @@ from re import Pattern
 from urllib.parse import ParseResult, parse_qsl, urlparse
 
 from django.core.exceptions import ValidationError
+from django.forms import URLField
 from django.utils.translation import gettext_lazy as _
 
+from allauth.idp.oidc import app_settings
+from allauth.idp.oidc.internal import cimd
 from allauth.idp.oidc.models import Client
 
 
@@ -151,6 +154,8 @@ def clean_post_logout_redirect_uri(
     parameter or via another mechanism. An id_token_hint is also RECOMMENDED
     when this parameter is included.
     """
+    if not post_logout_redirect_uri:
+        return None
     allowed_schemes = {"https"}
     if client:
         allowed_schemes.update(get_used_schemes(client))
@@ -158,5 +163,23 @@ def clean_post_logout_redirect_uri(
             allowed_schemes.add("http")
     parsed = urlparse(post_logout_redirect_uri)
     if not parsed.scheme or parsed.scheme not in allowed_schemes:
-        return None
+        raise ValidationError(URLField.default_error_messages["invalid"])
+    if parsed.scheme in ("http", "https"):
+        URLField().clean(post_logout_redirect_uri)
     return post_logout_redirect_uri
+
+
+def lookup_client(client_id: str) -> Client | None:
+    client = Client.objects.filter(id=client_id).first()
+    if not app_settings.CIMD_ENABLED:
+        return client
+    return cimd.lookup_client(client_id, client)
+
+
+def lookup_public_client(client_id: str) -> Client | None:
+    client = lookup_client(client_id)
+    if not client:
+        return None
+    if client.type != Client.Type.PUBLIC:
+        return None
+    return client

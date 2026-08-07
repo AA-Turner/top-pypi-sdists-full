@@ -4,10 +4,10 @@
 
 [project]
 name = "types-boto3"
-version = "1.43.65"
+version = "1.43.66"
 license = "MIT"
 authors = [{ name = "Vlad Emelianov", email = "vlad.emelianov.nz@gmail.com" }]
-description = "Type annotations for boto3 1.43.65 generated with mypy-boto3-builder 8.12.0"
+description = "Type annotations for boto3 1.43.66 generated with mypy-boto3-builder 8.12.0"
 readme = "README.md"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -69,13 +69,15 @@ full = [
     "types-boto3-full>=1.43.0, <1.44.0",
 ]
 boto3 = [
-    "boto3==1.43.65",
+    "boto3==1.43.66",
 ]
 all = [
     "types-boto3-accessanalyzer>=1.43.0, <1.44.0",
     "types-boto3-account>=1.43.0, <1.44.0",
     "types-boto3-acm>=1.43.0, <1.44.0",
     "types-boto3-acm-pca>=1.43.0, <1.44.0",
+    "types-boto3-agent-registry>=1.43.0, <1.44.0",
+    "types-boto3-agent-registry-control>=1.43.0, <1.44.0",
     "types-boto3-aiops>=1.43.0, <1.44.0",
     "types-boto3-amp>=1.43.0, <1.44.0",
     "types-boto3-amplify>=1.43.0, <1.44.0",
@@ -519,6 +521,12 @@ acm = [
 ]
 acm-pca = [
     "types-boto3-acm-pca>=1.43.0, <1.44.0",
+]
+agent-registry = [
+    "types-boto3-agent-registry>=1.43.0, <1.44.0",
+]
+agent-registry-control = [
+    "types-boto3-agent-registry-control>=1.43.0, <1.44.0",
 ]
 aiops = [
     "types-boto3-aiops>=1.43.0, <1.44.0",

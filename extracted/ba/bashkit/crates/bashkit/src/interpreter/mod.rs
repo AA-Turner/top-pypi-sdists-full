@@ -17,10 +17,14 @@ mod glob;
 mod jobs;
 mod redirection;
 mod state;
+mod time_command;
 
 #[allow(unused_imports)]
 pub use jobs::{JobTable, SharedJobTable};
 pub use state::{BuiltinSideEffect, ControlFlow, ExecResult};
+use time_command::{
+    TimeUsage, render_time_format, sanitize_time_path, validate_time_format, verbose_time_report,
+};
 // Re-export snapshot type for public API
 
 use std::collections::{HashMap, HashSet};
@@ -31,6 +35,7 @@ use std::sync::{Arc, Mutex as StdMutex};
 
 /// Monotonic counter for unique process substitution file paths
 static PROC_SUB_COUNTER: AtomicU64 = AtomicU64::new(0);
+static TIME_REPORT_COUNTER: AtomicU64 = AtomicU64::new(0);
 
 // Important decision: report a bash-compatible version surface instead of the
 // bashkit crate semver so scripts that gate on Bash features keep working.
@@ -53,6 +58,7 @@ const OPERAND_QUOTE_MARK_CANDIDATES: &[char] = &[
 
 use futures_util::FutureExt;
 
+use crate::builtins::search_common::RuntimeRegexCache;
 use crate::builtins::{self, Builtin};
 #[cfg(feature = "failpoints")]
 use crate::error::Error;
@@ -190,7 +196,7 @@ fn logic_only_builtin_allowed(name: &str) -> bool {
             | "parallel"
             | "template"
             | "tomlq"
-            | "yaml"
+            | "yq"
             | "timeout"
             | "xargs"
             | "wait"
@@ -237,7 +243,7 @@ fn compat_bash_versinfo_array() -> HashMap<usize, String> {
 ///
 /// Requires `Send + Sync` because the interpreter holds this across `.await` points.
 /// Closures capturing `Arc<Mutex<_>>` satisfy both bounds automatically.
-pub type OutputCallback = Box<dyn FnMut(&str, &str) + Send + Sync>;
+pub type OutputCallback = Box<dyn FnMut(&crate::StreamData, &crate::StreamData) + Send + Sync>;
 use crate::parser::{
     ArithmeticForCommand, Assignment, AssignmentValue, CaseCommand, Command, CommandList,
     CompoundCommand, CoprocCommand, ForCommand, FunctionDef, IfCommand, ListOperator, ParameterOp,
@@ -272,16 +278,6 @@ fn subcommand_env_assignments(pairs: &[(String, String)]) -> Vec<Assignment> {
 /// redirect and command-scoped `VAR=value` assignments. Shared by the `Timeout`,
 /// `Batch`, and `BatchWithStatus` plan arms.
 fn subcommand_to_command(cmd: &builtins::SubCommand) -> Command {
-    let redirects = if let Some(ref stdin_data) = cmd.stdin {
-        vec![Redirect {
-            fd: None,
-            fd_var: None,
-            kind: RedirectKind::HereString,
-            target: Word::literal(stdin_data.trim_end_matches('\n').to_string()),
-        }]
-    } else {
-        Vec::new()
-    };
     Command::Simple(SimpleCommand {
         name: Word::quoted_literal(cmd.name.clone()),
         args: cmd
@@ -289,7 +285,7 @@ fn subcommand_to_command(cmd: &builtins::SubCommand) -> Command {
             .iter()
             .map(|s| Word::quoted_literal(s.clone()))
             .collect(),
-        redirects,
+        redirects: Vec::new(),
         assignments: subcommand_env_assignments(&cmd.assignments),
         span: Span::new(),
     })
@@ -481,16 +477,70 @@ impl ShellRef<'_> {
 pub(crate) struct ExecutionExtensionsGuard {
     slot: Arc<StdMutex<Arc<builtins::ExecutionExtensions>>>,
     previous: Option<Arc<builtins::ExecutionExtensions>>,
+    scope: Arc<crate::execution_capability::ExecutionScope>,
+}
+
+impl ExecutionExtensionsGuard {
+    fn cleanup(&mut self) -> crate::CapabilityCleanupReport {
+        // Deny all new capability access before restoring the interpreter's
+        // previous request slot; this closes the cross-request handoff window.
+        let _ = self.scope.begin_revoke();
+        let mut failures = 0;
+        if let Some(previous) = self.previous.take() {
+            match self.slot.lock() {
+                Ok(mut slot) => *slot = previous,
+                Err(poisoned) => {
+                    failures = 1;
+                    *poisoned.into_inner() = previous;
+                }
+            }
+        }
+        self.scope.finish_revoke(failures)
+    }
+
+    pub(crate) fn finish(mut self) -> crate::CapabilityCleanupReport {
+        self.cleanup()
+    }
 }
 
 impl Drop for ExecutionExtensionsGuard {
     fn drop(&mut self) {
-        if let Some(previous) = self.previous.take() {
-            *self
-                .slot
-                .lock()
-                .expect("interpreter execution extensions lock") = previous;
-        }
+        let _ = self.cleanup();
+    }
+}
+
+#[cfg(test)]
+mod execution_extensions_guard_tests {
+    use super::*;
+
+    #[test]
+    fn poisoned_cleanup_is_recovered_bounded_and_idempotent() {
+        let scope = crate::execution_capability::ExecutionScope::new();
+        let mut active = builtins::ExecutionExtensions::new().with("secret".to_string());
+        active.bind(scope.clone());
+        let capability = active.get::<String>().unwrap();
+        let previous = Arc::new(builtins::ExecutionExtensions::new());
+        let slot = Arc::new(StdMutex::new(Arc::new(active)));
+
+        let poison_slot = slot.clone();
+        let _ = std::panic::catch_unwind(move || {
+            let _guard = poison_slot.lock().unwrap();
+            panic!("poison execution extension cleanup lock");
+        });
+
+        let guard = ExecutionExtensionsGuard {
+            slot,
+            previous: Some(previous),
+            scope: scope.clone(),
+        };
+        let report = guard.finish();
+        assert_eq!(report.failures, 1);
+        assert!(report.revoked);
+        assert_eq!(
+            capability.try_with(Clone::clone),
+            Err(crate::ExecutionCapabilityError::Revoked)
+        );
+        assert_eq!(scope.revoke(0), report, "second cleanup is idempotent");
     }
 }
 
@@ -579,42 +629,9 @@ fn command_not_found_message(name: &str, known_commands: &[&str]) -> String {
     msg
 }
 
-/// Decode file bytes for String-backed interpreter paths. Prefer valid UTF-8
-/// so scripts and text files keep Unicode intact; force the existing Latin-1
-/// byte model for random devices, and use it as a fallback for other non-UTF-8
-/// data that cannot be represented as text without replacement.
-fn decode_file_bytes(bytes: &[u8]) -> String {
-    std::str::from_utf8(bytes)
-        .map(str::to_owned)
-        .unwrap_or_else(|_| latin1_bytes_to_string(bytes))
-}
-
-fn normalize_vfs_path(path: &Path) -> std::path::PathBuf {
-    path.components()
-        .fold(std::path::PathBuf::new(), |mut acc, c| match c {
-            std::path::Component::ParentDir => {
-                acc.pop();
-                acc
-            }
-            std::path::Component::CurDir => acc,
-            c => {
-                acc.push(c);
-                acc
-            }
-        })
-}
-
-fn decode_file_bytes_for_path(path: &Path, bytes: &[u8]) -> String {
-    let normalized = normalize_vfs_path(path);
-    if normalized == Path::new("/dev/urandom") || normalized == Path::new("/dev/random") {
-        latin1_bytes_to_string(bytes)
-    } else {
-        decode_file_bytes(bytes)
-    }
-}
-
-fn latin1_bytes_to_string(bytes: &[u8]) -> String {
-    bytes.iter().map(|&b| b as char).collect()
+/// Decode a script/source file at the shell's unavoidable text boundary.
+fn decode_file_bytes_for_path(_path: &Path, bytes: &[u8]) -> String {
+    String::from_utf8_lossy(bytes).into_owned()
 }
 
 /// Check if a path refers to /dev/null after normalization.
@@ -1104,6 +1121,10 @@ pub struct Interpreter {
     /// override baked-in commands. Survives `reset_transient_state` because
     /// it lives behind an `Arc<RwLock>` shared with the embedder.
     host_builtins: Option<crate::builtins::BuiltinRegistry>,
+    /// Optional last-chance name resolver. Consulted only after every other
+    /// dispatch route has missed, immediately before `command not found`, so
+    /// it can never shadow a function, builtin, or `$PATH` script.
+    command_resolver: Option<Arc<dyn crate::builtins::CommandResolver>>,
     /// Call stack for local variable scoping
     call_stack: Vec<CallFrame>,
     /// Source file stack for BASH_SOURCE array
@@ -1120,6 +1141,8 @@ pub struct Interpreter {
     trace: crate::trace::TraceCollector,
     /// Execution counters for resource tracking
     counters: ExecutionCounters,
+    /// Aggregate non-resettable budget shared by all descendants of one exec.
+    execution_budget: crate::limits::ExecutionBudget,
     /// Job table for background execution (shared for wait builtin access)
     jobs: SharedJobTable,
     /// Current line number for $LINENO
@@ -1135,7 +1158,7 @@ pub struct Interpreter {
     ssh_client: Option<crate::builtins::ssh::SshClient>,
     /// Stdin inherited from pipeline for compound commands (while read, etc.)
     /// Each read operation consumes one line, advancing through the data.
-    pipeline_stdin: Option<String>,
+    pipeline_stdin: Option<crate::StreamData>,
     /// Position within the current argument while `getopts` walks a clustered
     /// short-option group (e.g. `-abc`). Interpreter-internal working state for
     /// `execute_getopts`; `0` means "at the start of the next option group".
@@ -1167,6 +1190,8 @@ pub struct Interpreter {
     /// Aliases currently being expanded (prevents infinite recursion).
     /// When alias `foo` expands to `foo bar`, the inner `foo` is not re-expanded.
     expanding_aliases: HashSet<String>,
+    /// THREAT[TM-DOS-023]: Bounded cache for repeated `[[ value =~ pattern ]]` evaluations.
+    regex_cache: RuntimeRegexCache,
     /// Command history entries for the current session.
     history: Vec<HistoryEntry>,
     /// Retained command/cwd bytes for bounded history accounting.
@@ -1195,7 +1220,7 @@ pub struct Interpreter {
     /// Temporary buffer for fd3+ output during compound body execution.
     /// Populated by `1>&N` (N>=3) in apply_redirections, consumed by
     /// apply_redirections_fd_table for compound redirect routing.
-    pending_fd_output: HashMap<i32, String>,
+    pending_fd_output: HashMap<i32, crate::StreamData>,
     /// Fd3+ targets from compound redirect processing (e.g. `3>&1` maps fd3→Stdout).
     /// Populated during apply_redirections_fd_table redirect loop, consumed during routing.
     pending_fd_targets: Vec<(i32, FdTarget)>,
@@ -1230,6 +1255,8 @@ pub struct Interpreter {
     /// Runtime command surface. ScriptedTool uses LogicOnly to prevent scripts
     /// from reaching VFS-backed commands while preserving shell logic.
     shell_profile: ShellProfile,
+    /// Hardened profiles intentionally reduce elapsed-time precision.
+    hardened_timing: bool,
 }
 
 struct ArithmeticExpansionState {
@@ -1267,22 +1294,12 @@ impl ArithmeticExpansionState {
 }
 
 impl Interpreter {
-    fn utf8_prefix_at_most(s: &str, max_bytes: usize) -> &str {
-        if s.len() <= max_bytes {
-            return s;
-        }
-        let mut end = max_bytes;
-        while end > 0 && !s.is_char_boundary(end) {
-            end -= 1;
-        }
-        &s[..end]
-    }
-
     // Decision: restored `$!` must match Bashkit-produced virtual numeric job ids.
     const MAX_RESTORED_LAST_BG_PID_LEN: usize = 20;
     const MAX_GLOB_DEPTH: usize = 50;
 
     /// Create a new interpreter with the given filesystem.
+    #[cfg(test)]
     pub fn new(fs: Arc<dyn FileSystem>) -> Self {
         Self::with_config(
             fs,
@@ -1293,6 +1310,7 @@ impl Interpreter {
             HashMap::new(),
             None,
             ShellProfile::Full,
+            false,
         )
     }
 
@@ -1314,6 +1332,7 @@ impl Interpreter {
         custom_builtins: HashMap<String, Box<dyn Builtin>>,
         host_builtins: Option<crate::builtins::BuiltinRegistry>,
         shell_profile: ShellProfile,
+        hardened_timing: bool,
     ) -> Self {
         // Macro to reduce boilerplate for simple zero-arg builtin registration.
         // Custom-construction builtins (date, source, hostname, etc.) are registered below.
@@ -1413,6 +1432,9 @@ impl Interpreter {
             "tar" => Tar,
             "gzip" => Gzip,
             "gunzip" => Gunzip,
+            "bzip2" => Bzip2,
+            "bunzip2" => Bunzip2,
+            "bzcat" => Bzcat,
             "zip" => Zip,
             "unzip" => Unzip,
             // Numeric / math
@@ -1478,12 +1500,13 @@ impl Interpreter {
             "rg" => Rg,
             "template" => Template,
             "tomlq" => Tomlq,
-            "yaml" => Yaml,
         );
 
         // jq builtin (requires jq feature)
         #[cfg(feature = "jq")]
         builtins.insert("jq".to_string(), Arc::new(builtins::Jq));
+        #[cfg(feature = "jq")]
+        builtins.insert("yq".to_string(), Arc::new(builtins::Yq));
 
         // Custom-construction builtins that need parameters
 
@@ -1585,6 +1608,7 @@ impl Interpreter {
             last_exit_code: 0,
             builtins,
             host_builtins,
+            command_resolver: None,
             call_stack: Vec::new(),
             bash_source_stack: Vec::new(),
             limits: ExecutionLimits::default(),
@@ -1593,6 +1617,10 @@ impl Interpreter {
             memory_budget: crate::limits::MemoryBudget::default(),
             trace: crate::trace::TraceCollector::default(),
             counters: ExecutionCounters::new(),
+            execution_budget: crate::limits::ExecutionBudget::new(
+                &ExecutionLimits::cli(),
+                Arc::new(AtomicBool::new(false)),
+            ),
             jobs: jobs::new_shared_job_table(),
             current_line: 1,
             #[cfg(feature = "http_client")]
@@ -1614,6 +1642,7 @@ impl Interpreter {
             nounset_error: None,
             pipestatus: Vec::new(),
             expanding_aliases: HashSet::new(),
+            regex_cache: RuntimeRegexCache::default(),
             history: Vec::new(),
             history_bytes: 0,
             history_saved_entries: 0,
@@ -1635,6 +1664,7 @@ impl Interpreter {
             proc_sub_paths: HashSet::new(),
             random_state: AtomicU32::new(random_seed),
             shell_profile,
+            hardened_timing,
         }
     }
 
@@ -1642,6 +1672,16 @@ impl Interpreter {
     /// to abort execution at the next command boundary.
     pub fn cancellation_token(&self) -> Arc<AtomicBool> {
         Arc::clone(&self.cancelled)
+    }
+
+    /// Start a fresh host-request budget. Internal descendants only clone it.
+    pub(crate) fn begin_execution_budget(&mut self) {
+        self.execution_budget =
+            crate::limits::ExecutionBudget::new(&self.limits, Arc::clone(&self.cancelled));
+    }
+
+    pub(crate) fn execution_budget(&self) -> &crate::limits::ExecutionBudget {
+        &self.execution_budget
     }
 
     /// Return a reference to the hooks registry.
@@ -1671,6 +1711,9 @@ impl Interpreter {
         &self,
         extensions: builtins::ExecutionExtensions,
     ) -> ExecutionExtensionsGuard {
+        let scope = extensions
+            .scope()
+            .expect("execution extensions must be bound before installation");
         let previous = {
             let mut slot = self
                 .execution_extensions
@@ -1681,6 +1724,7 @@ impl Interpreter {
         ExecutionExtensionsGuard {
             slot: self.execution_extensions.clone(),
             previous: Some(previous),
+            scope,
         }
     }
 
@@ -1907,14 +1951,12 @@ impl Interpreter {
         }
         self.getopts_char_idx = 0;
         self.pipeline_stdin = None;
+        self.regex_cache = RuntimeRegexCache::default();
         self.bash_source_stack.clear();
         self.arrays_mut().remove("BASH_SOURCE");
     }
 
-    // Only called from the tokio-timeout recovery path in Bash::exec, which is
-    // native-only (wasm has no reliable timer driver, so no timeout to recover
-    // from — see TM-DOS-057 in lib.rs).
-    #[cfg(not(target_family = "wasm"))]
+    // Called after a host-backed deadline drops the in-flight execution future.
     pub(crate) fn clear_cancelled_execution_state(&mut self) {
         self.reconcile_cancelled_execution_state(0, 0, 0, None);
     }
@@ -1925,17 +1967,21 @@ impl Interpreter {
         self.pending_fd_capture_depth = 0;
     }
 
-    fn append_pending_fd_output(&mut self, fd: i32, data: &str) {
+    fn append_pending_fd_output(&mut self, fd: i32, data: &crate::StreamData) {
         if data.is_empty() {
             return;
         }
-        let used: usize = self.pending_fd_output.values().map(String::len).sum();
+        let used: usize = self
+            .pending_fd_output
+            .values()
+            .map(crate::StreamData::len)
+            .sum();
         let remaining = self.limits.max_stdout_bytes.saturating_sub(used);
         if remaining == 0 {
             return;
         }
         let entry = self.pending_fd_output.entry(fd).or_default();
-        entry.push_str(Self::utf8_prefix_at_most(data, remaining));
+        entry.append(&data.prefix(remaining));
     }
 
     /// Name `$0` expands to when no real script or function frame is active.
@@ -1979,13 +2025,21 @@ impl Interpreter {
     /// Seed the stdin a top-level command reads when it is not fed by a pipe
     /// or redirect. Must be called after `reset_transient_state`, which clears
     /// it between executions.
-    pub(crate) fn set_pipeline_stdin(&mut self, stdin: String) {
+    pub(crate) fn set_pipeline_stdin(&mut self, stdin: crate::StreamData) {
         self.pipeline_stdin = Some(stdin);
     }
 
     /// Set an environment variable.
     pub fn set_env(&mut self, key: &str, value: &str) {
         self.env.insert(key.to_string(), value.to_string());
+    }
+
+    /// Install the last-chance command resolver (public API for builder).
+    pub(crate) fn set_command_resolver(
+        &mut self,
+        resolver: Arc<dyn crate::builtins::CommandResolver>,
+    ) {
+        self.command_resolver = Some(resolver);
     }
 
     /// Set a shell variable (public API for builder).
@@ -2479,7 +2533,12 @@ impl Interpreter {
     /// `emit_count_before` is the value of `output_emit_count` before the sub-call
     /// that produced this output. If the count advanced, sub-calls already emitted
     /// and we skip to avoid duplicates.
-    fn maybe_emit_output(&mut self, stdout: &str, stderr: &str, emit_count_before: u64) -> bool {
+    fn maybe_emit_output(
+        &mut self,
+        stdout: &crate::StreamData,
+        stderr: &crate::StreamData,
+        emit_count_before: u64,
+    ) -> bool {
         if self.output_callback.is_none() {
             return false;
         }
@@ -2496,14 +2555,14 @@ impl Interpreter {
             .limits
             .max_stderr_bytes
             .saturating_sub(self.output_stream_stderr_bytes);
-        let stdout_chunk = Self::utf8_prefix_at_most(stdout, stdout_remaining);
-        let stderr_chunk = Self::utf8_prefix_at_most(stderr, stderr_remaining);
+        let stdout_chunk = stdout.prefix(stdout_remaining);
+        let stderr_chunk = stderr.prefix(stderr_remaining);
         if stdout_chunk.is_empty() && stderr_chunk.is_empty() {
             return false;
         }
 
         if let Some(ref mut cb) = self.output_callback {
-            cb(stdout_chunk, stderr_chunk);
+            cb(&stdout_chunk, &stderr_chunk);
             self.output_emit_count += 1;
             self.output_stream_stdout_bytes += stdout_chunk.len();
             self.output_stream_stderr_bytes += stderr_chunk.len();
@@ -2586,8 +2645,8 @@ impl Interpreter {
         run_exit_trap: bool,
         fire_exit_hook: bool,
     ) -> Result<ExecResult> {
-        let mut stdout = String::new();
-        let mut stderr = String::new();
+        let mut stdout = crate::StreamData::new();
+        let mut stderr = crate::StreamData::new();
         let mut exit_code = 0;
         let mut stdout_truncated = false;
         let mut stderr_truncated = false;
@@ -2608,9 +2667,9 @@ impl Interpreter {
                         stdout_truncated = true;
                     }
                 } else if result.stdout.len() <= remaining {
-                    stdout.push_str(&result.stdout);
+                    stdout.append(&result.stdout);
                 } else {
-                    stdout.push_str(Self::utf8_prefix_at_most(&result.stdout, remaining));
+                    stdout.append(&result.stdout.prefix(remaining));
                     stdout_truncated = true;
                 }
             }
@@ -2623,9 +2682,9 @@ impl Interpreter {
                         stderr_truncated = true;
                     }
                 } else if result.stderr.len() <= remaining {
-                    stderr.push_str(&result.stderr);
+                    stderr.append(&result.stderr);
                 } else {
-                    stderr.push_str(Self::utf8_prefix_at_most(&result.stderr, remaining));
+                    stderr.append(&result.stderr.prefix(remaining));
                     stderr_truncated = true;
                 }
             }
@@ -2637,6 +2696,9 @@ impl Interpreter {
             if result.control_flow != ControlFlow::None {
                 if let ControlFlow::Exit(code) = result.control_flow {
                     if fire_exit_hook {
+                        if !self.hooks.on_exit.is_empty() {
+                            self.execution_budget.consume_work(100)?;
+                        }
                         match self.hooks.fire_on_exit(crate::hooks::ExitEvent { code }) {
                             Some(event) => {
                                 exit_code = event.code;
@@ -2689,6 +2751,7 @@ impl Interpreter {
                     self.limits.max_ast_depth,
                     self.limits.max_parser_operations,
                 )
+                .with_execution_budget(self.execution_budget.clone())
                 .parse()
                 {
                     let emit_before = self.output_emit_count;
@@ -2700,8 +2763,8 @@ impl Interpreter {
                             &trap_result.stderr,
                             emit_before,
                         );
-                        stdout.push_str(&trap_result.stdout);
-                        stderr.push_str(&trap_result.stderr);
+                        stdout.append(&trap_result.stdout);
+                        stderr.append(&trap_result.stderr);
                     }
                 }
             }
@@ -2798,8 +2861,8 @@ impl Interpreter {
                     Some("exit_nonzero") => {
                         // Return non-zero exit code without error
                         return Ok(ExecResult {
-                            stdout: String::new(),
-                            stderr: "injected failure".to_string(),
+                            stdout: crate::StreamData::new(),
+                            stderr: "injected failure".into(),
                             exit_code: 127,
                             control_flow: ControlFlow::None,
                             ..Default::default()
@@ -2811,6 +2874,7 @@ impl Interpreter {
             });
 
             // Check command count limit (per-exec)
+            self.execution_budget.consume_work(1)?;
             self.counters.tick_command(&self.limits)?;
             // THREAT[TM-DOS-059]: Check session-level command limit
             self.counters
@@ -2971,6 +3035,7 @@ impl Interpreter {
                             self.limits.max_ast_depth,
                             self.limits.max_parser_operations,
                         )
+                        .with_execution_budget(self.execution_budget.clone())
                         .parse()
                         {
                             let emit_before = self.output_emit_count;
@@ -2983,8 +3048,8 @@ impl Interpreter {
                                     &trap_result.stderr,
                                     emit_before,
                                 );
-                                res.stdout.push_str(&trap_result.stdout);
-                                res.stderr.push_str(&trap_result.stderr);
+                                res.stdout.append(&trap_result.stdout);
+                                res.stderr.append(&trap_result.stderr);
                             }
                         }
                     }
@@ -3028,13 +3093,13 @@ impl Interpreter {
     /// Execute an if statement
     async fn execute_if(&mut self, if_cmd: &IfCommand) -> Result<ExecResult> {
         // Accumulate stdout/stderr from all condition evaluations
-        let mut cond_stdout = String::new();
-        let mut cond_stderr = String::new();
+        let mut cond_stdout = crate::StreamData::new();
+        let mut cond_stderr = crate::StreamData::new();
 
         // Execute condition (no errexit checking - conditions are expected to fail)
         let condition_result = self.execute_condition_sequence(&if_cmd.condition).await?;
-        cond_stdout.push_str(&condition_result.stdout);
-        cond_stderr.push_str(&condition_result.stderr);
+        cond_stdout.append(&condition_result.stdout);
+        cond_stderr.append(&condition_result.stderr);
 
         if condition_result.exit_code == 0 {
             // Condition succeeded, execute then branch
@@ -3047,8 +3112,8 @@ impl Interpreter {
         // Check elif branches
         for (elif_condition, elif_body) in &if_cmd.elif_branches {
             let elif_result = self.execute_condition_sequence(elif_condition).await?;
-            cond_stdout.push_str(&elif_result.stdout);
-            cond_stderr.push_str(&elif_result.stderr);
+            cond_stdout.append(&elif_result.stdout);
+            cond_stderr.append(&elif_result.stderr);
 
             if elif_result.exit_code == 0 {
                 let mut result = self.execute_command_sequence(elif_body).await?;
@@ -3152,7 +3217,7 @@ impl Interpreter {
                     }
                     state::LoopAction::Break => break,
                     state::LoopAction::Continue => continue,
-                    state::LoopAction::Exit(r) => return Ok(r),
+                    state::LoopAction::Exit(r) => return Ok(*r),
                 }
             }
 
@@ -3170,8 +3235,8 @@ impl Interpreter {
     /// the corresponding item; otherwise it is set to empty. REPLY is always
     /// set to the raw input. EOF ends the loop.
     async fn execute_select(&mut self, select_cmd: &SelectCommand) -> Result<ExecResult> {
-        let mut stdout = String::new();
-        let mut stderr = String::new();
+        let mut stdout = crate::StreamData::new();
+        let mut stderr = crate::StreamData::new();
         let mut exit_code = 0;
 
         // Expand word list
@@ -3231,29 +3296,29 @@ impl Interpreter {
 
                 // Output menu to stderr
                 stderr.push_str(&menu);
-                stderr.push('\n');
+                stderr.push_byte(b'\n');
                 stderr.push_str(&ps3);
 
                 // Read a line from pipeline_stdin
                 let line = if let Some(ref ps) = self.pipeline_stdin {
                     if ps.is_empty() {
                         // EOF: bash prints newline and exits with code 1
-                        stdout.push('\n');
+                        stdout.push_byte(b'\n');
                         exit_code = 1;
                         break;
                     }
                     let data = ps.clone();
                     if let Some(newline_pos) = data.find('\n') {
                         let line = data[..newline_pos].to_string();
-                        self.pipeline_stdin = Some(data[newline_pos + 1..].to_string());
+                        self.pipeline_stdin = Some(data.as_bytes()[newline_pos + 1..].into());
                         line
                     } else {
-                        self.pipeline_stdin = Some(String::new());
-                        data
+                        self.pipeline_stdin = Some(crate::StreamData::new());
+                        data.text_lossy().into_owned()
                     }
                 } else {
                     // No stdin: bash prints newline and exits with code 1
-                    stdout.push('\n');
+                    stdout.push_byte(b'\n');
                     exit_code = 1;
                     break;
                 };
@@ -3281,8 +3346,8 @@ impl Interpreter {
                 let emit_before = self.output_emit_count;
                 let result = self.execute_command_sequence(&select_cmd.body).await?;
                 self.maybe_emit_output(&result.stdout, &result.stderr, emit_before);
-                stdout.push_str(&result.stdout);
-                stderr.push_str(&result.stderr);
+                stdout.append(&result.stdout);
+                stderr.append(&result.stderr);
                 exit_code = result.exit_code;
 
                 // Check for break/continue
@@ -3389,7 +3454,7 @@ impl Interpreter {
                         }
                     }
                     state::LoopAction::Break => break,
-                    state::LoopAction::Exit(r) => return Ok(r),
+                    state::LoopAction::Exit(r) => return Ok(*r),
                 }
 
                 // Execute step
@@ -3417,7 +3482,7 @@ impl Interpreter {
         if let Some(err_msg) = self.nounset_error.take() {
             self.last_exit_code = 1;
             return Ok(ExecResult {
-                stderr: err_msg,
+                stderr: err_msg.into(),
                 exit_code: 1,
                 control_flow: ControlFlow::Return(1),
                 ..Default::default()
@@ -3427,8 +3492,8 @@ impl Interpreter {
         self.last_exit_code = exit_code;
 
         Ok(ExecResult {
-            stdout: String::new(),
-            stderr: String::new(),
+            stdout: crate::StreamData::new(),
+            stderr: crate::StreamData::new(),
             exit_code,
             control_flow: ControlFlow::None,
             ..Default::default()
@@ -3724,8 +3789,8 @@ impl Interpreter {
 
     /// Perform regex match and set BASH_REMATCH array.
     fn regex_match(&mut self, string: &str, pattern: &str) -> bool {
-        match regex::Regex::new(pattern) {
-            Ok(re) => {
+        match self.regex_cache.get_or_compile(pattern) {
+            Some(re) => {
                 if let Some(captures) = re.captures(string) {
                     // Set BASH_REMATCH array
                     let mut rematch = HashMap::new();
@@ -3740,7 +3805,7 @@ impl Interpreter {
                     false
                 }
             }
-            Err(_) => {
+            None => {
                 self.arrays_mut().remove("BASH_REMATCH");
                 false
             }
@@ -3752,8 +3817,8 @@ impl Interpreter {
         let exit_code = if result != 0 { 0 } else { 1 };
 
         Ok(ExecResult {
-            stdout: String::new(),
-            stderr: String::new(),
+            stdout: crate::StreamData::new(),
+            stderr: crate::StreamData::new(),
             exit_code,
             control_flow: ControlFlow::None,
             ..Default::default()
@@ -3937,8 +4002,8 @@ impl Interpreter {
                     &condition_result.stderr,
                     emit_before_cond,
                 );
-                acc.stdout.push_str(&condition_result.stdout);
-                acc.stderr.push_str(&condition_result.stderr);
+                acc.stdout.append(&condition_result.stdout);
+                acc.stderr.append(&condition_result.stderr);
                 let should_break = if break_on_zero {
                     condition_result.exit_code == 0
                 } else {
@@ -3964,7 +4029,7 @@ impl Interpreter {
                     }
                     state::LoopAction::Break => break,
                     state::LoopAction::Continue => continue,
-                    state::LoopAction::Exit(r) => return Ok(r),
+                    state::LoopAction::Exit(r) => return Ok(*r),
                 }
             }
 
@@ -3980,8 +4045,8 @@ impl Interpreter {
         use crate::parser::CaseTerminator;
         let word_value = self.expand_word(&case_cmd.word).await?;
 
-        let mut stdout = String::new();
-        let mut stderr = String::new();
+        let mut stdout = crate::StreamData::new();
+        let mut stderr = crate::StreamData::new();
         let mut exit_code = 0;
         let mut fallthrough = false;
 
@@ -4002,8 +4067,8 @@ impl Interpreter {
 
             if matched {
                 let r = self.execute_command_sequence(&case_item.commands).await?;
-                stdout.push_str(&r.stdout);
-                stderr.push_str(&r.stderr);
+                stdout.append(&r.stdout);
+                stderr.append(&r.stderr);
                 exit_code = r.exit_code;
                 if r.control_flow != ControlFlow::None {
                     return Ok(ExecResult {
@@ -4043,47 +4108,162 @@ impl Interpreter {
         })
     }
 
-    /// Execute a time command - measure wall-clock execution time
-    ///
-    /// Note: Bashkit only measures wall-clock (real) time.
-    /// User and system CPU time are always reported as 0.
-    /// This is a documented incompatibility with bash.
+    /// Execute the reserved-word pipeline wrapper. Host CPU and memory metrics
+    /// are deliberately never inferred from the containing process.
     async fn execute_time(&mut self, time_cmd: &TimeCommand) -> Result<ExecResult> {
         use crate::time_compat::Instant;
 
-        let start = Instant::now();
+        if let Some(message) = &time_cmd.option_error {
+            return Ok(ExecResult::err(format!("time: {message}\n"), 2));
+        }
+        if time_cmd.append && time_cmd.output.is_none() {
+            return Ok(ExecResult::err(
+                "time: option '-a/--append' requires '-o/--output'\n",
+                2,
+            ));
+        }
 
-        // Execute the wrapped command if present
+        let format = if let Some(word) = &time_cmd.format {
+            let expanded = self.expand_word(word).await?;
+            if let Err(field) = validate_time_format(&expanded) {
+                return Ok(ExecResult::err(
+                    format!("time: unsupported format field '{field}'\n"),
+                    2,
+                ));
+            }
+            Some(expanded)
+        } else {
+            None
+        };
+        let output = if let Some(word) = &time_cmd.output {
+            if self.shell_profile.is_logic_only() {
+                return Ok(ExecResult::err(
+                    "time: output files disabled in logic-only shell\n",
+                    1,
+                ));
+            }
+            Some(self.expand_word(word).await?)
+        } else {
+            None
+        };
+
+        let command_start = self.counters.commands;
+        let loop_start = self.counters.total_loop_iterations;
+        let work_start = self.execution_budget.work_units();
+        let start = Instant::now();
         let mut result = if let Some(cmd) = &time_cmd.command {
             self.execute_command(cmd).await?
         } else {
-            // time with no command - just output timing for nothing
             ExecResult::ok(String::new())
         };
+        let mut elapsed = start.elapsed();
+        // THREAT[TM-INF-033]: Hardened mode exposes only a 100ms lower-bound
+        // bucket, preventing `time` from becoming a high-resolution oracle.
+        if self.hardened_timing {
+            elapsed = std::time::Duration::from_millis(
+                u64::try_from((elapsed.as_millis() / 100) * 100).unwrap_or(u64::MAX),
+            );
+        }
 
-        let elapsed = start.elapsed();
-
-        // Calculate time components
-        let total_secs = elapsed.as_secs_f64();
-        let minutes = (total_secs / 60.0).floor() as u64;
-        let seconds = total_secs % 60.0;
-
-        // Format timing output (goes to stderr, per bash behavior)
-        let timing = if time_cmd.posix_format {
-            // POSIX format: simple, machine-readable
-            format!("real {:.2}\nuser 0.00\nsys 0.00\n", total_secs)
-        } else {
-            // Default bash format
+        let usage = TimeUsage {
+            elapsed,
+            exit_status: result.exit_code,
+            commands: self.counters.commands.saturating_sub(command_start),
+            loops: self
+                .counters
+                .total_loop_iterations
+                .saturating_sub(loop_start),
+            work_units: self
+                .execution_budget
+                .work_units()
+                .saturating_sub(work_start),
+        };
+        let report = if let Some(format) = format {
+            match render_time_format(&format, &usage, self.limits.max_stderr_bytes) {
+                Ok(report) => report,
+                Err(()) => {
+                    self.append_time_stderr(
+                        &mut result,
+                        "time: formatted report exceeds output limit\n",
+                    );
+                    result.exit_code = 1;
+                    return Ok(result);
+                }
+            }
+        } else if time_cmd.verbose {
+            verbose_time_report(&usage)
+        } else if time_cmd.posix_format {
             format!(
-                "\nreal\t{}m{:.3}s\nuser\t0m0.000s\nsys\t0m0.000s\n",
+                "real {:.2}\nuser unavailable\nsys unavailable\n",
+                elapsed.as_secs_f64()
+            )
+        } else {
+            let total_secs = elapsed.as_secs_f64();
+            let minutes = (total_secs / 60.0).floor() as u64;
+            let seconds = total_secs % 60.0;
+            format!(
+                "\nreal\t{}m{:.3}s\nuser\tunavailable\nsys\tunavailable\n",
                 minutes, seconds
             )
         };
 
-        // Append timing to stderr (preserve command's stderr)
-        result.stderr.push_str(&timing);
+        // THREAT[TM-DOS-099]: `-o` must not bypass the diagnostic output cap.
+        if report.len() > self.limits.max_stderr_bytes {
+            self.append_time_stderr(&mut result, "time: formatted report exceeds output limit\n");
+            result.exit_code = 1;
+            return Ok(result);
+        }
+
+        if let Some(path) = output {
+            if self
+                .write_time_report(&path, report.as_bytes(), time_cmd.append)
+                .await
+                .is_err()
+            {
+                self.append_time_stderr(
+                    &mut result,
+                    &format!(
+                        "time: cannot write output file '{}'\n",
+                        sanitize_time_path(&path)
+                    ),
+                );
+                result.exit_code = 1;
+            }
+        } else {
+            self.append_time_stderr(&mut result, &report);
+        }
 
         Ok(result)
+    }
+
+    fn append_time_stderr(&mut self, result: &mut ExecResult, message: &str) {
+        result.stderr.push_str(message);
+        let emit_before = self.output_emit_count;
+        self.maybe_emit_output(
+            &crate::StreamData::new(),
+            &crate::StreamData::from(message),
+            emit_before,
+        );
+    }
+
+    async fn write_time_report(&self, path: &str, report: &[u8], append: bool) -> Result<()> {
+        let path = self.resolve_path(path);
+        if append {
+            return self.fs.append_file(&path, report).await;
+        }
+
+        let parent = path.parent().unwrap_or_else(|| Path::new("/"));
+        let id = TIME_REPORT_COUNTER.fetch_add(1, Ordering::Relaxed);
+        let temp = parent.join(format!(".bashkit-time-{id}.tmp"));
+        if let Err(error) = self.fs.write_file(&temp, report).await {
+            let _ = self.fs.remove(&temp, false).await;
+            return Err(error);
+        }
+        if let Err(error) = self.fs.rename(&temp, &path).await {
+            let _ = self.fs.remove(&temp, false).await;
+            return Err(error);
+        }
+        Ok(())
     }
 
     /// Execute a coprocess command.
@@ -4438,7 +4618,7 @@ impl Interpreter {
         &mut self,
         shell_name: &str,
         args: &[String],
-        stdin: Option<String>,
+        stdin: Option<crate::StreamData>,
         redirects: &[Redirect],
     ) -> Result<ExecResult> {
         // Parse arguments — Err means early-return result (--version, --help, errors)
@@ -4464,7 +4644,7 @@ impl Interpreter {
                 }
             }
         } else if let Some(ref stdin_content) = stdin {
-            stdin_content.clone()
+            stdin_content.text_lossy().into_owned()
         } else {
             return Ok(ExecResult::ok(String::new()));
         };
@@ -4501,7 +4681,8 @@ impl Interpreter {
                 max_ast_depth,
                 max_parser_operations,
                 Some(parser_timeout),
-            );
+            )
+            .with_execution_budget(self.execution_budget.clone());
             match parser.parse() {
                 Ok(s) => s,
                 Err(e) => {
@@ -4518,10 +4699,12 @@ impl Interpreter {
         #[cfg(not(target_family = "wasm"))]
         let script = {
             let script_owned = script_content.clone();
+            let execution_budget = self.execution_budget.clone();
             let parse_result = tokio::time::timeout(parser_timeout, async move {
                 tokio::task::spawn_blocking(move || {
                     let parser =
-                        Parser::with_limits(&script_owned, max_ast_depth, max_parser_operations);
+                        Parser::with_limits(&script_owned, max_ast_depth, max_parser_operations)
+                            .with_execution_budget(execution_budget);
                     parser.parse()
                 })
                 .await
@@ -4720,52 +4903,52 @@ enum FdTarget {
 /// `apply_redirections_fd_table` to keep these locals out of the async state machine.
 #[inline(never)]
 fn route_fd_table_content(
-    orig_stdout: &str,
-    orig_stderr: &str,
+    orig_stdout: &crate::StreamData,
+    orig_stderr: &crate::StreamData,
     fd1: &FdTarget,
     fd2: &FdTarget,
     extra_fd_targets: &[(i32, FdTarget)],
-    pending: &HashMap<i32, String>,
+    pending: &HashMap<i32, crate::StreamData>,
 ) -> (
-    String,
-    String,
-    std::collections::HashMap<PathBuf, (String, bool, String)>,
+    crate::StreamData,
+    crate::StreamData,
+    std::collections::HashMap<PathBuf, (crate::StreamData, bool, String)>,
 ) {
-    let mut new_stdout = String::new();
-    let mut new_stderr = String::new();
-    let mut file_writes: std::collections::HashMap<PathBuf, (String, bool, String)> =
+    let mut new_stdout = crate::StreamData::new();
+    let mut new_stderr = crate::StreamData::new();
+    let mut file_writes: std::collections::HashMap<PathBuf, (crate::StreamData, bool, String)> =
         std::collections::HashMap::new();
 
-    let route = |data: &str,
+    let route = |data: &crate::StreamData,
                  target: &FdTarget,
-                 fw: &mut std::collections::HashMap<PathBuf, (String, bool, String)>,
-                 out: &mut String,
-                 err: &mut String| match target {
+                 fw: &mut std::collections::HashMap<PathBuf, (crate::StreamData, bool, String)>,
+                 out: &mut crate::StreamData,
+                 err: &mut crate::StreamData| match target {
         FdTarget::Stdout => {
             if !data.is_empty() {
-                out.push_str(data);
+                out.append(data);
             }
         }
         FdTarget::Stderr => {
             if !data.is_empty() {
-                err.push_str(data);
+                err.append(data);
             }
         }
         FdTarget::DevNull => {}
         FdTarget::WriteFile(p, d) => {
             let entry = fw
                 .entry(p.clone())
-                .or_insert_with(|| (String::new(), false, d.clone()));
+                .or_insert_with(|| (crate::StreamData::new(), false, d.clone()));
             if !data.is_empty() {
-                entry.0.push_str(data);
+                entry.0.append(data);
             }
         }
         FdTarget::AppendFile(p, d) => {
             let entry = fw
                 .entry(p.clone())
-                .or_insert_with(|| (String::new(), true, d.clone()));
+                .or_insert_with(|| (crate::StreamData::new(), true, d.clone()));
             if !data.is_empty() {
-                entry.0.push_str(data);
+                entry.0.append(data);
             }
         }
     };
@@ -4840,8 +5023,8 @@ impl Interpreter {
         commands: &[Command],
         check_errexit: bool,
     ) -> Result<ExecResult> {
-        let mut stdout = String::new();
-        let mut stderr = String::new();
+        let mut stdout = crate::StreamData::new();
+        let mut stderr = crate::StreamData::new();
         let mut exit_code = 0;
         let mut last_errexit_suppressed = false;
 
@@ -4849,8 +5032,8 @@ impl Interpreter {
             let emit_before = self.output_emit_count;
             let result = self.execute_command(command).await?;
             self.maybe_emit_output(&result.stdout, &result.stderr, emit_before);
-            stdout.push_str(&result.stdout);
-            stderr.push_str(&result.stderr);
+            stdout.append(&result.stdout);
+            stderr.append(&result.stderr);
             exit_code = result.exit_code;
             self.last_exit_code = exit_code;
 
@@ -4893,8 +5076,9 @@ impl Interpreter {
 
     /// Execute a pipeline (cmd1 | cmd2 | cmd3)
     async fn execute_pipeline(&mut self, pipeline: &Pipeline) -> Result<ExecResult> {
-        let mut stdin_data: Option<String> = None;
+        let mut stdin_data: Option<crate::StreamData> = None;
         let mut last_result = ExecResult::ok(String::new());
+        let mut pipeline_stderr = crate::StreamData::new();
         let mut pipe_statuses = Vec::new();
 
         for (i, command) in pipeline.commands.iter().enumerate() {
@@ -4902,6 +5086,7 @@ impl Interpreter {
 
             let result = match command {
                 Command::Simple(simple) => {
+                    self.execution_budget.consume_work(1)?;
                     self.counters.tick_command(&self.limits)?;
                     self.execute_simple_command(simple, stdin_data.take())
                         .await?
@@ -4918,6 +5103,7 @@ impl Interpreter {
             };
 
             pipe_statuses.push(result.exit_code);
+            pipeline_stderr.append(&result.stderr);
 
             if is_last {
                 last_result = result;
@@ -4925,6 +5111,7 @@ impl Interpreter {
                 stdin_data = Some(result.stdout);
             }
         }
+        last_result.stderr = pipeline_stderr;
 
         // Store PIPESTATUS array
         self.pipestatus = pipe_statuses.clone();
@@ -4971,8 +5158,8 @@ impl Interpreter {
     async fn spawn_in_background(
         &mut self,
         cmd: &Command,
-        parent_stdout: &mut String,
-        parent_stderr: &mut String,
+        parent_stdout: &mut crate::StreamData,
+        parent_stderr: &mut crate::StreamData,
     ) -> Result<()> {
         // Execute the command synchronously
         let emit_before = self.output_emit_count;
@@ -4980,8 +5167,8 @@ impl Interpreter {
         self.maybe_emit_output(&result.stdout, &result.stderr, emit_before);
 
         // Emit output immediately (background output goes to terminal in real bash)
-        parent_stdout.push_str(&result.stdout);
-        parent_stderr.push_str(&result.stderr);
+        parent_stdout.append(&result.stdout);
+        parent_stderr.append(&result.stderr);
 
         // Store only the exit code in the job table (output already emitted).
         // The command already ran to completion synchronously, so the result is
@@ -5001,8 +5188,8 @@ impl Interpreter {
     /// Execute a command list (cmd1 && cmd2 || cmd3)
     #[allow(unused_assignments)] // control_flow may be set but overwritten
     async fn execute_list(&mut self, list: &CommandList) -> Result<ExecResult> {
-        let mut stdout = String::new();
-        let mut stderr = String::new();
+        let mut stdout = crate::StreamData::new();
+        let mut stderr = crate::StreamData::new();
         let mut exit_code;
         let mut control_flow;
         let mut exit_code_from_conditional_context = false;
@@ -5021,8 +5208,8 @@ impl Interpreter {
             let emit_before = self.output_emit_count;
             let result = self.execute_command(&list.first).await?;
             self.maybe_emit_output(&result.stdout, &result.stderr, emit_before);
-            stdout.push_str(&result.stdout);
-            stderr.push_str(&result.stderr);
+            stdout.append(&result.stdout);
+            stderr.append(&result.stderr);
             exit_code = result.exit_code;
             self.last_exit_code = exit_code;
             control_flow = result.control_flow;
@@ -5109,8 +5296,8 @@ impl Interpreter {
                     let emit_before = self.output_emit_count;
                     let result = self.execute_command(cmd).await?;
                     self.maybe_emit_output(&result.stdout, &result.stderr, emit_before);
-                    stdout.push_str(&result.stdout);
-                    stderr.push_str(&result.stderr);
+                    stdout.append(&result.stdout);
+                    stderr.append(&result.stderr);
                     exit_code = result.exit_code;
                     self.last_exit_code = exit_code;
                     control_flow = result.control_flow;
@@ -5338,7 +5525,7 @@ impl Interpreter {
         &mut self,
         name: &str,
         command: &SimpleCommand,
-        stdin: Option<String>,
+        stdin: Option<crate::StreamData>,
         var_saves: Vec<(String, Option<String>)>,
     ) -> Option<Result<ExecResult>> {
         let is_plain_literal = !command.name.quoted
@@ -5400,7 +5587,8 @@ impl Interpreter {
             &expanded_cmd,
             self.limits.max_ast_depth,
             self.limits.max_parser_operations,
-        );
+        )
+        .with_execution_budget(self.execution_budget.clone());
         let result = match parser.parse() {
             Ok(s) => {
                 // THREAT[TM-DOS-031]: Validate budget on expanded alias AST
@@ -5448,8 +5636,11 @@ impl Interpreter {
         for (path_str, commands) in deferred {
             let path = Path::new(&path_str);
             let stdin_data = if let Ok(bytes) = self.fs.read_file(path).await {
-                let s = decode_file_bytes_for_path(path, &bytes);
-                if s.is_empty() { None } else { Some(s) }
+                if bytes.is_empty() {
+                    None
+                } else {
+                    Some(bytes.into())
+                }
             } else {
                 None
             };
@@ -5459,8 +5650,8 @@ impl Interpreter {
                 let cmd_result = self.execute_command(cmd).await?;
                 self.pipeline_stdin = prev_stdin;
                 if let Ok(r) = result {
-                    r.stdout.push_str(&cmd_result.stdout);
-                    r.stderr.push_str(&cmd_result.stderr);
+                    r.stdout.append(&cmd_result.stdout);
+                    r.stderr.append(&cmd_result.stderr);
                 }
             }
         }
@@ -5515,7 +5706,7 @@ impl Interpreter {
     fn execute_simple_command<'a>(
         &'a mut self,
         command: &'a SimpleCommand,
-        stdin: Option<String>,
+        stdin: Option<crate::StreamData>,
     ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<ExecResult>> + Send + 'a>> {
         Box::pin(async move {
             let deferred_proc_sub_start = self.deferred_proc_subs.len();
@@ -5533,8 +5724,8 @@ impl Interpreter {
                 self.last_exit_code = 1;
                 self.discard_deferred_proc_subs_from(deferred_proc_sub_start);
                 return Ok(ExecResult {
-                    stdout: String::new(),
-                    stderr: err_msg,
+                    stdout: crate::StreamData::new(),
+                    stderr: err_msg.into(),
                     exit_code: 1,
                     control_flow: ControlFlow::Return(1),
                     ..Default::default()
@@ -5595,8 +5786,8 @@ impl Interpreter {
                 self.last_exit_code = exit_code;
                 self.discard_deferred_proc_subs_from(deferred_proc_sub_start);
                 return Ok(ExecResult {
-                    stdout: String::new(),
-                    stderr: String::new(),
+                    stdout: crate::StreamData::new(),
+                    stderr: crate::StreamData::new(),
                     exit_code,
                     control_flow: crate::interpreter::ControlFlow::None,
                     ..Default::default()
@@ -5656,7 +5847,9 @@ impl Interpreter {
             // Prepend xtrace to stderr
             let mut result = if let Some(trace) = xtrace_line {
                 result.map(|mut r| {
-                    r.stderr = trace + &r.stderr;
+                    let mut stderr: crate::StreamData = trace.into();
+                    stderr.append(&r.stderr);
+                    r.stderr = stderr;
                     r
                 })
             } else {
@@ -5726,7 +5919,7 @@ impl Interpreter {
         name: &'a str,
         args: Vec<String>,
         command: &'a SimpleCommand,
-        stdin: Option<String>,
+        stdin: Option<crate::StreamData>,
     ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<ExecResult>> + Send + 'a>> {
         Box::pin(async move {
             // Track $_ (last argument of previous command, from already-expanded args)
@@ -5740,8 +5933,8 @@ impl Interpreter {
             if let Some(err_msg) = self.nounset_error.take() {
                 self.last_exit_code = 1;
                 return Ok(ExecResult {
-                    stdout: String::new(),
-                    stderr: err_msg,
+                    stdout: crate::StreamData::new(),
+                    stderr: err_msg.into(),
                     exit_code: 1,
                     control_flow: ControlFlow::Return(1),
                     ..Default::default()
@@ -5766,7 +5959,7 @@ impl Interpreter {
 
             // For `read -u FD`, check if FD is a coproc read FD and inject data as stdin
             let stdin = if name == "read" && stdin.is_none() {
-                self.try_coproc_read_stdin(&args).or(stdin)
+                self.try_coproc_read_stdin(&args).map(Into::into).or(stdin)
             } else {
                 stdin
             };
@@ -5782,11 +5975,11 @@ impl Interpreter {
                         let data = ps.clone();
                         if let Some(newline_pos) = data.find('\n') {
                             let line = data[..=newline_pos].to_string();
-                            self.pipeline_stdin = Some(data[newline_pos + 1..].to_string());
-                            Some(line)
+                            self.pipeline_stdin = Some(data.as_bytes()[newline_pos + 1..].into());
+                            Some(line.into())
                         } else {
                             // Last line without trailing newline
-                            self.pipeline_stdin = Some(String::new());
+                            self.pipeline_stdin = Some(crate::StreamData::new());
                             Some(data)
                         }
                     } else {
@@ -5877,7 +6070,7 @@ impl Interpreter {
                         self.coproc_buffers.insert(fd, lines);
                     } else {
                         // exec < file: redirect stdin for subsequent commands
-                        self.pipeline_stdin = Some(text);
+                        self.pipeline_stdin = Some(text.into());
                     }
                 }
                 RedirectKind::DupInput => {
@@ -5983,25 +6176,56 @@ impl Interpreter {
         &'a mut self,
         name: &'a str,
         args: &'a [String],
-        stdin: Option<&'a str>,
+        stdin: Option<&'a crate::StreamData>,
         redirects: &'a [Redirect],
     ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<ExecResult>> + Send + 'a>> {
         // Clone the Arc out of the map so the call doesn't hold a borrow on
         // self.builtins while we take &mut self for the execution body.
         let builtin = self.builtins.get(name).unwrap().clone();
-        self.execute_builtin_arc(name, builtin, args, stdin, redirects)
+        self.execute_builtin_arc(
+            name,
+            builtin,
+            crate::builtins::BuiltinAccess::Scoped,
+            args,
+            stdin,
+            redirects,
+        )
     }
 
     /// Execute a builtin resolved via the host-owned [`BuiltinRegistry`].
     fn execute_host_builtin<'a>(
         &'a mut self,
         name: &'a str,
-        builtin: Arc<dyn Builtin>,
+        builtin: crate::builtins::RegisteredBuiltin,
         args: &'a [String],
-        stdin: Option<&'a str>,
+        stdin: Option<&'a crate::StreamData>,
         redirects: &'a [Redirect],
     ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<ExecResult>> + Send + 'a>> {
-        self.execute_builtin_arc(name, builtin, args, stdin, redirects)
+        self.execute_builtin_arc(
+            name,
+            builtin.builtin,
+            builtin.access,
+            args,
+            stdin,
+            redirects,
+        )
+    }
+
+    fn builtin_file_system(
+        &self,
+        access: crate::builtins::BuiltinAccess,
+        extensions: &builtins::ExecutionExtensions,
+    ) -> Arc<dyn FileSystem> {
+        if access == crate::builtins::BuiltinAccess::TrustedHost {
+            Arc::clone(&self.fs)
+        } else if let Some(scope) = extensions.scope() {
+            crate::execution_capability::ExecutionFileSystem::wrap(Arc::clone(&self.fs), scope)
+        } else {
+            // Unit-level interpreter dispatch has no public request boundary
+            // at which to install or revoke a lease. Production entry points
+            // always bind a scope in `Bash::exec_with_options`.
+            Arc::clone(&self.fs)
+        }
     }
 
     /// Shared execution path for builtins regardless of source
@@ -6010,8 +6234,9 @@ impl Interpreter {
         &'a mut self,
         name: &'a str,
         builtin: Arc<dyn Builtin>,
+        access: crate::builtins::BuiltinAccess,
         args: &'a [String],
-        stdin: Option<&'a str>,
+        stdin: Option<&'a crate::StreamData>,
         redirects: &'a [Redirect],
     ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<ExecResult>> + Send + 'a>> {
         Box::pin(async move {
@@ -6035,10 +6260,26 @@ impl Interpreter {
                 std::borrow::Cow::Borrowed(args)
             };
             let args: &[String] = &args;
+            // THREAT[TM-DOS-096]: Every builtin and host callback consumes the
+            // same request budget. Pipeline/substitution descendants therefore
+            // cannot refresh byte or work ceilings by changing subsystems.
+            let consumer_bytes = args
+                .iter()
+                .fold(stdin.map_or(0, crate::StreamData::len), |total, arg| {
+                    total.saturating_add(arg.len())
+                });
+            self.execution_budget.consume_input(consumer_bytes)?;
+            self.execution_budget
+                .consume_work(1 + u64::try_from(consumer_bytes / 1024).unwrap_or(u64::MAX))?;
+            let _input_lease = self.execution_budget.lease_bytes(consumer_bytes)?;
+            if !self.hooks.before_tool.is_empty() {
+                self.execution_budget.consume_work(100)?;
+            }
 
             // Check for execution plan first
             {
                 let execution_extensions = self.current_execution_extensions();
+                let fs = self.builtin_file_system(access, &execution_extensions);
                 let shell_ref = ShellRef {
                     builtins: &self.builtins,
                     host_builtins: self.host_builtins.as_ref(),
@@ -6059,7 +6300,7 @@ impl Interpreter {
                     env: &self.env,
                     variables: Arc::make_mut(&mut self.scoped.variables),
                     cwd: &mut self.cwd,
-                    fs: Arc::clone(&self.fs),
+                    fs,
                     stdin,
                     #[cfg(feature = "http_client")]
                     http_client: self.http_client.as_ref(),
@@ -6077,7 +6318,7 @@ impl Interpreter {
                 match plan_result {
                     Ok(Ok(Some(plan))) => {
                         let result = self.execute_builtin_plan(plan, redirects).await?;
-                        return Ok(self.apply_after_tool(name, result));
+                        return self.apply_after_tool(name, result);
                     }
                     Ok(Ok(None)) => { /* fall through to normal execute() */ }
                     Ok(Err(e)) => return Err(e),
@@ -6087,12 +6328,13 @@ impl Interpreter {
                             1,
                         );
                         let result = self.apply_redirections(result, redirects).await?;
-                        return Ok(self.apply_after_tool(name, result));
+                        return self.apply_after_tool(name, result);
                     }
                 }
             }
 
             let execution_extensions = self.current_execution_extensions();
+            let fs = self.builtin_file_system(access, &execution_extensions);
             let shell_ref = ShellRef {
                 builtins: &self.builtins,
                 host_builtins: self.host_builtins.as_ref(),
@@ -6113,7 +6355,7 @@ impl Interpreter {
                 env: &self.env,
                 variables: Arc::make_mut(&mut self.scoped.variables),
                 cwd: &mut self.cwd,
-                fs: Arc::clone(&self.fs),
+                fs,
                 stdin,
                 #[cfg(feature = "http_client")]
                 http_client: self.http_client.as_ref(),
@@ -6134,6 +6376,16 @@ impl Interpreter {
                     ExecResult::err(format!("bash: {}: builtin failed unexpectedly\n", name), 1)
                 }
             };
+            self.execution_budget.consume_work(
+                u64::try_from(
+                    result
+                        .stdout
+                        .len()
+                        .saturating_add(result.stderr.len())
+                        .div_ceil(1024),
+                )
+                .unwrap_or(u64::MAX),
+            )?;
 
             self.apply_builtin_side_effects(&result).await;
 
@@ -6157,27 +6409,37 @@ impl Interpreter {
             }
 
             let result = self.apply_redirections(result, redirects).await?;
-            Ok(self.apply_after_tool(name, result))
+            self.apply_after_tool(name, result)
         })
     }
 
     /// Apply `after_tool` interceptor decisions to the result returned to callers.
-    fn apply_after_tool(&self, name: &str, result: ExecResult) -> ExecResult {
+    fn apply_after_tool(&self, name: &str, result: ExecResult) -> Result<ExecResult> {
         if self.hooks.after_tool.is_empty() {
-            return result;
+            return Ok(result);
         }
+        self.execution_budget.consume_work(100)?;
+        self.execution_budget.consume_input(result.stdout.len())?;
         let event = crate::hooks::ToolResult {
             name: name.to_string(),
-            stdout: result.stdout.clone(),
+            stdout: result.stdout.text_lossy().into_owned(),
             exit_code: result.exit_code,
         };
         match self.hooks.fire_after_tool(event) {
-            Some(event) => ExecResult {
-                stdout: event.stdout,
-                exit_code: event.exit_code,
-                ..result
-            },
-            None => ExecResult::err(format!("bash: {name}: cancelled by after_tool hook\n"), 1),
+            Some(event) => {
+                self.execution_budget.consume_work(
+                    u64::try_from(event.stdout.len().div_ceil(1024)).unwrap_or(u64::MAX),
+                )?;
+                Ok(ExecResult {
+                    stdout: event.stdout.into(),
+                    exit_code: event.exit_code,
+                    ..result
+                })
+            }
+            None => Ok(ExecResult::err(
+                format!("bash: {name}: cancelled by after_tool hook\n"),
+                1,
+            )),
         }
     }
 
@@ -6189,7 +6451,7 @@ impl Interpreter {
         &mut self,
         name: &str,
         args: &[String],
-        stdin: Option<String>,
+        stdin: Option<crate::StreamData>,
         redirects: &[Redirect],
     ) -> Result<ExecResult> {
         let args = if !self.hooks.before_tool.is_empty() {
@@ -6210,12 +6472,23 @@ impl Interpreter {
         } else {
             std::borrow::Cow::Borrowed(args)
         };
+        let consumer_bytes = args.iter().fold(
+            stdin.as_ref().map_or(0, crate::StreamData::len),
+            |total, arg| total.saturating_add(arg.len()),
+        );
+        let execution_budget = self.execution_budget.clone();
+        execution_budget.consume_input(consumer_bytes)?;
+        execution_budget.consume_work(1)?;
+        if !self.hooks.before_tool.is_empty() {
+            execution_budget.consume_work(100)?;
+        }
+        let _input_lease = execution_budget.lease_bytes(consumer_bytes)?;
 
         let result = self
             .dispatch_special_builtin(name, &args, stdin, redirects)
             .await
             .expect("special builtin name checked before dispatch")?;
-        Ok(self.apply_after_tool(name, result))
+        self.apply_after_tool(name, result)
     }
 
     /// Dispatch an interpreter-level (special) builtin by name.
@@ -6224,7 +6497,7 @@ impl Interpreter {
         &mut self,
         name: &str,
         args: &[String],
-        stdin: Option<String>,
+        stdin: Option<crate::StreamData>,
         redirects: &[Redirect],
     ) -> Option<Result<ExecResult>> {
         if self.shell_profile.is_logic_only()
@@ -6272,7 +6545,7 @@ impl Interpreter {
         name: &'a str,
         command: &'a SimpleCommand,
         args: Vec<String>,
-        stdin: Option<String>,
+        stdin: Option<crate::StreamData>,
     ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<ExecResult>> + Send + 'a>> {
         Box::pin(async move {
             // Check for functions first
@@ -6295,22 +6568,20 @@ impl Interpreter {
             }
 
             // Host-registered builtins (mutable, may override baked-in builtins).
-            if let Some(builtin) = self.host_builtins.as_ref().and_then(|reg| reg.lookup(name)) {
+            if let Some(builtin) = self
+                .host_builtins
+                .as_ref()
+                .and_then(|reg| reg.lookup_entry(name))
+            {
                 return self
-                    .execute_host_builtin(
-                        name,
-                        builtin,
-                        &args,
-                        stdin.as_deref(),
-                        &command.redirects,
-                    )
+                    .execute_host_builtin(name, builtin, &args, stdin.as_ref(), &command.redirects)
                     .await;
             }
 
             // Registered builtins
             if self.builtins.contains_key(name) {
                 return self
-                    .execute_registered_builtin(name, &args, stdin.as_deref(), &command.redirects)
+                    .execute_registered_builtin(name, &args, stdin.as_ref(), &command.redirects)
                     .await;
             }
 
@@ -6327,6 +6598,15 @@ impl Interpreter {
                     .await;
             }
 
+            // The `$PATH` search consumes `stdin`, so keep a copy for the
+            // resolver — but only when one is installed, so the common path
+            // does not pay to clone piped input.
+            let resolver_stdin = self
+                .command_resolver
+                .is_some()
+                .then(|| stdin.clone())
+                .flatten();
+
             // $PATH search
             if !self.shell_profile.is_logic_only()
                 && let Some(result) = self
@@ -6334,6 +6614,26 @@ impl Interpreter {
                     .await?
             {
                 return Ok(result);
+            }
+
+            // Last-chance resolver. Dispatches through `execute_builtin_arc`
+            // like every other builtin, so `before_tool` fires with the
+            // resolved name and can veto it.
+            if let Some(builtin) = self
+                .command_resolver
+                .as_ref()
+                .and_then(|resolver| resolver.resolve(name))
+            {
+                return self
+                    .execute_builtin_arc(
+                        name,
+                        builtin,
+                        crate::builtins::BuiltinAccess::Scoped,
+                        &args,
+                        resolver_stdin.as_ref(),
+                        &command.redirects,
+                    )
+                    .await;
             }
 
             // Command not found
@@ -6367,7 +6667,7 @@ impl Interpreter {
         &mut self,
         name: &str,
         args: &[String],
-        stdin: Option<String>,
+        stdin: Option<crate::StreamData>,
         redirects: &[Redirect],
     ) -> Result<ExecResult> {
         let path = self.resolve_path(name);
@@ -6454,7 +6754,7 @@ impl Interpreter {
         &mut self,
         name: &str,
         args: &[String],
-        stdin: Option<String>,
+        stdin: Option<crate::StreamData>,
         redirects: &[Redirect],
     ) -> Result<Option<ExecResult>> {
         let path_var = self
@@ -6500,7 +6800,7 @@ impl Interpreter {
         name: &str,
         content: &str,
         args: &[String],
-        stdin: Option<String>,
+        stdin: Option<crate::StreamData>,
         redirects: &[Redirect],
     ) -> Result<ExecResult> {
         // Strip shebang line if present
@@ -6513,11 +6813,13 @@ impl Interpreter {
             content
         };
 
+        self.execution_budget.consume_input(script_text.len())?;
         let parser = Parser::with_limits(
             script_text,
             self.limits.max_ast_depth,
             self.limits.max_parser_operations,
-        );
+        )
+        .with_execution_budget(self.execution_budget.clone());
         let script = match parser.parse() {
             Ok(s) => s,
             Err(e) => {
@@ -6769,7 +7071,7 @@ impl Interpreter {
     async fn execute_eval(
         &mut self,
         args: &[String],
-        stdin: Option<String>,
+        stdin: Option<crate::StreamData>,
         redirects: &[Redirect],
     ) -> Result<ExecResult> {
         if args.is_empty() {
@@ -6817,6 +7119,7 @@ impl Interpreter {
                 ),
             ));
         }
+        self.execution_budget.consume_input(input.len())?;
 
         #[cfg(target_family = "wasm")]
         {
@@ -6825,6 +7128,7 @@ impl Interpreter {
                 self.limits.max_ast_depth,
                 self.limits.max_parser_operations,
             )
+            .with_execution_budget(self.execution_budget.clone())
             .parse()
         }
 
@@ -6834,10 +7138,12 @@ impl Interpreter {
             let max_depth = self.limits.max_ast_depth;
             let max_ops = self.limits.max_parser_operations;
             let timeout = self.limits.parser_timeout;
+            let execution_budget = self.execution_budget.clone();
 
             let parse_result = tokio::time::timeout(timeout, async move {
                 tokio::task::spawn_blocking(move || {
-                    let parser = Parser::with_limits(&input_owned, max_depth, max_ops);
+                    let parser = Parser::with_limits(&input_owned, max_depth, max_ops)
+                        .with_execution_budget(execution_budget);
                     parser.parse()
                 })
                 .await
@@ -7097,7 +7403,7 @@ impl Interpreter {
         name: &str,
         func_def: &FunctionDef,
         args: Vec<String>,
-        stdin: Option<String>,
+        stdin: Option<crate::StreamData>,
         redirects: &[Redirect],
     ) -> Result<ExecResult> {
         // Check function depth limit
@@ -7409,8 +7715,8 @@ impl Interpreter {
         }
         let exit_code = if last_val == 0 { 1 } else { 0 };
         let result = ExecResult {
-            stdout: String::new(),
-            stderr: String::new(),
+            stdout: crate::StreamData::new(),
+            stderr: crate::StreamData::new(),
             exit_code,
             control_flow: ControlFlow::None,
             ..Default::default()
@@ -7496,7 +7802,7 @@ impl Interpreter {
             }
         }
         let result = ExecResult {
-            stderr,
+            stderr: stderr.into(),
             exit_code,
             ..Default::default()
         };
@@ -7546,8 +7852,8 @@ impl Interpreter {
         if optind < 1 || optind > parse_args.len() {
             self.insert_variable_checked(varname.clone(), "?".to_string());
             return Ok(ExecResult {
-                stdout: String::new(),
-                stderr: String::new(),
+                stdout: crate::StreamData::new(),
+                stderr: crate::StreamData::new(),
                 exit_code: 1,
                 control_flow: crate::interpreter::ControlFlow::None,
                 ..Default::default()
@@ -7564,8 +7870,8 @@ impl Interpreter {
                     .insert("OPTIND".to_string(), (optind + 1).to_string());
             }
             return Ok(ExecResult {
-                stdout: String::new(),
-                stderr: String::new(),
+                stdout: crate::StreamData::new(),
+                stderr: crate::StreamData::new(),
                 exit_code: 1,
                 control_flow: crate::interpreter::ControlFlow::None,
                 ..Default::default()
@@ -7586,8 +7892,8 @@ impl Interpreter {
             self.getopts_char_idx = 0;
             self.insert_variable_checked(varname.clone(), "?".to_string());
             return Ok(ExecResult {
-                stdout: String::new(),
-                stderr: String::new(),
+                stdout: crate::StreamData::new(),
+                stderr: crate::StreamData::new(),
                 exit_code: 1,
                 control_flow: crate::interpreter::ControlFlow::None,
                 ..Default::default()
@@ -7635,7 +7941,8 @@ impl Interpreter {
                         result.stderr = format!(
                             "bash: getopts: option requires an argument -- '{}'\n",
                             opt_char
-                        );
+                        )
+                        .into();
                         result = self.apply_redirections(result, redirects).await?;
                         return Ok(result);
                     }
@@ -7671,7 +7978,7 @@ impl Interpreter {
             } else {
                 self.insert_variable_checked(varname.clone(), "?".to_string());
                 let mut result = ExecResult::ok(String::new());
-                result.stderr = format!("bash: getopts: illegal option -- '{}'\n", opt_char);
+                result.stderr = format!("bash: getopts: illegal option -- '{}'\n", opt_char).into();
                 result = self.apply_redirections(result, redirects).await?;
                 return Ok(result);
             }
@@ -7690,7 +7997,7 @@ impl Interpreter {
     async fn execute_command_builtin(
         &mut self,
         args: &[String],
-        _stdin: Option<String>,
+        _stdin: Option<crate::StreamData>,
         redirects: &[Redirect],
     ) -> Result<ExecResult> {
         if args.is_empty() {
@@ -7741,8 +8048,8 @@ impl Interpreter {
                     ExecResult::ok(format!("{}\n", name))
                 } else {
                     ExecResult {
-                        stdout: String::new(),
-                        stderr: String::new(),
+                        stdout: crate::StreamData::new(),
+                        stderr: crate::StreamData::new(),
                         exit_code: 1,
                         control_flow: crate::interpreter::ControlFlow::None,
                         ..Default::default()
@@ -7800,14 +8107,14 @@ impl Interpreter {
                 if let Some(builtin) = self
                     .host_builtins
                     .as_ref()
-                    .and_then(|reg| reg.lookup(target))
+                    .and_then(|reg| reg.lookup_entry(target))
                 {
                     return self
                         .execute_host_builtin(
                             target,
                             builtin,
                             builtin_args,
-                            _stdin.as_deref(),
+                            _stdin.as_ref(),
                             redirects,
                         )
                         .await;
@@ -7817,8 +8124,9 @@ impl Interpreter {
                         .execute_builtin_arc(
                             target,
                             builtin,
+                            crate::builtins::BuiltinAccess::Scoped,
                             builtin_args,
-                            _stdin.as_deref(),
+                            _stdin.as_ref(),
                             redirects,
                         )
                         .await;
@@ -8148,7 +8456,7 @@ impl Interpreter {
         }
 
         let mut result = ExecResult {
-            stderr: declare_stderr,
+            stderr: declare_stderr.into(),
             exit_code: declare_exit_code,
             ..Default::default()
         };
@@ -8174,42 +8482,22 @@ impl Interpreter {
                 // Build inner command with optional stdin via here-string.
                 let inner_cmd = subcommand_to_command(&command);
 
-                // wasm32-unknown-unknown has no timer driver. Fail closed rather
-                // than accepting a deadline that cannot be enforced while an
-                // async custom builtin is pending.
-                #[cfg(target_family = "wasm")]
-                let outcome = {
-                    // The parsed command is intentionally never dispatched.
-                    drop(inner_cmd);
-                    // Keep the phrasing aligned with `unsupported_timeout_response`
-                    // ("timeout is unsupported on this wasm target") so callers and
-                    // tests can match a single message across builtin and tool paths.
-                    ExecResult::err(
-                        format!(
-                            "bashkit: timeout is unsupported on this wasm target (requested {:.3}s{})\n",
-                            duration.as_secs_f64(),
-                            if preserve_status {
-                                " --preserve-status"
-                            } else {
-                                ""
-                            }
-                        ),
-                        125,
-                    )
-                };
-
-                #[cfg(not(target_family = "wasm"))]
-                let outcome = {
-                    use tokio::time::timeout;
-
+                {
                     let baseline_call_stack_len = self.call_stack.len();
                     let baseline_bash_source_len = self.bash_source_stack.len();
                     let baseline_function_depth = self.counters.function_depth;
                     let baseline_pipeline_stdin = self.pipeline_stdin.clone();
+                    self.pipeline_stdin = command.stdin.clone();
                     let exec_future = self.execute_command(&inner_cmd);
-                    match timeout(duration, exec_future).await {
-                        Ok(Ok(result)) => result,
-                        Ok(Err(e)) => return Err(e),
+                    match crate::time_compat::timeout(duration, exec_future).await {
+                        Ok(Ok(result)) => {
+                            self.pipeline_stdin = baseline_pipeline_stdin;
+                            result
+                        }
+                        Ok(Err(e)) => {
+                            self.pipeline_stdin = baseline_pipeline_stdin;
+                            return Err(e);
+                        }
                         Err(_) => {
                             self.reconcile_cancelled_execution_state(
                                 baseline_call_stack_len,
@@ -8226,21 +8514,22 @@ impl Interpreter {
                             ExecResult::err(String::new(), exit_code)
                         }
                     }
-                };
-
-                outcome
+                }
             }
             builtins::ExecutionPlan::Batch { commands } => {
-                let mut combined_stdout = String::new();
-                let mut combined_stderr = String::new();
+                let mut combined_stdout = crate::StreamData::new();
+                let mut combined_stderr = crate::StreamData::new();
                 let mut last_exit_code = 0;
 
                 for cmd in commands {
                     let inner_cmd = subcommand_to_command(&cmd);
-
-                    let result = self.execute_command(&inner_cmd).await?;
-                    combined_stdout.push_str(&result.stdout);
-                    combined_stderr.push_str(&result.stderr);
+                    let saved_stdin = self.pipeline_stdin.take();
+                    self.pipeline_stdin = cmd.stdin;
+                    let result = self.execute_command(&inner_cmd).await;
+                    self.pipeline_stdin = saved_stdin;
+                    let result = result?;
+                    combined_stdout.append(&result.stdout);
+                    combined_stderr.append(&result.stderr);
                     last_exit_code = result.exit_code;
                 }
 
@@ -8257,16 +8546,19 @@ impl Interpreter {
                 stderr_prefix,
                 force_error_exit,
             } => {
-                let mut combined_stdout = String::new();
-                let mut combined_stderr = stderr_prefix;
+                let mut combined_stdout = crate::StreamData::new();
+                let mut combined_stderr: crate::StreamData = stderr_prefix.into();
                 let mut last_exit_code = 0;
 
                 for cmd in commands {
                     let inner_cmd = subcommand_to_command(&cmd);
-
-                    let result = self.execute_command(&inner_cmd).await?;
-                    combined_stdout.push_str(&result.stdout);
-                    combined_stderr.push_str(&result.stderr);
+                    let saved_stdin = self.pipeline_stdin.take();
+                    self.pipeline_stdin = cmd.stdin;
+                    let result = self.execute_command(&inner_cmd).await;
+                    self.pipeline_stdin = saved_stdin;
+                    let result = result?;
+                    combined_stdout.append(&result.stdout);
+                    combined_stderr.append(&result.stderr);
                     last_exit_code = result.exit_code;
                 }
 
@@ -8291,16 +8583,14 @@ impl Interpreter {
 
     /// Restore interpreter stacks/counters after an in-flight command future is cancelled.
     ///
-    /// Only the native timeout/cancellation paths can cancel a command mid-flight;
-    /// wasm32 has no timer driver, so it is gated out there to keep the wasm build
-    /// warning-clean (CI checks wasm with `-D warnings`).
-    #[cfg(not(target_family = "wasm"))]
+    /// Host-backed deadlines can cancel a command future mid-flight on native
+    /// and JS-host wasm targets, so both paths must restore transient stacks.
     fn reconcile_cancelled_execution_state(
         &mut self,
         baseline_call_stack_len: usize,
         baseline_bash_source_len: usize,
         baseline_function_depth: usize,
-        baseline_pipeline_stdin: Option<String>,
+        baseline_pipeline_stdin: Option<crate::StreamData>,
     ) {
         let leaked_call_frames = self
             .call_stack
@@ -8441,7 +8731,7 @@ impl Interpreter {
             let mut stdout = String::new();
             for cmd in commands {
                 let cmd_result = self.execute_command(cmd).await?;
-                stdout.push_str(&cmd_result.stdout);
+                stdout.push_str(&cmd_result.stdout.command_substitution_text());
             }
             if self.fs.write_file(path, stdout.as_bytes()).await.is_err() {
                 Ok(stdout)
@@ -8503,7 +8793,7 @@ impl Interpreter {
             let mut stdout = String::new();
             for cmd in commands {
                 let cmd_result = self.execute_command(cmd).await?;
-                stdout.push_str(&cmd_result.stdout);
+                stdout.push_str(&cmd_result.stdout.command_substitution_text());
                 self.last_exit_code = cmd_result.exit_code;
                 if matches!(cmd_result.control_flow, ControlFlow::Exit(_)) {
                     break;
@@ -8517,12 +8807,13 @@ impl Interpreter {
                     self.limits.max_ast_depth,
                     self.limits.max_parser_operations,
                 )
+                .with_execution_budget(self.execution_budget.clone())
                 .parse()
                 && let Ok(trap_result) = self
                     .execute_capture_only_sequence(&trap_script.commands)
                     .await
             {
-                stdout.push_str(&trap_result.stdout);
+                stdout.push_str(&trap_result.stdout.command_substitution_text());
             }
             self.restore_subshell_state(snapshot);
             self.counters.pop_subst();
@@ -9063,7 +9354,8 @@ impl Interpreter {
                     &cmd,
                     self.limits.max_ast_depth,
                     self.limits.max_parser_operations,
-                );
+                )
+                .with_execution_budget(self.execution_budget.clone());
                 match parser.parse() {
                     Ok(script) => {
                         if self.counters.push_subst(&self.limits).is_err() {
@@ -9074,7 +9366,8 @@ impl Interpreter {
                                 self.execute_command_sequence(&script.commands).await?;
                             self.restore_subshell_state(snapshot);
                             self.counters.pop_subst();
-                            let trimmed = cmd_result.stdout.trim_end_matches('\n');
+                            let command_output = cmd_result.stdout.command_substitution_text();
+                            let trimmed = command_output.trim_end_matches('\n');
                             if trimmed.is_empty() {
                                 result.push('0');
                             } else {
@@ -9324,11 +9617,11 @@ impl Interpreter {
     /// Run ERR trap if registered. Appends trap output to stdout/stderr.
     /// Run the DEBUG trap handler (fires before each simple command).
     /// Returns (stdout, stderr) from the trap handler.
-    async fn run_debug_trap(&mut self) -> (String, String) {
+    async fn run_debug_trap(&mut self) -> (crate::StreamData, crate::StreamData) {
         // THREAT[TM-DOS-035]: Suppress DEBUG trap inside trap handlers to prevent
         // recursive amplification (each trapped command firing more DEBUG traps).
         if self.in_trap {
-            return (String::new(), String::new());
+            return (crate::StreamData::new(), crate::StreamData::new());
         }
         if let Some(trap_cmd) = self.scoped.traps.get("DEBUG").cloned() {
             // THREAT[TM-DOS-030]: Propagate interpreter parser limits
@@ -9337,6 +9630,7 @@ impl Interpreter {
                 self.limits.max_ast_depth,
                 self.limits.max_parser_operations,
             )
+            .with_execution_budget(self.execution_budget.clone())
             .parse()
             {
                 self.in_trap = true;
@@ -9349,10 +9643,14 @@ impl Interpreter {
                 }
             }
         }
-        (String::new(), String::new())
+        (crate::StreamData::new(), crate::StreamData::new())
     }
 
-    async fn run_err_trap(&mut self, stdout: &mut String, stderr: &mut String) {
+    async fn run_err_trap(
+        &mut self,
+        stdout: &mut crate::StreamData,
+        stderr: &mut crate::StreamData,
+    ) {
         // THREAT[TM-DOS-035]: Suppress ERR trap re-entrancy while executing trap
         // handlers to prevent recursive ERR -> ERR amplification.
         if self.in_trap {
@@ -9365,6 +9663,7 @@ impl Interpreter {
                 self.limits.max_ast_depth,
                 self.limits.max_parser_operations,
             )
+            .with_execution_budget(self.execution_budget.clone())
             .parse()
             {
                 self.in_trap = true;
@@ -9373,8 +9672,8 @@ impl Interpreter {
                 self.in_trap = false;
                 if let Ok(trap_result) = result {
                     self.maybe_emit_output(&trap_result.stdout, &trap_result.stderr, emit_before);
-                    stdout.push_str(&trap_result.stdout);
-                    stderr.push_str(&trap_result.stderr);
+                    stdout.append(&trap_result.stdout);
+                    stderr.append(&trap_result.stderr);
                 }
             }
         }
@@ -11380,6 +11679,18 @@ echo "count=$COUNT"
             .await
             .unwrap();
         assert_eq!(result.stdout.trim(), "match");
+    }
+
+    #[test]
+    fn repeated_conditional_regex_compiles_once() {
+        let fs: Arc<dyn FileSystem> = Arc::new(InMemoryFs::new());
+        let mut interp = Interpreter::new(fs);
+
+        for _ in 0..300_000 {
+            assert!(interp.regex_match("bytes=123", "^bytes="));
+        }
+
+        assert_eq!(interp.regex_cache.compile_count(), 1);
     }
 
     #[tokio::test]

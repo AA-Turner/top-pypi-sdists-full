@@ -14,7 +14,7 @@ from ansys.fluent.core.solver.flobject import (
     _FlStringConstant,
 )
 
-SHASH = "52baa95d181286bcfeb02a123ccdda65e648d59c414b25c5edb2a9d9c39f600c"
+SHASH = "961e892f59484b38d8a83bb63edbb396bcd58638f9b00e8d0751909dfcb265a3"
 
 class single_precision_coordinates(Boolean):
     """
@@ -29687,19 +29687,6 @@ class mode(String, AllowedValuesMixin):
     FDM = _FlStringConstant('fdm')
     _allowed_values = ['edm', 'fdm']
 
-class cl_cd_interpolation_model(String, AllowedValuesMixin):
-    """
-    Cl/cd data interpolation model: .
-    """
-    _version = '271'
-    exposure_level = ExposureLevel.STABLE
-    fluent_name = 'cl-cd-interpolation-model'
-    _python_name = 'cl_cd_interpolation_model'
-    AVE = _FlStringConstant('ave')
-    IDW = _FlStringConstant('idw')
-    RBF = _FlStringConstant('rbf')
-    _allowed_values = ['ave', 'idw', 'rbf']
-
 class name_9(String):
     """
     The name of rotor.
@@ -30099,6 +30086,34 @@ class tip_loss(Group):
         prandtl_tuning_coefficient=prandtl_tuning_coefficient,
     )
 
+class cl_cd_interpolation_model(String, AllowedValuesMixin):
+    """
+    Cl/Cd Data Interpolation Model:.
+    """
+    _version = '271'
+    exposure_level = ExposureLevel.STABLE
+    fluent_name = 'cl-cd-interpolation-model'
+    _python_name = 'cl_cd_interpolation_model'
+    AVERAGE = _FlStringConstant('Average')
+    IDW = _FlStringConstant('IDW')
+    RBF = _FlStringConstant('RBF')
+    _allowed_values = ['Average', 'IDW', 'RBF']
+
+class cl_cd_interpolation(Group):
+    """
+    Menu to define the Cl/Cd data interpolation model: 
+     - cl-cd-interpolation-model : select interpolation method (Average, IDW, RBF)
+    For more details please consult the help option of the corresponding menu or TUI command.
+    """
+    _version = '271'
+    exposure_level = ExposureLevel.STABLE
+    fluent_name = 'cl-cd-interpolation'
+    _python_name = 'cl_cd_interpolation'
+    child_names = ['cl_cd_interpolation_model']
+    _child_classes = dict(
+        cl_cd_interpolation_model=cl_cd_interpolation_model,
+    )
+
 class general_1(Group):
     """
     Menu to define the rotor general information.
@@ -30108,7 +30123,7 @@ class general_1(Group):
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'general'
     _python_name = 'general'
-    child_names = ['basic_info', 'disk_origin', 'disk_orientation', 'disk_id', 'blade_pitch_angles', 'blade_flap_angles', 'tip_loss']
+    child_names = ['basic_info', 'disk_origin', 'disk_orientation', 'disk_id', 'blade_pitch_angles', 'blade_flap_angles', 'tip_loss', 'cl_cd_interpolation']
     _child_classes = dict(
         basic_info=basic_info,
         disk_origin=disk_origin,
@@ -30117,6 +30132,7 @@ class general_1(Group):
         blade_pitch_angles=blade_pitch_angles,
         blade_flap_angles=blade_flap_angles,
         tip_loss=tip_loss,
+        cl_cd_interpolation=cl_cd_interpolation,
     )
 
 class list_2(Command):
@@ -30368,12 +30384,11 @@ class virtual_blade_model(Group):
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'virtual-blade-model'
     _python_name = 'virtual_blade_model'
-    child_names = ['enabled', 'mode', 'cl_cd_interpolation_model', 'rotor']
+    child_names = ['enabled', 'mode', 'rotor']
     command_names = ['apply']
     _child_classes = dict(
         enabled=enabled_27,
         mode=mode,
-        cl_cd_interpolation_model=cl_cd_interpolation_model,
         rotor=rotor,
         apply=apply,
     )
@@ -115758,6 +115773,15 @@ class invert_normals_for_avz(Boolean):
     fluent_name = 'invert-normals-for-avz'
     _python_name = 'invert_normals_for_avz'
 
+class export_all_windows(Boolean):
+    """
+    Enable to export all graphics windows when capturing an image.
+    """
+    _version = '271'
+    exposure_level = ExposureLevel.STABLE
+    fluent_name = 'export-all-windows?'
+    _python_name = 'export_all_windows'
+
 class preview(Command):
     """
     Display a preview image of a hardcopy.
@@ -115811,7 +115835,7 @@ class picture(Group):
     exposure_level = ExposureLevel.STABLE
     fluent_name = 'picture'
     _python_name = 'picture'
-    child_names = ['raytracer_image', 'color_mode', 'driver_options', 'invert_background', 'landscape', 'x_resolution', 'y_resolution', 'dpi', 'use_window_resolution', 'standard_resolution', 'jpeg_hardcopy_quality', 'invert_normals_for_avz']
+    child_names = ['raytracer_image', 'color_mode', 'driver_options', 'invert_background', 'landscape', 'x_resolution', 'y_resolution', 'dpi', 'use_window_resolution', 'standard_resolution', 'jpeg_hardcopy_quality', 'invert_normals_for_avz', 'export_all_windows']
     command_names = ['preview', 'save_picture', 'list_color_mode']
     _child_classes = dict(
         raytracer_image=raytracer_image,
@@ -115826,6 +115850,7 @@ class picture(Group):
         standard_resolution=standard_resolution,
         jpeg_hardcopy_quality=jpeg_hardcopy_quality,
         invert_normals_for_avz=invert_normals_for_avz,
+        export_all_windows=export_all_windows,
         preview=preview,
         save_picture=save_picture_1,
         list_color_mode=list_color_mode,

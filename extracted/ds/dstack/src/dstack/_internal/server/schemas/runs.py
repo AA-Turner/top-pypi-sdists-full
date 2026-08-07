@@ -43,12 +43,21 @@ class GetRunRequest(CoreModel):
 class GetRunPlanRequest(CoreModel):
     run_spec: RunSpec
     max_offers: Optional[int] = Field(
-        description="The maximum number of offers to return", ge=1, le=10000
+        default=None, description="The maximum number of offers to return", ge=1, le=10000
     )
-
-
-class SubmitRunRequest(CoreModel):
-    run_spec: RunSpec
+    full_offers: Annotated[
+        bool, Field(description="Return full offers not adjusted by requirements")
+    ] = False
+    unallocated_resources: Annotated[
+        bool,
+        Field(description="Subtract allocated resources to return only unallocated resources"),
+    ] = False
+    for_offers_only: Annotated[
+        bool,
+        Field(
+            description="Set to True if the run plan is requested for offer collection only, not a real run submission"
+        ),
+    ] = False
 
 
 class ApplyRunPlanRequest(CoreModel):

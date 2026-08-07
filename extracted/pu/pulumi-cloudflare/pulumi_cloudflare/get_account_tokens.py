@@ -27,16 +27,16 @@ class GetAccountTokensResult:
     """
     A collection of values returned by getAccountTokens.
     """
-    def __init__(__self__, account_id=None, direction=None, id=None, max_items=None, results=None):
+    def __init__(__self__, account_id=None, direction=None, include_expired=None, max_items=None, results=None):
         if account_id and not isinstance(account_id, str):
             raise TypeError("Expected argument 'account_id' to be a str")
         pulumi.set(__self__, "account_id", account_id)
         if direction and not isinstance(direction, str):
             raise TypeError("Expected argument 'direction' to be a str")
         pulumi.set(__self__, "direction", direction)
-        if id and not isinstance(id, str):
-            raise TypeError("Expected argument 'id' to be a str")
-        pulumi.set(__self__, "id", id)
+        if include_expired and not isinstance(include_expired, bool):
+            raise TypeError("Expected argument 'include_expired' to be a bool")
+        pulumi.set(__self__, "include_expired", include_expired)
         if max_items and not isinstance(max_items, int):
             raise TypeError("Expected argument 'max_items' to be a int")
         pulumi.set(__self__, "max_items", max_items)
@@ -62,12 +62,12 @@ class GetAccountTokensResult:
         return pulumi.get(self, "direction")
 
     @_builtins.property
-    @pulumi.getter
-    def id(self) -> _builtins.str:
+    @pulumi.getter(name="includeExpired")
+    def include_expired(self) -> _builtins.bool:
         """
-        The provider-assigned unique ID for this managed resource.
+        When true, includes recently-expired tokens in the response.
         """
-        return pulumi.get(self, "id")
+        return pulumi.get(self, "include_expired")
 
     @_builtins.property
     @pulumi.getter(name="maxItems")
@@ -94,13 +94,14 @@ class AwaitableGetAccountTokensResult(GetAccountTokensResult):
         return GetAccountTokensResult(
             account_id=self.account_id,
             direction=self.direction,
-            id=self.id,
+            include_expired=self.include_expired,
             max_items=self.max_items,
             results=self.results)
 
 
 def get_account_tokens(account_id: Optional[_builtins.str] = None,
                        direction: Optional[_builtins.str] = None,
+                       include_expired: Optional[_builtins.bool] = None,
                        max_items: Optional[_builtins.int] = None,
                        opts: Optional[pulumi.InvokeOptions] = None) -> AwaitableGetAccountTokensResult:
     """
@@ -123,11 +124,13 @@ def get_account_tokens(account_id: Optional[_builtins.str] = None,
     :param _builtins.str account_id: Account identifier tag.
     :param _builtins.str direction: Direction to order results.
            Available values: "asc", "desc".
+    :param _builtins.bool include_expired: When true, includes recently-expired tokens in the response.
     :param _builtins.int max_items: Max items to fetch, default: 1000
     """
     __args__ = dict()
     __args__['accountId'] = account_id
     __args__['direction'] = direction
+    __args__['includeExpired'] = include_expired
     __args__['maxItems'] = max_items
     opts = pulumi.InvokeOptions.merge(_utilities.get_invoke_opts_defaults(), opts)
     __ret__ = pulumi.runtime.invoke('cloudflare:index/getAccountTokens:getAccountTokens', __args__, opts=opts, typ=GetAccountTokensResult).value
@@ -135,11 +138,12 @@ def get_account_tokens(account_id: Optional[_builtins.str] = None,
     return AwaitableGetAccountTokensResult(
         account_id=pulumi.get(__ret__, 'account_id'),
         direction=pulumi.get(__ret__, 'direction'),
-        id=pulumi.get(__ret__, 'id'),
+        include_expired=pulumi.get(__ret__, 'include_expired'),
         max_items=pulumi.get(__ret__, 'max_items'),
         results=pulumi.get(__ret__, 'results'))
 def get_account_tokens_output(account_id: pulumi.Input[Optional[Optional[_builtins.str]]] = None,
                               direction: pulumi.Input[Optional[Optional[_builtins.str]]] = None,
+                              include_expired: pulumi.Input[Optional[Optional[_builtins.bool]]] = None,
                               max_items: pulumi.Input[Optional[Optional[_builtins.int]]] = None,
                               opts: Optional[Union[pulumi.InvokeOptions, pulumi.InvokeOutputOptions]] = None) -> pulumi.Output[GetAccountTokensResult]:
     """
@@ -162,17 +166,19 @@ def get_account_tokens_output(account_id: pulumi.Input[Optional[Optional[_builti
     :param _builtins.str account_id: Account identifier tag.
     :param _builtins.str direction: Direction to order results.
            Available values: "asc", "desc".
+    :param _builtins.bool include_expired: When true, includes recently-expired tokens in the response.
     :param _builtins.int max_items: Max items to fetch, default: 1000
     """
     __args__ = dict()
     __args__['accountId'] = account_id
     __args__['direction'] = direction
+    __args__['includeExpired'] = include_expired
     __args__['maxItems'] = max_items
     opts = pulumi.InvokeOutputOptions.merge(_utilities.get_invoke_opts_defaults(), opts)
     __ret__ = pulumi.runtime.invoke_output('cloudflare:index/getAccountTokens:getAccountTokens', __args__, opts=opts, typ=GetAccountTokensResult)
     return __ret__.apply(lambda __response__: GetAccountTokensResult(
         account_id=pulumi.get(__response__, 'account_id'),
         direction=pulumi.get(__response__, 'direction'),
-        id=pulumi.get(__response__, 'id'),
+        include_expired=pulumi.get(__response__, 'include_expired'),
         max_items=pulumi.get(__response__, 'max_items'),
         results=pulumi.get(__response__, 'results')))

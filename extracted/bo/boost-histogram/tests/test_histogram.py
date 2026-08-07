@@ -5,6 +5,7 @@ import functools
 import operator
 import pickle
 import platform
+import subprocess
 import sys
 import threading
 from collections import OrderedDict
@@ -12,7 +13,6 @@ from io import BytesIO
 
 import numpy as np
 import pytest
-from numpy.testing import assert_array_equal
 from pytest import approx
 
 import boost_histogram as bh
@@ -111,11 +111,12 @@ def test_fill_int_1d():
     assert h[bh.underflow + 1] == 2
 
     assert h[-1] == 3
+    assert h[-3] == h[0]
 
     with pytest.raises(IndexError):
         h[3]
     with pytest.raises(IndexError):
-        h[-3]
+        h[-4]
 
 
 def test_fill_int_with_float_single_1d():
@@ -178,7 +179,7 @@ def test_setting(count_single_storage):
     assert h[9] == 5
     assert h[bh.overflow] == 6
 
-    assert_array_equal(h.view(flow=True), [1, 2, 3, 0, 0, 0, 4, 0, 0, 0, 5, 6])
+    assert h.view(flow=True) == approx([1, 2, 3, 0, 0, 0, 4, 0, 0, 0, 5, 6])
 
 
 def test_growth():
@@ -191,7 +192,6 @@ def test_growth():
     h.fill(0)
     for _ in range(1000 - 256):
         h.fill(0)
-    print(h.view(flow=True))
     assert h[bh.underflow] == 0
     assert h[0] == 1
     assert h[1] == 1000
@@ -218,6 +218,39 @@ def test_noflow_cats():
     h.fill([1, 2, 3, 4], ["hi", "ho", "hi", "ho"])
 
     assert h.sum() == 2
+
+
+def _has_issue_960_bug():
+    # Probe for the upstream Boost.Histogram bug where a broadcast scalar argument
+    # invalidates an entire bulk fill when an earlier non-inclusive axis dropped the
+    # first array entry. Returns True while the (vendored) bug is present.
+    h = bh.Histogram(bh.axis.IntCategory([1], overflow=False), bh.axis.IntCategory([1]))
+    h.fill([0, 1], 1)  # first entry (0) is out of range on the non-inclusive axis
+    return h.sum() == 0
+
+
+@pytest.mark.xfail(
+    _has_issue_960_bug(),
+    reason="upstream Boost.Histogram bug, fixed upstream; pending boost bump (#960)",
+    strict=True,
+)
+def test_noflow_cat_scalar_broadcast():
+    # https://github.com/scikit-hep/boost-histogram/issues/960
+    # A broadcast scalar on a later axis must not zero the whole fill when an earlier
+    # non-inclusive axis drops the first array entry.
+    h = bh.Histogram(
+        bh.axis.IntCategory([1, 2, 3], overflow=False),
+        bh.axis.StrCategory(["nominal"]),
+        storage=bh.storage.Weight(),
+    )
+    values = np.array([-1, 1, 2, 3, 1])  # first entry (-1) is out of range
+    h.fill(values, "nominal", weight=np.ones_like(values, dtype=float))
+
+    # only the out-of-range -1 is dropped; everything else is kept
+    assert h.sum().value == 4
+    assert h[bh.loc(1), bh.loc("nominal")].value == 2
+    assert h[bh.loc(2), bh.loc("nominal")].value == 1
+    assert h[bh.loc(3), bh.loc("nominal")].value == 1
 
 
 def test_metadata_add():
@@ -573,6 +606,26 @@ def test_operators():
         h + h2
 
 
+@pytest.mark.parametrize("operation", [operator.add, operator.iadd])
+@pytest.mark.parametrize(
+    ("left_storage", "right_storage"),
+    [
+        (bh.storage.Int64, bh.storage.Double),
+        (bh.storage.Double, bh.storage.Int64),
+    ],
+)
+def test_add_mismatched_storage_raises(operation, left_storage, right_storage):
+    left = bh.Histogram(bh.axis.Regular(3, -1, 1), storage=left_storage())
+    right = bh.Histogram(bh.axis.Regular(3, -1, 1), storage=right_storage())
+    right.fill(0)
+
+    message = (
+        f"different storage types: {left_storage.__name__} and {right_storage.__name__}"
+    )
+    with pytest.raises(TypeError, match=message):
+        operation(left, right)
+
+
 def test_hist_hist_div():
     h1 = bh.Histogram(bh.axis.Boolean())
     h2 = bh.Histogram(bh.axis.Boolean())
@@ -589,6 +642,87 @@ def test_hist_hist_div():
 
     assert h1[False] == 4
     assert h1[True] == 2
+
+
+@pytest.mark.parametrize("storage", [bh.storage.Int64, bh.storage.AtomicInt64])
+def test_int_storage_division_promotes_to_double(storage):
+    # gh #601: dividing integer-storage histograms must not truncate.
+    a = bh.Histogram(bh.axis.Integer(0, 3), storage=storage())
+    b = bh.Histogram(bh.axis.Integer(0, 3), storage=storage())
+    a[:] = (5, 3, 7)
+    b[:] = (2, 4, 3)
+
+    expected = np.array([5, 3, 7]) / np.array([2, 4, 3])
+
+    # hist / hist
+    result = a / b
+    assert result.storage_type is bh.storage.Double
+    assert result.view() == approx(expected)
+    # operands are unchanged
+    assert a.storage_type is storage
+    assert b.storage_type is storage
+
+    # hist / scalar
+    assert (a / 2).view() == approx(np.array([5, 3, 7]) / 2)
+    assert (a / 2).storage_type is bh.storage.Double
+
+    # in-place division promotes storage but keeps the same object
+    a_orig = a
+    a /= b
+    assert a is a_orig
+    assert a.storage_type is bh.storage.Double
+    assert a.view() == approx(expected)
+
+
+def test_mixed_int_double_division():
+    # gh #601: storage mismatch must still divide correctly.
+    ai = bh.Histogram(bh.axis.Integer(0, 3), storage=bh.storage.Int64())
+    bd = bh.Histogram(bh.axis.Integer(0, 3), storage=bh.storage.Double())
+    ai[:] = (5, 3, 7)
+    bd[:] = (2, 4, 3)
+
+    expected = np.array([5, 3, 7]) / np.array([2, 4, 3])
+    assert (ai / bd).view() == approx(expected)
+    assert (bd / ai).view() == approx(1 / expected)
+
+
+def test_reflected_scalar_operators():
+    # gh-1154: scalar - hist and scalar / hist were missing (only the
+    # commutative __radd__/__rmul__ existed).
+    h = bh.Histogram(bh.axis.Regular(4, 0, 4))
+    h[:] = (1, 2, 4, 5)
+    values = h.view().copy()
+
+    # scalar - hist == -(hist - scalar)
+    assert (10 - h).view() == approx(10 - values)
+    assert (10 - h).view() == approx(((h - 10) * -1).view())
+    # scalar / hist, elementwise
+    assert (8 / h).view() == approx(8 / values)
+    # operands left unchanged
+    assert h.view() == approx(values)
+
+
+def test_reflected_division_promotes_int_storage():
+    # gh-1154: scalar / int-hist must not truncate (mirrors __itruediv__).
+    h = bh.Histogram(bh.axis.Integer(0, 3), storage=bh.storage.Int64())
+    h[:] = (2, 4, 8)
+    result = 1 / h
+    assert result.storage_type is bh.storage.Double
+    assert result.view() == approx(1 / np.array([2, 4, 8]))
+    assert h.storage_type is bh.storage.Int64
+
+
+def test_reflected_operators_weight_storage():
+    # scalar - weighted-hist works (variance is preserved through the negation),
+    # but scalar / weighted-hist is rejected: the reciprocal of a weighted sum
+    # has no meaningful variance (matches test_view_rdiv_rejected).
+    h = bh.Histogram(bh.axis.Regular(3, 0, 3), storage=bh.storage.Weight())
+    h.fill([0, 1, 1, 2], weight=[1, 2, 3, 4])
+    values = h.values().copy()
+
+    assert (10 - h).values() == approx(10 - values)
+    with pytest.raises(TypeError, match="divide a scalar or array"):
+        12 / h
 
 
 def test_project():
@@ -619,16 +753,49 @@ def test_project():
     with pytest.raises(ValueError):
         h.project(-1)
 
+    h_noflow = h.project(0, flow=False)
+    assert [h_noflow[i] for i in range(2)] == [2, 1]
+
+    h.fill(-1, 0)
+    h.fill(0, 0)
+
+    h_flow_true = h.project(0, flow=True)
+    assert h_flow_true[0] == 3
+
+    h_flow_false = h.project(0, flow=False)
+    assert h_flow_false[0] == 2
+
+
+def test_project_nd():
+    h = bh.Histogram(
+        bh.axis.Integer(0, 2), bh.axis.Integer(0, 2), bh.axis.Integer(0, 2)
+    )
+
+    h.fill(0, 0, 0)
+    h.fill(1, 1, 0)
+
+    h.fill(0, 0, -1)
+    h.fill(1, 1, 2)
+
+    h_flow_true = h.project(0, 1, flow=True)
+    h_flow_false = h.project(0, 1, flow=False)
+
+    assert h_flow_true[0, 0] == 2
+    assert h_flow_true[1, 1] == 2
+
+    assert h_flow_false[0, 0] == 1
+    assert h_flow_false[1, 1] == 1
+
 
 def test_shrink_1d():
     h = bh.Histogram(bh.axis.Regular(20, 1, 5))
     h.fill(1.1)
     hs = h[{0: slice(bh.loc(1), bh.loc(2))}]
-    assert_array_equal(hs.view(), [1, 0, 0, 0, 0])
+    assert hs.view() == approx([1, 0, 0, 0, 0])
 
     d = OrderedDict({0: slice(bh.loc(1), bh.loc(2))})
     hs = h[d]
-    assert_array_equal(hs.view(), [1, 0, 0, 0, 0])
+    assert hs.view() == approx([1, 0, 0, 0, 0])
 
 
 @pytest.mark.parametrize(
@@ -639,33 +806,33 @@ def test_rebin_1d(metadata):
     h.fill([1.1, 2.2, 3.3, 4.4])
 
     hs = h[{0: slice(None, None, bh.rebin(4))}]
-    assert_array_equal(hs.view(), [1, 1, 1, 0, 1])
+    assert hs.view() == approx([1, 1, 1, 0, 1])
     assert h.axes[0].metadata is hs.axes[0].metadata
 
     hs = h[{0: bh.rebin(4)}]
-    assert_array_equal(hs.view(), [1, 1, 1, 0, 1])
+    assert hs.view() == approx([1, 1, 1, 0, 1])
     assert h.axes[0].metadata is hs.axes[0].metadata
 
     hs = h[{0: bh.rebin(groups=[1, 2, 3, 14])}]
-    assert_array_equal(hs.view(), [1, 0, 0, 3])
-    assert_array_equal(hs.axes.edges[0], [1.0, 1.2, 1.6, 2.2, 5.0])
+    assert hs.view() == approx([1, 0, 0, 3])
+    assert hs.axes.edges[0] == approx([1.0, 1.2, 1.6, 2.2, 5.0])
     assert h.axes[0].metadata is hs.axes[0].metadata
 
     exact_edges = [1.0, 1.2, 1.6, 2.2, 5.0]
     hs = h[bh.rebin(edges=exact_edges)]
-    assert_array_equal(hs.view(), [1, 0, 0, 3])
-    assert_array_equal(hs.axes.edges[0], exact_edges)
+    assert hs.view() == approx([1, 0, 0, 3])
+    assert hs.axes.edges[0] == approx(exact_edges)
     assert h.axes[0].metadata is hs.axes[0].metadata
 
     fuzzy_edges = [1.0, 1.200000000000001, 1.6, 2.2, 5.0]
     hs = h[bh.rebin(edges=fuzzy_edges)]
-    assert_array_equal(hs.view(), [1, 0, 0, 3])
-    assert_array_equal(hs.axes.edges[0], exact_edges)
+    assert hs.view() == approx([1, 0, 0, 3])
+    assert hs.axes.edges[0] == approx(exact_edges)
     assert h.axes[0].metadata is hs.axes[0].metadata
 
     hs = h[bh.rebin(axis=bh.axis.Variable([1.0, 1.2, 1.6, 2.2, 5.0], metadata="hi"))]
-    assert_array_equal(hs.view(), [1, 0, 0, 3])
-    assert_array_equal(hs.axes.edges[0], [1.0, 1.2, 1.6, 2.2, 5.0])
+    assert hs.view() == approx([1, 0, 0, 3])
+    assert hs.axes.edges[0] == approx([1.0, 1.2, 1.6, 2.2, 5.0])
     assert hs.axes[0].metadata == "hi"
 
 
@@ -673,52 +840,106 @@ def test_rebin_1d_flow():
     h = bh.Histogram(bh.axis.Regular(5, 0, 5, underflow=True, overflow=True))
     h.fill([-1, 1.1, 2.2, 3.3, 4.4, 5.5])
     hs = h[bh.rebin(edges=[0, 3, 5.0])]
-    assert_array_equal(hs.view(), [2, 2])
-    assert_array_equal(hs.view(flow=True), [1, 2, 2, 1])
-    assert_array_equal(hs.axes.edges[0], [0.0, 3.0, 5.0])
+    assert hs.view() == approx([2, 2])
+    assert hs.view(flow=True) == approx([1, 2, 2, 1])
+    assert hs.axes.edges[0] == approx([0.0, 3.0, 5.0])
 
     # Flow bins are kept from the original
     h = bh.Histogram(bh.axis.Regular(5, 0, 5, underflow=False, overflow=False))
     h.fill([-1, 1.1, 2.2, 3.3, 4.4, 5.5])
     hs = h[bh.rebin(edges=[0, 3, 5.0])]
-    assert_array_equal(hs.view(flow=True), [2, 2])
+    assert hs.view(flow=True) == approx([2, 2])
 
     h = bh.Histogram(bh.axis.Regular(5, 0, 5, underflow=True, overflow=False))
     h.fill([-1, 1.1, 2.2, 3.3, 4.4, 5.5])
     hs = h[bh.rebin(edges=[0, 3, 5.0])]
-    assert_array_equal(hs.view(flow=True), [1, 2, 2])
+    assert hs.view(flow=True) == approx([1, 2, 2])
 
     h = bh.Histogram(bh.axis.Regular(5, 0, 5, underflow=True, overflow=True))
     h.fill([-1, 1.1, 2.2, 3.3, 4.4, 5.5])
     hs = h[
         bh.rebin(axis=bh.axis.Variable([0, 3, 5.0], underflow=False, overflow=False))
     ]
-    assert_array_equal(hs.view(flow=True), [2, 2])
+    assert hs.view(flow=True) == approx([2, 2])
 
 
 def test_rebin_change_axis_int():
     h = bh.Histogram(bh.axis.Regular(5, 0, 5))
     h.fill([-1, 1.1, 2.2, 3.3, 4.4, 5.5])
     hs = h[bh.rebin(edges=[0, 3, 5.0], axis=bh.axis.Integer(10, 12))]
-    assert_array_equal(hs.view(), [2, 2])
-    assert_array_equal(hs.view(flow=True), [1, 2, 2, 1])
-    assert_array_equal(hs.axes.edges[0], [10, 11, 12])
+    assert hs.view() == approx([2, 2])
+    assert hs.view(flow=True) == approx([1, 2, 2, 1])
+    assert hs.axes.edges[0] == approx([10, 11, 12])
 
 
 def test_rebin_change_axis_cat():
     h = bh.Histogram(bh.axis.Regular(5, 0, 5))
     h.fill([-1, 1.1, 2.2, 3.3, 4.4, 5.5])
     hs = h[bh.rebin(groups=[2, 3], axis=bh.axis.StrCategory(["a", "b"]))]
-    assert_array_equal(hs.view(), [1, 3])
-    assert_array_equal(hs.view(flow=True), [1, 3, 4])
-    assert_array_equal(list(hs.axes[0]), ["a", "b"])
+    assert hs.view() == approx([1, 3])
+    # Old underflow (1) and old overflow (1) both end up in the new overflow,
+    # exactly once each.
+    assert hs.view(flow=True) == approx([1, 3, 2])
+    assert list(hs.axes[0]) == approx(["a", "b"])
+
+
+def test_rebin_groups_flow_to_noflow():
+    # Issue #1143 (B6b): rebinning a flow axis onto a categorical axis
+    # without an underflow bin must not fold the old underflow into the
+    # first group, and must add it to the new overflow exactly once.
+    h = bh.Histogram(bh.axis.Regular(4, 0, 4))
+    h.view(flow=True)[:] = [100, 1, 2, 3, 4, 200]
+    hs = h[bh.rebin(groups=[2, 2], axis=bh.axis.IntCategory([0, 1]))]
+    assert hs.view(flow=True) == approx([3, 7, 300])
+
+
+def test_rebin_groups_flow_combinations():
+    # All combinations of (old flow) x (new flow) for group rebinning.
+    h = bh.Histogram(bh.axis.Regular(4, 0, 4))
+    h.view(flow=True)[:] = [100, 1, 2, 3, 4, 200]
+
+    # Old flow -> new flow: flow bins are carried over unchanged
+    assert h[bh.rebin(groups=[2, 2])].view(flow=True) == approx([100, 3, 7, 200])
+
+    # Old underflow dropped on an ordered axis without underflow
+    hs = h[bh.rebin(groups=[2, 2], axis=bh.axis.Variable([0, 2, 4], underflow=False))]
+    assert hs.view(flow=True) == approx([3, 7, 200])
+
+    # Old overflow dropped on an axis without overflow
+    hs = h[bh.rebin(groups=[2, 2], axis=bh.axis.Variable([0, 2, 4], overflow=False))]
+    assert hs.view(flow=True) == approx([100, 3, 7])
+
+    # Both flow bins dropped on a flowless ordered axis
+    hs = h[
+        bh.rebin(
+            groups=[2, 2],
+            axis=bh.axis.Variable([0, 2, 4], underflow=False, overflow=False),
+        )
+    ]
+    assert hs.view(flow=True) == approx([3, 7])
+
+    # Old axis without underflow: new axis copies the traits
+    h2 = bh.Histogram(bh.axis.Regular(4, 0, 4, underflow=False))
+    h2.view(flow=True)[:] = [1, 2, 3, 4, 200]
+    assert h2[bh.rebin(groups=[2, 2])].view(flow=True) == approx([3, 7, 200])
+
+    # Old axis without underflow onto a categorical axis: only the old
+    # overflow goes to the new overflow
+    hs = h2[bh.rebin(groups=[2, 2], axis=bh.axis.IntCategory([0, 1]))]
+    assert hs.view(flow=True) == approx([3, 7, 200])
+
+    # Old flowless axis onto an axis with flow: new flow bins stay empty
+    h3 = bh.Histogram(bh.axis.Regular(4, 0, 4, underflow=False, overflow=False))
+    h3.view(flow=True)[:] = [1, 2, 3, 4]
+    hs = h3[bh.rebin(groups=[2, 2], axis=bh.axis.Variable([0, 2, 4]))]
+    assert hs.view(flow=True) == approx([0, 3, 7, 0])
 
 
 def test_shrink_rebin_1d():
     h = bh.Histogram(bh.axis.Regular(20, 0, 4))
     h.fill(1.1)
     hs = h[{0: slice(bh.loc(1), bh.loc(3), bh.rebin(2))}]
-    assert_array_equal(hs.view(), [1, 0, 0, 0, 0])
+    assert hs.view() == approx([1, 0, 0, 0, 0])
 
 
 def test_rebin_nd():
@@ -810,7 +1031,7 @@ def test_pickle_0(flow):
             a.fill(i, j, 0, 0, 0)
             for k in range(a.axes[2].extent):
                 a.fill(i, j, k, 0, 0)
-                for l in range(a.axes[3].extent):  # noqa: E741
+                for l in range(a.axes[3].extent):
                     a.fill(i, j, k, l, 0)
                     for m in range(a.axes[4].extent):
                         a.fill(i, j, k, l, m * 0.5 * np.pi)
@@ -846,7 +1067,7 @@ def test_pickle_1():
             a.fill(i, j, 0, 0, weight=10)
             for k in range(a.axes[2].extent):
                 a.fill(i, j, k, 0, weight=2)
-                for l in range(a.axes[3].extent):  # noqa: E741
+                for l in range(a.axes[3].extent):
                     a.fill(i, j, k, l, weight=5)
 
     io = BytesIO()
@@ -871,7 +1092,7 @@ def test_fill_bool_not_bool():
 
     h.fill([0, 1, 1, 7, -3])
 
-    assert_array_equal(h.view(), [1, 4])
+    assert h.view() == approx([1, 4])
 
 
 def test_pick_bool():
@@ -880,22 +1101,22 @@ def test_pick_bool():
     h.fill([True, True, False, False], [True, False, True, True])
     h.fill([True, True, True], True)
 
-    assert_array_equal(h[True, :].view(), [1, 4])
-    assert_array_equal(h[False, :].view(), [0, 2])
-    assert_array_equal(h[:, False].view(), [0, 1])
-    assert_array_equal(h[:, True].view(), [2, 4])
+    assert h[True, :].view() == approx([1, 4])
+    assert h[False, :].view() == approx([0, 2])
+    assert h[:, False].view() == approx([0, 1])
+    assert h[:, True].view() == approx([2, 4])
 
 
 def test_slice_bool():
     h = bh.Histogram(bh.axis.Boolean())
     h.fill([0, 0, 0, 1, 3, 4, -2])
 
-    assert_array_equal(h.view(), [3, 4])
-    assert_array_equal(h[1:].view(), [4])
-    assert_array_equal(h[:1].view(), [3])
+    assert h.view() == approx([3, 4])
+    assert h[1:].view() == approx([4])
+    assert h[:1].view() == approx([3])
 
-    assert_array_equal(h[:1].axes[0].centers, [0.5])
-    assert_array_equal(h[1:].axes[0].centers, [1.5])
+    assert h[:1].axes[0].centers == approx([0.5])
+    assert h[1:].axes[0].centers == approx([1.5])
 
 
 def test_pickle_bool():
@@ -923,7 +1144,7 @@ def test_pickle_bool():
     assert repr(a) == repr(b)
     assert str(a) == str(b)
     assert a == b
-    assert_array_equal(a.view(), b.view())
+    assert a.view() == approx(b.view())
 
 
 # NumPy tests
@@ -939,20 +1160,20 @@ def test_numpy_conversion_0():
 
     for t in (c, v):
         assert t.dtype == np.double  # CLASSIC: np.uint8
-        assert_array_equal(t, (1, 5, 0))
+        assert t == approx((1, 5, 0))
 
     for _ in range(10):
         a.fill(2)
     # copy does not change, but view does
-    assert_array_equal(c, (1, 5, 0))
-    assert_array_equal(v, (1, 5, 10))
+    assert c == approx((1, 5, 0))
+    assert v == approx((1, 5, 10))
 
     for _ in range(255):
         a.fill(1)
     c = np.array(a)
 
     assert c.dtype == np.double  # CLASSIC: np.uint16
-    assert_array_equal(c, (1, 260, 10))
+    assert c == approx((1, 260, 10))
     # view does not follow underlying switch in word size
     # assert not np.all(c, v)
 
@@ -965,8 +1186,8 @@ def test_numpy_conversion_1():
     c = np.array(h)  # a copy
     v = np.asarray(h)  # a view
     assert c.dtype == np.double  # CLASSIC: np.float64
-    assert_array_equal(c, np.array((0, 30, 0)))
-    assert_array_equal(v, c)
+    assert c == approx(np.array((0, 30, 0)))
+    assert v == approx(c)
 
 
 def test_numpy_conversion_2():
@@ -989,13 +1210,13 @@ def test_numpy_conversion_2():
             for k in range(a.axes[2].extent):
                 d[i, j, k] = a[i, j, k]
 
-    assert_array_equal(d, r)
+    assert d == approx(r)
 
     c = np.array(a)  # a copy
     v = np.asarray(a)  # a view
 
-    assert_array_equal(c, r)
-    assert_array_equal(v, r)
+    assert c == approx(r)
+    assert v == approx(r)
 
 
 def test_numpy_conversion_3():
@@ -1014,7 +1235,7 @@ def test_numpy_conversion_3():
                 r[i, j, k] = i + j + k
     c = a.view(flow=True)
 
-    assert_array_equal(c, r)
+    assert c == approx(r)
 
     assert a.sum() == approx(144)
     assert a.sum(flow=True) == approx(720)
@@ -1069,6 +1290,25 @@ def test_numpy_conversion_5():
     assert a1[2, 1] == 5
 
 
+def test_rank0_sum_empty():
+    # A rank-0 histogram has a single cell and no flow bins. inner coverage
+    # used to drive Boost's indexed range, which is UB for rank-0 and crashed
+    # depending on stack layout (e.g. free-threaded Windows). inner == all here.
+    h = bh.Histogram()
+    assert h.ndim == 0
+    assert h.empty() is True
+    assert h.empty(flow=True) is True
+    assert h.sum() == 0
+    assert h.sum(flow=True) == 0
+
+    h.fill()
+    h.fill()
+    h.fill()
+    assert h.empty() is False
+    assert h.sum() == 3
+    assert h.sum(flow=True) == 3
+
+
 @pytest.mark.parametrize(
     "dtype",
     [np.int8, np.int16, np.int32, np.int64, np.uint8, np.uint16, np.uint32, np.uint64],
@@ -1091,7 +1331,7 @@ def test_fill_with_sequence_0():
     a.fill(np.array(1))  # 0-dim arrays work
     a.fill(ia(-1, 0, 1, 2))
     a.fill((2, 1, 0, -1))
-    assert_array_equal(a.view(True), [2, 2, 3, 2])
+    assert a.view(True) == approx([2, 2, 3, 2])
 
     with pytest.raises(ValueError):
         a.fill(np.empty((2, 2)))
@@ -1108,13 +1348,13 @@ def test_fill_with_sequence_0():
     b = bh.Histogram(bh.axis.Regular(3, 0, 3))
     b.fill(fa(0, 0, 1, 2))
     b.fill(ia(1, 0, 2, 2))
-    assert_array_equal(b.view(True), [0, 3, 2, 3, 0])
+    assert b.view(True) == approx([0, 3, 2, 3, 0])
 
     c = bh.Histogram(
         bh.axis.Integer(0, 2, underflow=False, overflow=False), bh.axis.Regular(2, 0, 2)
     )
     c.fill(ia(-1, 0, 1), fa(-1.0, 1.5, 0.5))
-    assert_array_equal(c.view(True), [[0, 0, 1, 0], [0, 1, 0, 0]])
+    assert c.view(True) == approx(np.array([[0, 0, 1, 0], [0, 1, 0, 0]]))
     # we don't support: assert a[[1, 1]].value, 0
 
     with pytest.raises(ValueError):
@@ -1124,11 +1364,11 @@ def test_fill_with_sequence_0():
 
     # this broadcasts
     c.fill([1, 0], -1)
-    assert_array_equal(c.view(True), [[1, 0, 1, 0], [1, 1, 0, 0]])
+    assert c.view(True) == approx(np.array([[1, 0, 1, 0], [1, 1, 0, 0]]))
     c.fill([1, 0], 0)
-    assert_array_equal(c.view(True), [[1, 1, 1, 0], [1, 2, 0, 0]])
+    assert c.view(True) == approx(np.array([[1, 1, 1, 0], [1, 2, 0, 0]]))
     c.fill(0, [-1, 0.5, 1.5, 2.5])
-    assert_array_equal(c.view(True), [[2, 2, 2, 1], [1, 2, 0, 0]])
+    assert c.view(True) == approx(np.array([[2, 2, 2, 1], [1, 2, 0, 0]]))
 
     with pytest.raises(IndexError):
         c[1]
@@ -1207,10 +1447,10 @@ def test_fill_with_sequence_2():
     a.fill("A")
     a.fill(np.array("B"))  # 0-dim array is also accepted
     a.fill(("A", "B", "C"))
-    assert_array_equal(a.view(True), [2, 2, 1])
+    assert a.view(True) == approx([2, 2, 1])
     a.fill(np.array(("D", "B", "A"), dtype="S5"))
     a.fill(np.array(("D", "B", "A"), dtype="U1"))
-    assert_array_equal(a.view(True), [4, 4, 3])
+    assert a.view(True) == approx([4, 4, 3])
 
     with pytest.raises(ValueError):
         a.fill(np.array((("B", "A"), ("C", "A"))))  # ndim == 2 not allowed
@@ -1220,7 +1460,7 @@ def test_fill_with_sequence_2():
         bh.axis.StrCategory(["A", "B"]),
     )
     b.fill((1, 0, 10), ("C", "B", "A"))
-    assert_array_equal(b.view(True), [[0, 1, 0], [0, 0, 1]])
+    assert b.view(True) == approx(np.array([[0, 1, 0], [0, 0, 1]]))
 
 
 def test_fill_with_sequence_3():
@@ -1231,7 +1471,7 @@ def test_fill_with_sequence_3():
     assert h.axes[0].size == 1
     h.fill(["A", "B"])
     assert h.axes[0].size == 2
-    assert_array_equal(h.view(True), [3, 1])
+    assert h.view(True) == approx([3, 1])
 
 
 def test_fill_with_sequence_4():
@@ -1241,7 +1481,7 @@ def test_fill_with_sequence_4():
     h.fill("1", np.arange(2))
     assert h.axes[0].size == 1
     assert h.axes[1].size == 2
-    assert_array_equal(h.view(True), [[1, 1]])
+    assert h.view(True) == approx(np.array([[1, 1]]))
 
     with pytest.raises(ValueError):
         h.fill(["1"], np.arange(2))  # lengths do not match
@@ -1274,10 +1514,11 @@ def test_axes_lifetime():
 
     ax = h.axes[0]
 
-    if platform.python_implementation == "CPython":
+    if platform.python_implementation() == "CPython":
         # 2 is the minimum refcount, so the *python* object should be deleted
         # after the del; hopefully the C++ object lives through the axis instance.
-        assert sys.getrefcount(h) == 2
+        # On Python 3.14, this can be 1
+        assert sys.getrefcount(h) <= 2
 
     del h
 
@@ -1325,23 +1566,7 @@ def test_hist_division():
 
     h1 /= h.axes[0].widths * h.sum()
 
-    assert_array_equal(h1.view(), dens)
-
-
-# issue #416 b
-# def test_hist_division():
-#     edges = [0, .25, .5, .75, 1, 2, 3, 4, 7, 10]
-#    edges = [-x for x in reversed(edges)] + edges[1:]
-#
-#    h = bh.Histogram(bh.axis.Variable(edges))
-#    h[...] = 1
-#
-#    dens = h.view().copy() / h.axes[0].widths * h.sum()
-#    h1 = h.copy()
-#
-#    h1[:] /=  h.axes[0].widths * h.sum()
-#
-#    assert_allclose(h1.view(), dens)
+    assert h1.view() == approx(dens)
 
 
 def test_add_hists():
@@ -1360,10 +1585,10 @@ def test_add_hists():
     h3 = h.copy()
     h3 += 5
 
-    assert_array_equal(h, 1)
-    assert_array_equal(h1, 2)
-    assert_array_equal(h2, 3)
-    assert_array_equal(h3, 6)
+    assert np.asarray(h) == approx(1)
+    assert np.asarray(h1) == approx(2)
+    assert np.asarray(h2) == approx(3)
+    assert np.asarray(h3) == approx(6)
 
 
 def test_add_broadcast():
@@ -1413,7 +1638,7 @@ def test_reductions():
     widths_1 = functools.reduce(operator.mul, h.axes.widths)
     widths_2 = np.prod(h.axes.widths, axis=0)
 
-    assert_array_equal(widths_1, widths_2)
+    assert widths_1 == approx(widths_2)
 
 
 # Issue 435
@@ -1459,3 +1684,229 @@ def test_underfill_growth():
     h.fill(2)
     h.fill(-1)
     assert h.sum() == 2
+
+
+# ---- allclose tests ---------------------------------------------------------
+
+
+def test_allclose_same_histogram():
+    h = bh.Histogram(bh.axis.Regular(5, 0, 1))
+    h.fill(np.random.default_rng(42).random(100))
+
+    assert h.allclose(h)
+    assert h.allclose(h.copy())
+
+
+def test_allclose_different_bins():
+    h1 = bh.Histogram(bh.axis.Regular(5, 0, 1))
+    h2 = bh.Histogram(bh.axis.Regular(5, 0, 1))
+
+    rng = np.random.default_rng(42)
+    vals = rng.random(100)
+    h1.fill(vals)
+    h2.fill(vals)
+    h2.fill(0.7)
+
+    assert not h1.allclose(h2)
+
+
+def test_allclose_edges_within_tol():
+    h1 = bh.Histogram(bh.axis.Regular(5, 0, 1))
+    h2 = bh.Histogram(bh.axis.Regular(5, 0, 1 + 1e-7))
+
+    assert h1.allclose(h2)
+
+
+def test_allclose_edges_outside_tol():
+    h1 = bh.Histogram(bh.axis.Regular(5, 0, 1))
+    h2 = bh.Histogram(bh.axis.Regular(5, 0, 1 + 0.1))
+
+    assert not h1.allclose(h2)
+
+
+def test_allclose_different_shape():
+    h1 = bh.Histogram(bh.axis.Regular(5, 0, 1))
+    h2 = bh.Histogram(bh.axis.Regular(6, 0, 1))
+
+    assert not h1.allclose(h2)
+
+
+def test_allclose_different_ndim():
+    h1 = bh.Histogram(bh.axis.Regular(5, 0, 1))
+    h2 = bh.Histogram(bh.axis.Regular(5, 0, 1), bh.axis.Regular(3, 0, 1))
+
+    assert not h1.allclose(h2)
+
+
+def test_allclose_different_storage():
+    h1 = bh.Histogram(bh.axis.Regular(5, 0, 1))
+    h2 = bh.Histogram(bh.axis.Regular(5, 0, 1), storage=bh.storage.Weight())
+
+    assert not h1.allclose(h2)
+
+
+def test_allclose_flow_option():
+    h1 = bh.Histogram(bh.axis.Regular(3, 0, 1))
+    h2 = bh.Histogram(bh.axis.Regular(3, 0, 1))
+
+    h1.fill([0.5])  # central bin only
+    h2.fill([0.5])  # central bin only
+    # h1 has flow bins empty, h2 also, so both should match with/without flow
+    assert h1.allclose(h2, flow=True)
+    assert h1.allclose(h2, flow=False)
+
+    # Now put different data in underflow
+    h3 = bh.Histogram(bh.axis.Regular(3, 0, 1))
+    h4 = bh.Histogram(bh.axis.Regular(3, 0, 1))
+    h3.fill([-0.5])
+    h4.fill([-0.5, -0.5])
+
+    assert not h3.allclose(h4, flow=True)
+    assert h3.allclose(h4, flow=False)
+
+
+def test_allclose_metadata():
+    h1 = bh.Histogram(bh.axis.Regular(3, 0, 1), metadata="foo")
+    h2 = bh.Histogram(bh.axis.Regular(3, 0, 1), metadata="foo")
+    h3 = bh.Histogram(bh.axis.Regular(3, 0, 1), metadata="bar")
+
+    assert h1.allclose(h2)
+    assert h1.allclose(h2, metadata=True)
+    assert not h1.allclose(h3, metadata=True)
+    assert h1.allclose(h3, metadata=False)
+
+
+def test_allclose_non_histogram():
+    h = bh.Histogram(bh.axis.Regular(3, 0, 1))
+    assert not h.allclose(42)
+    assert not h.allclose("histogram")
+
+
+def test_allclose_categorical_exact():
+    h1 = bh.Histogram(bh.axis.StrCategory(["a", "b"]))
+    h2 = bh.Histogram(bh.axis.StrCategory(["a", "b"]))
+    h3 = bh.Histogram(bh.axis.StrCategory(["a", "c"]))
+    h4 = bh.Histogram(bh.axis.StrCategory(["b", "a"]))
+
+    assert h1.allclose(h2)
+    assert not h1.allclose(h3)
+    assert not h1.allclose(h4)
+
+
+def test_allclose_intcategory():
+    h1 = bh.Histogram(bh.axis.IntCategory([1, 2, 3]))
+    h2 = bh.Histogram(bh.axis.IntCategory([1, 2, 3]))
+    h3 = bh.Histogram(bh.axis.IntCategory([1, 2, 4]))
+
+    assert h1.allclose(h2)
+    assert not h1.allclose(h3)
+
+
+def test_allclose_boolean():
+    h1 = bh.Histogram(bh.axis.Boolean())
+    h2 = bh.Histogram(bh.axis.Boolean())
+
+    assert h1.allclose(h2)
+
+
+def test_allclose_mean_storage():
+    h1 = bh.Histogram(bh.axis.Regular(3, 0, 1), storage=bh.storage.Mean())
+    h2 = bh.Histogram(bh.axis.Regular(3, 0, 1), storage=bh.storage.Mean())
+
+    rng = np.random.default_rng(42)
+    samples = rng.random(100)
+    h1.fill(samples, sample=samples)
+    h2.fill(samples, sample=samples)
+
+    assert h1.allclose(h2)
+
+
+def test_allclose_weight_storage():
+    h1 = bh.Histogram(bh.axis.Regular(3, 0, 1), storage=bh.storage.Weight())
+    h2 = bh.Histogram(bh.axis.Regular(3, 0, 1), storage=bh.storage.Weight())
+
+    rng = np.random.default_rng(42)
+    data = rng.random(100)
+    w = rng.random(100)
+    h1.fill(data, weight=w)
+    h2.fill(data, weight=w)
+
+    assert h1.allclose(h2)
+
+
+def test_allclose_weighted_mean_storage():
+    h1 = bh.Histogram(bh.axis.Regular(3, 0, 1), storage=bh.storage.WeightedMean())
+    h2 = bh.Histogram(bh.axis.Regular(3, 0, 1), storage=bh.storage.WeightedMean())
+
+    rng = np.random.default_rng(42)
+    data = rng.random(100)
+    w = rng.random(100)
+    h1.fill(data, sample=data, weight=w)
+    h2.fill(data, sample=data, weight=w)
+
+    assert h1.allclose(h2)
+
+
+def test_allclose_different_continuous_traits():
+    h1 = bh.Histogram(bh.axis.Regular(3, 0, 1))
+    h2 = bh.Histogram(bh.axis.Integer(0, 3))
+
+    assert not h1.allclose(h2)
+
+
+@pytest.mark.skipif(sys.platform.startswith("emscripten"), reason="needs subprocess")
+def test_missing_core_hint():
+    # Issue #1143 (B10): if the compiled _core module is missing, the import
+    # error must include the "did you forget to compile" hint. This only works
+    # if boost_histogram/__init__.py imports _core before any submodule does.
+    code = """
+import sys
+import importlib.abc
+
+class Blocker(importlib.abc.MetaPathFinder):
+    def find_spec(self, name, path=None, target=None):
+        if name == "boost_histogram._core":
+            raise ModuleNotFoundError(f"No module named {name!r}", name=name)
+        return None
+
+sys.meta_path.insert(0, Blocker())
+import boost_histogram
+"""
+    result = subprocess.run(
+        [sys.executable, "-c", code], capture_output=True, text=True, check=False
+    )
+    assert result.returncode != 0
+    assert "Did you forget to compile boost-histogram?" in result.stderr
+
+
+def test_fill_noncontiguous_int_category():
+    # Regression test for gh-1143: fill must honor input strides
+    cat = [1, 2, 3]
+    expected = bh.Histogram(bh.axis.IntCategory(cat))
+    expected.fill([1, 3, 2, 1])
+
+    h = bh.Histogram(bh.axis.IntCategory(cat))
+    h.fill(np.array([1, 2, 3, 1])[::-1])
+    assert h.view(flow=True) == approx(expected.view(flow=True))
+
+    h2 = bh.Histogram(bh.axis.IntCategory(cat))
+    h2.fill(np.array([1, 7, 3, 7, 2, 7, 1, 7])[::2])
+    assert h2.view(flow=True) == approx(expected.view(flow=True))
+
+
+def test_fill_noncontiguous_str_category():
+    # Regression test for gh-1143: fill must honor input strides
+    cat = ["a", "b", "c"]
+    expected = bh.Histogram(bh.axis.StrCategory(cat))
+    expected.fill(["a", "c", "a"])
+
+    h = bh.Histogram(bh.axis.StrCategory(cat))
+    h.fill(np.array(["a", "b", "c", "b", "a"])[::2])
+    assert h.view(flow=True) == approx(expected.view(flow=True))
+
+    expected2 = bh.Histogram(bh.axis.StrCategory(cat))
+    expected2.fill(["c", "b", "a"])
+
+    h2 = bh.Histogram(bh.axis.StrCategory(cat))
+    h2.fill(np.array(["a", "b", "c"])[::-1])
+    assert h2.view(flow=True) == approx(expected2.view(flow=True))

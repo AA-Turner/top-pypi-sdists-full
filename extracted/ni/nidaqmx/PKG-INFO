@@ -1,7 +1,7 @@
 Metadata-Version: 2.3
 Name: nidaqmx
-Version: 1.5.0
-Summary: NI-DAQmx Python API
+Version: 1.6.0
+Summary: Official NI-DAQmx Python API
 License: MIT
 Keywords: nidaqmx,nidaq,daqmx,daq
 Author: NI
@@ -47,7 +47,7 @@ Project-URL: Repository, https://github.com/ni/nidaqmx-python
 Description-Content-Type: text/x-rst
 
 +------------+-----------------------------------------------------------+
-| **Info**   | NI-DAQmx API for Python                                   | 
+| **Info**   | Official NI-DAQmx Python API                              |
 +------------+-----------------------------------------------------------+
 | **Author** | National Instruments                                      |
 +------------+-----------------------------------------------------------+
@@ -115,6 +115,11 @@ You can use `pip <http://pypi.python.org/pypi/pip>`_ to download **nidaqmx** fro
 `PyPI <https://pypi.org/project/nidaqmx/>`_ and install it::
 
   $ python -m pip install nidaqmx
+
+To use **nidaqmx** with gRPC, install it with the ``grpc`` extra to include the
+required dependencies::
+
+  $ python -m pip install nidaqmx[grpc]
 
 Automatic Driver Installation
 -----------------------------

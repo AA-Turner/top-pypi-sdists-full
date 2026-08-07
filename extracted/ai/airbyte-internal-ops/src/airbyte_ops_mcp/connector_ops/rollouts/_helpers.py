@@ -13,6 +13,7 @@ from datetime import datetime, timezone
 from airbyte_connector_models.metadata.v0.connector_registry_v0 import (
     ConnectorRegistryV0ConnectorRegistryReleasesRolloutConfiguration as RolloutConfiguration,
 )
+from packaging.version import InvalidVersion, Version
 
 from airbyte_ops_mcp.cloud_admin.registry_lookup import (
     _fetch_cloud_registry,
@@ -81,6 +82,25 @@ def _parse_rollout_config(raw: dict) -> RolloutConfiguration:
     return RolloutConfiguration.model_validate(filtered)
 
 
+def _highest_candidate_rollout_config(release_candidates: dict) -> dict | None:
+    """Return the `rolloutConfiguration` of the highest advertised candidate.
+
+    Returns `None` when no candidate key parses as a version or the highest one
+    carries no rollout configuration.
+    """
+    parsed: list[tuple[Version, str]] = []
+    for key in release_candidates:
+        try:
+            parsed.append((Version(key), key))
+        except InvalidVersion:
+            continue
+    if not parsed:
+        return None
+    _, highest_key = max(parsed)
+    candidate = release_candidates.get(highest_key, {})
+    return candidate.get("releases", {}).get("rolloutConfiguration") or None
+
+
 def _extract_rollout_config(
     entry: dict,
     rc_version: str | None,
@@ -89,14 +109,29 @@ def _extract_rollout_config(
 
     When `rc_version` is provided, looks in the RC-specific metadata first
     (at `releases.releaseCandidates[rc_version].releases.rolloutConfiguration`).
-    Falls back to the top-level `releases.rolloutConfiguration`.
+
+    A version that has been superseded is no longer advertised, so its own entry
+    is gone and with it any `defaultRolloutMode` it declared. Rather than fall
+    straight through to the connector-level config — which typically leaves
+    rollout mode unset and so reads as manual, stranding the retired rollout
+    where autopilot will not close it — we resolve the config of the highest
+    advertised candidate: whatever governs the connector's live rollout also
+    governs retiring the rollout it superseded.
+
+    Falls back to the top-level `releases.rolloutConfiguration` when the
+    connector advertises no usable candidate.
     """
     releases = entry.get("releases", {})
     if rc_version:
-        rc_entry = releases.get("releaseCandidates", {}).get(rc_version, {})
+        release_candidates = releases.get("releaseCandidates", {}) or {}
+        rc_entry = release_candidates.get(rc_version, {})
         rc_raw = rc_entry.get("releases", {}).get("rolloutConfiguration")
         if rc_raw:
             return rc_raw
+        if rc_version not in release_candidates:
+            superseding = _highest_candidate_rollout_config(release_candidates)
+            if superseding:
+                return superseding
     return releases.get("rolloutConfiguration") or {}
 
 

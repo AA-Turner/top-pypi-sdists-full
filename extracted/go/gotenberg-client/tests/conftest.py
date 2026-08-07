@@ -6,6 +6,7 @@ import os
 import shutil
 from collections.abc import AsyncGenerator
 from collections.abc import Generator
+from http import HTTPStatus
 from pathlib import Path
 
 import httpx
@@ -15,6 +16,10 @@ from gotenberg_client import AsyncGotenbergClient
 from gotenberg_client import SingleFileResponse
 from gotenberg_client import SyncGotenbergClient
 from gotenberg_client import ZipFileResponse
+from gotenberg_client._bookmarks.routes import AsyncReadBookmarksRoute
+from gotenberg_client._bookmarks.routes import AsyncWriteBookmarksRoute
+from gotenberg_client._bookmarks.routes import SyncReadBookmarksRoute
+from gotenberg_client._bookmarks.routes import SyncWriteBookmarksRoute
 from gotenberg_client._chromium.routes import AsyncHtmlToPdfRoute
 from gotenberg_client._chromium.routes import AsyncMarkdownToPdfRoute
 from gotenberg_client._chromium.routes import AsyncScreenshotFromHtmlRoute
@@ -33,16 +38,28 @@ from gotenberg_client._libreoffice.routes import AsyncOfficeDocumentToPdfRoute
 from gotenberg_client._libreoffice.routes import SyncOfficeDocumentToPdfRoute
 from gotenberg_client._merge.routes import AsyncMergePdfsRoute
 from gotenberg_client._merge.routes import SyncMergePdfsRoute
+from gotenberg_client._others.routes import AsyncEmbedRoute
+from gotenberg_client._others.routes import AsyncEncryptRoute
 from gotenberg_client._others.routes import AsyncFlattenRoute
+from gotenberg_client._others.routes import AsyncRotateRoute
 from gotenberg_client._others.routes import AsyncSplitRoute
+from gotenberg_client._others.routes import AsyncStampRoute
+from gotenberg_client._others.routes import AsyncWatermarkRoute
+from gotenberg_client._others.routes import SyncEmbedRoute
+from gotenberg_client._others.routes import SyncEncryptRoute
 from gotenberg_client._others.routes import SyncFlattenRoute
+from gotenberg_client._others.routes import SyncRotateRoute
 from gotenberg_client._others.routes import SyncSplitRoute
+from gotenberg_client._others.routes import SyncStampRoute
+from gotenberg_client._others.routes import SyncWatermarkRoute
 from gotenberg_client._pdfa_ua.routes import AsyncConvertToArchiveFormatRoute
 from gotenberg_client._pdfa_ua.routes import SyncConvertToArchiveFormatRoute
 from gotenberg_client._pdfmetadata.routes import AsyncReadPdfMetadataRoute
 from gotenberg_client._pdfmetadata.routes import AsyncWritePdfMetadataRoute
 from gotenberg_client._pdfmetadata.routes import SyncReadPdfMetadataRoute
 from gotenberg_client._pdfmetadata.routes import SyncWritePdfMetadataRoute
+from gotenberg_client._version import AsyncVersionApi
+from gotenberg_client._version import SyncVersionApi
 
 logger = logging.getLogger("gotenberg-client.tests")
 
@@ -54,7 +71,7 @@ def is_responsive(url):
         logger.exception("Error connecting to service")
         return False
     else:
-        return response.status_code == httpx.codes.OK
+        return response.status_code == HTTPStatus.OK
 
 
 @pytest.fixture(scope="session")
@@ -104,9 +121,9 @@ def gotenberg_host(docker_services, docker_ip: str, gotenberg_service_name: str)
     """
     url = f"http://{docker_ip}:{docker_services.port_for(gotenberg_service_name, 3000)}"
     docker_services.wait_until_responsive(
-        timeout=30.0,
-        pause=1,
-        check=lambda: is_responsive(f"{url}/version"),
+        timeout=60.0,
+        pause=2,
+        check=lambda: is_responsive(f"{url}/health"),
     )
     return url
 
@@ -421,6 +438,32 @@ async def async_client(gotenberg_host: str) -> AsyncGenerator[AsyncGotenbergClie
 
 
 @pytest.fixture
+def mock_sync_client() -> Generator[SyncGotenbergClient, None, None]:
+    """
+    A sync client for tests that mock the HTTP response (e.g. with ``httpx_mock``).
+
+    Unlike ``sync_client``, this does NOT depend on ``gotenberg_host`` and therefore never
+    starts the Docker stack. The host is a dummy value because the request is intercepted
+    before it leaves the process. The ``httpx`` backend is forced because ``pytest-httpx``
+    only intercepts ``httpx``.
+    """
+    with SyncGotenbergClient(host="http://localhost:3000", backend="httpx", log_level=logging.INFO) as client:
+        yield client
+
+
+@pytest.fixture
+async def mock_async_client() -> AsyncGenerator[AsyncGotenbergClient, None]:
+    """
+    An async client for tests that mock the HTTP response (e.g. with ``httpx_mock``).
+
+    The async counterpart to ``mock_sync_client``: no ``gotenberg_host`` dependency, so it
+    never starts the Docker stack.
+    """
+    async with AsyncGotenbergClient(host="http://localhost:3000", backend="httpx", log_level=logging.INFO) as client:
+        yield client
+
+
+@pytest.fixture
 def sync_html_to_pdf_route(sync_client: SyncGotenbergClient) -> Generator[SyncHtmlToPdfRoute, None, None]:
     with sync_client.chromium.html_to_pdf() as route:
         yield route
@@ -604,3 +647,103 @@ def sync_split_route(sync_client: SyncGotenbergClient) -> Generator[SyncSplitRou
 async def async_split_route(async_client: AsyncGotenbergClient) -> AsyncGenerator[AsyncSplitRoute, None]:
     async with async_client.split.split() as route:
         yield route
+
+
+@pytest.fixture
+def sync_watermark_route(sync_client: SyncGotenbergClient) -> Generator[SyncWatermarkRoute, None, None]:
+    with sync_client.watermark.watermark() as route:
+        yield route
+
+
+@pytest.fixture
+async def async_watermark_route(async_client: AsyncGotenbergClient) -> AsyncGenerator[AsyncWatermarkRoute, None]:
+    async with async_client.watermark.watermark() as route:
+        yield route
+
+
+@pytest.fixture
+def sync_stamp_route(sync_client: SyncGotenbergClient) -> Generator[SyncStampRoute, None, None]:
+    with sync_client.stamp.stamp() as route:
+        yield route
+
+
+@pytest.fixture
+async def async_stamp_route(async_client: AsyncGotenbergClient) -> AsyncGenerator[AsyncStampRoute, None]:
+    async with async_client.stamp.stamp() as route:
+        yield route
+
+
+@pytest.fixture
+def sync_rotate_route(sync_client: SyncGotenbergClient) -> Generator[SyncRotateRoute, None, None]:
+    with sync_client.rotate.rotate() as route:
+        yield route
+
+
+@pytest.fixture
+async def async_rotate_route(async_client: AsyncGotenbergClient) -> AsyncGenerator[AsyncRotateRoute, None]:
+    async with async_client.rotate.rotate() as route:
+        yield route
+
+
+@pytest.fixture
+def sync_encrypt_route(sync_client: SyncGotenbergClient) -> Generator[SyncEncryptRoute, None, None]:
+    with sync_client.encrypt.encrypt() as route:
+        yield route
+
+
+@pytest.fixture
+async def async_encrypt_route(async_client: AsyncGotenbergClient) -> AsyncGenerator[AsyncEncryptRoute, None]:
+    async with async_client.encrypt.encrypt() as route:
+        yield route
+
+
+@pytest.fixture
+def sync_embed_route(sync_client: SyncGotenbergClient) -> Generator[SyncEmbedRoute, None, None]:
+    with sync_client.embed.embed() as route:
+        yield route
+
+
+@pytest.fixture
+async def async_embed_route(async_client: AsyncGotenbergClient) -> AsyncGenerator[AsyncEmbedRoute, None]:
+    async with async_client.embed.embed() as route:
+        yield route
+
+
+@pytest.fixture
+def sync_read_bookmarks_route(sync_client: SyncGotenbergClient) -> Generator[SyncReadBookmarksRoute, None, None]:
+    with sync_client.bookmarks.read() as route:
+        yield route
+
+
+@pytest.fixture
+async def async_read_bookmarks_route(
+    async_client: AsyncGotenbergClient,
+) -> AsyncGenerator[AsyncReadBookmarksRoute, None]:
+    async with async_client.bookmarks.read() as route:
+        yield route
+
+
+@pytest.fixture
+def sync_write_bookmarks_route(sync_client: SyncGotenbergClient) -> Generator[SyncWriteBookmarksRoute, None, None]:
+    with sync_client.bookmarks.write() as route:
+        yield route
+
+
+@pytest.fixture
+async def async_write_bookmarks_route(
+    async_client: AsyncGotenbergClient,
+) -> AsyncGenerator[AsyncWriteBookmarksRoute, None]:
+    async with async_client.bookmarks.write() as route:
+        yield route
+
+
+@pytest.fixture
+def sync_version_api(sync_client: SyncGotenbergClient) -> Generator[SyncVersionApi, None, None]:
+    with sync_client.version as api:
+        yield api
+
+
+@pytest.fixture
+async def async_version_api(async_client: AsyncGotenbergClient) -> AsyncGenerator[AsyncVersionApi, None]:
+    async with async_client.version as api:
+        yield api

@@ -4,7 +4,7 @@ requires = ["setuptools>=82.0.1"]
 
 [project]
 name = "types-django-filter"
-version = "26.1.0.20260713"
+version = "26.1.0.20260807"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for django-filter"
@@ -25,18 +25,21 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://github.com/python/mypy/) 2.2.0
+* [mypy](https://github.com/python/mypy/) 2.3.0
 * [pyright](https://github.com/microsoft/pyright) 1.1.411
+* [ty](https://docs.astral.sh/ty/) 0.0.59
 
 It was generated from typeshed commit
-[`af0c7e69534ff3ae810d06b727f5ac190b091927`](https://github.com/python/typeshed/commit/af0c7e69534ff3ae810d06b727f5ac190b091927).
+[`e0efbeef901e9b6998d016e1ab9352678f09ae77`](https://github.com/python/typeshed/commit/e0efbeef901e9b6998d016e1ab9352678f09ae77).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",
   "Typing :: Stubs Only",
 ]
 requires-python = ">=3.10"
-dependencies = ['django-stubs']
+dependencies = ['django-stubs>=6.0.8']
+
+
 
 [project.urls]
 "Homepage" = "https://github.com/python/typeshed"

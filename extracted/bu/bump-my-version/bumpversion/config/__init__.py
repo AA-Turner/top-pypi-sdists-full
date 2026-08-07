@@ -24,6 +24,7 @@ DEFAULTS = {
     "ignore_missing_version": False,
     "ignore_missing_files": False,
     "tag": False,
+    "push_tag": False,
     "sign_tags": False,
     "tag_name": "v{new_version}",
     "tag_message": "Bump version: {current_version} → {new_version}",

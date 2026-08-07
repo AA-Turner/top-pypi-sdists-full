@@ -230,6 +230,34 @@ class TestRecordParser(unittest.TestCase):
             record, length, locus, definition, accession, titles, features
         )
 
+    def test_wgs_record_serialization(self):
+        """Test serializing WGS and WGS_SCAFLD ranges."""
+        path = "GenBank/noref.gb"
+        with open(path) as handle:
+            source = handle.read()
+        source = source.replace(
+            "ORIGIN      \n",
+            "WGS         ABCD01000001-ABCD01000002\n"
+            "WGS_SCAFLD  ABCD01000003-ABCD01000004\n"
+            "WGS_SCAFLD  ABCD01000005-ABCD01000006\n"
+            "ORIGIN      \n",
+        )
+
+        record = next(GenBank.Iterator(StringIO(source), self.rec_parser))
+
+        self.assertEqual(record.wgs, ["ABCD01000001", "ABCD01000002"])
+        self.assertEqual(
+            record.wgs_scafld,
+            [
+                ["ABCD01000003", "ABCD01000004"],
+                ["ABCD01000005", "ABCD01000006"],
+            ],
+        )
+        output = str(record)
+        self.assertIn("WGS         ABCD01000001-ABCD01000002\n", output)
+        self.assertIn("WGS_SCAFLD  ABCD01000003-ABCD01000004\n", output)
+        self.assertIn("WGS_SCAFLD  ABCD01000005-ABCD01000006\n", output)
+
     def test_record_parser_02(self):
         path = "GenBank/cor6_6.gb"
         with open(path) as handle:
@@ -8283,6 +8311,16 @@ class LineOneTests(unittest.TestCase):
                 "DNA",
                 "PRI",
                 None,
+            ),
+            # SnapGene-style LOCUS line with invalid strand type spacing
+            # (issue #4846). Only name and size are recovered, with a warning.
+            (
+                "LOCUS       pAV-CAG-GFP-corr        2394 bp DNA"
+                "                     01-JAN-1980",
+                None,
+                None,
+                None,
+                [BiopythonParserWarning],
             ),
         ]
         for line, topo, mol_type, div, warning_list in tests:

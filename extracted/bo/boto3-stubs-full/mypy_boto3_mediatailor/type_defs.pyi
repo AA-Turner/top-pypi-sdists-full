@@ -86,6 +86,9 @@ __all__ = (
     "CdnConfigurationTypeDef",
     "ChannelTypeDef",
     "ClipRangeTypeDef",
+    "ConcurrentExecutorConfigurationOutputTypeDef",
+    "ConcurrentExecutorConfigurationTypeDef",
+    "ConcurrentExecutorConfigurationUnionTypeDef",
     "ConfigureLogsForChannelRequestTypeDef",
     "ConfigureLogsForChannelResponseTypeDef",
     "ConfigureLogsForPlaybackConfigurationRequestTypeDef",
@@ -342,6 +345,11 @@ class CdnConfigurationTypeDef(TypedDict):
 class LogConfigurationForChannelTypeDef(TypedDict):
     LogTypes: NotRequired[list[Literal["AS_RUN"]]]
 
+class FunctionRefTypeDef(TypedDict):
+    RunCondition: NotRequired[str]
+    FunctionId: NotRequired[str]
+    Alias: NotRequired[str]
+
 class ConfigureLogsForChannelRequestTypeDef(TypedDict):
     ChannelName: str
     LogTypes: Sequence[Literal["AS_RUN"]]
@@ -451,10 +459,6 @@ class DescribeSourceLocationRequestTypeDef(TypedDict):
 class DescribeVodSourceRequestTypeDef(TypedDict):
     SourceLocationName: str
     VodSourceName: str
-
-class FunctionRefTypeDef(TypedDict):
-    RunCondition: NotRequired[str]
-    FunctionId: NotRequired[str]
 
 HttpRequestConfigurationOutputTypeDef = TypedDict(
     "HttpRequestConfigurationOutputTypeDef",
@@ -656,6 +660,32 @@ class RecurringConsumptionTypeDef(TypedDict):
     RetrievedAdExpirationSeconds: NotRequired[int]
     AvailMatchingCriteria: NotRequired[Sequence[AvailMatchingCriteriaTypeDef]]
 
+class ConcurrentExecutorConfigurationOutputTypeDef(TypedDict):
+    Runtime: Literal["JSONATA"]
+    Output: dict[str, str]
+    FunctionList: list[FunctionRefTypeDef]
+    TimeoutMilliseconds: int
+    MaxConcurrency: int
+
+class ConcurrentExecutorConfigurationTypeDef(TypedDict):
+    Runtime: Literal["JSONATA"]
+    Output: Mapping[str, str]
+    FunctionList: Sequence[FunctionRefTypeDef]
+    TimeoutMilliseconds: int
+    MaxConcurrency: int
+
+class SequentialExecutorConfigurationOutputTypeDef(TypedDict):
+    Runtime: Literal["JSONATA"]
+    FunctionList: list[FunctionRefTypeDef]
+    TimeoutMilliseconds: int
+    Output: NotRequired[dict[str, str]]
+
+class SequentialExecutorConfigurationTypeDef(TypedDict):
+    Runtime: Literal["JSONATA"]
+    FunctionList: Sequence[FunctionRefTypeDef]
+    TimeoutMilliseconds: int
+    Output: NotRequired[Mapping[str, str]]
+
 class ConfigureLogsForChannelResponseTypeDef(TypedDict):
     ChannelName: str
     LogTypes: list[Literal["AS_RUN"]]
@@ -795,18 +825,6 @@ class VodSourceTypeDef(TypedDict):
 CustomOutputConfigurationUnionTypeDef = Union[
     CustomOutputConfigurationTypeDef, CustomOutputConfigurationOutputTypeDef
 ]
-
-class SequentialExecutorConfigurationOutputTypeDef(TypedDict):
-    Runtime: Literal["JSONATA"]
-    FunctionList: list[FunctionRefTypeDef]
-    TimeoutMilliseconds: int
-    Output: NotRequired[dict[str, str]]
-
-class SequentialExecutorConfigurationTypeDef(TypedDict):
-    Runtime: Literal["JSONATA"]
-    FunctionList: Sequence[FunctionRefTypeDef]
-    TimeoutMilliseconds: int
-    Output: NotRequired[Mapping[str, str]]
 
 class GetChannelScheduleRequestPaginateTypeDef(TypedDict):
     ChannelName: str
@@ -989,6 +1007,48 @@ class UpdateSourceLocationResponseTypeDef(TypedDict):
 AdDecisionServerConfigurationUnionTypeDef = Union[
     AdDecisionServerConfigurationTypeDef, AdDecisionServerConfigurationOutputTypeDef
 ]
+ConcurrentExecutorConfigurationUnionTypeDef = Union[
+    ConcurrentExecutorConfigurationTypeDef, ConcurrentExecutorConfigurationOutputTypeDef
+]
+
+class FunctionTypeDef(TypedDict):
+    FunctionId: str
+    FunctionType: FunctionTypeType
+    Description: NotRequired[str]
+    HttpRequestConfiguration: NotRequired[HttpRequestConfigurationOutputTypeDef]
+    CustomOutputConfiguration: NotRequired[CustomOutputConfigurationOutputTypeDef]
+    ConcurrentExecutorConfiguration: NotRequired[ConcurrentExecutorConfigurationOutputTypeDef]
+    SequentialExecutorConfiguration: NotRequired[SequentialExecutorConfigurationOutputTypeDef]
+    Tags: NotRequired[dict[str, str]]
+    Arn: NotRequired[str]
+
+class GetFunctionResponseTypeDef(TypedDict):
+    FunctionId: str
+    FunctionType: FunctionTypeType
+    Description: str
+    HttpRequestConfiguration: HttpRequestConfigurationOutputTypeDef
+    CustomOutputConfiguration: CustomOutputConfigurationOutputTypeDef
+    ConcurrentExecutorConfiguration: ConcurrentExecutorConfigurationOutputTypeDef
+    SequentialExecutorConfiguration: SequentialExecutorConfigurationOutputTypeDef
+    Tags: dict[str, str]
+    Arn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class PutFunctionResponseTypeDef(TypedDict):
+    FunctionId: str
+    FunctionType: FunctionTypeType
+    Description: str
+    HttpRequestConfiguration: HttpRequestConfigurationOutputTypeDef
+    CustomOutputConfiguration: CustomOutputConfigurationOutputTypeDef
+    ConcurrentExecutorConfiguration: ConcurrentExecutorConfigurationOutputTypeDef
+    SequentialExecutorConfiguration: SequentialExecutorConfigurationOutputTypeDef
+    Tags: dict[str, str]
+    Arn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+SequentialExecutorConfigurationUnionTypeDef = Union[
+    SequentialExecutorConfigurationTypeDef, SequentialExecutorConfigurationOutputTypeDef
+]
 
 class GetPlaybackConfigurationResponseTypeDef(TypedDict):
     AdDecisionServerUrl: str
@@ -1088,42 +1148,6 @@ class ListVodSourcesResponseTypeDef(TypedDict):
     Items: list[VodSourceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
-
-class FunctionTypeDef(TypedDict):
-    FunctionId: str
-    FunctionType: FunctionTypeType
-    Description: NotRequired[str]
-    HttpRequestConfiguration: NotRequired[HttpRequestConfigurationOutputTypeDef]
-    CustomOutputConfiguration: NotRequired[CustomOutputConfigurationOutputTypeDef]
-    SequentialExecutorConfiguration: NotRequired[SequentialExecutorConfigurationOutputTypeDef]
-    Tags: NotRequired[dict[str, str]]
-    Arn: NotRequired[str]
-
-class GetFunctionResponseTypeDef(TypedDict):
-    FunctionId: str
-    FunctionType: FunctionTypeType
-    Description: str
-    HttpRequestConfiguration: HttpRequestConfigurationOutputTypeDef
-    CustomOutputConfiguration: CustomOutputConfigurationOutputTypeDef
-    SequentialExecutorConfiguration: SequentialExecutorConfigurationOutputTypeDef
-    Tags: dict[str, str]
-    Arn: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-class PutFunctionResponseTypeDef(TypedDict):
-    FunctionId: str
-    FunctionType: FunctionTypeType
-    Description: str
-    HttpRequestConfiguration: HttpRequestConfigurationOutputTypeDef
-    CustomOutputConfiguration: CustomOutputConfigurationOutputTypeDef
-    SequentialExecutorConfiguration: SequentialExecutorConfigurationOutputTypeDef
-    Tags: dict[str, str]
-    Arn: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-SequentialExecutorConfigurationUnionTypeDef = Union[
-    SequentialExecutorConfigurationTypeDef, SequentialExecutorConfigurationOutputTypeDef
-]
 
 class ChannelTypeDef(TypedDict):
     Arn: str
@@ -1257,11 +1281,6 @@ class PutPlaybackConfigurationRequestTypeDef(TypedDict):
     AdsPersonalizationTimeouts: NotRequired[AdsPersonalizationTimeoutsTypeDef]
     AdsPersonalizationConcurrency: NotRequired[AdsPersonalizationConcurrencyTypeDef]
 
-class ListPlaybackConfigurationsResponseTypeDef(TypedDict):
-    Items: list[PlaybackConfigurationTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    NextToken: NotRequired[str]
-
 class ListFunctionsResponseTypeDef(TypedDict):
     Items: list[FunctionTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1273,8 +1292,14 @@ class PutFunctionRequestTypeDef(TypedDict):
     Description: NotRequired[str]
     HttpRequestConfiguration: NotRequired[HttpRequestConfigurationUnionTypeDef]
     CustomOutputConfiguration: NotRequired[CustomOutputConfigurationUnionTypeDef]
+    ConcurrentExecutorConfiguration: NotRequired[ConcurrentExecutorConfigurationUnionTypeDef]
     SequentialExecutorConfiguration: NotRequired[SequentialExecutorConfigurationUnionTypeDef]
     Tags: NotRequired[Mapping[str, str]]
+
+class ListPlaybackConfigurationsResponseTypeDef(TypedDict):
+    Items: list[PlaybackConfigurationTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
 
 class ListChannelsResponseTypeDef(TypedDict):
     Items: list[ChannelTypeDef]

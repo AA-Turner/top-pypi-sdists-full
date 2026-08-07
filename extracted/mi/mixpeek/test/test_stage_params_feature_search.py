@@ -60,6 +60,8 @@ class TestStageParamsFeatureSearch(unittest.TestCase):
                     ],
                 final_top_k = 1,
                 hard_timeout_ms = 1,
+                interactive = True,
+                degrade_retry = True,
                 fusion = 'rrf',
                 learning_config = mixpeek.models.learned_fusion_config.LearnedFusionConfig(
                     algorithm = 'thompson_sampling', 

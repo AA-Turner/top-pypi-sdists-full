@@ -534,39 +534,47 @@ async fn agent_trace_reaches_canonical_over_a_real_round() {
                 .is_some_and(|d| d.starts_with("trace:"))
         })
         .collect();
-    // ── THE FRONTIER (named, not hidden) ────────────────────────────────────
-    // As of persist v21.17.0 / edge v15.2.0 BOTH serve-gate legs are green and
-    // asserted above: leg A (accord-conferred `infra:serve`) and leg B
-    // (`capability_roots_to_trusted_root` — the root-side legs via
-    // `establish_trust_root_side`, plus the agent's OWN `delegates_to(agent ->
-    // root)` edge signed by its real key). The agent consequently OFFERS the
-    // trace (6 refs, up from 1 when leg B was unresolved), the round drives to
-    // completion over repeated passes, and the consent grant crosses and lands.
+    // ── THE RELEASE CRITERION — it crossed on persist v30.1.0 / edge v15.18.3 ──
+    // This was a named soft frontier for the whole arc: it logged and returned
+    // green, so the suite could stay honest about a gap it could not yet close.
+    // Four causes had to fall first, and not one of them was visible from a
+    // single side — which is the entire reason this harness exists:
     //
-    // Edge v15.2.1 (CIRISEdge#423) then made the apply path LOUD, and it paid off
-    // immediately: it named four previously-invisible refusals
-    // ("attesting_key_id <root> does not exist in federation_keys"), which were a
-    // FIXTURE gap — the trust root had only been established in the SENDER's
-    // directory. Establishing it in both took `admitted` from 1 to 5.
+    //   * CIRISEdge#414 — the #396 SEND-consent gate darkening the RECEIVE side,
+    //     so a canonical holding `infra:serve` withheld the whole Attestation
+    //     plane because it had authored no grant back toward the agent.
+    //   * CIRISEdge#416 — `local_holdings` returning advertise-filtered refs
+    //     instead of real holdings, so `want` could never shrink.
+    //   * CIRISEdge#423 made the apply path LOUD, and it paid immediately: four
+    //     previously-invisible refusals turned out to be a FIXTURE gap (the trust
+    //     root established only in the SENDER's directory). `admitted` 1 → 5.
+    //   * CIRISPersist#610 — `set_attestation_cohort_scope` updated the row
+    //     without upserting `signed_wire_index`, so the promoted trace advertised
+    //     a hash the wire index could not serve: `wanted=6 packed=5 dropped=1`,
+    //     the one dropped ref being the trace. THAT is why the row was offered
+    //     and then neither admitted nor refused — it was never packed, and the
+    //     accounting that said so existed only on the SENDER. `admitted` is 6.
     //
-    // What remains is a DIFFERENT and much narrower signature: the `trace:*` row
-    // is OFFERED (it is among the 6 refs the agent advertises) but is neither
-    // ADMITTED nor REFUSED — the loud apply path never sees it at all. So it is
-    // not an admission problem; the row is never delivered. That points at the
-    // want/Diff computation or Deliver packing, not the gates. Reported upstream.
-    //
-    // Kept as a soft frontier so the suite stays green and the gap stays VISIBLE;
-    // flip to `assert!` the moment the trace lands and this becomes the full
-    // end-to-end pin.
-    if traces.is_empty() {
-        eprintln!(
-            "FRONTIER: round completed and admitted {admitted} envelope(s), trace correctly \
-             placed, but no `trace:*` reached the canonical — expected while the fixture \
-             establishes conferral (leg A) but not trust-root rooting (leg B, \
-             capability_roots_to_trusted_root / CIRISEdge#386). Everything upstream of \
-             the serve gate is pinned by the assertions above."
-        );
-    }
+    // `release_gates::planes::gate_trace_flow_over_replication` reads this file
+    // and goes red if the assertion below is ever softened back to a log line.
+    assert!(
+        !traces.is_empty(),
+        "THE RELEASE CRITERION: no `trace:*` reached the canonical over a real \
+         anti-entropy round. {admitted} envelope(s) admitted, so the round itself \
+         worked and consent rows crossed — it is the trace specifically that did \
+         not. Check the sender's ledger FIRST (withholds_by_reason), not the \
+         receiver: a serve-gate withhold and a Deliver-pack drop look identical \
+         from this side. Prior causes, both now closed: CIRISEdge#455 (serve gate \
+         withholds at per-peer advertise when infra:serve is claimed but not \
+         accord-conferred) and CIRISPersist#610 (set_attestation_cohort_scope \
+         updated the row without upserting signed_wire_index, so the promoted \
+         trace advertised a hash the index could not serve — `wanted=6 packed=5 \
+         dropped=1`)."
+    );
+    eprintln!(
+        "TRACE PLANE CROSSED: {} trace:* row(s) in the canonical's corpus",
+        traces.len()
+    );
 }
 
 /// The negative that keeps the positive honest: with NO consent grant, the agent
@@ -726,7 +734,6 @@ impl ciris_edge::transport::Transport for Loopback {
 /// Returns `(converged, frame_sizes)`.
 async fn drive_coordinator_round(mdu: Option<usize>, tag: &str) -> (bool, Vec<usize>) {
     use ciris_edge::replication::{DriveStep, ReplicationCoordinator};
-    use tokio::sync::Mutex;
 
     arm_test_trust_root(&genesis_holders());
     let agent = node(&format!("agent-{tag}"), 0xE1, 0xE2).await;
@@ -763,7 +770,7 @@ async fn drive_coordinator_round(mdu: Option<usize>, tag: &str) -> (bool, Vec<us
         Arc::new(
             DirectoryStateAdapter::new(agent_bridge.clone()).with_peer(canonical.key_id.clone()),
         ),
-        Arc::new(Mutex::new(MutableDirectoryStateAdapter::new(agent_bridge))),
+        Arc::new(MutableDirectoryStateAdapter::new(agent_bridge)),
     );
     let canon_coord = ReplicationCoordinator::new(
         Arc::new(Loopback {
@@ -775,7 +782,7 @@ async fn drive_coordinator_round(mdu: Option<usize>, tag: &str) -> (bool, Vec<us
         EnvelopeKind::Attestation,
         SessionRole::Responder,
         Arc::new(DirectoryStateAdapter::new(canon_bridge.clone()).with_peer(agent.key_id.clone())),
-        Arc::new(Mutex::new(MutableDirectoryStateAdapter::new(canon_bridge))),
+        Arc::new(MutableDirectoryStateAdapter::new(canon_bridge)),
     );
 
     // Drive: initiator starts, then pump both directions until terminal.

@@ -2104,3 +2104,80 @@ def test_routes_added_to_an_english_service_follow_it(tmp_path):
     assert "method Create(Query: HttpServiceRequest)" in module_text
     # The error helper is already there from the first generation - not added twice.
     assert module_text.count("method HandleError(") == 1
+
+
+# --- object deletion ------------------------------------------------------------------------
+
+
+def test_delete_object_removes_the_family_and_lists_references(tmp_path):
+    subsystem = _make_rename_project(tmp_path)
+    result = scaffold.op_delete_object(tmp_path, "Склады")
+
+    removed = {p.name for p in result.deletes}
+    assert removed == {
+        "Склады.yaml", "Склады.Объект.xbsl",
+        "СкладыФормаОбъекта.yaml", "СкладыФормаСписка.yaml",
+        "СтрокаСпискаСклады.yaml",
+    }
+    # Тёзка с продолжением имени - другой объект, он остаётся.
+    assert "СкладыАрхив.yaml" not in removed
+
+    # Оставшиеся упоминания названы файлом и строкой, ВКЛЮЧАЯ строковый литерал и
+    # комментарий: при живой уборке хвостами оказались именно строки роутера и сидинга.
+    listing = "\n".join(result.notes)
+    assert "Заказы.yaml" in listing and "Заказы.xbsl" in listing
+    assert "Склады не изменились" in listing
+
+    apply_result(result)
+    assert not (subsystem / "Склады.yaml").exists()
+    assert not (subsystem / "СкладыФормаОбъекта.yaml").exists()
+    assert not (subsystem / "СтрокаСпискаСклады.yaml").exists()
+    assert (subsystem / "СкладыАрхив.yaml").is_file()
+    assert (subsystem / "Заказы.yaml").is_file()
+
+
+def test_delete_object_without_leftovers_says_so(tmp_path):
+    subsystem = _make_project(tmp_path)
+    apply_result(scaffold.op_new_object(subsystem, "Справочник", "Одинокий"))
+    result = scaffold.op_delete_object(tmp_path, "Одинокий")
+    assert any("не осталось" in note for note in result.notes)
+
+
+def test_delete_object_unknown_name(tmp_path):
+    _make_rename_project(tmp_path)
+    with pytest.raises(ScaffoldError):
+        scaffold.op_delete_object(tmp_path, "Нет")
+
+
+# --- English service file names -------------------------------------------------------------
+
+
+@pytest.mark.needs_data
+def test_english_service_file_names_resolve(tmp_path):
+    """An English-named project and subsystem: the platform accepts both spellings.
+
+    Project discovery, an object's subsystem membership and the creation of a new
+    subsystem must work exactly as with the Russian names; a subsystem created in such
+    a project lands under the English name - a project keeps one spelling throughout.
+    """
+    project_dir = tmp_path / "Acme" / "Shop"
+    subsystem = project_dir / "Core"
+    subsystem.mkdir(parents=True)
+    (project_dir / "Project.yaml").write_text(
+        "Id: 019f0000-0000-7000-8000-000000000001\nVendor: Acme\nName: Shop\n"
+        "Version: 1.0.0\n", encoding="utf-8")
+    (subsystem / "Subsystem.yaml").write_text(
+        "Interface:\n    IncludeInAutoInterface: True\n", encoding="utf-8")
+    (subsystem / "Goods.yaml").write_text(
+        "ElementKind: Catalog\nId: 019f0000-0000-7000-8000-000000000002\nName: Goods\n",
+        encoding="utf-8")
+
+    projects = scaffold.find_projects(tmp_path)
+    assert [p["name"] for p in projects] == ["Shop"]
+    assert projects[0]["subsystems"] == ["Core"]
+
+    hit = scaffold.find_object(tmp_path, "Goods")
+    assert hit.subsystem == "Core"
+
+    result = scaffold.op_add_subsystem(project_dir, "Extra")
+    assert [c.path for c in result.changes] == [project_dir / "Extra" / "Subsystem.yaml"]

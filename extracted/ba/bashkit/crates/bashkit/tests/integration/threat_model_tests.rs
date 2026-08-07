@@ -74,6 +74,23 @@ mod resource_exhaustion {
         assert_eq!(result.stdout.trim(), "ok");
     }
 
+    /// TM-DOS-100: archive growth must consume live bytes before allocation.
+    #[tokio::test]
+    async fn archive_growth_is_admitted_by_shared_live_budget() {
+        let fs = Arc::new(InMemoryFs::new());
+        fs.write_file(Path::new("/input"), &vec![b'x'; 1024])
+            .await
+            .unwrap();
+        let limits = ExecutionLimits::new().max_live_intermediate_bytes(2_500);
+        let mut bash = Bash::builder().fs(fs.clone()).limits(limits).build();
+
+        let result = bash.exec("tar -cf /out.tar /input").await;
+
+        let error = result.unwrap_err().to_string();
+        assert!(error.contains("live intermediate bytes"), "{error}");
+        assert!(!fs.exists(Path::new("/out.tar")).await.unwrap());
+    }
+
     /// TM-DOS-063: Negative fd vars must be rejected and must not bypass fd limits.
     #[tokio::test]
     async fn fd_limit_rejects_negative_fd_var_output() {
@@ -3308,90 +3325,14 @@ mod overlay_limit_accounting {
 }
 
 // =============================================================================
-// YAML/TEMPLATE RECURSION DEPTH LIMITS (issue #654)
+// TEMPLATE RECURSION DEPTH LIMITS (issue #654)
 // =============================================================================
 
-mod yaml_template_depth {
+mod template_depth {
     use super::*;
 
     fn bash() -> Bash {
         Bash::builder().build()
-    }
-
-    // --- TM-DOS-051: YAML depth bomb ---
-
-    /// TM-DOS-051: Deeply nested YAML map should produce error, not stack overflow.
-    #[tokio::test]
-    async fn tm_dos_051_yaml_depth_bomb_maps() {
-        let mut bash = bash();
-        // Generate 200-level nested YAML
-        let mut yaml = String::new();
-        for i in 0..200 {
-            let indent = "  ".repeat(i);
-            yaml.push_str(&format!("{indent}level{i}:\n"));
-        }
-        let last_indent = "  ".repeat(200);
-        yaml.push_str(&format!("{last_indent}value: deep\n"));
-
-        let cmd = format!("yaml get level0.level1.level2 - <<'YAML_EOF'\n{yaml}YAML_EOF");
-        let result = bash.exec(&cmd).await.unwrap();
-        // Should get an error or truncated result, not a stack overflow/panic
-        let output = format!("{}{}", result.stdout, result.stderr);
-        assert!(
-            output.contains("depth exceeded") || result.exit_code != 0 || output.contains("ERROR"),
-            "TM-DOS-051: deeply nested YAML should produce clean error, got: stdout={:?} stderr={:?}",
-            result.stdout,
-            result.stderr
-        );
-    }
-
-    /// TM-DOS-051: Deeply nested YAML list should produce error.
-    #[tokio::test]
-    async fn tm_dos_051_yaml_depth_bomb_lists() {
-        let mut bash = bash();
-        let mut yaml = String::new();
-        for i in 0..200 {
-            let indent = "  ".repeat(i);
-            yaml.push_str(&format!("{indent}-\n"));
-        }
-        let last_indent = "  ".repeat(200);
-        yaml.push_str(&format!("{last_indent}- leaf\n"));
-
-        let cmd = format!("yaml get . - <<'YAML_EOF'\n{yaml}YAML_EOF");
-        let result = bash.exec(&cmd).await.unwrap();
-        let output = format!("{}{}", result.stdout, result.stderr);
-        assert!(
-            output.contains("depth exceeded") || result.exit_code != 0 || output.contains("ERROR"),
-            "TM-DOS-051: deeply nested YAML list should produce clean error"
-        );
-    }
-
-    /// TM-DOS-051: YAML with reasonable nesting should work fine.
-    #[tokio::test]
-    async fn tm_dos_051_yaml_normal_nesting_works() {
-        let mut bash = bash();
-        // Write a 5-level nested YAML to a file, then query it
-        let script = r#"
-cat > /tmp/test.yaml << 'EOF'
-a:
-  b:
-    c:
-      d:
-        e: deep_value
-EOF
-yaml get -r a.b.c.d.e /tmp/test.yaml
-"#;
-        let result = bash.exec(script).await.unwrap();
-        assert_eq!(
-            result.exit_code, 0,
-            "yaml get should succeed: stderr={:?} stdout={:?}",
-            result.stderr, result.stdout
-        );
-        assert!(
-            result.stdout.trim() == "deep_value",
-            "Normal 5-level nesting should work: got {:?}",
-            result.stdout
-        );
     }
 
     // --- TM-DOS-052: Template depth bomb ---
@@ -4827,7 +4768,7 @@ echo ${#arr[@]}
         let result = bash.exec(script).await;
         let err_msg = match &result {
             Err(e) => e.to_string(),
-            Ok(r) => r.stderr.clone(),
+            Ok(r) => r.stderr.to_string(),
         };
         assert!(
             result.is_err(),

@@ -198,6 +198,7 @@ TARGETS: List[Target] = [
             "ImportDemoDataJob",
             "BackgroundDataJob",
             "RegressWorkflowEngineJob",
+            "OrgDataExportJob",
         },
         # Per-job descriptions live as JSDoc comments on the TS ``JobType`` enum.
         descriptions_source_rel="shared/types/job.ts",

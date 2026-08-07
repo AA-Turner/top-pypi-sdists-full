@@ -31,15 +31,17 @@ def __dir__() -> list[str]:
 def histogramdd(
     a: tuple[ArrayLike, ...],
     bins: int | tuple[int, ...] | tuple[np.typing.NDArray[Any], ...] = 10,
-    range: None | (Sequence[None | tuple[float, float]]) = None,
+    range: Sequence[tuple[float, float] | None] | None = None,
     normed: None = None,
     weights: ArrayLike | None = None,
     density: bool = False,
     *,
-    histogram: None | (type[Histogram[Any]]) = None,
-    storage: _storage.Storage = _storage.Double(),  # noqa: B008
+    histogram: type[Histogram[Any]] | None = None,
+    storage: _storage.Storage | None = None,
     threads: int | None = None,
 ) -> Any:
+    if storage is None:
+        storage = _storage.Double()
     cls: type[Histogram[Any]] = Histogram if histogram is None else histogram
 
     if normed is not None:
@@ -61,13 +63,19 @@ def histogramdd(
     with contextlib.suppress(TypeError):
         bins = (int(bins),) * rank  # type: ignore[arg-type]
     assert not isinstance(bins, int)
+    if len(bins) != rank:
+        raise ValueError(
+            "The dimension of bins must be equal to the dimension of the sample x."
+        )
 
     # Single None -> list of Nones
     if range is None:
         range = (None,) * rank
+    elif len(range) != rank:
+        raise ValueError("range argument must have one entry per dimension")
 
     axs: list[_axis.Axis] = []
-    for n, (b, r) in enumerate(zip(bins, range, strict=False)):
+    for n, (b, r) in enumerate(zip(bins, range, strict=True)):
         if np.issubdtype(type(b), np.integer):
             if r is None:
                 # Nextafter may affect bin edges slightly
@@ -79,7 +87,8 @@ def histogramdd(
             )
             axs.append(new_ax)
         else:
-            barr: np.typing.NDArray[Any] = np.asarray(b, dtype=np.double)
+            # Always copy; the input edges must not be modified in-place below
+            barr: np.typing.NDArray[Any] = np.array(b, dtype=np.double)
             # This does have a .max member, not sure why pylint doesn't like it
             # pylint: disable-next=no-member
             barr[-1] = np.nextafter(barr[-1], np.finfo("d").max)
@@ -102,15 +111,17 @@ def histogram2d(
     x: ArrayLike,
     y: ArrayLike,
     bins: int | tuple[int, int] = 10,
-    range: None | (Sequence[None | tuple[float, float]]) = None,
+    range: Sequence[tuple[float, float] | None] | None = None,
     normed: None = None,
     weights: ArrayLike | None = None,
     density: bool = False,
     *,
-    histogram: None | (type[Histogram[Any]]) = None,
-    storage: _storage.Storage = _storage.Double(),  # noqa: B008
+    histogram: type[Histogram[Any]] | None = None,
+    storage: _storage.Storage | None = None,
     threads: int | None = None,
 ) -> Any:
+    if storage is None:
+        storage = _storage.Double()
     result = histogramdd(
         (x, y),
         bins,
@@ -138,7 +149,7 @@ def histogram(
     weights: ArrayLike | None = None,
     density: bool = False,
     *,
-    histogram: None | (type[Histogram[Any]]) = None,
+    histogram: type[Histogram[Any]] | None = None,
     storage: _storage.Storage | None = None,
     threads: int | None = None,
 ) -> Any:
@@ -151,11 +162,6 @@ def histogram(
         )
 
     if isinstance(bins, str):
-        # Bug in NumPy 1.20 typing support - __version__ is missing
-        if tuple(int(x) for x in np.version.version.split(".")[:2]) < (1, 13):
-            raise KeyError(
-                "Upgrade numpy to 1.13+ to use string arguments to boost-histogram's histogram function"
-            )
         bins = np.histogram_bin_edges(a, bins, range, weights)
 
     # TODO: make sure all types work at runtime (type ignore below)

@@ -38,6 +38,7 @@ __all__ = (
     "ExecutionResultType",
     "ExecutionStatusType",
     "GetOfferingStatusPaginatorName",
+    "InsightsTypeType",
     "InstanceStatusType",
     "InteractionModeType",
     "ListArtifactsPaginatorName",
@@ -65,6 +66,7 @@ __all__ = (
     "PaginatorName",
     "RecurringChargeFrequencyType",
     "RegionName",
+    "ReportStatusType",
     "ResourceServiceName",
     "RuleOperatorType",
     "SampleTypeType",
@@ -161,6 +163,7 @@ ExecutionStatusType = Literal[
     "STOPPING",
 ]
 GetOfferingStatusPaginatorName = Literal["get_offering_status"]
+InsightsTypeType = Literal["TEST_REPORT"]
 InstanceStatusType = Literal["AVAILABLE", "IN_USE", "NOT_AVAILABLE", "PREPARING"]
 InteractionModeType = Literal["INTERACTIVE", "NO_VIDEO", "VIDEO_ONLY"]
 ListArtifactsPaginatorName = Literal["list_artifacts"]
@@ -186,6 +189,7 @@ NetworkProfileTypeType = Literal["CURATED", "PRIVATE"]
 OfferingTransactionTypeType = Literal["PURCHASE", "RENEW", "SYSTEM"]
 OfferingTypeType = Literal["RECURRING"]
 RecurringChargeFrequencyType = Literal["MONTHLY"]
+ReportStatusType = Literal["COMPLETED", "ERRORED", "PENDING", "RUNNING", "SKIPPED"]
 RuleOperatorType = Literal[
     "CONTAINS",
     "EQUALS",
@@ -276,6 +280,8 @@ ServiceName = Literal[
     "account",
     "acm",
     "acm-pca",
+    "agent-registry",
+    "agent-registry-control",
     "aiops",
     "amp",
     "amplify",

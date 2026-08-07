@@ -86,7 +86,7 @@ Parallel Processing (Automatic):
 
 from .json_tools_rs import JsonOutput, JSONTools, JsonToolsError
 
-__version__ = "0.9.26"
+__version__ = "0.9.28"
 __author__ = "JSON Tools RS Contributors"
 
 __all__ = [

@@ -1,11 +1,10 @@
 Metadata-Version: 2.4
 Name: jupyterlab_code_formatter
-Version: 3.0.3
-Dynamic: Keywords
+Version: 3.1.0
 Summary:  A JupyterLab plugin to facilitate invocation of code formatters.
-Project-URL: Homepage,  https://github.com/jupyterlab-contrib/jupyterlab_code_formatter
-Project-URL: Bug Tracker,  https://github.com/jupyterlab-contrib/jupyterlab_code_formatter/issues
-Project-URL: Repository,  https://github.com/jupyterlab-contrib/jupyterlab_code_formatter.git
+Project-URL: Homepage, https://github.com/jupyterlab-contrib/jupyterlab_code_formatter
+Project-URL: Bug Tracker, https://github.com/jupyterlab-contrib/jupyterlab_code_formatter/issues
+Project-URL: Repository, https://github.com/jupyterlab-contrib/jupyterlab_code_formatter.git
 Author-email: Ryan Tam <ryantam626@gmail.com>
 License: Copyright 2023 Ryan TAM
         
@@ -15,6 +14,7 @@ License: Copyright 2023 Ryan TAM
         
         THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 License-File: LICENSE
+Keywords: jupyter,jupyterlab,jupyterlab-extension
 Classifier: Framework :: Jupyter
 Classifier: Framework :: Jupyter :: JupyterLab
 Classifier: Framework :: Jupyter :: JupyterLab :: 4
@@ -23,13 +23,13 @@ Classifier: Framework :: Jupyter :: JupyterLab :: Extensions :: Prebuilt
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
-Requires-Python: >=3.7
-Requires-Dist: jupyter-server<3,>=1.21
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.10
+Requires-Dist: jupyter-server<3,>=2.4.0
 Requires-Dist: packaging
 Provides-Extra: dev
 Requires-Dist: autopep8; extra == 'dev'
@@ -37,15 +37,20 @@ Requires-Dist: black==22.1.0; extra == 'dev'
 Requires-Dist: blue==0.9.1; extra == 'dev'
 Requires-Dist: click==8.0.2; extra == 'dev'
 Requires-Dist: isort; extra == 'dev'
-Requires-Dist: jupyterlab>=3.0.0; extra == 'dev'
+Requires-Dist: jupyterlab>=4; extra == 'dev'
 Requires-Dist: rpy2; extra == 'dev'
 Requires-Dist: ruff; extra == 'dev'
 Requires-Dist: yapf; extra == 'dev'
+Provides-Extra: docs
+Requires-Dist: furo>=2025; extra == 'docs'
+Requires-Dist: myst-parser>=1; extra == 'docs'
+Requires-Dist: sphinx-copybutton>=0.5.2; extra == 'docs'
+Requires-Dist: sphinx-inline-tabs>=2021.3.28b7; extra == 'docs'
+Requires-Dist: sphinx>=5.3; extra == 'docs'
 Provides-Extra: test
 Requires-Dist: black==22.1.0; extra == 'test'
 Requires-Dist: blue==0.9.1; extra == 'test'
 Requires-Dist: coverage; extra == 'test'
-Requires-Dist: importlib-metadata; (python_version < '3.8') and extra == 'test'
 Requires-Dist: isort; extra == 'test'
 Requires-Dist: pytest; extra == 'test'
 Requires-Dist: pytest-asyncio; extra == 'test'
@@ -102,6 +107,28 @@ This plugin includes a server plugin, restart JupyterLab if you have followed th
 4. **Configure plugin**
 
 To configure which/how formatters are invoked, see [configuration](https://jupyterlab-code-formatter.readthedocs.io/configuration.html).
+
+---
+
+## Troubleshoot
+
+This extension is composed of a Python package named `jupyterlab_code_formatter`
+for the server extension and a NPM package named `jupyterlab-code-formatter`
+for the frontend extension.
+
+If you are seeing the frontend extension, but it is not working, check
+that the server extension is enabled:
+
+```bash
+jupyter server extension list
+```
+
+If the server extension is installed and enabled, but you are not seeing
+the frontend extension, check the frontend extension is installed:
+
+```bash
+jupyter labextension list
+```
 
 ---
 

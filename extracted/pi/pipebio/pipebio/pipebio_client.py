@@ -135,6 +135,7 @@ class PipebioClient:
         base_url = f"{url}/api/v2/"
 
         self.session = sessions.BaseUrlSession(base_url=base_url)
+        self.session.headers.update({"User-Agent": f"pipebio-sdk/{__version__}"})
 
         # Set Bearer token header with API KEY, Benchling S2S token or USER TOKEN.
         if token is not None:
@@ -301,6 +302,7 @@ class PipebioClient:
         destination_folder: Optional[str] = None,
         destination_filename: Optional[str] = None,
         params: Optional[dict] = None,
+        timeout_seconds: Optional[int] = None,
     ) -> List[str]:
         """Export an entity to a file and download the result.
 
@@ -315,6 +317,9 @@ class PipebioClient:
             destination_filename: Optional output filename; defaults to the
                 entity name.
             params: Optional extra export parameters merged into the job params.
+            timeout_seconds: Maximum time to wait for the export job to complete.
+                Defaults to 600 seconds. Raise this for large tables whose export
+                takes longer than the default.
 
         Returns:
             The list of local file paths that were downloaded.
@@ -342,8 +347,8 @@ class PipebioClient:
             params=params,
         )
 
-        # Wait for the file to be converted to Genbank.
-        job = self.jobs.poll_job(job_id)
+        # Wait for the file to be exported.
+        job = self.jobs.poll_job(job_id, timeout_seconds=timeout_seconds)
 
         links = job["outputLinks"]
 

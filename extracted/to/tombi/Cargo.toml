@@ -3,7 +3,7 @@ resolver = "2"
 members = ["crates/*", "extensions/*", "rust/*"]
 
 [workspace.package]
-version = "1.2.6"  # We use git tags for versioning. This is just a placeholder.
+version = "1.2.7"  # We use git tags for versioning. This is just a placeholder.
 # tombi: lint.rules.deprecated.disabled = true
 authors = ["ya7010 <ya7010@outlook.com>"]
 edition = "2024"
@@ -93,6 +93,7 @@ tombi-parser = { path = "crates/tombi-parser" }
 tombi-regex = { path = "crates/tombi-regex" }
 tombi-rg-tree = { path = "crates/tombi-rg-tree" }
 tombi-schema-store = { path = "crates/tombi-schema-store", default-features = false }
+tombi-schema-type = { path = "crates/tombi-schema-type" }
 tombi-severity-level = { path = "crates/tombi-severity-level" }
 tombi-syntax = { path = "crates/tombi-syntax" }
 tombi-test-lib = { path = "crates/tombi-test-lib" }

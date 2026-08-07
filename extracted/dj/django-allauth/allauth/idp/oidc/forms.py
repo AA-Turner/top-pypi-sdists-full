@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from django import forms
+from django.core.exceptions import ValidationError
 from django.forms import widgets
 from django.utils.translation import gettext as _
 
@@ -12,7 +13,10 @@ from allauth.core import context
 from allauth.core.internal import ratelimit
 from allauth.idp.oidc import app_settings
 from allauth.idp.oidc.adapter import get_adapter
-from allauth.idp.oidc.internal.clientkit import clean_post_logout_redirect_uri
+from allauth.idp.oidc.internal.clientkit import (
+    clean_post_logout_redirect_uri,
+    lookup_client,
+)
 from allauth.idp.oidc.internal.oauthlib import device_codes
 from allauth.idp.oidc.internal.tokens import decode_jwt_token
 from allauth.idp.oidc.models import Client
@@ -117,7 +121,7 @@ class RPInitiatedLogoutForm(forms.Form):
 
     # OPTIONAL. URI to which the RP is requesting that the End-User's User Agent
     # be redirected after a logout has been performed.
-    post_logout_redirect_uri = forms.URLField(required=False, widget=forms.HiddenInput)
+    post_logout_redirect_uri = forms.CharField(required=False, widget=forms.HiddenInput)
 
     # OPTIONAL. Opaque value used by the RP to maintain state between the logout
     # request and the callback to the endpoint specified by the
@@ -163,16 +167,19 @@ class RPInitiatedLogoutForm(forms.Form):
                 client_id = aud
 
         if client_id:
-            client = Client.objects.filter(id=client_id).first()
+            client = lookup_client(client_id)
             if not client:
                 # Wipe invalid inputs.
                 client_id = cleaned_data["client_id"] = None
                 if aud:
                     id_token_hint = cleaned_data["id_token_hint"] = None
 
-        cleaned_data["post_logout_redirect_uri"] = clean_post_logout_redirect_uri(
-            post_logout_redirect_uri, client
-        )
+        try:
+            cleaned_data["post_logout_redirect_uri"] = clean_post_logout_redirect_uri(
+                post_logout_redirect_uri, client
+            )
+        except ValidationError as e:
+            self.add_error("post_logout_redirect_uri", e)
         cleaned_data["client"] = client
         return cleaned_data
 
@@ -244,8 +251,14 @@ class ClientRegistrationForm(forms.Form):
         # denoting the HTTP Basic authentication scheme as specified in Section
         # 2.3.1 of OAuth 2.0
         value = (
-            self.cleaned_data.get("token_endpoint_auth_method") or "client_secret_basic"
+            self.cleaned_data.get("token_endpoint_auth_method")
+            or Client.AuthenticationMethod.CLIENT_SECRET_BASIC
         )
+        valid = {am.value for am in Client.AuthenticationMethod}
+        if value not in valid:
+            raise forms.ValidationError(
+                f"Unsupported token endpoint auth method: {value}"
+            )
         return value
 
     def save(self, commit: bool = True) -> Client:
@@ -254,7 +267,8 @@ class ClientRegistrationForm(forms.Form):
             "name": data["client_name"],
             "type": (
                 Client.Type.PUBLIC
-                if data["token_endpoint_auth_method"] == "none"
+                if data["token_endpoint_auth_method"]
+                == Client.AuthenticationMethod.NONE
                 else Client.Type.CONFIDENTIAL
             ),
         }

@@ -52,6 +52,7 @@ __all__ = (
     "FlattenedElementType",
     "GetScheduledQueryHistoryPaginatorName",
     "ImportStatusType",
+    "IndexCategoryType",
     "IndexSourceType",
     "IndexTypeType",
     "InheritedPropertyType",
@@ -137,6 +138,7 @@ FilterLogEventsPaginatorName = Literal["filter_log_events"]
 FlattenedElementType = Literal["first", "last"]
 GetScheduledQueryHistoryPaginatorName = Literal["get_scheduled_query_history"]
 ImportStatusType = Literal["CANCELLED", "COMPLETED", "FAILED", "IN_PROGRESS"]
+IndexCategoryType = Literal["AUTO", "CUSTOM", "DEFAULT", "INACTIVE"]
 IndexSourceType = Literal["ACCOUNT", "LOG_GROUP"]
 IndexTypeType = Literal["FACET", "FIELD_INDEX"]
 InheritedPropertyType = Literal["ACCOUNT_DATA_PROTECTION"]
@@ -217,6 +219,8 @@ ServiceName = Literal[
     "account",
     "acm",
     "acm-pca",
+    "agent-registry",
+    "agent-registry-control",
     "aiops",
     "amp",
     "amplify",

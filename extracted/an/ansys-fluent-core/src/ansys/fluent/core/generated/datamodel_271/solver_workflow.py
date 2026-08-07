@@ -3,7 +3,7 @@
 #
 # pylint: disable=line-too-long
 
-from ansys.fluent.core.services.datamodel_se import (
+from ansys.fluent.core.services.object_model import (
     PyMenu,
     PyParameter,
     PyTextual,
@@ -990,28 +990,18 @@ class Root(PyMenu):
 
                 def __init__(self, parent, attr, service, rules, path):
                     super().__init__(parent, attr, service, rules, path)
-                    self.TSN = self._TSN(self, "TSN", service, rules, path)
-                    self.WF = self._WF(self, "WF", service, rules, path)
-                    self.OpP = self._OpP(self, "OpP", service, rules, path)
-                    self.Density = self._Density(self, "Density", service, rules, path)
                     self.EFM = self._EFM(self, "EFM", service, rules, path)
-                    self.Energy = self._Energy(self, "Energy", service, rules, path)
+                    self.Density = self._Density(self, "Density", service, rules, path)
+                    self.WF = self._WF(self, "WF", service, rules, path)
                     self.Vrpm = self._Vrpm(self, "Vrpm", service, rules, path)
+                    self.TSN = self._TSN(self, "TSN", service, rules, path)
+                    self.OpP = self._OpP(self, "OpP", service, rules, path)
+                    self.Energy = self._Energy(self, "Energy", service, rules, path)
                     self.CEBtn = self._CEBtn(self, "CEBtn", service, rules, path)
 
-                class _TSN(PyArgumentsParameterSubItem):
+                class _EFM(PyArgumentsTextualSubItem):
                     """
-                    Apply turbomachinery-specific numerics as a best practice applicable to most turbomachinery cases.
-                    """
-
-                class _WF(PyArgumentsTextualSubItem):
-                    """
-                    Choose one of the following materials as the working fluid for the CFD model.
-                    """
-
-                class _OpP(PyArgumentsNumericalSubItem):
-                    """
-                    Specify the operating pressure, or keep the default value.
+                    Displays the current existing fluid assigned to the CFD model. Use the Create/Edit... button to create your own material, or edit other existing materials.
                     """
 
                 class _Density(PyArgumentsNumericalSubItem):
@@ -1019,19 +1009,29 @@ class Root(PyMenu):
                     Provide a value for the density of air, or use the default value.
                     """
 
-                class _EFM(PyArgumentsTextualSubItem):
+                class _WF(PyArgumentsTextualSubItem):
                     """
-                    Displays the current existing fluid assigned to the CFD model. Use the Create/Edit... button to create your own material, or edit other existing materials.
-                    """
-
-                class _Energy(PyArgumentsParameterSubItem):
-                    """
-                    Indicates whether or not temperature conditions are to be considered.
+                    Choose one of the following materials as the working fluid for the CFD model.
                     """
 
                 class _Vrpm(PyArgumentsNumericalSubItem):
                     """
                     Specify the rotation speed, or keep the default value.
+                    """
+
+                class _TSN(PyArgumentsParameterSubItem):
+                    """
+                    Apply turbomachinery-specific numerics as a best practice applicable to most turbomachinery cases.
+                    """
+
+                class _OpP(PyArgumentsNumericalSubItem):
+                    """
+                    Specify the operating pressure, or keep the default value.
+                    """
+
+                class _Energy(PyArgumentsParameterSubItem):
+                    """
+                    Indicates whether or not temperature conditions are to be considered.
                     """
 
                 class _CEBtn(PyArgumentsParameterSubItem):

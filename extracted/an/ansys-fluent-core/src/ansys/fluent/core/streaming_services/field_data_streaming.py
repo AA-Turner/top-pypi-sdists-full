@@ -1,5 +1,6 @@
-# Copyright (C) 2021 - 2026 ANSYS, Inc. and/or its affiliates.
+# Copyright (C) 2021 - 2026 Synopsys, Inc. and ANSYS, Inc. All rights reserved.
 # SPDX-License-Identifier: MIT
+#
 #
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -23,9 +24,8 @@
 """Module for Field data streaming."""
 
 from collections.abc import Callable
+from typing import Any
 
-from ansys.api.fluent.v0 import field_data_pb2 as FieldDataProtoModule
-from ansys.fluent.core.services.field_data import ChunkParser
 from ansys.fluent.core.streaming_services.streaming import StreamingService
 
 
@@ -40,26 +40,27 @@ class FieldDataStreaming(StreamingService):
         FieldData streaming service.
     """
 
-    _proto_module = FieldDataProtoModule
-
-    def __init__(self, session_id: str, service):
+    def __init__(self, service, chunk_parser):
         """Initialize FieldDataStreaming."""
         super().__init__(
             stream_begin_method="BeginFieldsStreaming",
             target=type(self)._process_streaming,
             streaming_service=service,
         )
-        self._session_id: str = session_id
+        self._chunk_parser = chunk_parser
 
     def _process_streaming(self, id, stream_begin_method, started_evt, *args, **kwargs):
         """Processes field data streaming."""
-        request = self._proto_module.BeginFieldsStreamingRequest(*args, **kwargs)
-        ChunkParser(self).extract_fields(
-            self._streaming_service.begin_streaming(
-                request, started_evt, id=id, stream_begin_method=stream_begin_method
+        self._chunk_parser(self).extract_fields(
+            self._streaming_service._process_streaming(
+                *args,
+                id=id,
+                stream_begin_method=stream_begin_method,
+                started_evt=started_evt,
+                **kwargs,
             )
         )
 
-    def callbacks(self) -> list[list[Callable | list | dict]]:
+    def callbacks(self) -> list[Any]:
         """Get list of callbacks along with arguments and keyword arguments."""
-        return self._service_callbacks.values()
+        return list(self._service_callbacks.values())

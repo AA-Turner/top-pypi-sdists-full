@@ -62,6 +62,8 @@ from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple
 
 import msgspec
 
+from . import warm_spans, worker_goals
+from .config import load_settings
 from .mint_process import (
     EXIT_BAD_REQUEST,
     EXIT_MINTED,
@@ -468,7 +470,7 @@ def _drain_router(pipe: Any, *, poll_s: float = 0.5) -> None:
         _warm, pending, _failed = router.stats()
         if pending == 0:
             return
-        frame(phase="inductor_compile", note=f"{pending} compile(s) queued")
+        frame(phase=warm_spans.PHASE_ROUTER_DRAIN, note=f"{pending} compile(s) queued")
         time.sleep(poll_s)
 
 
@@ -790,15 +792,20 @@ def mint(request: MintRequest) -> MintReport:
     cc.begin_fleet_mint(pipe, cfg, capture)
     miss_before = cc.cache_miss_count(pipe)
 
+    # pgw#989: the warm forwards ARE the compile on this recipe, so the ledger
+    # goes around them. Without it `warmup_forward` is 97.6 % of the mint under
+    # one name, next to an `inductor_compile` row reading 0.0 s.
+    ledger = warm_spans.WarmLedger()
     frame(phase="warmup_forward", step=0, total=len(jobs))
     for index, job in enumerate(jobs, start=1):
         frame(
             phase="warmup_forward", step=index, total=len(jobs),
             note=job.spec.name)
-        _run_warm_job(
-            instance, job, dict(request.configs.get(job.spec.name) or {}),
-            request.execution_lane, origin=mint_identity(request))
-    frame(phase="inductor_compile", note="draining any queued compiles")
+        with ledger.job(job.spec.name):
+            _run_warm_job(
+                instance, job, dict(request.configs.get(job.spec.name) or {}),
+                request.execution_lane, origin=mint_identity(request))
+    frame(phase=warm_spans.PHASE_ROUTER_DRAIN, note="draining any queued compiles")
     _drain_router(pipe)
 
     if cc.execution_count(pipe) <= 0:
@@ -830,6 +837,10 @@ def mint(request: MintRequest) -> MintReport:
         peak_vram_bytes=peak,
         elapsed_s=time.monotonic() - started,
         phases=_close_phases(),
+        # pgw#989: the dynamo recipe's `mint_phases` was documented as "empty —
+        # no per-graph-class breakdown". It has one; it was just never
+        # measured. The parent re-emits this exactly as it does the AOT table.
+        mint_phases=ledger.table(),
     )
 
 
@@ -869,6 +880,52 @@ def _is_resource_error(exc: BaseException) -> bool:
     return isinstance(exc, MemoryError)
 
 
+def _install_goals() -> None:
+    """Publish THIS process's goal set (pgw#868 A4).
+
+    ``worker_goals`` is a per-process publication with exactly one carrier and
+    one moment it is set. Both existing callers of :func:`worker_goals.install`
+    are in the SERVING parent (``entrypoint``, ``procsplit.parent``) — and the
+    mint runs in a child spawned as ``python -m gen_worker.mint_child``, which
+    installed nothing. So ``worker_goals.current()`` fell back to
+    :data:`~gen_worker.worker_goals.SERVE_ONLY` in the one process that decides
+    the compile pool's width (``aot_compile_pool.entry_workers`` is called from
+    ``aot_mint._mint_cell``, three frames down from here), and a mint-only pod
+    held back a tenant VRAM reserve, a serving CPU headroom and a tenant
+    host-RAM reserve for a tenant that cannot reach it: it accepts no dispatch.
+
+    The fallback is the RIGHT default for a library import with no hub — this
+    process has a hub, and its declaration is already in the environment the
+    parent handed down (``mint_process.child_env`` copies it), read here the
+    same way the parent reads it: off typed `Settings`, never off `os.environ`
+    (§1.18). A declaration this build cannot interpret still lands, carrying
+    ``declaration_understood=False``, exactly as it does in the parent.
+
+    Never fatal: a child that cannot read its settings keeps the serve-only
+    fallback and mints at the narrower width, which is what it does today.
+
+    The settings are LOADED and not ``config.install``ed, deliberately. This
+    child is a process entry and §1.18 says a process entry installs — but it
+    never has, so every ``config.current_or(default)`` reader inside a mint has
+    been answering from its default for the life of this module. Publishing
+    them here would flip all of those at once, which is a blast radius this
+    change has no way to test and no business taking. It is a real gap and it
+    is recorded as one; what this function fixes is the goal set, whose only
+    reader inside the child is the width policy.
+    """
+    try:
+        goals = worker_goals.from_settings(load_settings())
+    except Exception:  # noqa: BLE001 — a narrower pool beats a dead mint
+        logger.warning(
+            "mint-child: could not read worker goals; keeping the serve-only "
+            "fallback (the pool will hold tenant reserves)", exc_info=True)
+        return
+    worker_goals.install(goals)
+    logger.info(
+        "mint-child: goals serve=%s mint=%s (declared %r, understood=%s)",
+        goals.serve, goals.mint, goals.declared, goals.declaration_understood)
+
+
 def main(argv: Optional[Sequence[str]] = None) -> int:
     args = list(sys.argv[1:] if argv is None else argv)
     logging.basicConfig(
@@ -886,6 +943,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         print(f"BAD REQUEST {args[0]}: {exc}", file=sys.stderr)
         return EXIT_BAD_REQUEST
 
+    _install_goals()
     report_path = Path(request.report)
     started = time.monotonic()
     try:

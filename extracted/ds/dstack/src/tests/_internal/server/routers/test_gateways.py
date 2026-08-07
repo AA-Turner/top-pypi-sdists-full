@@ -78,7 +78,7 @@ class TestListAndGetGateways:
             {
                 "id": SomeUUID4Str(),
                 "project_name": project.name,
-                "backend": backend.type.value,
+                "backend": None,
                 "created_at": response.json()[0]["created_at"],
                 "default": False,
                 "status": "submitted",
@@ -98,7 +98,7 @@ class TestListAndGetGateways:
                 "ip_address": None,
                 "hostname": None,
                 "name": gateway.name,
-                "region": gateway.region,
+                "region": None,
                 "wildcard_domain": gateway.wildcard_domain,
                 "configuration": {
                     "type": "gateway",
@@ -106,7 +106,6 @@ class TestListAndGetGateways:
                     "backend": backend.type.value,
                     "region": gateway.region,
                     "instance_type": None,
-                    "router": None,
                     "domain": gateway.wildcard_domain,
                     "default": False,
                     "public_ip": True,
@@ -165,7 +164,7 @@ class TestListAndGetGateways:
         assert response.json() == {
             "id": SomeUUID4Str(),
             "project_name": project.name,
-            "backend": backend.type.value,
+            "backend": None,
             "created_at": response.json()["created_at"],
             "default": False,
             "status": "submitted",
@@ -185,7 +184,7 @@ class TestListAndGetGateways:
             "ip_address": None,
             "hostname": None,
             "name": gateway.name,
-            "region": gateway.region,
+            "region": None,
             "wildcard_domain": gateway.wildcard_domain,
             "configuration": {
                 "type": "gateway",
@@ -193,7 +192,6 @@ class TestListAndGetGateways:
                 "backend": backend.type.value,
                 "region": gateway.region,
                 "instance_type": None,
-                "router": None,
                 "domain": gateway.wildcard_domain,
                 "default": False,
                 "public_ip": True,
@@ -518,8 +516,8 @@ class TestCreateGateway:
             "id": SomeUUID4Str(),
             "project_name": project.name,
             "name": "test",
-            "backend": "aws",
-            "region": "us",
+            "backend": None,
+            "region": None,
             "status": "submitted",
             "status_message": None,
             "replicas": [],
@@ -535,7 +533,6 @@ class TestCreateGateway:
                 "backend": backend.type.value,
                 "region": "us",
                 "instance_type": None,
-                "router": None,
                 "domain": None,
                 "default": True,
                 "public_ip": True,
@@ -609,8 +606,8 @@ class TestCreateGateway:
             "id": SomeUUID4Str(),
             "project_name": project.name,
             "name": "random-name",
-            "backend": "aws",
-            "region": "us",
+            "backend": None,
+            "region": None,
             "status": "submitted",
             "status_message": None,
             "replicas": [],
@@ -626,7 +623,6 @@ class TestCreateGateway:
                 "backend": backend.type.value,
                 "region": "us",
                 "instance_type": None,
-                "router": None,
                 "domain": None,
                 "default": True,
                 "public_ip": True,
@@ -736,41 +732,15 @@ class TestCreateGateway:
                     "name": "test",
                     "backend": "aws",
                     "region": "us",
-                    "certificate": {
-                        "type": "acm",
-                        "arn": "arn:aws:acm:us-east-1:123456789:certificate/abc",
-                    },
-                    "replicas": 2,
-                },
-                "Replicated gateways do not support certificates."
-                " Set either `certificate: null` or `replicas: 1` in the gateway configuration",
-                id="multi-replica-with-acm-cert",
-            ),
-            pytest.param(
-                {
-                    "type": "gateway",
-                    "name": "test",
-                    "backend": "aws",
-                    "region": "us",
                     "certificate": {"type": "lets-encrypt"},
                     "replicas": 2,
                 },
-                "Replicated gateways do not support certificates."
-                " Set either `certificate: null` or `replicas: 1` in the gateway configuration",
+                "The `lets-encrypt` certificate type is not supported for gateways with `replicas`"
+                " greater than `1`. To create a replicated gateway, set the `certificate`"
+                " configuration property to one of the supported values, such as"
+                " `certificate: null` (no HTTPS)"
+                " or `certificate: { type: acm, arn: <arn> }` (AWS ACM)",
                 id="multi-replica-with-letsencrypt-cert",
-            ),
-            pytest.param(
-                {
-                    "type": "gateway",
-                    "name": "test",
-                    "backend": "aws",
-                    "region": "us",
-                    "certificate": None,
-                    "router": {"type": "sglang"},
-                    "replicas": 2,
-                },
-                "The deprecated `router` property is not supported for multi-replica gateways",
-                id="multi-replica-with-router",
             ),
             pytest.param(
                 {
@@ -870,7 +840,7 @@ class TestDefaultGateway:
         assert response.json() == {
             "id": SomeUUID4Str(),
             "project_name": project.name,
-            "backend": backend.type.value,
+            "backend": None,
             "created_at": response.json()["created_at"],
             "default": True,
             "status": "submitted",
@@ -890,7 +860,7 @@ class TestDefaultGateway:
             "ip_address": None,
             "hostname": None,
             "name": gateway.name,
-            "region": gateway.region,
+            "region": None,
             "wildcard_domain": gateway.wildcard_domain,
             "configuration": {
                 "type": "gateway",
@@ -898,7 +868,6 @@ class TestDefaultGateway:
                 "backend": backend.type.value,
                 "region": gateway.region,
                 "instance_type": None,
-                "router": None,
                 "domain": gateway.wildcard_domain,
                 "default": True,
                 "public_ip": True,
@@ -1267,7 +1236,7 @@ class TestUpdateGateway:
         assert response.json() == {
             "id": SomeUUID4Str(),
             "project_name": project.name,
-            "backend": backend.type.value,
+            "backend": None,
             "created_at": response.json()["created_at"],
             "status": "submitted",
             "status_message": None,
@@ -1287,7 +1256,7 @@ class TestUpdateGateway:
             "ip_address": None,
             "hostname": None,
             "name": gateway.name,
-            "region": gateway.region,
+            "region": None,
             "wildcard_domain": "new.example",
             "configuration": {
                 "type": "gateway",
@@ -1295,7 +1264,6 @@ class TestUpdateGateway:
                 "backend": backend.type.value,
                 "region": gateway.region,
                 "instance_type": None,
-                "router": None,
                 "domain": "new.example",
                 "default": False,
                 "public_ip": True,
@@ -1918,6 +1886,8 @@ class TestApplyGatewayPlan:
         assert data["configuration"]["domain"] == "new.example.com"
         events = await list_events(session)
         assert any("Gateway updated." in e.message and "domain" in e.message for e in events)
+        await session.refresh(gateway)
+        assert gateway.last_update_at is not None
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("test_db", ["sqlite", "postgres"], indirect=True)
@@ -1972,6 +1942,8 @@ class TestApplyGatewayPlan:
         assert data["configuration"]["domain"] == "new.example.com"
         events = await list_events(session)
         assert any("Gateway updated." in e.message and "domain" in e.message for e in events)
+        await session.refresh(gateway)
+        assert gateway.last_update_at is not None
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("test_db", ["sqlite", "postgres"], indirect=True)

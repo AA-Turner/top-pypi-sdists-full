@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: strawberry-graphql-django
-Version: 0.86.8
+Version: 0.87.0
 Summary: Strawberry GraphQL Django extension
 Project-URL: homepage, https://strawberry.rocks/docs/django
 Project-URL: repository, https://github.com/strawberry-graphql/strawberry-django

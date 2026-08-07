@@ -4,7 +4,7 @@ import textwrap
 
 import pipcl
 
-VERSION = "1.28.0"
+VERSION = "1.28.2"
 VERSION_TUPLE = tuple(int(x) for x in VERSION.split("."))
 
 # We build with, and run with, a particular PyMuPDF version usually, but not
@@ -21,12 +21,13 @@ pymupdf_layout_version = VERSION
 PYMUPDF_SETUP_VERSION = os.environ.get("PYMUPDF_SETUP_VERSION")
 if PYMUPDF_SETUP_VERSION:
     # Allow testing with non-matching pymupdf/layout versions.
-    requires_dist = ["tabulate"]
+    requires_dist = ["tabulate", "psutil"]
 else:
     requires_dist = [
         f"pymupdf=={pymupdf_version}",
         f"pymupdf_layout=={pymupdf_layout_version}",
         "tabulate",
+        "psutil",
     ]
 
 
@@ -39,9 +40,9 @@ def build():
             {VERSION_TUPLE=}
             """)
     ret.append((version_info.encode("utf-8"), "pymupdf4llm/versions_file.py"))
-    
-    _build_py = pipcl.git_info_py('.', check=0, prefix='pymupdf4llm_git_')
-    ret.append((_build_py.encode(), 'pymupdf4llm/_build.py'))
+
+    _build_py = pipcl.git_info_py(".", check=0, prefix="pymupdf4llm_git_")
+    ret.append((_build_py.encode(), "pymupdf4llm/_build.py"))
 
     for p in pipcl.git_items("src"):
         ret.append((f"src/{p}", f"pymupdf4llm/{p}"))
@@ -81,6 +82,11 @@ p = pipcl.Package(
         "Tracker, https://github.com/pymupdf/PyMuPDF/issues",
         "Changelog, https://pymupdf.readthedocs.io/en/latest/changes.html",
     ],
+    # We create a `pymupdf4llm` command.
+    entry_points=textwrap.dedent("""
+        [console_scripts]
+        pymupdf4llm = pymupdf4llm.__main__:main
+        """),
     fn_build=build,
     fn_sdist=sdist,
 )

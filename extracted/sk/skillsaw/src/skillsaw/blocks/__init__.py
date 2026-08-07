@@ -50,6 +50,9 @@ from .frontmatter import (
 from .json_config import (
     HookEventConfig,
     HookHandler,
+    AgentPluginMcpBlock,
+    CodexInlineHooksBlock,
+    CodexInlineMcpBlock,
     HooksBlock,
     JsonConfigBlock,
     McpBlock,
@@ -68,6 +71,7 @@ from .coderabbit import (
     _find_yaml_key_line_after,
 )
 from .promptfoo import PromptfooPromptBlock
+from .openai import OpenAIMetadataBlock
 from .gather import (
     gather_all_content_blocks,
     gather_all_content_files,
@@ -106,7 +110,10 @@ __all__ = [
     # json_config
     "HookHandler",
     "HookEventConfig",
+    "AgentPluginMcpBlock",
     "JsonConfigBlock",
+    "CodexInlineHooksBlock",
+    "CodexInlineMcpBlock",
     "HooksBlock",
     "McpServerConfig",
     "McpBlock",
@@ -123,6 +130,8 @@ __all__ = [
     "_extract_instructions",
     # promptfoo
     "PromptfooPromptBlock",
+    # OpenAI metadata
+    "OpenAIMetadataBlock",
     # gather
     "gather_all_content_blocks",
     "gather_all_content_files",

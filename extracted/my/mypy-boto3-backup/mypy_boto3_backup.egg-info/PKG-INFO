@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: mypy-boto3-backup
-Version: 1.43.15
-Summary: Type annotations for boto3 Backup 1.43.15 service generated with mypy-boto3-builder 8.12.0
+Version: 1.43.66
+Summary: Type annotations for boto3 Backup 1.43.66 service generated with mypy-boto3-builder 8.12.0
 Author-email: Vlad Emelianov <vlad.emelianov.nz@gmail.com>
 License-Expression: MIT
 Project-URL: Homepage, https://github.com/youtype/mypy_boto3_builder
@@ -42,7 +42,7 @@ Dynamic: license-file
 
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
-Type annotations for [boto3 Backup 1.43.15](https://pypi.org/project/boto3/)
+Type annotations for [boto3 Backup 1.43.66](https://pypi.org/project/boto3/)
 compatible with [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -104,7 +104,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.43.15' mypy-boto3-builder`
+   `uvx --with 'boto3==1.43.66' mypy-boto3-builder`
 2. Select `boto3-stubs` AWS SDK.
 3. Add `Backup` service.
 4. Use provided commands to install generated packages.
@@ -338,6 +338,9 @@ from boto3.session import Session
 
 from mypy_boto3_backup import BackupClient
 from mypy_boto3_backup.paginator import (
+    ListBackupAccessPointsByRecoveryPointPaginator,
+    ListBackupAccessPointsByResourcePaginator,
+    ListBackupAccessPointsPaginator,
     ListBackupJobsPaginator,
     ListBackupPlanTemplatesPaginator,
     ListBackupPlanVersionsPaginator,
@@ -366,6 +369,15 @@ client: BackupClient = Session().client("backup")
 
 # Explicit type annotations are optional here
 # Types should be correctly discovered by mypy and IDEs
+list_backup_access_points_by_recovery_point_paginator: ListBackupAccessPointsByRecoveryPointPaginator = client.get_paginator(
+    "list_backup_access_points_by_recovery_point"
+)
+list_backup_access_points_by_resource_paginator: ListBackupAccessPointsByResourcePaginator = (
+    client.get_paginator("list_backup_access_points_by_resource")
+)
+list_backup_access_points_paginator: ListBackupAccessPointsPaginator = client.get_paginator(
+    "list_backup_access_points"
+)
 list_backup_jobs_paginator: ListBackupJobsPaginator = client.get_paginator("list_backup_jobs")
 list_backup_plan_templates_paginator: ListBackupPlanTemplatesPaginator = client.get_paginator(
     "list_backup_plan_templates"
@@ -431,10 +443,10 @@ Full list of `Backup` Literals can be found in
 [docs](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_backup/literals/).
 
 ```python
-from mypy_boto3_backup.literals import AggregationPeriodType
+from mypy_boto3_backup.literals import AccessPointStatusType
 
 
-def check_value(value: AggregationPeriodType) -> bool: ...
+def check_value(value: AccessPointStatusType) -> bool: ...
 ```
 
 <a id="type-definitions"></a>

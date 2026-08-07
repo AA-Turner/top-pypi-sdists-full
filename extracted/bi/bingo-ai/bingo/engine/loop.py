@@ -74,6 +74,11 @@ class AgentLoop:
         self._recent_exec_outputs: list[str] = []
         # Pending user-turn injections: HAL corrections + depth nudges, drained before each _call_model()
         self._pending_injections: list[str] = []
+        # Live user hints (TUI/REPL, web-independent). Thread-safe: producer is the
+        # UI thread, consumer is this loop thread. Drained each iteration → injected
+        # as a user turn before the next model call.
+        self._live_hints: list[str] = []
+        self._live_hints_lock = threading.Lock()
         # Track dynamic skill injection sigs (one-shot, avoid duplicate)
         self._nudged_finding_ids: set[str] = set()
         # Persistent focus tracking — finding_id → last loop nudged / total nudge count
@@ -100,6 +105,35 @@ class AgentLoop:
         self._consecutive_403_count: int = 0
         # Fix v7.0.66: No-progress loop counter — terminate if 15 loops without findings
         self._loops_since_last_finding: int = 0
+        # v7.4.6: Connection-failure tracking — target unreachable (SSL handshake
+        # timeout / HTTP_CODE:000 / conn refused). Prevents the model from giving
+        # up after 1-2 loops without trying transport bypasses (TLS downgrade,
+        # HTTP/1.1, port 80, IP-direct). Bounded escalations, then honest report.
+        self._consecutive_conn_fail_count: int = 0
+        self._conn_fail_escalations: int = 0
+
+    def submit_hint(self, text: str) -> bool:
+        """실행 중인 루프에 사용자 힌트를 실시간 주입한다 (thread-safe).
+
+        UI 스레드에서 호출. 다음 iteration 경계에서 user turn 으로 삽입된다.
+        빈 문자열은 무시. 반환값: 접수 여부.
+        """
+        text = (text or "").strip()
+        if not text:
+            return False
+        with self._live_hints_lock:
+            self._live_hints.append(text)
+        return True
+
+    def _drain_live_hints(self) -> None:
+        """UI 힌트를 pending injection 으로 이동 (루프 스레드에서 호출)."""
+        with self._live_hints_lock:
+            if not self._live_hints:
+                return
+            hints = self._live_hints
+            self._live_hints = []
+        for _h in hints:
+            self._pending_injections.append(f"[User Hint] {_h}")
 
     def run(self, user_message: str) -> None:
         """Execute the full agent loop for a user message."""
@@ -110,11 +144,19 @@ class AgentLoop:
             # 협조적 취소 (TUI Stop) — iteration 경계에서 폴링.
             # 세팅되면 지금까지의 findings로 리포트를 생성하고 깔끔히 종료.
             if self._cancel is not None and self._cancel.is_set():
-                self.console.print("\n[#ffaa00]⚡ 사용자 요청으로 중단됨 — 현재까지 결과로 리포트 생성[/]")
+                from ..lang.strings import get_strings as _gs
+                _msg = _gs(self.lang).get(
+                    "tui_report_on_stop",
+                    "Stopped by user — generating report from results so far",
+                )
+                self.console.print(f"\n[#ffaa00]⚡ {_msg}[/]")
                 self._finalize()
                 return
 
             self._loop_count += 1
+
+            # Drain live user hints (TUI/REPL) — web-independent, real-time.
+            self._drain_live_hints()
 
             # Drain web UI hints into pending injections
             if self._event_bus:
@@ -155,6 +197,10 @@ class AgentLoop:
                     for tc in tool_calls
                 ])
                 for r in results:
+                    # 협조적 취소 — 여러 도구 결과 처리 중 Esc 시 즉시 빠져나가
+                    # while 상단에서 기존 취소 종료 경로(리포트 생성)를 재사용한다.
+                    if self._cancel is not None and self._cancel.is_set():
+                        break
                     self.context.append_tool_result(r.tool_call_id, r.name, r.content)
                     # Register exec facts in ZeroHalEngine so later claims can be anchored
                     if not r.error and r.output:
@@ -193,6 +239,8 @@ class AgentLoop:
                     self._track_visited_path(r)
                     # Fix v7.0.66: Update consecutive 403 counter for WAF ban detection
                     self._update_403_counter(r)
+                    # v7.4.6: Update connection-failure counter (transport unreachable)
+                    self._update_conn_fail_counter(r)
                 # HAL gate: validate model text claims against accumulated exec evidence.
                 # Runs after tools execute so the gate has the freshest facts.
                 if response_text:
@@ -287,6 +335,19 @@ class AgentLoop:
             _unresolved = self._get_high_priority_unresolved()
             if _unresolved and self._loop_count < self._max_loops:
                 self._inject_no_stop_mandate(_unresolved)
+                continue
+            # v7.4.6 Guard: target unreachable at transport layer (SSL handshake
+            # timeout / HTTP_CODE:000). Don't let the model give up after 1-2 loops
+            # without trying transport bypasses. Escalate up to 3 times, then report.
+            if (self._consecutive_conn_fail_count >= 2
+                    and self._conn_fail_escalations < 3
+                    and self._loop_count < self._max_loops):
+                self._conn_fail_escalations += 1
+                self.console.print(
+                    f"\n[#ff6d00]⚡ Target unreachable ({self._consecutive_conn_fail_count} conn fails) — "
+                    f"forcing transport bypass (attempt {self._conn_fail_escalations}/3).[/]"
+                )
+                self._inject_transport_bypass_mandate()
                 continue
             # Model produced text without any tool call → self-decided to stop.
             self._finalize()
@@ -1426,3 +1487,91 @@ class AgentLoop:
             self._consecutive_403_count += 1
         else:
             self._consecutive_403_count = 0
+
+    # v7.4.6: connection-failure signatures — target unreachable at the transport
+    # layer (not an HTTP status). If these dominate, the model must try transport
+    # bypasses instead of giving up. Kept broad but anchored to real tool output.
+    _CONN_FAIL_RE = None
+
+    @classmethod
+    def _conn_fail_pattern(cls):
+        if cls._CONN_FAIL_RE is None:
+            import re as _re
+            cls._CONN_FAIL_RE = _re.compile(
+                r"HTTP_CODE:\s*000"
+                r"|HTTP/\S*\s+000\b"
+                r"|\bcurl:\s*\(28\)"                       # operation timed out
+                r"|\bcurl:\s*\(35\)"                       # SSL connect error
+                r"|\bcurl:\s*\(7\)"                        # failed to connect
+                r"|\bcurl:\s*\(56\)"                       # recv failure / reset
+                r"|SSL.{0,20}handshake.{0,20}(timed out|timeout|fail)"
+                r"|_ssl\.c|SSLError|TLSV1|WRONG_VERSION_NUMBER"
+                r"|ConnectTimeout|ConnectError|ReadTimeout|handshake operation timed out"
+                r"|[Cc]onnection (refused|reset|timed out|aborted)"
+                r"|Failed to establish a new connection"
+                r"|Max retries exceeded|Name or service not known|getaddrinfo failed",
+                _re.I,
+            )
+        return cls._CONN_FAIL_RE
+
+    def _update_conn_fail_counter(self, result: "ToolResult") -> None:
+        """Track consecutive transport-level connection failures.
+
+        Increments on a connection-failure signature in tool output/error,
+        resets on any output that shows a real HTTP response was received.
+        """
+        blob = ((result.output or "") + "\n" + (result.error or "")) if result else ""
+        if not blob.strip():
+            return
+        import re as _re
+        # A genuine HTTP status line means the transport worked — reset.
+        got_http = bool(_re.search(r"HTTP/\d(?:\.\d)?\s+[1-5]\d\d\b|HTTP_CODE:\s*[1-5]\d\d", blob))
+        if self._conn_fail_pattern().search(blob) and not got_http:
+            self._consecutive_conn_fail_count += 1
+        else:
+            self._consecutive_conn_fail_count = 0
+
+    def _inject_transport_bypass_mandate(self) -> None:
+        """Inject a concrete transport-escalation mandate when the target is
+        unreachable, so the model tries bypasses instead of giving up."""
+        if self.lang == "ko":
+            msg = (
+                "[🚫 STOP BLOCKED — 타겟 연결 실패(전송 계층). 아직 포기 금지]\n"
+                f"연속 연결 실패 {self._consecutive_conn_fail_count}회 (SSL 핸드셰이크 타임아웃/HTTP_CODE:000).\n"
+                "이건 취약점 부재가 아니라 '아직 붙지 못한' 상태입니다. 다음을 순서대로 시도하세요:\n"
+                "1. httpx HTTP/2 로 재시도 (JA3/JA4 지문 회피): "
+                "httpx.Client(http2=True, verify=False, timeout=30)\n"
+                "2. TLS 버전 강제: curl --tlsv1.2 --ciphers DEFAULT@SECLEVEL=1, 그리고 --tlsv1.3 각각\n"
+                "3. 평문 HTTP(포트 80) 및 http:// 스킴으로 시도 (리다이렉트 확인)\n"
+                "4. IP 직접 접속 + Host 헤더 (DNS/SNI 우회): curl -k --resolve host:443:IP\n"
+                "5. www 유무 토글, 다른 포트(8080/8443) 확인\n"
+                "지금 당장 위 방법으로 TOOL_CALL 을 실행하세요. 텍스트로만 끝내지 마세요."
+            )
+        elif self.lang == "zh":
+            msg = (
+                "[🚫 STOP BLOCKED — 目标传输层连接失败。禁止放弃]\n"
+                f"连续连接失败 {self._consecutive_conn_fail_count} 次 (SSL握手超时/HTTP_CODE:000)。\n"
+                "这不代表没有漏洞，而是'还没连上'。请依次尝试:\n"
+                "1. httpx HTTP/2 重试 (规避JA3/JA4指纹): "
+                "httpx.Client(http2=True, verify=False, timeout=30)\n"
+                "2. 强制TLS版本: curl --tlsv1.2 --ciphers DEFAULT@SECLEVEL=1, 再试 --tlsv1.3\n"
+                "3. 明文HTTP(端口80)和 http:// 方案 (检查重定向)\n"
+                "4. 直连IP + Host头 (绕过DNS/SNI): curl -k --resolve host:443:IP\n"
+                "5. 切换www有无, 检查其他端口(8080/8443)\n"
+                "立即用上述方法执行TOOL_CALL。不要只输出文本就结束。"
+            )
+        else:
+            msg = (
+                "[🚫 STOP BLOCKED — target unreachable at transport layer. Do NOT give up]\n"
+                f"{self._consecutive_conn_fail_count} consecutive connection failures "
+                "(SSL handshake timeout / HTTP_CODE:000).\n"
+                "This is 'not connected yet', NOT 'no vulnerability'. Try these in order:\n"
+                "1. Retry with httpx HTTP/2 (evade JA3/JA4): "
+                "httpx.Client(http2=True, verify=False, timeout=30)\n"
+                "2. Force TLS version: curl --tlsv1.2 --ciphers DEFAULT@SECLEVEL=1, then --tlsv1.3\n"
+                "3. Try plaintext HTTP (port 80) and the http:// scheme (check redirects)\n"
+                "4. IP-direct + Host header (bypass DNS/SNI): curl -k --resolve host:443:IP\n"
+                "5. Toggle www prefix, check alt ports (8080/8443)\n"
+                "Run a TOOL_CALL with one of these NOW. Do not stop with text only."
+            )
+        self._pending_injections.append(msg)

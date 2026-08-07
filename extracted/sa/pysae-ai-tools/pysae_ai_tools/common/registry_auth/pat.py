@@ -14,11 +14,17 @@ which requires the ``self_rotate`` scope and **invalidates the old token** — s
 every consumer must be rewritten right after (see
 :mod:`pysae_ai_tools.install.registry_credential`).
 
+Rotation always asks for an explicit expiry, reconducting the window the token
+was originally issued for. GitLab's own default is one week when the instance
+requires an expiry date, which lands *under* :data:`ROTATION_THRESHOLD_DAYS` —
+the replacement would be due for rotation the moment it is issued, and every
+subsequent run would rotate again, revoking a working credential each time.
+
 The token is only ever sent as a request header: never in a URL, never logged.
 """
 
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 
 # ``httpx`` is imported inside the two functions that call GitLab, not at module
 # level: ``env/config.py`` reads this module's constants and ``creation_url``,
@@ -37,6 +43,11 @@ TOKEN_NAME = "pysae-ai-tools-registry"
 # the CLI weekly never hits an expired credential.
 ROTATION_THRESHOLD_DAYS = 14
 
+# Window asked for at rotation when the original one cannot be read (GitLab
+# omitted ``created_at``). Never GitLab's own default, which is a week — see the
+# module docstring. Short enough to stay under any instance's maximum lifetime.
+FALLBACK_ROTATION_WINDOW_DAYS = 90
+
 _TIMEOUT = 10.0
 
 
@@ -50,6 +61,9 @@ class TokenInfo:
     expires_at: date | None
     active: bool
     revoked: bool
+    # Optional because it only serves the rotation window: a token GitLab
+    # reported without a creation date still authenticates, and still rotates.
+    created_at: date | None = None
 
     @property
     def missing_scopes(self) -> tuple[str, ...]:
@@ -83,9 +97,33 @@ class TokenInfo:
             return None
         return (self.expires_at - (today or date.today())).days
 
+    @property
+    def lifetime_days(self) -> int | None:
+        """The window the token was issued for, or ``None`` when unreadable."""
+        if self.created_at is None or self.expires_at is None:
+            return None
+        window = (self.expires_at - self.created_at).days
+        return window if window > 0 else None
+
+    def rotation_expiry(self, today: date | None = None) -> date:
+        """Expiry to ask GitLab for when rotating: the original window, from today."""
+        window = self.lifetime_days or FALLBACK_ROTATION_WINDOW_DAYS
+        return (today or date.today()) + timedelta(days=window)
+
     def needs_rotation(self, today: date | None = None, threshold: int = ROTATION_THRESHOLD_DAYS) -> bool:
+        """True when expiry is near enough to renew the token now.
+
+        The threshold is capped at half the token's own window, so a credential
+        issued for less than twice the threshold cannot be born already due for
+        rotation — which would rotate it on every single run.
+        """
         remaining = self.days_left(today)
-        return remaining is not None and remaining <= threshold
+        if remaining is None:
+            return False
+        window = self.lifetime_days
+        if window is not None:
+            threshold = min(threshold, window // 2)
+        return remaining <= threshold
 
 
 def creation_url(host: str, name: str = TOKEN_NAME, scopes: tuple[str, ...] = REQUIRED_SCOPES) -> str:
@@ -103,7 +141,8 @@ def creation_url(host: str, name: str = TOKEN_NAME, scopes: tuple[str, ...] = RE
     return f"https://{host}/-/user_settings/personal_access_tokens?name={name}&scopes={','.join(scopes)}"
 
 
-def _parse_expiry(raw: object) -> date | None:
+def _parse_day(raw: object) -> date | None:
+    """Read a GitLab date field, accepting both a plain date and a timestamp."""
     if not isinstance(raw, str) or not raw:
         return None
     try:
@@ -148,32 +187,46 @@ def token_info(token: str, host: str) -> TokenInfo | None:
         token_id=int(data.get("id") or 0),
         name=str(data.get("name") or ""),
         scopes=scopes,
-        expires_at=_parse_expiry(data.get("expires_at")),
+        expires_at=_parse_day(data.get("expires_at")),
         active=bool(data.get("active", True)),
         revoked=bool(data.get("revoked", False)),
+        created_at=_parse_day(data.get("created_at")),
     )
 
 
-def rotate(token: str, host: str) -> str | None:
+def rotate(token: str, host: str, expires_at: date | None = None) -> str | None:
     """Rotate ``token`` and return its replacement, or ``None`` on failure.
 
     The old token stops working the moment this succeeds, so the caller owns
     re-applying the returned value everywhere it was posed.
+
+    ``expires_at`` is the lifetime asked for the replacement — pass
+    :meth:`TokenInfo.rotation_expiry` to reconduct the original window. An
+    expiry the instance refuses (beyond its maximum allowable lifetime, a
+    ``400``) is retried without the field: a credential GitLab dates itself
+    still beats one that expires.
     """
     if not token:
         return None
 
     import httpx
 
-    try:
-        response = httpx.post(
-            f"https://{host}/api/v4/personal_access_tokens/self/rotate",
-            headers={"PRIVATE-TOKEN": token},
-            timeout=_TIMEOUT,
-            follow_redirects=True,
-        )
-    except httpx.HTTPError:
+    url = f"https://{host}/api/v4/personal_access_tokens/self/rotate"
+    headers = {"PRIVATE-TOKEN": token}
+
+    def post(payload: dict[str, str] | None) -> httpx.Response | None:
+        try:
+            return httpx.post(url, headers=headers, data=payload, timeout=_TIMEOUT, follow_redirects=True)
+        except httpx.HTTPError:
+            return None
+
+    response = post({"expires_at": expires_at.isoformat()} if expires_at is not None else None)
+    if response is None:
         return None
+    if expires_at is not None and response.status_code == httpx.codes.BAD_REQUEST:
+        response = post(None)
+        if response is None:
+            return None
     if response.status_code not in (httpx.codes.OK, httpx.codes.CREATED):
         return None
     try:

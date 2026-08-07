@@ -12,6 +12,7 @@ import google.protobuf.internal.enum_type_wrapper
 import google.protobuf.message
 import google.protobuf.timestamp_pb2
 import sentry_protos.billing.v1.common.v1.pricing_tier_pb2
+import sentry_protos.billing.v1.common.v1.soft_cap_type_pb2
 import sentry_protos.billing.v1.services.contract.v1.billing_config_pb2
 import sentry_protos.billing.v1.services.contract.v1.sku_pb2
 import sentry_protos.billing.v1.sku_pb2
@@ -193,6 +194,23 @@ class Reservation(google.protobuf.message.Message):
 global___Reservation = Reservation
 
 @typing.final
+class SoftCap(google.protobuf.message.Message):
+    """Allows usage beyond a reservation without PAYG charges."""
+
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    TYPE_FIELD_NUMBER: builtins.int
+    type: sentry_protos.billing.v1.common.v1.soft_cap_type_pb2.SoftCapType.ValueType
+    def __init__(
+        self,
+        *,
+        type: sentry_protos.billing.v1.common.v1.soft_cap_type_pb2.SoftCapType.ValueType = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing.Literal["type", b"type"]) -> None: ...
+
+global___SoftCap = SoftCap
+
+@typing.final
 class LineItemUids(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
@@ -251,6 +269,7 @@ class UserConfig(google.protobuf.message.Message):
     SPECIFIC_ITEMS_FIELD_NUMBER: builtins.int
     ALL_ITEMS_FIELD_NUMBER: builtins.int
     ACTIVATION_FIELD_NUMBER: builtins.int
+    SOFT_CAP_FIELD_NUMBER: builtins.int
     @property
     def payg_budget(self) -> global___PAYGBudget: ...
     @property
@@ -261,6 +280,8 @@ class UserConfig(google.protobuf.message.Message):
     def all_items(self) -> google.protobuf.empty_pb2.Empty: ...
     @property
     def activation(self) -> global___Activation: ...
+    @property
+    def soft_cap(self) -> global___SoftCap: ...
     def __init__(
         self,
         *,
@@ -269,9 +290,10 @@ class UserConfig(google.protobuf.message.Message):
         specific_items: global___LineItemUids | None = ...,
         all_items: google.protobuf.empty_pb2.Empty | None = ...,
         activation: global___Activation | None = ...,
+        soft_cap: global___SoftCap | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["activation", b"activation", "all_items", b"all_items", "line_items", b"line_items", "payg_budget", b"payg_budget", "reservation", b"reservation", "specific_items", b"specific_items"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["activation", b"activation", "all_items", b"all_items", "line_items", b"line_items", "payg_budget", b"payg_budget", "reservation", b"reservation", "specific_items", b"specific_items"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["activation", b"activation", "all_items", b"all_items", "line_items", b"line_items", "payg_budget", b"payg_budget", "reservation", b"reservation", "soft_cap", b"soft_cap", "specific_items", b"specific_items"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["activation", b"activation", "all_items", b"all_items", "line_items", b"line_items", "payg_budget", b"payg_budget", "reservation", b"reservation", "soft_cap", b"soft_cap", "specific_items", b"specific_items"]) -> None: ...
     def WhichOneof(self, oneof_group: typing.Literal["line_items", b"line_items"]) -> typing.Literal["specific_items", "all_items"] | None: ...
 
 global___UserConfig = UserConfig

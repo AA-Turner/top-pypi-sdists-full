@@ -42,6 +42,7 @@ class XLSXRenderer(BaseRenderer):
     format = "xlsx"  # Reserved word, but required by BaseRenderer
     combined_header_dict = {}
     fields_dict = {}
+    specify_headers = None
     ignore_headers = []
     boolean_display = None
     column_data_styles = None
@@ -94,12 +95,16 @@ class XLSXRenderer(BaseRenderer):
         # Make column headers
         column_titles = column_header.get("titles", [])
 
+        # Check for auto_filter
+        auto_filter = get_attribute(drf_view, "xlsx_auto_filter", False)
+
         # If we have results, then flatten field names
         if len(results):
             # Set `xlsx_use_labels = True` inside the API View to enable labels.
             use_labels = getattr(drf_view, "xlsx_use_labels", False)
 
-            # A list of header keys to ignore in our export
+            # A list of header keys to use or ignore in our export
+            self.specify_headers = getattr(drf_view, "xlsx_specify_headers", None)
             self.ignore_headers = getattr(drf_view, "xlsx_ignore_headers", [])
 
             # Create a mapping dict named `xlsx_boolean_labels` inside the API View.
@@ -216,6 +221,10 @@ class XLSXRenderer(BaseRenderer):
                 self._make_body(body, row, row_count)
                 row_count += 1
 
+        # Enable auto filters if requested
+        if auto_filter and column_count:
+            self.ws.auto_filter.ref = f"A1:{get_column_letter(column_count)}{row_count}"
+
         # Set sheet view options
         # Example:
         # sheet_view_options = {
@@ -249,6 +258,21 @@ class XLSXRenderer(BaseRenderer):
                 _fields_dict[new_key] = v
         return _fields_dict
 
+    def _is_specified(self, key, key_sep):
+        """
+        Whether `key` is selected by `xlsx_specify_headers`. A key is selected when it
+        is listed itself, when an ancestor is listed (include everything below it) or
+        when a descendant is listed (so nested serializers are traversed).
+        """
+        if self.specify_headers is None:
+            return True
+        return any(
+            key == header
+            or key.startswith(f"{header}{key_sep}")
+            or header.startswith(f"{key}{key_sep}")
+            for header in self.specify_headers
+        )
+
     def _flatten_serializer_keys(
         self,
         serializer,
@@ -263,22 +287,21 @@ class XLSXRenderer(BaseRenderer):
         Iterate through serializer fields recursively when field is a nested serializer. Skip write_only fields.
         """
 
-        def _get_label(parent_label, label_sep, obj):
-            if getattr(v, "label", None):
-                return (
-                    f"{parent_label}{label_sep}{v.label}"
-                    if parent_label
-                    else str(v.label)
-                )
-            else:
-                return False
+        def _get_label(parent_label, label_sep):
+            return (
+                f"{parent_label}{label_sep}{v.label}" if parent_label else str(v.label)
+            )
 
         _header_dict = {}
         _fields = serializer.fields
         for k, v in _fields.items():
             new_key = f"{parent_key}{key_sep}{k}" if parent_key else k
-            # Skip headers we want to ignore
-            if new_key in self.ignore_headers or getattr(v, "write_only", False):
+            # Skip headers that weren't in the list (if present) or were specifically ignored
+            if (
+                not self._is_specified(new_key, key_sep)
+                or new_key in self.ignore_headers
+                or getattr(v, "write_only", False)
+            ):
                 continue
             # Iterate through fields if field is a serializer. Check for labels and
             # append if `use_labels` is True. Fallback to using keys.
@@ -288,7 +311,7 @@ class XLSXRenderer(BaseRenderer):
                         self._flatten_serializer_keys(
                             v,
                             new_key,
-                            _get_label(parent_label, label_sep, v),
+                            _get_label(parent_label, label_sep),
                             key_sep,
                             list_sep,
                             label_sep,
@@ -308,7 +331,7 @@ class XLSXRenderer(BaseRenderer):
                     )
             elif isinstance(v, Field):
                 if use_labels and getattr(v, "label", None):
-                    _header_dict[new_key] = _get_label(parent_label, label_sep, v)
+                    _header_dict[new_key] = _get_label(parent_label, label_sep)
                 else:
                     _header_dict[new_key] = new_key
 
@@ -378,9 +401,9 @@ class XLSXRenderer(BaseRenderer):
 
         if isinstance(field, BooleanField):
             return XLSXBooleanField(boolean_display=self.boolean_display, **kwargs)
-        elif isinstance(field, (IntegerField, FloatField, DecimalField)):
+        elif isinstance(field, IntegerField | FloatField | DecimalField):
             return XLSXNumberField(**kwargs)
-        elif isinstance(field, (DateTimeField, DateField, TimeField)):
+        elif isinstance(field, DateTimeField | DateField | TimeField):
             return XLSXDateField(**kwargs)
         elif (
             isinstance(field, ListField)

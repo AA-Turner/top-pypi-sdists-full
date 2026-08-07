@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: autogluon.timeseries
-Version: 1.6.0
+Version: 1.6.1
 Summary: Fast and Accurate ML in 3 Lines of Code
 Author: AutoGluon Community
 License-Expression: Apache-2.0
@@ -56,19 +56,19 @@ Requires-Dist: einops<1,>=0.7
 Requires-Dist: chronos-forecasting<2.4,>=2.3.1
 Requires-Dist: peft<0.20,>=0.18.1
 Requires-Dist: tensorboard<3,>=2.9
-Requires-Dist: autogluon.core==1.6.0
-Requires-Dist: autogluon.common==1.6.0
-Requires-Dist: autogluon.features==1.6.0
-Requires-Dist: autogluon.tabular[catboost,lightgbm,xgboost]==1.6.0
+Requires-Dist: autogluon.core==1.6.1
+Requires-Dist: autogluon.common==1.6.1
+Requires-Dist: autogluon.features==1.6.1
+Requires-Dist: autogluon.tabular[catboost,lightgbm,xgboost]==1.6.1
 Provides-Extra: tests
 Requires-Dist: pytest; extra == "tests"
 Requires-Dist: ruff>=0.0.285; extra == "tests"
 Requires-Dist: flaky<4,>=3.7; extra == "tests"
 Requires-Dist: pytest-timeout<3,>=2.1; extra == "tests"
 Provides-Extra: ray
-Requires-Dist: autogluon.core[raytune]==1.6.0; extra == "ray"
+Requires-Dist: autogluon.core[raytune]==1.6.1; extra == "ray"
 Provides-Extra: all
-Requires-Dist: autogluon.core[raytune]==1.6.0; extra == "all"
+Requires-Dist: autogluon.core[raytune]==1.6.1; extra == "all"
 Dynamic: classifier
 Dynamic: description
 Dynamic: description-content-type

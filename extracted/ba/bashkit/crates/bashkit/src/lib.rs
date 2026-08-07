@@ -27,17 +27,17 @@
 //! | Flow control | `true`, `false`, `exit`, `return`, `break`, `continue`, `test`, `[`, `assert` |
 //! | Variables | `export`, `set`, `unset`, `local`, `shift`, `source`, `.`, `eval`, `readonly`, `times`, `declare`, `typeset`, `let`, `dotenv`, `envsubst` |
 //! | Shell | `bash`, `sh` (virtual re-invocation), `exec`, `:`, `trap`, `caller`, `getopts`, `shopt`, `command`, `type`, `which`, `hash`, `alias`, `unalias`, `compgen`, `fc`, `help` |
-//! | Text processing | `grep`, `rg`, `sed`, `awk`, `jq` (with `jq` feature), `head`, `tail`, `sort`, `uniq`, `cut`, `tr`, `wc`, `paste`, `column`, `diff`, `comm`, `strings`, `tac`, `rev`, `seq`, `expr`, `fold`, `expand`, `unexpand`, `join`, `split`, `iconv`, `shuf`, `template` |
+//! | Text processing | `grep`, `rg`, `sed`, `awk`, `jq` and `yq` (with `jq` feature), `head`, `tail`, `sort`, `uniq`, `cut`, `tr`, `wc`, `paste`, `column`, `diff`, `comm`, `strings`, `tac`, `rev`, `seq`, `expr`, `fold`, `expand`, `unexpand`, `join`, `split`, `iconv`, `shuf`, `template` |
 //! | File operations | `mkdir`, `mktemp`, `mkfifo`, `rm`, `cp`, `mv`, `touch`, `chmod`, `chown`, `ln`, `rmdir`, `realpath`, `readlink`, `truncate`, `glob`, `patch` |
 //! | File inspection | `file`, `stat`, `less` |
-//! | Archives | `tar`, `gzip`, `gunzip`, `zip`, `unzip` |
+//! | Archives | `tar`, `gzip`, `gunzip`, `bzip2`, `bunzip2`, `bzcat`, `zip`, `unzip` |
 //! | Byte tools | `od`, `xxd`, `hexdump`, `base64` |
 //! | Checksums | `md5sum`, `sha1sum`, `sha256sum`, `verify` |
 //! | Utilities | `sleep`, `date`, `basename`, `dirname`, `timeout`, `wait`, `watch`, `yes`, `kill`, `clear`, `numfmt`, `retry`, `parallel` |
 //! | Disk | `df`, `du` |
 //! | Pipeline | `xargs`, `tee` |
 //! | System info | `whoami`, `hostname`, `uname`, `id`, `env`, `printenv`, `history` |
-//! | Structured data | `json`, `csv`, `yaml`, `tomlq`, `semver` |
+//! | Structured data | `json`, `csv`, `tomlq`, `semver` |
 //! | Network | `curl`, `wget`, `http` (requires [`NetworkAllowlist`])
 //! | Arithmetic | `bc` |
 //! | Experimental | `python`, `python3` (requires `python` feature), `git` (requires `git` feature), `ts`, `typescript`, `node`, `deno`, `bun` (requires `typescript` feature), `ssh`, `scp`, `sftp` (requires `ssh` feature), `sqlite`, `sqlite3` (requires `sqlite` feature)
@@ -279,7 +279,8 @@
 //!
 //! Enable the `http_client` feature and configure an allowlist for network access:
 //!
-//! ```rust,ignore
+//! ```rust,no_run
+//! # async fn example() -> bashkit::Result<()> {
 //! use bashkit::{Bash, NetworkAllowlist};
 //!
 //! let mut bash = Bash::builder()
@@ -290,6 +291,8 @@
 //! // curl and wget now work for allowed URLs
 //! let result = bash.exec("curl -s https://httpbin.org/get").await?;
 //! assert!(result.stdout.contains("httpbin.org"));
+//! # Ok(())
+//! # }
 //! ```
 //!
 //! Security features:
@@ -319,7 +322,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! bashkit = { version = "0.1", features = ["git"] }
+//! bashkit = { version = "0.16.0", features = ["git"] }
 //! ```
 //!
 //! ```rust,ignore
@@ -350,7 +353,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! bashkit = { version = "0.1", features = ["python"] }
+//! bashkit = { version = "0.16.0", features = ["python"] }
 //! ```
 //!
 //! ```rust,ignore
@@ -423,9 +426,11 @@ mod builtins;
 #[cfg(feature = "http_client")]
 mod credential;
 mod error;
+mod execution_capability;
 mod fs;
 /// Interceptor hooks for the execution pipeline.
 pub mod hooks;
+mod host_call;
 #[cfg(feature = "interop")]
 pub mod interop;
 mod interpreter;
@@ -435,11 +440,13 @@ mod logging_impl;
 mod network;
 /// Parser module - exposed for fuzzing and testing
 pub mod parser;
+mod profile;
 /// Scripted tool: compose ToolDef+callback pairs into a single Tool via bash scripts.
 /// Requires the `scripted_tool` feature.
 #[cfg(feature = "scripted_tool")]
 pub mod scripted_tool;
 mod snapshot;
+mod stream;
 /// Test-only helpers shared between internal `#[cfg(test)]` modules,
 /// integration tests in `tests/*.rs`, and cargo-fuzz targets in
 /// `fuzz/fuzz_targets/*.rs`. See `knowledge/security/threat-model.md` for the
@@ -454,8 +461,11 @@ pub mod tool;
 /// Reusable tool primitives: ToolDef, ToolArgs, ToolImpl, exec types.
 #[cfg(feature = "scripted_tool")]
 pub(crate) mod tool_def;
+#[cfg(feature = "scripted_tool")]
+mod tool_registry;
 /// Structured execution trace events.
 pub mod trace;
+pub use stream::StreamData;
 
 pub use analysis::{
     AnalyzedCommand, AnalyzedRedirect, CommandContext, RedirectMode, ScriptAnalysis,
@@ -464,13 +474,16 @@ pub use async_trait::async_trait;
 pub use builtins::git::GitConfig;
 pub use builtins::ssh::{SshAllowlist, SshConfig, TrustedHostKey};
 pub use builtins::{
-    BashkitContext, Builtin, BuiltinRegistry, ClapBuiltin, Context as BuiltinContext,
-    ExecutionExtensions, Extension,
+    BashkitContext, Builtin, BuiltinRegistry, ClapBuiltin, CommandResolver,
+    Context as BuiltinContext, Extension,
 };
 pub use clap;
 #[cfg(feature = "http_client")]
 pub use credential::Credential;
 pub use error::{Error, Result};
+pub use execution_capability::{
+    CapabilityCleanupReport, ExecutionCapability, ExecutionCapabilityError, ExecutionExtensions,
+};
 pub use fs::{
     DirEntry, FileSystem, FileSystemExt, FileType, FsBackend, FsLimitExceeded, FsLimits, FsUsage,
     InMemoryFs, LazyLoader, Metadata, MountableFs, NamespaceAccess, NamespaceFs,
@@ -480,13 +493,21 @@ pub use fs::{
 };
 #[cfg(feature = "realfs")]
 pub use fs::{RealFs, RealFsMode};
+pub use host_call::{ExecutionEvent, ExecutionHandle, HostCallId, HostCallRequest};
 pub use interpreter::{
     ControlFlow, ExecResult, HistoryEntry, OutputCallback, ShellState, ShellStateView,
 };
 pub use limits::{
-    ExecutionCounters, ExecutionLimits, LimitExceeded, MemoryBudget, MemoryLimits, SessionLimits,
+    ExecutionBudget, ExecutionBudgetExceeded, ExecutionBudgetLease, ExecutionCounters,
+    ExecutionLimits, LimitExceeded, MemoryBudget, MemoryLimits, SessionLimits,
 };
+#[cfg(feature = "http_client")]
+pub use network::HttpLimits;
 pub use network::NetworkAllowlist;
+pub use profile::{
+    ExecutionProfile, ExecutionProfileBuilder, ExecutionProfileError, ExecutionProfileName,
+    ProfileNetworkPolicy,
+};
 pub use snapshot::{
     CapabilityDelta, CapabilityFingerprint, CheckoutPolicy, CommitId, CommitObject, CommitOptions,
     ObjectId, ObjectSource, PackedCommit, Snapshot, SnapshotDiff, SnapshotGraph, SnapshotOptions,
@@ -512,6 +533,10 @@ pub use scripted_tool::{
 };
 #[cfg(feature = "scripted_tool")]
 pub use tool_def::{AsyncToolExec, SyncToolExec, ToolImpl};
+#[cfg(feature = "scripted_tool")]
+pub use tool_registry::{
+    ToolCall, ToolCallDecision, ToolCallRequest, ToolCallSurface, ToolRegistry, ToolRegistryBuilder,
+};
 
 #[cfg(feature = "http_client")]
 pub use network::HttpClient;
@@ -655,7 +680,7 @@ pub struct ExecOptions {
     output_callback: Option<OutputCallback>,
     arg0: Option<String>,
     positional: Option<Vec<String>>,
-    stdin: Option<String>,
+    stdin: Option<StreamData>,
 }
 
 impl ExecOptions {
@@ -672,7 +697,7 @@ impl ExecOptions {
     }
 
     /// Attach per-execution builtin extensions (request-scoped typed data read
-    /// by builtins via `ctx.execution_extension::<T>()`).
+    /// through the revocable handle returned by `ctx.execution_extension::<T>()`).
     pub fn extensions(mut self, extensions: ExecutionExtensions) -> Self {
         self.extensions = extensions;
         self
@@ -731,7 +756,7 @@ impl ExecOptions {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn stdin(mut self, stdin: impl Into<String>) -> Self {
+    pub fn stdin(mut self, stdin: impl Into<StreamData>) -> Self {
         self.stdin = Some(stdin.into());
         self
     }
@@ -748,7 +773,7 @@ impl ExecOptions {
 struct Invocation {
     arg0: Option<String>,
     positional: Option<Vec<String>>,
-    stdin: Option<String>,
+    stdin: Option<StreamData>,
 }
 
 impl Invocation {
@@ -784,6 +809,9 @@ pub struct Bash {
     /// Operator-approved in-process SQLite opt-in captured at build time.
     #[cfg(feature = "sqlite")]
     sqlite_inprocess_opt_in: bool,
+    /// Real host directories mounted into the VFS, for host-path resolution.
+    #[cfg(feature = "realfs")]
+    host_mounts: HostMounts,
 }
 
 impl Default for Bash {
@@ -796,8 +824,8 @@ impl Default for Bash {
 /// `$HOME` / `~` is a real, writable directory. HOME defaults to
 /// `/home/<username>` (see Interpreter), which `InMemoryFs::new` does not create
 /// on its own. See issue #2128.
-fn inmem_fs_with_home(username: &str) -> InMemoryFs {
-    let fs = InMemoryFs::new();
+fn inmem_fs_with_home(username: &str, limits: FsLimits) -> InMemoryFs {
+    let fs = InMemoryFs::with_limits(limits);
     fs.add_dir(format!("/home/{username}"), 0o755);
     fs
 }
@@ -805,31 +833,7 @@ fn inmem_fs_with_home(username: &str) -> InMemoryFs {
 impl Bash {
     /// Create a new Bash instance with default settings.
     pub fn new() -> Self {
-        let base_inmem = inmem_fs_with_home(builtins::DEFAULT_USERNAME);
-        let base_fs: Arc<dyn FileSystem> = Arc::new(base_inmem);
-        let mountable = Arc::new(MountableFs::new(base_fs));
-        let fs: Arc<dyn FileSystem> = Arc::clone(&mountable) as Arc<dyn FileSystem>;
-        let interpreter = Interpreter::new(Arc::clone(&fs));
-        let parser_timeout = ExecutionLimits::default().parser_timeout;
-        let max_input_bytes = ExecutionLimits::default().max_input_bytes;
-        let max_ast_depth = ExecutionLimits::default().max_ast_depth;
-        let max_parser_operations = ExecutionLimits::default().max_parser_operations;
-        Self {
-            fs,
-            mountable,
-            readonly_filesystem: false,
-            interpreter,
-            parser_timeout,
-            max_input_bytes,
-            max_ast_depth,
-            max_parser_operations,
-            #[cfg(feature = "logging")]
-            log_config: logging::LogConfig::default(),
-            #[cfg(feature = "python")]
-            python_inprocess_opt_in: false,
-            #[cfg(feature = "sqlite")]
-            sqlite_inprocess_opt_in: false,
-        }
+        Self::builder().build()
     }
 
     /// Create a new BashBuilder for customized configuration.
@@ -844,6 +848,26 @@ impl Bash {
     /// then executes the resulting AST.
     pub async fn exec(&mut self, script: &str) -> Result<ExecResult> {
         self.exec_with_options(script, ExecOptions::new()).await
+    }
+
+    /// Start a process-local execution that can yield host-call events.
+    ///
+    /// Use with commands registered by [`BashBuilder::host_call_builtin`]. The
+    /// returned handle owns this instance until completion.
+    pub fn start_execution(self, script: impl Into<String>) -> ExecutionHandle {
+        self.start_execution_with_options(script, ExecOptions::new())
+    }
+
+    /// Start a host-call execution with normal per-execution options.
+    ///
+    /// Host-call routing is installed alongside the supplied streaming
+    /// callback, extensions, positional parameters, and stdin.
+    pub fn start_execution_with_options(
+        self,
+        script: impl Into<String>,
+        options: ExecOptions,
+    ) -> ExecutionHandle {
+        ExecutionHandle::new(self, script.into(), options)
     }
 
     /// Execute a bash script with per-execution builtin extensions.
@@ -882,23 +906,35 @@ impl Bash {
             positional,
             stdin,
         };
+        self.interpreter.begin_execution_budget();
+        // THREAT[TM-ISO-027]: close every request-owned boundary on all exits,
+        // including timeout/cancellation and unwinding teardown paths.
+        let _budget_completion = self.interpreter.execution_budget().completion_guard();
         // Expose active execution limits and deadline to builtins that need to
         // honor per-execution sandbox settings inside synchronous VM sections.
         let active_limits = self.interpreter.limits().clone();
         let _ = extensions.insert(active_limits.clone());
+        let _ = extensions.insert(self.interpreter.execution_budget().clone());
         let _ = extensions.insert(builtins::ExecutionDeadline::new(active_limits.timeout));
         #[cfg(feature = "python")]
         let _ = extensions.insert(builtins::PythonInprocessOptIn(self.python_inprocess_opt_in));
         #[cfg(feature = "sqlite")]
         let _ = extensions.insert(builtins::SqliteInprocessOptIn(self.sqlite_inprocess_opt_in));
+        let execution_scope = execution_capability::ExecutionScope::new();
+        extensions.bind(execution_scope);
         // Install the streaming callback for the duration of this execution, if
         // any. The guard holds a raw pointer (not a borrow), so the mutable
         // interpreter borrow is released before `exec_impl` runs and the
         // callback is cleared on drop after the await completes.
         let _stream_guard =
             output_callback.map(|cb| OutputCallbackGuard::install(&mut self.interpreter, cb));
-        let _extensions_guard = self.interpreter.scoped_execution_extensions(extensions);
-        self.exec_impl(script, invocation).await
+        let extensions_guard = self.interpreter.scoped_execution_extensions(extensions);
+        let mut result = self.exec_impl(script, invocation).await;
+        let cleanup = extensions_guard.finish();
+        if let Ok(exec_result) = &mut result {
+            exec_result.capability_cleanup = cleanup;
+        }
+        result
     }
 
     async fn exec_impl(&mut self, script: &str, invocation: Invocation) -> Result<ExecResult> {
@@ -925,6 +961,9 @@ impl Bash {
                 self.max_input_bytes,
             )));
         }
+        self.interpreter
+            .execution_budget()
+            .consume_input(input_len)?;
 
         // THREAT[TM-LOG-001]: Sensitive data in logs
         // Mitigation: Use LogConfig to redact sensitive script content
@@ -936,11 +975,17 @@ impl Bash {
 
         // Fire before_exec hooks — may modify or cancel the script
         let script = if !self.interpreter.hooks().before_exec.is_empty() {
+            self.interpreter.execution_budget().consume_work(100)?;
             let input = hooks::ExecInput {
                 script: script.to_string(),
             };
             match self.interpreter.hooks().fire_before_exec(input) {
-                Some(modified) => std::borrow::Cow::Owned(modified.script),
+                Some(modified) => {
+                    self.interpreter
+                        .execution_budget()
+                        .consume_input(modified.script.len())?;
+                    std::borrow::Cow::Owned(modified.script)
+                }
                 None => {
                     return Ok(ExecResult::err("cancelled by before_exec hook", 1));
                 }
@@ -1000,7 +1045,8 @@ impl Bash {
                 max_ast_depth,
                 max_parser_operations,
                 Some(parser_timeout),
-            );
+            )
+            .with_execution_budget(self.interpreter.execution_budget().clone());
             parser.parse()?
         };
 
@@ -1009,7 +1055,8 @@ impl Bash {
         // runtime can pre-empt a runaway parser.
         #[cfg(not(target_family = "wasm"))]
         let ast = if input_len <= SPAWN_BLOCKING_THRESHOLD {
-            let parser = Parser::with_limits(script, max_ast_depth, max_parser_operations);
+            let parser = Parser::with_limits(script, max_ast_depth, max_parser_operations)
+                .with_execution_budget(self.interpreter.execution_budget().clone());
             match parser.parse() {
                 Ok(ast) => {
                     #[cfg(feature = "logging")]
@@ -1024,10 +1071,12 @@ impl Bash {
             }
         } else {
             let script_owned = script.to_owned();
+            let execution_budget = self.interpreter.execution_budget().clone();
             let parse_result = tokio::time::timeout(parser_timeout, async {
                 tokio::task::spawn_blocking(move || {
                     let parser =
-                        Parser::with_limits(&script_owned, max_ast_depth, max_parser_operations);
+                        Parser::with_limits(&script_owned, max_ast_depth, max_parser_operations)
+                            .with_execution_budget(execution_budget);
                     parser.parse()
                 })
                 .await
@@ -1099,13 +1148,13 @@ impl Bash {
         }
 
         let exec_start = crate::time_compat::Instant::now();
-        // THREAT[TM-DOS-057]: Wrap execution with timeout to prevent sleep/blocking bypass.
-        // Only the native path arms the tokio timeout; wasm has no reliable timer driver.
-        #[cfg(not(target_family = "wasm"))]
+        // THREAT[TM-DOS-057]: Wrap execution with a host-backed timeout to
+        // prevent sleep and pending async callbacks from bypassing the budget.
         let execution_timeout = self.interpreter.limits().timeout;
-        #[cfg(not(target_family = "wasm"))]
         let result =
-            match tokio::time::timeout(execution_timeout, self.interpreter.execute(&ast)).await {
+            match crate::time_compat::timeout(execution_timeout, self.interpreter.execute(&ast))
+                .await
+            {
                 Ok(r) => r,
                 Err(_elapsed) => {
                     self.interpreter.clear_cancelled_execution_state();
@@ -1114,8 +1163,6 @@ impl Bash {
                     )))
                 }
             };
-        #[cfg(target_family = "wasm")]
-        let result = self.interpreter.execute(&ast).await;
         // Positional parameters are per-invocation: drop the synthetic frame
         // (and anything the interpreter leaked above it on an error path) so
         // the next exec starts with `$#` back at 0.
@@ -1172,19 +1219,38 @@ impl Bash {
         // Fire after_exec hooks — interceptor decisions are part of the public policy API.
         let result = if let Ok(exec_result) = result {
             if !self.interpreter.hooks().after_exec.is_empty() {
+                self.interpreter.execution_budget().consume_work(100)?;
+                self.interpreter.execution_budget().consume_input(
+                    script
+                        .len()
+                        .saturating_add(exec_result.stdout.len())
+                        .saturating_add(exec_result.stderr.len()),
+                )?;
                 let output = hooks::ExecOutput {
                     script: script.to_string(),
-                    stdout: exec_result.stdout.clone(),
-                    stderr: exec_result.stderr.clone(),
+                    stdout: exec_result.stdout.text_lossy().into_owned(),
+                    stderr: exec_result.stderr.text_lossy().into_owned(),
                     exit_code: exec_result.exit_code,
                 };
                 match self.interpreter.hooks().fire_after_exec(output) {
-                    Some(output) => Ok(ExecResult {
-                        stdout: output.stdout,
-                        stderr: output.stderr,
-                        exit_code: output.exit_code,
-                        ..exec_result
-                    }),
+                    Some(output) => {
+                        self.interpreter.execution_budget().consume_work(
+                            u64::try_from(
+                                output
+                                    .stdout
+                                    .len()
+                                    .saturating_add(output.stderr.len())
+                                    .div_ceil(1024),
+                            )
+                            .unwrap_or(u64::MAX),
+                        )?;
+                        Ok(ExecResult {
+                            stdout: output.stdout.into(),
+                            stderr: output.stderr.into(),
+                            exit_code: output.exit_code,
+                            ..exec_result
+                        })
+                    }
                     None => Ok(ExecResult::err("cancelled by after_exec hook", 1)),
                 }
             } else {
@@ -1197,10 +1263,22 @@ impl Bash {
         // Fire on_error hooks for execution errors
         if let Err(ref e) = result
             && !self.interpreter.hooks().on_error.is_empty()
+            && self
+                .interpreter
+                .execution_budget()
+                .consume_work(100)
+                .is_ok()
         {
-            let error_event = hooks::ErrorEvent {
-                message: e.to_string(),
-            };
+            let message = e.to_string();
+            if self
+                .interpreter
+                .execution_budget()
+                .consume_input(message.len())
+                .is_err()
+            {
+                return result;
+            }
+            let error_event = hooks::ErrorEvent { message };
             self.interpreter.hooks().fire_on_error(error_event);
         }
 
@@ -1467,6 +1545,30 @@ impl Bash {
         self.interpreter.restore_shell_state(state);
     }
 
+    /// Real host directories mounted into this instance's VFS.
+    ///
+    /// Empty unless a `mount_real_*` builder method was used. Mounts that were
+    /// skipped at build time (allowlist rejection, canonicalize failure) are
+    /// absent, so what this reports is what is actually reachable.
+    #[cfg(feature = "realfs")]
+    pub fn host_mounts(&self) -> &HostMounts {
+        &self.host_mounts
+    }
+
+    /// Map a VFS path to the host path backing it.
+    ///
+    /// Shorthand for [`host_mounts().resolve()`](HostMounts::resolve). Returns
+    /// `None` for a relative path or one no mount covers — treat that as an
+    /// error, not a cue to fall back to a default directory.
+    ///
+    /// The typical use is an embedder bridging commands to host processes:
+    /// a builtin receives the VFS cwd in [`BuiltinContext::cwd`] and needs the
+    /// host directory to spawn in.
+    #[cfg(feature = "realfs")]
+    pub fn host_path_for(&self, vfs_path: impl AsRef<Path>) -> Option<PathBuf> {
+        self.host_mounts.resolve(vfs_path.as_ref())
+    }
+
     /// Names of all builtins dispatchable in this instance, sorted.
     ///
     /// Reflects what this build + configuration actually dispatches:
@@ -1585,6 +1687,93 @@ struct MountedLazyFile {
     loader: LazyLoader,
 }
 
+/// Where a real host directory ended up in the VFS.
+///
+/// Produced by the `mount_real_*` builder methods; `host_path` is the
+/// canonicalized host directory actually mounted, which may differ from the
+/// path passed in (symlinks, `/tmp` → `/private/tmp` on macOS).
+#[cfg(feature = "realfs")]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct HostMount {
+    /// Canonicalized host directory.
+    pub host_path: PathBuf,
+    /// VFS path it is reachable at. `/` for a root overlay mount.
+    pub vfs_path: PathBuf,
+}
+
+/// The real host directories mounted into a [`Bash`] instance.
+///
+/// Decision: published because embedders bridging commands to host processes
+/// must map a VFS cwd back to a host directory, and hand-rolling that mapping
+/// is a trap — a naive string prefix match puts `/home/u/proj2` inside
+/// `/home/u/proj`. [`resolve`](Self::resolve) matches whole path components and
+/// prefers the longest match, so a specific mount always beats a root overlay.
+#[cfg(feature = "realfs")]
+#[derive(Debug, Clone, Default)]
+pub struct HostMounts {
+    mounts: Vec<HostMount>,
+}
+
+#[cfg(feature = "realfs")]
+impl HostMounts {
+    /// Build a table from mounts the caller already knows.
+    ///
+    /// Useful for the chicken-and-egg case: a [`CommandResolver`] is passed
+    /// *into* the builder, so the builtins it produces cannot call
+    /// [`Bash::host_mounts`] on an instance that does not exist yet. Construct
+    /// the table first, share one `Arc` between the resolver and the
+    /// `mount_real_*` calls, and both agree by construction.
+    ///
+    /// `host_path` should be canonicalized if the VFS mount was; compare
+    /// against [`Bash::host_mounts`] after building to confirm what actually
+    /// mounted.
+    pub fn new(mounts: impl IntoIterator<Item = HostMount>) -> Self {
+        Self {
+            mounts: mounts.into_iter().collect(),
+        }
+    }
+
+    /// Every mount, in the order the builder applied them.
+    pub fn all(&self) -> &[HostMount] {
+        &self.mounts
+    }
+
+    /// True when no real host directory is mounted.
+    pub fn is_empty(&self) -> bool {
+        self.mounts.is_empty()
+    }
+
+    /// Map a VFS path to the host path backing it.
+    ///
+    /// Returns `None` for a relative path, or when no mount covers it. Callers
+    /// must treat `None` as an error rather than falling back to a default
+    /// directory — running a host command in the wrong directory is worse than
+    /// refusing to run it.
+    ///
+    /// When mounts overlap (a workspace mounted inside a root overlay), the
+    /// longest matching VFS prefix wins.
+    pub fn resolve(&self, vfs_path: &Path) -> Option<PathBuf> {
+        // VFS paths are POSIX-style on every host, so root-ness is `has_root`,
+        // not `is_absolute`: on Windows `Path::new("/workspace")` is *not*
+        // absolute (that needs a drive prefix), and an `is_absolute` check
+        // there silently returns `None` for every VFS path.
+        if !vfs_path.has_root() {
+            return None;
+        }
+        self.mounts
+            .iter()
+            .filter_map(|mount| {
+                let rest = vfs_path.strip_prefix(&mount.vfs_path).ok()?;
+                Some((
+                    mount.vfs_path.components().count(),
+                    mount.host_path.join(rest),
+                ))
+            })
+            .max_by_key(|(depth, _)| *depth)
+            .map(|(_, host)| host)
+    }
+}
+
 /// A real host directory to mount in the VFS during builder construction.
 #[cfg(feature = "realfs")]
 struct MountedRealDir {
@@ -1604,6 +1793,10 @@ pub struct BashBuilder {
     limits: ExecutionLimits,
     session_limits: SessionLimits,
     memory_limits: MemoryLimits,
+    /// Profile baseline retained for runtime-specific defaults.
+    profile: ExecutionProfile,
+    /// Quotas for the builder-managed in-memory filesystem.
+    filesystem_limits: FsLimits,
     trace_mode: TraceMode,
     trace_callback: Option<TraceCallback>,
     username: Option<String>,
@@ -1617,6 +1810,8 @@ pub struct BashBuilder {
     /// Optional host-owned mutable registry. Entries here are consulted at
     /// dispatch time, so embedders can register/remove builtins after build.
     host_builtins: Option<BuiltinRegistry>,
+    /// Optional last-chance name resolver, consulted just before the 127 path.
+    command_resolver: Option<Arc<dyn CommandResolver>>,
     /// Files to mount in the virtual filesystem
     mounted_files: Vec<MountedFile>,
     /// Lazy files to mount (loaded on first read)
@@ -1624,6 +1819,9 @@ pub struct BashBuilder {
     /// Network allowlist for curl/wget builtins
     #[cfg(feature = "http_client")]
     network_allowlist: Option<NetworkAllowlist>,
+    /// HTTP timeout/response limits, independent from destination policy.
+    #[cfg(feature = "http_client")]
+    http_limits: network::HttpLimits,
     /// Custom HTTP transport for curl/wget.
     #[cfg(feature = "http_client")]
     http_transport: Option<Arc<dyn network::HttpTransport>>,
@@ -1670,6 +1868,86 @@ pub struct BashBuilder {
 }
 
 impl BashBuilder {
+    /// Apply a validated policy baseline across all supported families.
+    ///
+    /// Call this before fine-grained setters and runtime registration. Later
+    /// builder calls are explicit overrides. A custom [`FileSystem`] supplied
+    /// through [`Self::fs`] owns its own quotas and replaces the managed-VFS
+    /// portion of the profile.
+    pub fn profile(mut self, profile: ExecutionProfile) -> Self {
+        self.limits = profile.execution_limits().clone();
+        self.session_limits = profile.session_limits().clone();
+        self.memory_limits = profile.memory_limits().clone();
+        self.filesystem_limits = profile.filesystem_limits().clone();
+        self.readonly_filesystem = profile.readonly_filesystem();
+        #[cfg(feature = "http_client")]
+        {
+            self.network_allowlist = match profile.network_policy() {
+                ProfileNetworkPolicy::Disabled => None,
+                ProfileNetworkPolicy::Allowlist(allowlist) => Some(allowlist.clone()),
+            };
+            self.http_limits = profile.http_limits().clone();
+        }
+        self.profile = profile;
+        self
+    }
+
+    /// Override quotas for the builder-managed in-memory filesystem.
+    pub fn filesystem_limits(mut self, limits: FsLimits) -> Self {
+        self.filesystem_limits = limits;
+        self
+    }
+
+    /// Install one ToolDef-backed registry across shell, embedded Python, and
+    /// embedded TypeScript. Runtime surfaces are included when their cargo
+    /// features are enabled and share the registry's callback and policy Arcs.
+    #[cfg(feature = "scripted_tool")]
+    pub fn tool_registry(mut self, registry: ToolRegistry) -> Self {
+        self = self.extension(scripted_tool::ToolDefExtension::from_registry(
+            registry.clone(),
+        ));
+        #[cfg(feature = "python")]
+        {
+            let limits = self.profile.python_limits().clone();
+            let names = vec!["__bashkit_tool_call".to_string()];
+            let handler = registry.python_handler();
+            let prelude = registry.python_prelude();
+            self = self
+                .builtin(
+                    "python",
+                    Box::new(
+                        builtins::Python::with_limits(limits.clone())
+                            .with_external_handler_and_prelude(
+                                names.clone(),
+                                handler.clone(),
+                                prelude.clone(),
+                            ),
+                    ),
+                )
+                .builtin(
+                    "python3",
+                    Box::new(
+                        builtins::Python::with_limits(limits)
+                            .with_external_handler_and_prelude(names, handler, prelude),
+                    ),
+                );
+        }
+        #[cfg(feature = "typescript")]
+        {
+            let limits = self.profile.typescript_limits().clone();
+            self = self.extension(
+                builtins::TypeScriptExtension::with_external_handler_and_prelude(
+                    limits,
+                    registry.typescript_external_names(),
+                    registry.typescript_handler(),
+                    registry.typescript_prelude(),
+                    registry.typescript_rewrites(),
+                ),
+            );
+        }
+        self
+    }
+
     /// Set a custom filesystem.
     pub fn fs(mut self, fs: Arc<dyn FileSystem>) -> Self {
         self.fs = Some(fs);
@@ -1872,6 +2150,13 @@ impl BashBuilder {
     #[cfg(feature = "http_client")]
     pub fn network(mut self, allowlist: NetworkAllowlist) -> Self {
         self.network_allowlist = Some(allowlist);
+        self
+    }
+
+    /// Override HTTP request timeout and response-size limits.
+    #[cfg(feature = "http_client")]
+    pub fn http_limits(mut self, limits: network::HttpLimits) -> Self {
+        self.http_limits = limits;
         self
     }
 
@@ -2100,7 +2385,8 @@ impl BashBuilder {
     /// ```
     #[cfg(feature = "python")]
     pub fn python(self) -> Self {
-        self.python_with_limits(builtins::PythonLimits::default())
+        let limits = self.profile.python_limits().clone();
+        self.python_with_limits(limits)
     }
 
     /// Enable embedded SQLite (`sqlite`/`sqlite3` builtins) via Turso.
@@ -2123,7 +2409,8 @@ impl BashBuilder {
     /// ```
     #[cfg(feature = "sqlite")]
     pub fn sqlite(self) -> Self {
-        self.sqlite_with_limits(builtins::SqliteLimits::default())
+        let limits = self.profile.sqlite_limits().clone();
+        self.sqlite_with_limits(limits)
     }
 
     /// Enable embedded SQLite with custom limits and backend selection.
@@ -2215,7 +2502,8 @@ impl BashBuilder {
     /// ```
     #[cfg(feature = "typescript")]
     pub fn typescript(self) -> Self {
-        self.typescript_with_config(builtins::TypeScriptConfig::default())
+        let limits = self.profile.typescript_limits().clone();
+        self.typescript_with_limits(limits)
     }
 
     /// Enable embedded TypeScript with custom resource limits.
@@ -2278,8 +2566,8 @@ impl BashBuilder {
     /// Register a custom builtin command.
     ///
     /// Custom builtins extend bashkit with domain-specific commands that can be
-    /// invoked from bash scripts. They have full access to the execution context
-    /// including arguments, environment, shell variables, and the virtual filesystem.
+    /// invoked from bash scripts. They receive the execution context including
+    /// arguments, environment, shell variables, and a request-scoped VFS view.
     ///
     /// Custom builtins can override default builtins if registered with the same name.
     ///
@@ -2316,6 +2604,20 @@ impl BashBuilder {
         self
     }
 
+    /// Register a builtin whose invocation is fulfilled by an [`ExecutionHandle`].
+    ///
+    /// Calling this command through ordinary [`Bash::exec`] returns a shell
+    /// error. Drive it through [`Bash::start_execution`] to receive and resume
+    /// [`ExecutionEvent::HostCall`] requests.
+    pub fn host_call_builtin(mut self, name: impl Into<String>) -> Self {
+        let name = name.into();
+        self.custom_builtins.insert(
+            name.clone(),
+            Box::new(host_call::HostCallBuiltin::new(name)),
+        );
+        self
+    }
+
     /// Attach a host-owned mutable builtin registry.
     ///
     /// Unlike [`BashBuilder::builtin`], entries in a [`BuiltinRegistry`] can
@@ -2334,6 +2636,50 @@ impl BashBuilder {
     /// post-build mutation access.
     pub fn builtin_registry(mut self, registry: BuiltinRegistry) -> Self {
         self.host_builtins = Some(registry);
+        self
+    }
+
+    /// Install a last-chance [`CommandResolver`].
+    ///
+    /// [`BashBuilder::builtin`] and [`BashBuilder::builtin_registry`] both map
+    /// *known names* to builtins. A resolver is asked about a name the
+    /// interpreter could not otherwise resolve, so an embedder bridging an
+    /// open-ended command space (host executables, a remote tool catalog) does
+    /// not have to enumerate it before execution.
+    ///
+    /// Consulted last — after shell functions, special builtins, the host
+    /// registry, baked-in builtins, path-based scripts, and the `$PATH` search
+    /// — and only when all of those miss. It therefore cannot shadow an
+    /// existing command; use [`BashBuilder::builtin`] to override one.
+    ///
+    /// The resolved builtin runs through the normal builtin path, so
+    /// [`before_tool`](BashBuilder::before_tool) hooks fire with the resolved
+    /// name and can veto the call.
+    ///
+    /// Note that resolver-provided names are not enumerable, so they do not
+    /// appear in [`Bash::builtin_names`] or in `command not found` suggestions.
+    ///
+    /// ```
+    /// # use bashkit::{Bash, Builtin, BuiltinContext, CommandResolver, ExecResult, async_trait};
+    /// # use std::sync::Arc;
+    /// # struct Stub;
+    /// # #[async_trait]
+    /// # impl Builtin for Stub {
+    /// #     async fn execute(&self, _ctx: BuiltinContext<'_>) -> bashkit::Result<ExecResult> {
+    /// #         Ok(ExecResult::ok("stub\n".to_string()))
+    /// #     }
+    /// # }
+    /// struct Resolver;
+    /// impl CommandResolver for Resolver {
+    ///     fn resolve(&self, name: &str) -> Option<Arc<dyn Builtin>> {
+    ///         (name == "deploy").then(|| Arc::new(Stub) as Arc<dyn Builtin>)
+    ///     }
+    /// }
+    ///
+    /// let bash = Bash::builder().command_resolver(Arc::new(Resolver)).build();
+    /// ```
+    pub fn command_resolver(mut self, resolver: Arc<dyn CommandResolver>) -> Self {
+        self.command_resolver = Some(resolver);
         self
     }
 
@@ -2885,12 +3231,12 @@ impl BashBuilder {
                 .username
                 .as_deref()
                 .unwrap_or(builtins::DEFAULT_USERNAME);
-            Arc::new(inmem_fs_with_home(username))
+            Arc::new(inmem_fs_with_home(username, self.filesystem_limits.clone()))
         };
 
         // Layer 1: Apply real filesystem mounts (if any)
         #[cfg(feature = "realfs")]
-        let base_fs = Self::apply_real_mounts(
+        let (base_fs, host_mounts) = Self::apply_real_mounts(
             &self.real_mounts,
             self.mount_path_allowlist.as_deref(),
             base_fs,
@@ -2935,6 +3281,7 @@ impl BashBuilder {
             self.epoch_offset,
             self.cwd,
             self.shell_profile,
+            self.profile.name() == ExecutionProfileName::Hardened,
             self.limits,
             self.session_limits,
             self.memory_limits,
@@ -2942,9 +3289,12 @@ impl BashBuilder {
             self.trace_callback,
             self.custom_builtins,
             self.host_builtins,
+            self.command_resolver,
             self.history_file,
             #[cfg(feature = "http_client")]
             self.network_allowlist,
+            #[cfg(feature = "http_client")]
+            self.http_limits,
             #[cfg(feature = "http_client")]
             self.http_transport,
             #[cfg(feature = "bot-auth")]
@@ -2958,6 +3308,12 @@ impl BashBuilder {
             #[cfg(feature = "ssh")]
             self.ssh_handler,
         );
+
+        // Set after build — avoids adding another arg to build_with_fs.
+        #[cfg(feature = "realfs")]
+        {
+            result.host_mounts = host_mounts;
+        }
 
         // Set hooks after build — avoids adding another arg to build_with_fs.
         let hooks = hooks::Hooks {
@@ -3030,9 +3386,9 @@ impl BashBuilder {
     /// directory component.
     #[cfg(feature = "realfs")]
     fn is_sensitive_mount_path(host_path: &Path) -> bool {
-        // Refuse mounting the host root outright. `starts_with("/")` matches
-        // everything so the prefix check below cannot express this.
-        if host_path == Path::new("/") {
+        // THREAT[TM-FS-013]: A canonical host root has no parent. This covers
+        // `/` plus Windows drive, UNC-share, and device-namespace roots.
+        if host_path.parent().is_none() {
             return true;
         }
         if Self::SENSITIVE_MOUNT_PATHS
@@ -3053,13 +3409,16 @@ impl BashBuilder {
         real_mounts: &[MountedRealDir],
         mount_allowlist: Option<&[PathBuf]>,
         base_fs: Arc<dyn FileSystem>,
-    ) -> Arc<dyn FileSystem> {
+    ) -> (Arc<dyn FileSystem>, HostMounts) {
         if real_mounts.is_empty() {
-            return base_fs;
+            return (base_fs, HostMounts::default());
         }
 
         let mut current_fs = base_fs;
         let mut mount_points: Vec<(PathBuf, Arc<dyn FileSystem>)> = Vec::new();
+        // Only mounts that actually applied are recorded: a path skipped by the
+        // allowlist or a failed canonicalize must not look resolvable.
+        let mut host_mounts = HostMounts::default();
         let canonical_allowlist: Option<Vec<PathBuf>> = mount_allowlist.map(|allowlist| {
             allowlist
                 .iter()
@@ -3141,9 +3500,17 @@ impl BashBuilder {
                     // Overlay at root: real fs becomes the lower layer,
                     // existing VFS content overlaid on top
                     current_fs = Arc::new(OverlayFs::new(real_fs));
+                    host_mounts.mounts.push(HostMount {
+                        host_path: canonical_host,
+                        vfs_path: PathBuf::from("/"),
+                    });
                 }
                 Some(mount_point) => {
                     mount_points.push((mount_point.clone(), real_fs));
+                    host_mounts.mounts.push(HostMount {
+                        host_path: canonical_host,
+                        vfs_path: mount_point.clone(),
+                    });
                 }
             }
         }
@@ -3160,9 +3527,9 @@ impl BashBuilder {
                     );
                 }
             }
-            Arc::new(mountable)
+            (Arc::new(mountable), host_mounts)
         } else {
-            current_fs
+            (current_fs, host_mounts)
         }
     }
 
@@ -3179,6 +3546,7 @@ impl BashBuilder {
         epoch_offset: Option<i64>,
         cwd: Option<PathBuf>,
         shell_profile: interpreter::ShellProfile,
+        hardened_timing: bool,
         limits: ExecutionLimits,
         session_limits: SessionLimits,
         memory_limits: MemoryLimits,
@@ -3186,8 +3554,10 @@ impl BashBuilder {
         trace_callback: Option<TraceCallback>,
         custom_builtins: HashMap<String, Box<dyn Builtin>>,
         host_builtins: Option<BuiltinRegistry>,
+        command_resolver: Option<Arc<dyn CommandResolver>>,
         history_file: Option<PathBuf>,
         #[cfg(feature = "http_client")] network_allowlist: Option<NetworkAllowlist>,
+        #[cfg(feature = "http_client")] http_limits: network::HttpLimits,
         #[cfg(feature = "http_client")] http_transport: Option<Arc<dyn network::HttpTransport>>,
         #[cfg(feature = "bot-auth")] bot_auth_config: Option<network::BotAuthConfig>,
         #[cfg(feature = "logging")] log_config: Option<logging::LogConfig>,
@@ -3215,7 +3585,12 @@ impl BashBuilder {
             custom_builtins,
             host_builtins,
             shell_profile,
+            hardened_timing,
         );
+
+        if let Some(resolver) = command_resolver {
+            interpreter.set_command_resolver(resolver);
+        }
 
         // Set environment variables (also override shell variable defaults)
         for (key, value) in &env {
@@ -3243,7 +3618,7 @@ impl BashBuilder {
         // Configure HTTP client for network builtins
         #[cfg(feature = "http_client")]
         if let Some(allowlist) = network_allowlist {
-            let mut client = network::HttpClient::new(allowlist);
+            let mut client = network::HttpClient::with_limits(allowlist, http_limits);
             if let Some(transport) = http_transport {
                 client.set_transport(transport);
             }
@@ -3303,6 +3678,8 @@ impl BashBuilder {
             python_inprocess_opt_in,
             #[cfg(feature = "sqlite")]
             sqlite_inprocess_opt_in,
+            #[cfg(feature = "realfs")]
+            host_mounts: HostMounts::default(),
         }
     }
 }
@@ -3385,6 +3762,12 @@ pub mod compatibility_scorecard {}
 /// **Related:** [`compatibility_scorecard`], [`threat_model`]
 #[doc = include_str!("../docs/jq.md")]
 pub mod jq_guide {}
+
+/// yq builtin: YAML/JSON conversion around the shared jq evaluator.
+///
+/// **Related:** [`jq_guide`], [`threat_model`]
+#[doc = include_str!("../docs/yq.md")]
+pub mod yq_guide {}
 
 /// Security threat model guide.
 ///
@@ -5054,7 +5437,7 @@ fn
             async fn execute(&self, ctx: Context<'_>) -> crate::Result<ExecResult> {
                 let value = ctx
                     .execution_extension::<String>()
-                    .cloned()
+                    .and_then(|value| value.try_with(Clone::clone).ok())
                     .unwrap_or_else(|| "missing".to_string());
                 Ok(ExecResult::ok(format!("{value}\n")))
             }
@@ -5110,7 +5493,7 @@ fn
         #[async_trait]
         impl Builtin for Upper {
             async fn execute(&self, ctx: Context<'_>) -> crate::Result<ExecResult> {
-                let input = ctx.stdin.unwrap_or("");
+                let input = ctx.stdin.map(|stdin| &**stdin).unwrap_or("");
                 Ok(ExecResult::ok(input.to_uppercase()))
             }
         }

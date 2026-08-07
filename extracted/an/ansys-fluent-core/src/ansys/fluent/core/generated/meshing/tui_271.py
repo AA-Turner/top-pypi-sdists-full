@@ -4,7 +4,7 @@
 #
 # pylint: disable=line-too-long
 
-from ansys.fluent.core.services.datamodel_tui import PyMenu, TUIMenu, TUIMethod
+from ansys.fluent.core.services.text_interface import PyMenu, TUIMenu, TUIMethod
 
 
 
@@ -2528,6 +2528,7 @@ class main_menu(TUIMenu):
                     self.color_mode = self.__class__.color_mode(service, version, mode, path + ["color_mode"])
                     self.driver = self.__class__.driver(service, version, mode, path + ["driver"])
                     self.dpi = self.__class__.dpi(service, version, mode, path + ["dpi"])
+                    self.export_all_windows = self.__class__.export_all_windows(service, version, mode, path + ["export_all_windows"])
                     self.invert_background = self.__class__.invert_background(service, version, mode, path + ["invert_background"])
                     self.invert_normals_for_avz = self.__class__.invert_normals_for_avz(service, version, mode, path + ["invert_normals_for_avz"])
                     self.jpeg_hardcopy_quality = self.__class__.jpeg_hardcopy_quality(service, version, mode, path + ["jpeg_hardcopy_quality"])
@@ -2542,6 +2543,10 @@ class main_menu(TUIMenu):
                 class dpi(TUIMethod):
                     """
                     Set the DPI for EPS and Postscript files, specifies the resolution in dots per inch (DPI) instead of setting the width and height.
+                    """
+                class export_all_windows(TUIMethod):
+                    """
+                    Enable to export all graphics windows when capturing an image.
                     """
                 class invert_background(TUIMethod):
                     """

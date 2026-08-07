@@ -326,8 +326,13 @@ LLM_MAX_OUTPUT_TOKENS = _env_int("XPANDER_LLM_MAX_OUTPUT_TOKENS", 32_000)
 # on every call and alternating-tool loops reset the consecutive counters, so
 # neither the identical-args detector nor the error-streak breaker ever fires
 # on them. This counts TOTAL calls of one tool across the task (xp* exempt).
+# Only mutating-named tools can be disabled; read-class tools are warn-only -
+# marathon agents legitimately make hundreds of read calls over hours.
 TOTAL_TOOL_CALLS_WARN_AT = _env_int("XPANDER_TOTAL_TOOL_CALLS_WARN_AT", 50)
 MAX_TOTAL_TOOL_CALLS_PER_TOOL = _env_int("XPANDER_MAX_TOTAL_TOOL_CALLS_PER_TOOL", 100)
+READ_TOOL_CALLS_WARN_AT = _env_int("XPANDER_READ_TOOL_CALLS_WARN_AT", 150)
+# clamped: used as a modulo divisor
+READ_TOOL_CALLS_REWARN_EVERY = max(1, _env_int("XPANDER_READ_TOOL_CALLS_REWARN_EVERY", 100))
 
 # Plan-churn breaker. Planning/reasoning tools are exempt from stuck detection
 # (they legitimately repeat), so a pure plan/think loop - re-emitting the same
@@ -336,8 +341,13 @@ MAX_TOTAL_TOOL_CALLS_PER_TOOL = _env_int("XPANDER_MAX_TOTAL_TOOL_CALLS_PER_TOOL"
 PLAN_CHURN_WARN_AT = _env_int("XPANDER_PLAN_CHURN_WARN_AT", 10)
 MAX_PLAN_CHURN = _env_int("XPANDER_MAX_PLAN_CHURN", 16)
 
-# Plan-less wrap-up budget: non-mutating calls since the last mutation - nudge, then finalize.
-WRAPUP_GRACE_CALLS = _env_int("XPANDER_WRAPUP_GRACE_CALLS", 5)
-WRAPUP_MAX_CALLS = _env_int("XPANDER_WRAPUP_MAX_CALLS", 10)
+# Plan-less wrap-up budget: advisory-only repeating nudge every N non-mutating calls,
+# never finalize - the hard breakers contain storms. XPANDER_WRAPUP_MAX_CALLS is retired.
+WRAPUP_GRACE_CALLS = max(1, _env_int("XPANDER_WRAPUP_GRACE_CALLS", 10))
+
+# Run-wide hard ceiling on tool calls when agno_settings.tool_call_limit is unset.
+# Over-limit agno refuses ALL calls including finalize, so headroom beats tightness;
+# sized for marathon runs (hours, hundreds of legitimate read calls).
+TOOL_CALL_LIMIT_DEFAULT = _env_int("XPANDER_TOOL_CALL_LIMIT", 800)
 # Safe-read allowance inside finalize mode; past it even reads gate.
 FINALIZE_SAFE_READS_CAP = _env_int("XPANDER_FINALIZE_SAFE_READS_CAP", 5)

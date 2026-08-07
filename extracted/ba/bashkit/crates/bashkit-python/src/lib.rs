@@ -29,6 +29,27 @@ use bashkit::{
     PythonLimits, ScriptedTool as RustScriptedTool, ShellStateView as RustShellStateView,
     SnapshotOptions as RustSnapshotOptions, Tool, ToolArgs, ToolDef, ToolRequest, async_trait,
 };
+
+/// Typed named execution-policy selector for Python constructors.
+#[pyclass(name = "ExecutionProfile", eq, eq_int, from_py_object)]
+#[derive(Clone, Copy, PartialEq, Eq, Default)]
+pub enum PyExecutionProfile {
+    Hardened,
+    #[default]
+    Standard,
+    Interactive,
+}
+
+impl PyExecutionProfile {
+    fn core(self) -> bashkit::ExecutionProfile {
+        let name = match self {
+            Self::Hardened => bashkit::ExecutionProfileName::Hardened,
+            Self::Standard => bashkit::ExecutionProfileName::Standard,
+            Self::Interactive => bashkit::ExecutionProfileName::Interactive,
+        };
+        bashkit::ExecutionProfile::named(name)
+    }
+}
 use bashkit::{
     CapabilityFingerprint as RustCapabilityFingerprint, CheckoutPolicy as RustCheckoutPolicy,
     CommitOptions as RustCommitOptions, ObjectId as RustObjectId,
@@ -2473,7 +2494,11 @@ pub struct ExecResult {
     #[pyo3(get)]
     pub stdout: String,
     #[pyo3(get)]
+    pub stdout_bytes: Vec<u8>,
+    #[pyo3(get)]
     pub stderr: String,
+    #[pyo3(get)]
+    pub stderr_bytes: Vec<u8>,
     #[pyo3(get)]
     pub exit_code: i32,
     #[pyo3(get)]
@@ -2796,9 +2821,13 @@ impl BuiltinResult {
 // ============================================================================
 
 fn py_exec_result_from_rust(result: RustExecResult) -> ExecResult {
+    let stdout_bytes = result.stdout.as_bytes().to_vec();
+    let stderr_bytes = result.stderr.as_bytes().to_vec();
     ExecResult {
-        stdout: result.stdout,
-        stderr: result.stderr,
+        stdout: result.stdout.to_string(),
+        stdout_bytes,
+        stderr: result.stderr.to_string(),
+        stderr_bytes,
         exit_code: result.exit_code,
         error: None,
         stdout_truncated: result.stdout_truncated,
@@ -2811,7 +2840,9 @@ fn py_exec_result_from_error(err: impl ToString) -> ExecResult {
     let msg = err.to_string();
     ExecResult {
         stdout: String::new(),
+        stdout_bytes: Vec::new(),
         stderr: msg.clone(),
+        stderr_bytes: msg.as_bytes().to_vec(),
         exit_code: 1,
         error: Some(msg),
         stdout_truncated: false,
@@ -2952,7 +2983,7 @@ fn make_py_builtin_context(
         PyBuiltinContext {
             name: name.to_string(),
             argv: ctx.args.to_vec(),
-            stdin: ctx.stdin.map(str::to_owned),
+            stdin: ctx.stdin.map(ToString::to_string),
             env: ctx.env.clone(),
             cwd: ctx.cwd.to_string_lossy().into_owned(),
             fs,
@@ -3873,8 +3904,8 @@ fn extract_custom_builtin_callback_result(
 
     if let Ok(shell_result) = result.extract::<PyRef<'_, BuiltinResult>>() {
         return Ok(RustExecResult {
-            stdout: shell_result.stdout.clone(),
-            stderr: shell_result.stderr.clone(),
+            stdout: shell_result.stdout.clone().into(),
+            stderr: shell_result.stderr.clone().into(),
             exit_code: shell_result.exit_code,
             ..Default::default()
         });
@@ -3932,7 +3963,7 @@ impl PyCustomBuiltinAdapter {
 #[async_trait]
 impl Builtin for PyCustomBuiltinAdapter {
     async fn execute(&self, ctx: BuiltinContext<'_>) -> bashkit::Result<RustExecResult> {
-        let session = ctx.execution_extension::<Arc<PyCallbackSession>>().cloned();
+        let session = ctx.execution_extension::<Arc<PyCallbackSession>>();
         let builtin_arg = Python::attach(|py| -> Result<Py<PyAny>, String> {
             let builtin_arg = make_py_builtin_context(py, &self.name, &ctx, &self.rt)
                 .map_err(|e| format!("{}: {}", self.name, e))?
@@ -3943,27 +3974,34 @@ impl Builtin for PyCustomBuiltinAdapter {
         });
         let callback_result = match builtin_arg {
             Ok(builtin_arg) if self.is_async => match session {
-                Some(session) => {
-                    call_python_callback_async(
-                        session,
-                        &self.name,
-                        &self.callback,
-                        vec![builtin_arg],
-                    )
-                    .await
-                }
+                Some(session) => match session.try_with(Clone::clone) {
+                    Ok(callback_session) => session
+                        .run(call_python_callback_async(
+                            callback_session,
+                            &self.name,
+                            &self.callback,
+                            vec![builtin_arg],
+                        ))
+                        .await
+                        .unwrap_or_else(|error| Err(format!("{}: {error}", self.name))),
+                    Err(error) => Err(format!("{}: {error}", self.name)),
+                },
                 None => Err(format!("{}: missing Python callback session", self.name)),
             },
             Ok(builtin_arg) => match session {
-                Some(session) => Python::attach(|py| {
-                    call_python_callback_sync(
-                        py,
-                        session.as_ref(),
-                        &self.name,
-                        &self.callback,
-                        vec![builtin_arg],
-                    )
-                }),
+                Some(session) => session
+                    .try_with(|session| {
+                        Python::attach(|py| {
+                            call_python_callback_sync(
+                                py,
+                                session.as_ref(),
+                                &self.name,
+                                &self.callback,
+                                vec![builtin_arg],
+                            )
+                        })
+                    })
+                    .unwrap_or_else(|error| Err(format!("{}: {error}", self.name))),
                 None => Err(format!("{}: missing Python callback session", self.name)),
             },
             Err(err) => Err(err),
@@ -4088,7 +4126,11 @@ fn build_python_output_callback(
             // Re-enter the caller's copied ContextVar snapshot for each chunk.
             let result = on_output.context.bind(py).call_method1(
                 "run",
-                (on_output.callback.bind(py), stdout_chunk, stderr_chunk),
+                (
+                    on_output.callback.bind(py),
+                    stdout_chunk.to_string(),
+                    stderr_chunk.to_string(),
+                ),
             )?;
             let is_awaitable = on_output
                 .is_awaitable
@@ -4221,6 +4263,7 @@ fn make_external_handler(
 fn apply_python_config(
     mut builder: bashkit::BashBuilder,
     python: bool,
+    limits: PythonLimits,
     fn_names: Vec<String>,
     handler: Option<Py<PyAny>>,
     external_handler_reentry_depth: Arc<AtomicUsize>,
@@ -4232,7 +4275,7 @@ fn apply_python_config(
         #[cfg(not(target_arch = "wasm32"))]
         (true, Some(h)) => {
             builder = builder.python_with_external_handler(
-                PythonLimits::default(),
+                limits,
                 fn_names,
                 make_external_handler(h, external_handler_reentry_depth),
             );
@@ -4244,7 +4287,7 @@ fn apply_python_config(
         (true, Some(_)) => unreachable!("external_handler rejected at construction on wasm"),
         (true, None) => {
             let _ = (&fn_names, &external_handler_reentry_depth);
-            builder = builder.python();
+            builder = builder.python_with_limits(limits);
             builder = builder.env("BASHKIT_ALLOW_INPROCESS_PYTHON", "1");
         }
         (false, _) => {}
@@ -4258,9 +4301,28 @@ fn apply_python_config(
 /// explicit opt-in for in-process SQLite execution, so we register the
 /// builtin and inject the runtime gate env var. The deny-list defaults
 /// (resource/FS-shaped PRAGMAs) come from `SqliteLimits::default()`.
+#[cfg(not(target_arch = "wasm32"))]
+type ProfileSqliteLimits = bashkit::SqliteLimits;
+
+#[cfg(target_arch = "wasm32")]
+type ProfileSqliteLimits = ();
+
+fn profile_sqlite_limits(profile: &bashkit::ExecutionProfile) -> ProfileSqliteLimits {
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        profile.sqlite_limits().clone()
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    {
+        let _ = profile;
+    }
+}
+
 fn apply_sqlite_config(
     builder: bashkit::BashBuilder,
     sqlite: bool,
+    profile_limits: ProfileSqliteLimits,
     timeout_seconds: Option<f64>,
     max_memory: Option<u64>,
 ) -> PyResult<bashkit::BashBuilder> {
@@ -4269,7 +4331,7 @@ fn apply_sqlite_config(
     // off on wasm. Reject `sqlite=True` loudly there. See knowledge/runtimes/emscripten-wheels.md.
     #[cfg(target_arch = "wasm32")]
     {
-        let _ = (timeout_seconds, max_memory);
+        let _ = (profile_limits, timeout_seconds, max_memory);
         if sqlite {
             return Err(PyRuntimeError::new_err(
                 "the sqlite builtin is not available in the WebAssembly (Pyodide) build",
@@ -4282,7 +4344,7 @@ fn apply_sqlite_config(
     {
         let mut builder = builder;
         if sqlite {
-            let mut limits = bashkit::SqliteLimits::default();
+            let mut limits = profile_limits;
             if let Some(ts) = timeout_seconds {
                 limits = limits.max_duration(parse_timeout_seconds(ts)?);
             }
@@ -4320,6 +4382,7 @@ pub struct PyBash {
     /// the new interpreter's token without requiring &mut self.
     cancelled: Arc<RwLock<Arc<AtomicBool>>>,
     username: Option<String>,
+    profile: PyExecutionProfile,
     hostname: Option<String>,
     /// Initial working directory for the shell (mirrors `Bash::builder().cwd()`).
     cwd: Option<String>,
@@ -4374,7 +4437,8 @@ impl PyBash {
     }
 
     fn build_live_builder(&self, py: Python<'_>) -> PyResult<bashkit::BashBuilder> {
-        let mut builder = Bash::builder();
+        let profile = self.profile.core();
+        let mut builder = Bash::builder().profile(profile.clone());
 
         if let Some(ref username) = self.username {
             builder = builder.username(username);
@@ -4391,7 +4455,7 @@ impl PyBash {
             }
         }
 
-        let mut limits = ExecutionLimits::new();
+        let mut limits = profile.execution_limits().clone();
         if let Some(max_commands) = self.max_commands {
             limits = limits.max_commands(usize::try_from(max_commands).unwrap_or(usize::MAX));
         }
@@ -4412,11 +4476,18 @@ impl PyBash {
         builder = apply_python_config(
             builder,
             self.python,
+            profile.python_limits().clone(),
             self.external_functions.clone(),
             handler_clone,
             self.external_handler_reentry_depth.clone(),
         );
-        builder = apply_sqlite_config(builder, self.sqlite, self.timeout_seconds, self.max_memory)?;
+        builder = apply_sqlite_config(
+            builder,
+            self.sqlite,
+            profile_sqlite_limits(&profile),
+            self.timeout_seconds,
+            self.max_memory,
+        )?;
         // network (http_client) and allowed_mount_paths (realfs) are native-only;
         // both kwargs are rejected at construction on wasm. See knowledge/runtimes/emscripten-wheels.md.
         #[cfg(not(target_arch = "wasm32"))]
@@ -4459,6 +4530,7 @@ impl PyBash {
         readonly_filesystem=false,
         custom_builtins=None,
         network=None,
+        profile=PyExecutionProfile::Standard,
     ))]
     #[allow(clippy::too_many_arguments)]
     fn new(
@@ -4481,8 +4553,10 @@ impl PyBash {
         readonly_filesystem: bool,
         custom_builtins: Option<&Bound<'_, PyDict>>,
         network: Option<&Bound<'_, PyDict>>,
+        profile: PyExecutionProfile,
     ) -> PyResult<Self> {
-        let mut builder = Bash::builder();
+        let core_profile = profile.core();
+        let mut builder = Bash::builder().profile(core_profile.clone());
 
         if let Some(ref u) = username {
             builder = builder.username(u);
@@ -4499,7 +4573,7 @@ impl PyBash {
             }
         }
 
-        let mut limits = ExecutionLimits::new();
+        let mut limits = core_profile.execution_limits().clone();
         if let Some(mc) = max_commands {
             limits = limits.max_commands(usize::try_from(mc).unwrap_or(usize::MAX));
         }
@@ -4558,11 +4632,18 @@ impl PyBash {
         builder = apply_python_config(
             builder,
             python,
+            core_profile.python_limits().clone(),
             fn_names,
             handler_for_build,
             external_handler_reentry_depth.clone(),
         );
-        builder = apply_sqlite_config(builder, sqlite, timeout_seconds, max_memory)?;
+        builder = apply_sqlite_config(
+            builder,
+            sqlite,
+            profile_sqlite_limits(&core_profile),
+            timeout_seconds,
+            max_memory,
+        )?;
         // network (http_client) and allowed_mount_paths (realfs) are native-only;
         // both kwargs are rejected at construction on wasm. See knowledge/runtimes/emscripten-wheels.md.
         #[cfg(not(target_arch = "wasm32"))]
@@ -4591,6 +4672,7 @@ impl PyBash {
             rt,
             cancelled,
             username,
+            profile,
             hostname,
             cwd,
             env,
@@ -5012,6 +5094,7 @@ impl PyBash {
         readonly_filesystem=false,
         custom_builtins=None,
         network=None,
+        profile=PyExecutionProfile::Standard,
     ))]
     #[allow(clippy::too_many_arguments)]
     fn from_snapshot(
@@ -5035,6 +5118,7 @@ impl PyBash {
         readonly_filesystem: bool,
         custom_builtins: Option<&Bound<'_, PyDict>>,
         network: Option<&Bound<'_, PyDict>>,
+        profile: PyExecutionProfile,
     ) -> PyResult<Self> {
         let bash = Self::new(
             py,
@@ -5056,6 +5140,7 @@ impl PyBash {
             readonly_filesystem,
             custom_builtins,
             network,
+            profile,
         )?;
         bash.restore_snapshot(py, data)?;
         Ok(bash)
@@ -5084,6 +5169,7 @@ impl PyBash {
         readonly_filesystem=false,
         custom_builtins=None,
         network=None,
+        profile=PyExecutionProfile::Standard,
     ))]
     #[allow(clippy::too_many_arguments)]
     fn from_snapshot_keyed(
@@ -5108,6 +5194,7 @@ impl PyBash {
         readonly_filesystem: bool,
         custom_builtins: Option<&Bound<'_, PyDict>>,
         network: Option<&Bound<'_, PyDict>>,
+        profile: PyExecutionProfile,
     ) -> PyResult<Self> {
         let bash = Self::new(
             py,
@@ -5129,6 +5216,7 @@ impl PyBash {
             readonly_filesystem,
             custom_builtins,
             network,
+            profile,
         )?;
         bash.restore_snapshot_keyed(py, data, key)?;
         Ok(bash)
@@ -5318,6 +5406,7 @@ pub struct BashTool {
     /// the new interpreter's token without requiring &mut self.
     cancelled: Arc<RwLock<Arc<AtomicBool>>>,
     username: Option<String>,
+    profile: PyExecutionProfile,
     hostname: Option<String>,
     /// Initial working directory for the shell (mirrors `Bash::builder().cwd()`).
     cwd: Option<String>,
@@ -5354,7 +5443,8 @@ impl Drop for BashTool {
 
 impl BashTool {
     fn build_live_builder(&self, py: Python<'_>) -> PyResult<bashkit::BashBuilder> {
-        let mut builder = Bash::builder();
+        let profile = self.profile.core();
+        let mut builder = Bash::builder().profile(profile.clone());
 
         if let Some(ref username) = self.username {
             builder = builder.username(username);
@@ -5371,7 +5461,7 @@ impl BashTool {
             }
         }
 
-        let mut limits = ExecutionLimits::new();
+        let mut limits = profile.execution_limits().clone();
         if let Some(max_commands) = self.max_commands {
             limits = limits.max_commands(usize::try_from(max_commands).unwrap_or(usize::MAX));
         }
@@ -5407,7 +5497,8 @@ impl BashTool {
     }
 
     fn build_rust_tool(&self) -> PyResult<RustBashTool> {
-        let mut builder = RustBashTool::builder();
+        let profile = self.profile.core();
+        let mut builder = RustBashTool::builder().profile(profile.clone());
 
         if let Some(ref username) = self.username {
             builder = builder.username(username);
@@ -5424,7 +5515,7 @@ impl BashTool {
             }
         }
 
-        let mut limits = ExecutionLimits::new();
+        let mut limits = profile.execution_limits().clone();
         if let Some(mc) = self.max_commands {
             limits = limits.max_commands(usize::try_from(mc).unwrap_or(usize::MAX));
         }
@@ -5474,6 +5565,7 @@ impl BashTool {
         readonly_filesystem=false,
         custom_builtins=None,
         network=None,
+        profile=PyExecutionProfile::Standard,
     ))]
     fn new(
         py: Python<'_>,
@@ -5491,8 +5583,10 @@ impl BashTool {
         readonly_filesystem: bool,
         custom_builtins: Option<&Bound<'_, PyDict>>,
         network: Option<&Bound<'_, PyDict>>,
+        profile: PyExecutionProfile,
     ) -> PyResult<Self> {
-        let mut builder = Bash::builder();
+        let core_profile = profile.core();
+        let mut builder = Bash::builder().profile(core_profile.clone());
 
         if let Some(ref u) = username {
             builder = builder.username(u);
@@ -5509,7 +5603,7 @@ impl BashTool {
             }
         }
 
-        let mut limits = ExecutionLimits::new();
+        let mut limits = core_profile.execution_limits().clone();
         if let Some(mc) = max_commands {
             limits = limits.max_commands(usize::try_from(mc).unwrap_or(usize::MAX));
         }
@@ -5557,6 +5651,7 @@ impl BashTool {
             rt,
             cancelled,
             username,
+            profile,
             hostname,
             cwd,
             env,
@@ -5851,6 +5946,7 @@ impl BashTool {
         readonly_filesystem=false,
         custom_builtins=None,
         network=None,
+        profile=PyExecutionProfile::Standard,
     ))]
     #[allow(clippy::too_many_arguments)]
     fn from_snapshot(
@@ -5870,6 +5966,7 @@ impl BashTool {
         readonly_filesystem: bool,
         custom_builtins: Option<&Bound<'_, PyDict>>,
         network: Option<&Bound<'_, PyDict>>,
+        profile: PyExecutionProfile,
     ) -> PyResult<Self> {
         let tool = Self::new(
             py,
@@ -5887,6 +5984,7 @@ impl BashTool {
             readonly_filesystem,
             custom_builtins,
             network,
+            profile,
         )?;
         tool.restore_snapshot(py, data)?;
         Ok(tool)
@@ -5911,6 +6009,7 @@ impl BashTool {
         readonly_filesystem=false,
         custom_builtins=None,
         network=None,
+        profile=PyExecutionProfile::Standard,
     ))]
     #[allow(clippy::too_many_arguments)]
     fn from_snapshot_keyed(
@@ -5931,6 +6030,7 @@ impl BashTool {
         readonly_filesystem: bool,
         custom_builtins: Option<&Bound<'_, PyDict>>,
         network: Option<&Bound<'_, PyDict>>,
+        profile: PyExecutionProfile,
     ) -> PyResult<Self> {
         let tool = Self::new(
             py,
@@ -5948,6 +6048,7 @@ impl BashTool {
             readonly_filesystem,
             custom_builtins,
             network,
+            profile,
         )?;
         tool.restore_snapshot_keyed(py, data, key)?;
         Ok(tool)
@@ -6362,9 +6463,13 @@ impl ScriptedTool {
                     timeout_ms: None,
                 })
                 .await;
+            let stdout_bytes = resp.stdout.as_bytes().to_vec();
+            let stderr_bytes = resp.stderr.as_bytes().to_vec();
             Ok(ExecResult {
                 stdout: resp.stdout,
+                stdout_bytes,
                 stderr: resp.stderr,
+                stderr_bytes,
                 exit_code: resp.exit_code,
                 error: resp.error,
                 stdout_truncated: resp.stdout_truncated,
@@ -6397,9 +6502,13 @@ impl ScriptedTool {
                 .await
             })
         });
+        let stdout_bytes = resp.stdout.as_bytes().to_vec();
+        let stderr_bytes = resp.stderr.as_bytes().to_vec();
         Ok(ExecResult {
             stdout: resp.stdout,
+            stdout_bytes,
             stderr: resp.stderr,
+            stderr_bytes,
             exit_code: resp.exit_code,
             error: resp.error,
             stdout_truncated: resp.stdout_truncated,
@@ -6583,6 +6692,7 @@ fn create_langchain_tool_spec() -> PyResult<pyo3::Py<PyDict>> {
 
 #[pymodule]
 fn _bashkit(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add_class::<PyExecutionProfile>()?;
     m.add_class::<PyBash>()?;
     m.add_class::<BashTool>()?;
     m.add_class::<ScriptedTool>()?;

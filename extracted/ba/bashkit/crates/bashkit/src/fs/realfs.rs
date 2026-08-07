@@ -71,13 +71,17 @@
 
 use crate::time_compat::SystemTime;
 use async_trait::async_trait;
+use rand::Rng;
 use std::io::{Error as IoError, ErrorKind};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use super::backend::FsBackend;
 use super::limits::{FsLimits, FsUsage};
 use super::traits::{DirEntry, FileType, Metadata};
 use crate::error::Result;
+
+static TEMP_FILE_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 
 /// Access mode for the real filesystem backend.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -165,7 +169,10 @@ impl RealFs {
     /// prevent traversal and symlink escapes before attaching the missing
     /// suffix.
     async fn resolve(&self, vpath: &Path) -> std::io::Result<PathBuf> {
-        let normalized = normalize_vpath(vpath);
+        // THREAT[TM-ESC-033]: Use the shared POSIX VFS normalizer. A
+        // platform-aware normalization here would preserve Windows prefixes,
+        // and joining a drive/UNC/device absolute path would discard `root`.
+        let normalized = super::normalize_path(vpath);
         // Strip leading "/" to make it relative
         let relative = normalized.strip_prefix("/").unwrap_or(&normalized);
 
@@ -236,7 +243,7 @@ impl RealFs {
     /// root, then append the basename verbatim. The caller must then use
     /// `symlink_metadata`/`read_link`/`remove_file` on the result.
     async fn resolve_no_follow(&self, vpath: &Path) -> std::io::Result<PathBuf> {
-        let normalized = normalize_vpath(vpath);
+        let normalized = super::normalize_path(vpath);
         let relative = normalized.strip_prefix("/").unwrap_or(&normalized);
 
         if relative == Path::new("") {
@@ -272,7 +279,7 @@ impl RealFs {
     /// a host path whose leaf is still a symlink to outside the root.
     /// `symlink_metadata` describes the link itself, catching that case.
     async fn resolve_for_create(&self, vpath: &Path) -> std::io::Result<PathBuf> {
-        let normalized = normalize_vpath(vpath);
+        let normalized = super::normalize_path(vpath);
         let relative = normalized.strip_prefix("/").unwrap_or(&normalized);
 
         if relative != Path::new("") {
@@ -300,6 +307,85 @@ impl RealFs {
             ));
         }
         Ok(())
+    }
+
+    async fn temporary_sibling(path: &Path) -> std::io::Result<(PathBuf, tokio::fs::File)> {
+        let parent = path
+            .parent()
+            .ok_or_else(|| IoError::new(ErrorKind::InvalidInput, "path has no parent"))?;
+        for _ in 0..128 {
+            let sequence = TEMP_FILE_SEQUENCE.fetch_add(1, Ordering::Relaxed);
+            let nonce = rand::rng().next_u64();
+            let candidate = parent.join(format!(".bashkit-tmp-{sequence:016x}-{nonce:016x}"));
+            match tokio::fs::OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .open(&candidate)
+                .await
+            {
+                Ok(file) => return Ok((candidate, file)),
+                Err(error) if error.kind() == ErrorKind::AlreadyExists => continue,
+                Err(error) => return Err(error),
+            }
+        }
+        Err(IoError::new(
+            ErrorKind::AlreadyExists,
+            "unable to allocate atomic write staging file",
+        ))
+    }
+
+    /// THREAT[TM-FS-014]: Replacement writes are staged beside the target and
+    /// renamed only after a complete flush. Errors retain the old destination
+    /// and remove the staging entry.
+    async fn write_atomically(&self, path: &Path, content: &[u8]) -> std::io::Result<()> {
+        use tokio::io::AsyncWriteExt;
+
+        if path == self.root {
+            return Err(IoError::new(ErrorKind::IsADirectory, "is a directory"));
+        }
+        let existing_permissions = tokio::fs::metadata(path)
+            .await
+            .ok()
+            .map(|metadata| metadata.permissions());
+        let (temporary, mut file) = Self::temporary_sibling(path).await?;
+        let result = async {
+            file.write_all(content).await?;
+            file.flush().await?;
+            file.sync_all().await?;
+            drop(file);
+            if let Some(permissions) = existing_permissions {
+                tokio::fs::set_permissions(&temporary, permissions).await?;
+            }
+            tokio::fs::rename(&temporary, path).await
+        }
+        .await;
+        if result.is_err() {
+            let _ = tokio::fs::remove_file(&temporary).await;
+        }
+        result
+    }
+
+    async fn copy_atomically(&self, from: &Path, to: &Path) -> std::io::Result<()> {
+        if to == self.root {
+            return Err(IoError::new(ErrorKind::IsADirectory, "is a directory"));
+        }
+        let (temporary, file) = Self::temporary_sibling(to).await?;
+        drop(file);
+        let result = async {
+            tokio::fs::copy(from, &temporary).await?;
+            let file = tokio::fs::OpenOptions::new()
+                .write(true)
+                .open(&temporary)
+                .await?;
+            file.sync_all().await?;
+            drop(file);
+            tokio::fs::rename(&temporary, to).await
+        }
+        .await;
+        if result.is_err() {
+            let _ = tokio::fs::remove_file(&temporary).await;
+        }
+        result
     }
 
     /// Get the root directory path.
@@ -381,35 +467,17 @@ fn normalize_host_path(path: &Path) -> PathBuf {
     }
 }
 
-/// Normalize a virtual path: collapse `.` and `..`, ensure absolute.
-fn normalize_vpath(path: &Path) -> PathBuf {
-    let mut components = Vec::new();
-    for component in path.components() {
-        match component {
-            std::path::Component::RootDir => {
-                components.clear();
-                components.push(std::path::Component::RootDir);
-            }
-            std::path::Component::CurDir => {}
-            std::path::Component::ParentDir => {
-                if components.len() > 1 {
-                    components.pop();
-                }
-            }
-            c => components.push(c),
-        }
-    }
-    if components.is_empty() {
-        PathBuf::from("/")
-    } else {
-        components.iter().collect()
-    }
-}
-
 #[async_trait]
 impl FsBackend for RealFs {
     async fn read(&self, path: &Path) -> Result<Vec<u8>> {
-        let real = self.resolve(path).await?;
+        let real = self.resolve_no_follow(path).await?;
+        if tokio::fs::symlink_metadata(&real)
+            .await?
+            .file_type()
+            .is_symlink()
+        {
+            return Err(IoError::new(ErrorKind::NotFound, "file not found").into());
+        }
         let data = tokio::fs::read(&real).await?;
         Ok(data)
     }
@@ -423,7 +491,7 @@ impl FsBackend for RealFs {
         if let Some(parent) = real.parent() {
             tokio::fs::create_dir_all(parent).await?;
         }
-        tokio::fs::write(&real, content).await?;
+        self.write_atomically(&real, content).await?;
         Ok(())
     }
 
@@ -431,14 +499,13 @@ impl FsBackend for RealFs {
         self.check_writable()?;
         // Issue #1575: same leaf-symlink rejection as write().
         let real = self.resolve_for_create(path).await?;
-        use tokio::io::AsyncWriteExt;
-        let mut file = tokio::fs::OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(&real)
-            .await?;
-        file.write_all(content).await?;
-        file.flush().await?;
+        let mut combined = match tokio::fs::read(&real).await {
+            Ok(existing) => existing,
+            Err(error) if error.kind() == ErrorKind::NotFound => Vec::new(),
+            Err(error) => return Err(error.into()),
+        };
+        combined.extend_from_slice(content);
+        self.write_atomically(&real, &combined).await?;
         Ok(())
     }
 
@@ -507,19 +574,25 @@ impl FsBackend for RealFs {
 
     async fn rename(&self, from: &Path, to: &Path) -> Result<()> {
         self.check_writable()?;
-        let real_from = self.resolve(from).await?;
-        let real_to = self.resolve(to).await?;
+        let real_from = self.resolve_no_follow(from).await?;
+        let real_to = self.resolve_for_create(to).await?;
         tokio::fs::rename(&real_from, &real_to).await?;
         Ok(())
     }
 
     async fn copy(&self, from: &Path, to: &Path) -> Result<()> {
         self.check_writable()?;
-        let real_from = self.resolve(from).await?;
+        let real_from = self.resolve_no_follow(from).await?;
         // Issue #1575: refuse to copy through a leaf symlink at the
         // destination — that would let an attacker write outside root.
         let real_to = self.resolve_for_create(to).await?;
-        tokio::fs::copy(&real_from, &real_to).await?;
+        let metadata = tokio::fs::symlink_metadata(&real_from).await?;
+        if metadata.file_type().is_symlink() {
+            let target = tokio::fs::read_link(&real_from).await?;
+            self.symlink(&target, to).await?;
+        } else {
+            self.copy_atomically(&real_from, &real_to).await?;
+        }
         Ok(())
     }
 
@@ -534,10 +607,16 @@ impl FsBackend for RealFs {
         let real_link = self.resolve(link).await?;
 
         // Absolute targets always escape the mount root on disk
-        if target.is_absolute() {
+        // THREAT[TM-ESC-033]: `C:target` is drive-relative, not absolute, but
+        // still carries host namespace semantics and cannot be a VFS target.
+        if target.is_absolute()
+            || target
+                .components()
+                .any(|component| matches!(component, std::path::Component::Prefix(_)))
+        {
             return Err(IoError::new(
                 ErrorKind::PermissionDenied,
-                "symlink with absolute target not allowed in RealFs (sandbox security)",
+                "symlink with absolute or drive-relative target not allowed in RealFs (sandbox security)",
             )
             .into());
         }

@@ -157,7 +157,7 @@ class Repository(WMLResource):
         self._ml_repository_client = MLRepositoryClient(self._credentials.url)
         # this is refresh-not-triggering get of token from client, added here especially for extra short living tokens
         self._ml_repository_client.authorize_with_token(
-            self._client._auth_method._token
+            getattr(self._client._auth_method, "_token", "")
         )
         self._ml_repository_client._add_header("User-Agent", get_user_agent_header())
 

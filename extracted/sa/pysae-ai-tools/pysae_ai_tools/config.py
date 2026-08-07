@@ -101,6 +101,20 @@ class Config(BaseModel):
             )
         ),
     ] = True
+    auto_rotate_tokens: Annotated[
+        bool,
+        KeyMeta(
+            comment=(
+                "Hourly, renew the managed access tokens that are close to expiry and\n"
+                "re-apply them wherever they are posed. Independent of auto_update:\n"
+                "a credential expiring is not a version to install, and one option\n"
+                "must not silence the other. Never runs in CI, where tokens come from\n"
+                "the environment. When false, `pysae-ai-tools tools rotate-tokens`\n"
+                "still rotates on demand.\n"
+                "Currently covers the GitLab registry PAT (GITLAB_REGISTRY_TOKEN)."
+            )
+        ),
+    ] = True
     git_clone_dir: Annotated[
         str,
         KeyMeta(

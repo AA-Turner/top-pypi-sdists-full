@@ -11,11 +11,15 @@ from gotenberg_client._chromium.mixins import CookiesMixin
 from gotenberg_client._chromium.mixins import CssPageSizeMixin
 from gotenberg_client._chromium.mixins import CustomHTTPHeaderMixin
 from gotenberg_client._chromium.mixins import DocumentOutlineMixin
+from gotenberg_client._chromium.mixins import EmulatedMediaFeaturesMixin
 from gotenberg_client._chromium.mixins import EmulatedMediaMixin
+from gotenberg_client._chromium.mixins import GenerateTaggedPdfMixin
 from gotenberg_client._chromium.mixins import HeaderFooterMixin
+from gotenberg_client._chromium.mixins import IgnoreResourceDomainsMixin
 from gotenberg_client._chromium.mixins import InvalidStatusCodesMixin
 from gotenberg_client._chromium.mixins import MarginMixin
 from gotenberg_client._chromium.mixins import NativePageRangeMixin
+from gotenberg_client._chromium.mixins import NetworkAlmostIdleMixin
 from gotenberg_client._chromium.mixins import NetworkErrorsMixin
 from gotenberg_client._chromium.mixins import OmitBackgroundMixin
 from gotenberg_client._chromium.mixins import PageOrientMixin
@@ -23,16 +27,25 @@ from gotenberg_client._chromium.mixins import PageSizeMixin
 from gotenberg_client._chromium.mixins import PerformanceModeMixin
 from gotenberg_client._chromium.mixins import PrintBackgroundMixin
 from gotenberg_client._chromium.mixins import RenderControlMixin
+from gotenberg_client._chromium.mixins import ResetFormFieldsMixin
+from gotenberg_client._chromium.mixins import ResourceStatusCodesMixin
 from gotenberg_client._chromium.mixins import ScaleMixin
 from gotenberg_client._chromium.mixins import ScreenShotSettingsMixin
 from gotenberg_client._chromium.mixins import SinglePageMixin
+from gotenberg_client._chromium.mixins import WaitForSelectorMixin
+from gotenberg_client._common import DownloadFromMixin
+from gotenberg_client._common import EmbedsMixin
+from gotenberg_client._common import EncryptMixin
+from gotenberg_client._common import FlattenOptionMixin
 from gotenberg_client._common import MetadataMixin
 from gotenberg_client._common import PdfFormatMixin
 from gotenberg_client._common import PdfUniversalAccessMixin
+from gotenberg_client._common import RotateMixin
 from gotenberg_client._common import SplitModeMixin
+from gotenberg_client._common import StampMixin
+from gotenberg_client._common import WatermarkMixin
 from gotenberg_client._typing_compat import Self
-from gotenberg_client._utils import FORCE_MULTIPART
-from gotenberg_client._utils import ForceMultipartDict
+from gotenberg_client._utils import ForceMultipartList
 
 
 class _BaseChromiumConvertMixin(
@@ -48,17 +61,31 @@ class _BaseChromiumConvertMixin(
     NativePageRangeMixin,
     HeaderFooterMixin,
     RenderControlMixin,
+    WaitForSelectorMixin,
     EmulatedMediaMixin,
+    EmulatedMediaFeaturesMixin,
     CookiesMixin,
     CustomHTTPHeaderMixin,
     InvalidStatusCodesMixin,
+    ResourceStatusCodesMixin,
+    IgnoreResourceDomainsMixin,
     NetworkErrorsMixin,
     ConsoleExceptionMixin,
     PerformanceModeMixin,
+    NetworkAlmostIdleMixin,
+    GenerateTaggedPdfMixin,
+    ResetFormFieldsMixin,
     SplitModeMixin,
     PdfFormatMixin,
     PdfUniversalAccessMixin,
     MetadataMixin,
+    WatermarkMixin,
+    StampMixin,
+    RotateMixin,
+    EncryptMixin,
+    EmbedsMixin,
+    FlattenOptionMixin,
+    DownloadFromMixin,
 ):
     """
     Common form fields for Chromium-based PDF conversion routes.
@@ -210,14 +237,15 @@ class _BaseUrlFormMixin:
         self._form_data["url"] = url  # type: ignore[attr-defined,misc]
         return self
 
-    def _get_all_resources(self) -> ForceMultipartDict:
+    def _get_all_resources(self) -> ForceMultipartList:
         """
-        Returns an empty ForceMultipartDict.
+        Returns a ForceMultipartList containing any embed files from the parent.
 
-        This route does not require any file uploads, so an empty dictionary
-        is returned as Gotenberg still requires multipart/form-data
+        This route does not require any file uploads, so an empty list
+        is returned as Gotenberg still requires multipart/form-data.
+        When embed files have been added, they are included from the parent.
         """
-        return FORCE_MULTIPART
+        return ForceMultipartList(super()._get_all_resources())  # type: ignore[misc]
 
 
 class _BaseUrlToPdfChromiumConvertRoute(_BaseUrlFormMixin, _BaseChromiumConvertMixin):
@@ -350,12 +378,17 @@ class AsyncMarkdownToPdfRoute(_BaseMarkdownToPdfRoute, AsyncBaseRoute):
 
 class _BaseScreenShotSettingsMixin(
     RenderControlMixin,
+    WaitForSelectorMixin,
     EmulatedMediaMixin,
+    EmulatedMediaFeaturesMixin,
     CookiesMixin,
     CustomHTTPHeaderMixin,
     InvalidStatusCodesMixin,
+    ResourceStatusCodesMixin,
+    IgnoreResourceDomainsMixin,
     ConsoleExceptionMixin,
     PerformanceModeMixin,
+    NetworkAlmostIdleMixin,
     OmitBackgroundMixin,
     ScreenShotSettingsMixin,
 ):

@@ -80,6 +80,9 @@ class SlurmCompute(
     ComputeWithGroupProvisioningSupport,
     Compute,
 ):
+    # TODO: support allocated resource accounting and change to True
+    unallocated_resources_argument_has_effect = False
+
     def __init__(self, config: SlurmConfig):
         super().__init__()
         self._region_to_cluster_map = {
@@ -91,7 +94,9 @@ class SlurmCompute(
         # configuration -> the same zones)
         self._skip_offer_cache = RegionalSkipOfferCache(ttl=60)
 
-    def get_all_offers_with_availability(self) -> list[InstanceOfferWithAvailability]:
+    def get_all_offers_with_availability(
+        self, unallocated_resources: bool
+    ) -> list[InstanceOfferWithAvailability]:
         offers: list[InstanceOfferWithAvailability] = []
         with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
             future_to_cluster_map: dict[
@@ -114,7 +119,11 @@ class SlurmCompute(
                 offers.extend(cluster_offers)
         return offers
 
-    def get_offers_modifiers(self, requirements: Requirements) -> list[OfferModifier]:
+    def get_offers_modifiers(
+        self, requirements: Requirements, full_offers: bool
+    ) -> list[OfferModifier]:
+        if full_offers:
+            return []
         requested_resources = get_requested_resources_from_resources_spec(requirements.resources)
         return [partial(self._offer_modifier, requested_resources)]
 
@@ -352,7 +361,7 @@ class SlurmCompute(
         if not filtered_partitions:
             return None
 
-        offer_copy = offer.copy(deep=True)
+        offer_copy = offer.model_copy(deep=True)
         _adjust_resources(offer_copy.instance.resources, requested_resources)
         offer_copy.availability_zones = list(filtered_partitions)
         return offer_copy
@@ -445,7 +454,6 @@ def _adjust_resources(resources: Resources, requested_resources: RequestedResour
     resources.cpus = requested_resources.cpu_count
     resources.memory_mib = requested_resources.memory_mib
     resources.gpus = resources.gpus[: requested_resources.gpu_count]
-    resources.disk = Disk(size_mib=requested_resources.disk_mib)
 
 
 def _build_image_uri(image_name: str) -> str:

@@ -59,6 +59,7 @@ else:
 __all__ = (
     "AmazonMskClusterTypeDef",
     "ApacheKafkaClusterTypeDef",
+    "AuthorizerLogsTypeDef",
     "BatchAssociateScramSecretRequestTypeDef",
     "BatchAssociateScramSecretResponseTypeDef",
     "BatchDisassociateScramSecretRequestTypeDef",
@@ -347,6 +348,19 @@ class ApacheKafkaClusterTypeDef(TypedDict):
     ApacheKafkaClusterId: str
     BootstrapBrokerString: str
 
+class CloudWatchLogsTypeDef(TypedDict):
+    Enabled: bool
+    LogGroup: NotRequired[str]
+
+class FirehoseTypeDef(TypedDict):
+    Enabled: bool
+    DeliveryStream: NotRequired[str]
+
+class S3TypeDef(TypedDict):
+    Enabled: bool
+    Bucket: NotRequired[str]
+    Prefix: NotRequired[str]
+
 class BatchAssociateScramSecretRequestTypeDef(TypedDict):
     ClusterArn: str
     SecretArnList: Sequence[str]
@@ -376,19 +390,6 @@ class BrokerCountUpdateInfoTypeDef(TypedDict):
 class ProvisionedThroughputTypeDef(TypedDict):
     Enabled: NotRequired[bool]
     VolumeThroughput: NotRequired[int]
-
-class CloudWatchLogsTypeDef(TypedDict):
-    Enabled: bool
-    LogGroup: NotRequired[str]
-
-class FirehoseTypeDef(TypedDict):
-    Enabled: bool
-    DeliveryStream: NotRequired[str]
-
-class S3TypeDef(TypedDict):
-    Enabled: bool
-    Bucket: NotRequired[str]
-    Prefix: NotRequired[str]
 
 class BrokerSoftwareInfoTypeDef(TypedDict):
     ConfigurationArn: NotRequired[str]
@@ -888,6 +889,21 @@ class KafkaClusterSummaryTypeDef(TypedDict):
     ApacheKafkaCluster: NotRequired[ApacheKafkaClusterTypeDef]
     KafkaClusterAlias: NotRequired[str]
 
+class AuthorizerLogsTypeDef(TypedDict):
+    CloudWatchLogs: NotRequired[CloudWatchLogsTypeDef]
+    Firehose: NotRequired[FirehoseTypeDef]
+    S3: NotRequired[S3TypeDef]
+
+class BrokerLogsTypeDef(TypedDict):
+    CloudWatchLogs: NotRequired[CloudWatchLogsTypeDef]
+    Firehose: NotRequired[FirehoseTypeDef]
+    S3: NotRequired[S3TypeDef]
+
+class ChannelLoggingInfoTypeDef(TypedDict):
+    CloudWatchLogs: NotRequired[CloudWatchLogsTypeDef]
+    Firehose: NotRequired[FirehoseTypeDef]
+    S3: NotRequired[S3TypeDef]
+
 class CreateChannelResponseTypeDef(TypedDict):
     ChannelArn: str
     ClusterOperationArn: str
@@ -1134,16 +1150,6 @@ class UpdateStorageRequestTypeDef(TypedDict):
     ProvisionedThroughput: NotRequired[ProvisionedThroughputTypeDef]
     StorageMode: NotRequired[StorageModeType]
     VolumeSizeGB: NotRequired[int]
-
-class BrokerLogsTypeDef(TypedDict):
-    CloudWatchLogs: NotRequired[CloudWatchLogsTypeDef]
-    Firehose: NotRequired[FirehoseTypeDef]
-    S3: NotRequired[S3TypeDef]
-
-class ChannelLoggingInfoTypeDef(TypedDict):
-    CloudWatchLogs: NotRequired[CloudWatchLogsTypeDef]
-    Firehose: NotRequired[FirehoseTypeDef]
-    S3: NotRequired[S3TypeDef]
 
 class BrokerNodeInfoTypeDef(TypedDict):
     AttachedENIId: NotRequired[str]
@@ -1415,6 +1421,10 @@ class ReplicatorSummaryTypeDef(TypedDict):
     ReplicatorResourceArn: NotRequired[str]
     ReplicatorState: NotRequired[ReplicatorStateType]
 
+class LoggingInfoTypeDef(TypedDict):
+    BrokerLogs: BrokerLogsTypeDef
+    AuthorizerLogs: NotRequired[AuthorizerLogsTypeDef]
+
 class UpdateBrokerStorageRequestTypeDef(TypedDict):
     ClusterArn: str
     CurrentVersion: str
@@ -1422,9 +1432,6 @@ class UpdateBrokerStorageRequestTypeDef(TypedDict):
 
 class StorageInfoTypeDef(TypedDict):
     EbsStorageInfo: NotRequired[EBSStorageInfoTypeDef]
-
-class LoggingInfoTypeDef(TypedDict):
-    BrokerLogs: BrokerLogsTypeDef
 
 class NodeInfoTypeDef(TypedDict):
     AddedToClusterTime: NotRequired[str]

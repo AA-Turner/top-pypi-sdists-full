@@ -862,7 +862,7 @@ class TestServer:
         s.disconnect('123', namespace='/foo')
         assert calls == s.eio.send.call_count
 
-    def test_disconnect_with_partial_binary_packet(self, eio):
+    def test_disconnect_server_with_partial_binary_packet(self, eio):
         s = server.Server()
         s._handle_eio_connect('123', 'environ')
         s._handle_eio_message('123', '0')
@@ -876,6 +876,21 @@ class TestServer:
         assert s._binary_packet['123'] is not None
         s.disconnect('1')
         s.eio.send.assert_any_call('123', '1')
+        assert '123' not in s._binary_packet
+
+    def test_disconnect_client_with_partial_binary_packet(self, eio):
+        s = server.Server()
+        s._handle_eio_connect('123', 'environ')
+        s._handle_eio_message('123', '0')
+        s._handle_eio_message(
+            '123',
+            '52-["my message","a",'
+            '{"_placeholder":true,"num":1},'
+            '{"_placeholder":true,"num":0}]',
+        )
+        s._handle_eio_message('123', b'foo')
+        assert s._binary_packet['123'] is not None
+        s._handle_disconnect('123', '/')
         assert '123' not in s._binary_packet
 
     def test_namespace_handler(self, eio):

@@ -4,7 +4,7 @@ import enum
 import itertools
 import re
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from functools import partial
@@ -13,9 +13,10 @@ from typing import Any, Final, Iterable, List, Optional, TypeVar, Union
 from urllib.parse import urlparse
 from uuid import UUID
 
+from pydantic import TypeAdapter
 from typing_extensions import ParamSpec
 
-from dstack._internal.core.models.common import Duration
+from dstack._internal.core.models.duration import Duration
 from dstack._internal.utils.interpolator import InterpolatorError, VariablesInterpolator
 
 
@@ -65,6 +66,23 @@ def get_current_datetime() -> datetime:
 
 def get_milliseconds_since_epoch() -> int:
     return int(round(time.time() * 1000))
+
+
+_DATETIME_ADAPTER = TypeAdapter(datetime)
+
+
+def render_datetime_as_api(value: datetime) -> str:
+    """
+    Render a datetime the way the API serializes one.
+
+    Delegates to pydantic rather than post-processing `isoformat()`, so the result cannot drift
+    from what the models emit. The two differ: pydantic v2 spells a zero UTC offset `Z`, while
+    `isoformat()` spells it `+00:00`.
+
+    Only needed where a datetime is formatted by hand. Anything handed to pydantic or to
+    `pydantic_core.to_json` is already rendered this way.
+    """
+    return _DATETIME_ADAPTER.dump_python(value, mode="json")
 
 
 DateFormatter = Callable[[datetime], str]
@@ -311,6 +329,12 @@ def batched(seq: Iterable[T], n: int) -> Iterable[List[T]]:
         raise ValueError(f"n should be a positive integer, not {n}")
     it = iter(seq)
     return iter(lambda: list(itertools.islice(it, n)), [])
+
+
+def get_lowest_unused_nums(used_nums: set[int]) -> Iterator[int]:
+    for num in itertools.count():
+        if num not in used_nums:
+            yield num
 
 
 StrT = TypeVar("StrT", str, bytes)

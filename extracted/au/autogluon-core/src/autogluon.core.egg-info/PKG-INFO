@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: autogluon.core
-Version: 1.6.0
+Version: 1.6.1
 Summary: Fast and Accurate ML in 3 Lines of Code
 Author: AutoGluon Community
 License-Expression: Apache-2.0
@@ -42,8 +42,8 @@ Requires-Dist: requests
 Requires-Dist: matplotlib<3.12,>=3.7.0
 Requires-Dist: boto3<2,>=1.10
 Requires-Dist: typing-extensions<5,>=4.14.0
-Requires-Dist: autogluon.common==1.6.0
-Requires-Dist: autogluon.features==1.6.0
+Requires-Dist: autogluon.common==1.6.1
+Requires-Dist: autogluon.features==1.6.1
 Provides-Extra: ray
 Requires-Dist: ray[default]<2.57,>=2.55.0; (platform_system != "Windows" or python_version != "3.13") and extra == "ray"
 Provides-Extra: raytune
@@ -53,19 +53,19 @@ Requires-Dist: hyperopt<0.2.8,>=0.2.7; extra == "raytune"
 Requires-Dist: stevedore<5.5; extra == "raytune"
 Requires-Dist: setuptools<82; extra == "raytune"
 Provides-Extra: all
-Requires-Dist: ray[default]<2.57,>=2.55.0; (platform_system != "Windows" or python_version != "3.13") and extra == "all"
-Requires-Dist: ray[default,tune]<2.57,>=2.55.0; (platform_system != "Windows" or python_version != "3.13") and extra == "all"
-Requires-Dist: pyarrow>=15.0.0; extra == "all"
-Requires-Dist: hyperopt<0.2.8,>=0.2.7; extra == "all"
-Requires-Dist: setuptools<82; extra == "all"
 Requires-Dist: stevedore<5.5; extra == "all"
+Requires-Dist: setuptools<82; extra == "all"
+Requires-Dist: ray[default,tune]<2.57,>=2.55.0; (platform_system != "Windows" or python_version != "3.13") and extra == "all"
+Requires-Dist: ray[default]<2.57,>=2.55.0; (platform_system != "Windows" or python_version != "3.13") and extra == "all"
+Requires-Dist: hyperopt<0.2.8,>=0.2.7; extra == "all"
+Requires-Dist: pyarrow>=15.0.0; extra == "all"
 Provides-Extra: tests
+Requires-Dist: pytest-mypy; extra == "tests"
+Requires-Dist: types-requests; extra == "tests"
 Requires-Dist: types-setuptools; extra == "tests"
 Requires-Dist: pre-commit; extra == "tests"
-Requires-Dist: pytest-mypy; extra == "tests"
-Requires-Dist: flake8; extra == "tests"
 Requires-Dist: pytest; extra == "tests"
-Requires-Dist: types-requests; extra == "tests"
+Requires-Dist: flake8; extra == "tests"
 Dynamic: classifier
 Dynamic: description
 Dynamic: description-content-type

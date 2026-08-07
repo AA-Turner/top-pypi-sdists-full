@@ -38,8 +38,9 @@ except ImportError:  # pragma: no cover - the extra is not installed
     LanguageServer = None
 
 from xbsl import (
-    __version__, baseline, bindingcomplete, dataset, docs, engine, formedits, formhandlers,
-    formmodel, formsearch, i18n, indexer, metamodel, scaffold, templates, terms, uischema,
+    __version__, baseline, bindingcomplete, dataset, docs, engine, environment, formedits,
+    formhandlers, formmodel, formsearch, i18n, indexer, metamodel, scaffold, templates,
+    terms, uischema,
 )
 from xbsl.diagnostics import Diagnostic, Severity
 from xbsl.templates import Template, TemplateError
@@ -199,7 +200,9 @@ def _project_language(root: Optional[str]) -> str:
     """
     if not root:
         return "ru"
-    for candidate in sorted(Path(root).rglob("Проект.yaml"))[:1]:
+    descriptors = [p for name in ("Проект.yaml", "Project.yaml")
+                   for p in Path(root).rglob(name)]
+    for candidate in sorted(descriptors)[:1]:
         match = _DEV_LANGUAGE_RE.search(candidate.read_text(encoding="utf-8", errors="replace"))
         if match:
             return "ru" if _CYRILLIC.search(match.group(1)) else "en"
@@ -471,6 +474,10 @@ def _make_server() -> "LanguageServer":
 
     @server.feature(lsp.INITIALIZED)
     def _initialized(_params: lsp.InitializedParams) -> None:
+        # Окружение называется в журнале сразу: два сервера с разъехавшимися
+        # надстройками отвечают на одном файле по-разному, и без этой строки
+        # расхождение искали раскопками по site-packages обоих окружений.
+        server.show_message_log(f"xbsl-lsp v{__version__}: {environment.note()}")
         folder: Optional[Path] = None
         ws = server.workspace
         if ws is not None:

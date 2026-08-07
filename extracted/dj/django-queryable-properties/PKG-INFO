@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-queryable-properties
-Version: 1.12.1
+Version: 1.13.0
 Summary: Write Django model properties that can be used in database queries.
 Home-page: https://github.com/W1ldPo1nter/django-queryable-properties
 Author: Marcus Klöpfel
@@ -32,6 +32,7 @@ Classifier: Framework :: Django :: 5.0
 Classifier: Framework :: Django :: 5.1
 Classifier: Framework :: Django :: 5.2
 Classifier: Framework :: Django :: 6.0
+Classifier: Framework :: Django :: 6.1
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
@@ -105,6 +106,13 @@ Changelog
 
 master (unreleased)
 -------------------
+
+1.13.0 (2026-08-06)
+-------------------
+
+- Added support for Django 6.1
+- Added a Django setting that allows to apply queryset fetch modes to annotatable queryable properties
+  (``QUERYABLE_PROPERTIES_APPLY_FETCH_MODE``)
 
 1.12.1 (2025-12-04)
 -------------------

@@ -707,7 +707,10 @@ class Transformer(InputModule):
         # Causal models require left padding so the last position is always a real token,
         # which is needed for logits_to_keep=1 and LogitScore.
         if self.transformer_task in ("text-generation", "any-to-any"):
-            self.processor.padding_side = "left"
+            # A multimodal processor pads via its tokenizer and has no padding_side of its own that
+            # transformers reads. Setting one anyway plants an attribute that looks authoritative but isn't.
+            if hasattr(self.processor, "padding_side"):
+                self.processor.padding_side = "left"
             if hasattr(self.processor, "tokenizer"):
                 self.processor.tokenizer.padding_side = "left"
 
@@ -977,6 +980,10 @@ class Transformer(InputModule):
         elif modality not in self.modality_config:
             raise_unsupported_modality_error(inputs, modality, list(self.modality_config.keys()), "Transformer module")
 
+        # Checked after the conversion so it covers pairs that parse_inputs already turned into messages
+        if modality == "message":
+            self._verify_pair_roles_supported(processor_inputs["message"], chat_template_kwargs)
+
         # Incorporate prompt into inputs if applicable
         prompt_length = None
         if prompt and modality == "message":
@@ -1024,16 +1031,94 @@ class Transformer(InputModule):
             processor_output["prompt_length"] = prompt_length
 
         if self.transformer_task in ("text-generation", "any-to-any"):
-            if self.processor.padding_side != "left":
-                raise ValueError(
-                    f"The processor padding side is {self.processor.padding_side!r}, but causal models require "
-                    "left padding so that the last token position is always a real token. "
-                    "This is needed for efficient logit computation (logits_to_keep=1) and for LogitScore. "
-                    'Please set ``processing_kwargs={"padding_side": "left"}``.'
-                )
+            self._verify_left_padding(processor_output, modality_kwargs, common_kwargs)
             processor_output["logits_to_keep"] = 1
 
         return processor_output
+
+    def _verify_pair_roles_supported(
+        self, messages_batch: list[list[dict[str, Any]]], chat_template_kwargs: dict[str, Any]
+    ) -> None:
+        """Raise if the chat template cannot carry the ``query``/``document`` roles a pair is mapped to.
+
+        A template that only branches on ``system``/``user``/``assistant`` renders a pair to an empty
+        prompt, so the model would score an input holding neither the query nor the document. Published
+        rerankers ship a template that handles both roles, so this is reached when a backbone is used,
+        or fine-tuned, without one.
+        """
+        # Checked before the probe, which costs a render, so batches without a pair never pay for it
+        if not self.input_formatter.has_pair_roles(messages_batch):
+            return
+        # Drop what never reaches the Jinja render: size kwargs (tokenization only) and the ST-only restore_suffix
+        probe_kwargs = {
+            key: value
+            for key, value in chat_template_kwargs.items()
+            if key not in _APPLY_CHAT_TEMPLATE_TOP_LEVEL_KWARGS and key != "restore_suffix"
+        }
+        failure = self.input_formatter.pair_roles_failure(probe_kwargs)
+        if failure is None:
+            return
+        model_name = getattr(self.config, "name_or_path", None) or "this model"
+        if self.input_formatter.message_format == "structured":
+            example = (
+                '    <Query>: {{ (messages | selectattr("role", "eq", "query") | first).content[0].text }}\n'
+                '    <Document>: {{ (messages | selectattr("role", "eq", "document") | first).content[0].text }}\n'
+            )
+        else:
+            example = (
+                '    <Query>: {{ messages | selectattr("role", "eq", "query") | map(attribute="content") | first }}\n'
+                '    <Document>: {{ messages | selectattr("role", "eq", "document") | map(attribute="content") | first }}\n'
+            )
+        raise ValueError(
+            f"The chat template of {model_name} cannot carry a 'query'/'document' pair ({failure}). Pair inputs "
+            "are mapped to one message per role, so set a chat template that renders both roles, e.g.:\n"
+            f"{example}"
+            'via `processor_kwargs={"chat_template": ...}` when loading, `model.processor.chat_template = ...` '
+            "afterwards, or a `chat_template.jinja` file alongside the model."
+        )
+
+    def _verify_left_padding(
+        self,
+        processor_output: dict[str, Any],
+        modality_kwargs: dict[str, dict[str, Any]],
+        common_kwargs: dict[str, Any],
+    ) -> None:
+        """Verify that causal inputs are left-padded, i.e. that every sample ends in a real token.
+
+        Checks the produced ``attention_mask`` rather than ``padding_side``, because the side that
+        actually applies can come from the tokenizer attribute or from either the ``"text"`` or
+        ``"common"`` processing_kwargs bucket, and which of those wins differs per processor type and
+        per call path. The output is the only signal that covers every route.
+        """
+        attention_mask = processor_output.get("attention_mask")
+        if not isinstance(attention_mask, torch.Tensor) or attention_mask.ndim != 2:
+            return
+        if attention_mask[:, -1].all():
+            return
+
+        # Only reached when padding is wrong, so it's worth working out which route caused it. Either
+        # bucket can be the one that wins, depending on the processor type, so blame whichever is at fault.
+        kwargs_side = next(
+            (
+                side
+                for side in (modality_kwargs["text"].get("padding_side"), common_kwargs.get("padding_side"))
+                if side is not None and side != "left"
+            ),
+            None,
+        )
+        if kwargs_side is not None:
+            fix = f'Your ``processing_kwargs`` set the padding side to {kwargs_side!r}. Remove it or set it to "left".'
+        else:
+            padder_path = "processor.tokenizer" if hasattr(self.processor, "tokenizer") else "processor"
+            fix = (
+                f'The module sets ``{padder_path}.padding_side`` to "left" on load, so it was changed afterwards. '
+                f'Restore it with ``{padder_path}.padding_side = "left"``.'
+            )
+        raise ValueError(
+            "At least one sample ends in a padding token, but causal models require left padding so that "
+            "the last token position is always a real token. "
+            "This is needed for efficient logit computation (logits_to_keep=1) and for LogitScore. " + fix
+        )
 
     def _merge_processing_kwargs(self, per_call: ProcessingKwargs | None) -> ProcessingKwargs:
         """Merge per-call ``processing_kwargs`` on top of the instance-level ``self.processing_kwargs``.

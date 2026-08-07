@@ -94,6 +94,7 @@ class Config(BaseSettings):
     ignore_missing_version: bool
     ignore_missing_files: bool
     tag: bool
+    push_tag: bool
     sign_tags: bool
     tag_name: str
     tag_message: Optional[str]

@@ -10,7 +10,6 @@ from pathlib import Path
 from typing import Dict, List, Optional, Set, TypeVar
 
 import gpuhunt
-from pydantic import parse_obj_as
 
 from dstack._internal.cli.services.args import port_mapping
 from dstack._internal.cli.services.configurators.base import (
@@ -60,7 +59,6 @@ from dstack._internal.core.models.configurations import (
 from dstack._internal.core.models.repos import RepoHeadWithCreds
 from dstack._internal.core.models.repos.base import Repo
 from dstack._internal.core.models.repos.remote import RemoteRepo, RemoteRepoCreds
-from dstack._internal.core.models.resources import CPUSpec
 from dstack._internal.core.models.runs import JobStatus, JobSubmission, RunPlan, RunSpec, RunStatus
 from dstack._internal.core.services.diff import diff_models
 from dstack._internal.core.services.repos import get_repo_creds_and_default_branch
@@ -124,14 +122,6 @@ class BaseRunConfigurator(
         if conf.working_dir is not None and not is_absolute_posix_path(conf.working_dir):
             raise ConfigurationError("working_dir must be absolute")
 
-        if isinstance(conf, ServiceConfiguration) and conf.router is not None:
-            logger.warning(
-                "Specifying `router` in service configurations is deprecated"
-                " and will be disallowed in a future release."
-                " Please migrate to replica-based routers:"
-                " https://dstack.ai/docs/concepts/services/#pd-disaggregation"
-            )
-
         repo = self.get_repo(conf, configuration_path, configurator_args)
         if repo is None:
             repo = init_default_virtual_repo(api=self.api)
@@ -143,6 +133,9 @@ class BaseRunConfigurator(
                 configuration_path=configuration_path,
                 profile=profile,
                 ssh_identity_file=configurator_args.ssh_identity_file,
+                max_offers=configurator_args.max_offers,
+                full_offers=configurator_args.full_offers,
+                unallocated_resources=configurator_args.unallocated,
             )
         return run_plan, repo
 
@@ -387,6 +380,16 @@ class BaseRunConfigurator(
             type=int,
             default=3,
         )
+        configuration_group.add_argument(
+            "--full-offers",
+            action="store_true",
+            help="Show full offers not adjusted by requirements",
+        )
+        configuration_group.add_argument(
+            "--unallocated",
+            action="store_true",
+            help="Subtract allocated resources to show only unallocated resources",
+        )
         cls.register_env_args(configuration_group)
         register_resources_args(configuration_group)
         register_profile_args(parser)
@@ -521,8 +524,7 @@ class BaseRunConfigurator(
         """
         Infers `resources.cpu.arch` if not set, requires `image` if the architecture is ARM.
         """
-        # TODO: Remove in 0.20. Use conf.resources.cpu directly
-        cpu_spec = parse_obj_as(CPUSpec, conf.resources.cpu)
+        cpu_spec = conf.resources.cpu
         arch = cpu_spec.arch
         if arch is None:
             gpu_spec = conf.resources.gpu

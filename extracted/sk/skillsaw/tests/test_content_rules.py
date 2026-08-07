@@ -75,7 +75,7 @@ class TestContentWeakLanguageRule:
     def test_rule_metadata(self):
         rule = ContentWeakLanguageRule()
         assert rule.rule_id == "content-weak-language"
-        assert rule.default_severity() == Severity.WARNING
+        assert rule.default_severity() == Severity.INFO
 
     def test_detects_weak_language(self, temp_dir):
         (temp_dir / "CLAUDE.md").write_text("Try to handle errors gracefully if possible.\n")
@@ -139,11 +139,12 @@ class TestContentWeakLanguageRule:
         for v in ref_violations:
             assert v.severity == Severity.INFO
 
-    def test_non_reference_files_keep_warning_severity(self, temp_dir):
-        """Non-reference content blocks should keep WARNING severity."""
+    def test_non_reference_files_keep_configured_severity(self, temp_dir):
+        """Non-reference content blocks keep the configured severity; only
+        reference blocks are demoted to INFO."""
         (temp_dir / "CLAUDE.md").write_text("Handle errors properly and correctly.\n")
         context = RepositoryContext(temp_dir)
-        violations = ContentWeakLanguageRule().check(context)
+        violations = ContentWeakLanguageRule({"severity": "warning"}).check(context)
         assert len(violations) >= 1
         for v in violations:
             assert v.severity == Severity.WARNING
@@ -153,7 +154,7 @@ class TestContentTautologicalRule:
     def test_rule_metadata(self):
         rule = ContentTautologicalRule()
         assert rule.rule_id == "content-tautological"
-        assert rule.default_severity() == Severity.WARNING
+        assert rule.default_severity() == Severity.INFO
 
     def test_detects_tautology(self, temp_dir):
         (temp_dir / "CLAUDE.md").write_text("Always write clean code.\nFollow best practices.\n")
@@ -174,7 +175,7 @@ class TestContentCriticalPositionRule:
     def test_rule_metadata(self):
         rule = ContentCriticalPositionRule()
         assert rule.rule_id == "content-critical-position"
-        assert rule.default_severity() == Severity.WARNING
+        assert rule.default_severity() == Severity.INFO
 
     def test_critical_in_middle_flagged(self, temp_dir):
         lines = [f"Line {i}" for i in range(1, 51)]
@@ -259,7 +260,7 @@ class TestContentNegativeOnlyRule:
     def test_rule_metadata(self):
         rule = ContentNegativeOnlyRule()
         assert rule.rule_id == "content-negative-only"
-        assert rule.default_severity() == Severity.WARNING
+        assert rule.default_severity() == Severity.INFO
 
     def test_detects_negative_without_alternative(self, temp_dir):
         (temp_dir / "CLAUDE.md").write_text("Never use var in JavaScript.\n")
@@ -631,7 +632,9 @@ class TestContentEmbeddedSecretsRule:
         assert rule.default_severity() == Severity.ERROR
 
     def test_detects_openai_key(self, temp_dir):
-        (temp_dir / "CLAUDE.md").write_text("Set API key: sk-abcdefghijklmnopqrstuvwxyz1234\n")
+        (temp_dir / "CLAUDE.md").write_text(
+            "Set API key: sk-abcdefghijklmnopqrstuvwxyz1234\n"
+        )  # notsecret
         context = RepositoryContext(temp_dir)
         violations = ContentEmbeddedSecretsRule().check(context)
         assert len(violations) >= 1
@@ -646,7 +649,7 @@ class TestContentEmbeddedSecretsRule:
         assert len(violations) >= 1
 
     def test_detects_aws_key(self, temp_dir):
-        (temp_dir / "CLAUDE.md").write_text("AWS key: AKIAIOSFODNN7EXAMPLE\n")
+        (temp_dir / "CLAUDE.md").write_text("AWS key: AKIAIOSFODNN7EXAMPLE\n")  # notsecret
         context = RepositoryContext(temp_dir)
         violations = ContentEmbeddedSecretsRule().check(context)
         assert len(violations) >= 1
@@ -670,7 +673,7 @@ class TestContentEmbeddedSecretsRule:
     @pytest.mark.parametrize(
         "secret,expected_desc",
         [
-            ("sk-ant-api03-abcdefghijklmnopqrst", "Anthropic API key"),
+            ("sk-ant-api03-abcdefghijklmnopqrst", "Anthropic API key"),  # notsecret
             ("ghr_abcdefghijklmnopqrstuvwxyz123456789012", "GitHub refresh token"),  # notsecret
             ("ASIAIOSFODNN7EXAMPLE", "AWS temporary access key"),
             ("xoxa-123456789012-abcdefghij", "Slack app token"),
@@ -855,7 +858,7 @@ class TestContentEmbeddedSecretsRule:
 
     def test_structured_tokens_not_entropy_gated(self, temp_dir):
         """High-confidence token formats fire even for low-entropy bodies."""
-        (temp_dir / "CLAUDE.md").write_text("Use token ghp_" + "a" * 40 + "\n")
+        (temp_dir / "CLAUDE.md").write_text("Use token ghp_" + "a" * 40 + "\n")  # notsecret
         context = RepositoryContext(temp_dir)
         violations = ContentEmbeddedSecretsRule().check(context)
         assert len(violations) >= 1
@@ -1424,6 +1427,30 @@ class TestContentBrokenInternalReferenceRule:
         violations = ContentBrokenInternalReferenceRule().check(context)
         assert len(violations) == 0
 
+    def test_uri_scheme_links_skipped(self, temp_dir):
+        """Any URI scheme is external, not just http(s)/mailto.
+
+        Codex skills link connector apps as ``app://<id>`` (real-repo FP:
+        openai/plugins), and ``vscode://``/``ssh://`` links appear in
+        instruction files. None of them name a file in the repository."""
+        (temp_dir / "CLAUDE.md").write_text(
+            "Linear requires the native [$linear](app://asdk_app_69a089a326dc8191) app.\n"
+            "Open [settings](vscode://settings/editor) or clone "
+            "[the repo](ssh://git@example.com/repo.git).\n"
+            "Protocol-relative [link](//example.com/docs) is a URL too.\n"
+        )
+        context = RepositoryContext(temp_dir)
+        violations = ContentBrokenInternalReferenceRule().check(context)
+        assert violations == []
+
+    def test_windows_drive_style_target_is_still_a_file_path(self, temp_dir):
+        """``C:/...`` must not be mistaken for a URI scheme — it stays a
+        file reference (and one that points outside the repository)."""
+        (temp_dir / "CLAUDE.md").write_text("See [notes](C:/notes.md) for details.\n")
+        context = RepositoryContext(temp_dir)
+        violations = ContentBrokenInternalReferenceRule().check(context)
+        assert len(violations) == 1
+
     def test_template_dir_skipped(self, temp_dir):
         tmpl_dir = temp_dir / "templates"
         tmpl_dir.mkdir()
@@ -1581,6 +1608,35 @@ class TestContentBrokenInternalReferenceRule:
         assert len(violations) == 1
         assert "does not exist" in violations[0].message
 
+    def test_resolution_and_stat_failure_reports_broken(self, temp_dir, monkeypatch):
+        """A rejected link target must not be probed again through the raw path."""
+        from skillsaw.rules.builtin.content import broken_internal_reference as rule_module
+
+        (temp_dir / "CLAUDE.md").write_text("See [hostile](hostile.md).\n")
+        context = RepositoryContext(temp_dir)
+        _ = context.lint_tree
+        real_safe_resolve = rule_module.safe_resolve
+        real_exists = Path.exists
+
+        def hostile_resolve(path):
+            """Reject the hostile fixture path while resolving other paths."""
+            if path.name == "hostile.md":
+                return None
+            return real_safe_resolve(path)
+
+        def hostile_exists(path):
+            """Fail if the rejected hostile path reaches a raw stat call."""
+            if path.name == "hostile.md":
+                raise OSError("cannot stat hostile link")
+            return real_exists(path)
+
+        monkeypatch.setattr(rule_module, "safe_resolve", hostile_resolve)
+        monkeypatch.setattr(Path, "exists", hostile_exists)
+
+        violations = ContentBrokenInternalReferenceRule().check(context)
+        assert len(violations) == 1
+        assert "does not exist" in violations[0].message
+
     @pytest.mark.skipif(os.name == "nt", reason="backslash is a separator on Windows")
     def test_literal_backslash_filename_suggestion_preserved(self, temp_dir):
         """On POSIX a literal backslash is part of the file name — the
@@ -1622,6 +1678,35 @@ class TestContentUnlinkedInternalReferenceRule:
         violations = ContentUnlinkedInternalReferenceRule().check(context)
         assert len(violations) == 1
         assert "./scripts/build.sh" in violations[0].message
+
+    def test_resolution_failure_is_not_autofixable(self, temp_dir, monkeypatch):
+        """An unresolvable bare path must not be statted or offered for autofix."""
+        from skillsaw.rules.builtin.content import unlinked_internal_reference as rule_module
+
+        (temp_dir / "CLAUDE.md").write_text("See docs/hostile.md for details.\n")
+        context = RepositoryContext(temp_dir)
+        _ = context.lint_tree
+        real_safe_resolve = rule_module.safe_resolve
+        real_exists = Path.exists
+
+        def hostile_resolve(path):
+            """Reject the hostile fixture path while resolving other paths."""
+            if path.name == "hostile.md":
+                return None
+            return real_safe_resolve(path)
+
+        def hostile_exists(path):
+            """Fail if the rejected hostile path reaches a raw stat call."""
+            if path.name == "hostile.md":
+                raise OSError("cannot stat hostile reference")
+            return real_exists(path)
+
+        monkeypatch.setattr(rule_module, "safe_resolve", hostile_resolve)
+        monkeypatch.setattr(Path, "exists", hostile_exists)
+
+        violations = ContentUnlinkedInternalReferenceRule().check(context)
+        assert len(violations) == 1
+        assert violations[0].fixable is False
 
     def test_path_abutting_close_paren_not_flagged(self, temp_dir):
         """Regression for #321: `scripts/test.pyc)` must not backtrack to a

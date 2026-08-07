@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: kserve
-Version: 0.19.0
+Version: 0.20.0
 Summary: KServe Python SDK
 Author-email: The KServe Authors <dsun20@bloomberg.net>, The KServe Authors <ellisbigelow@google.com>, The KServe Authors <hejinchi@cn.ibm.com>
 License: Apache-2.0
@@ -22,8 +22,8 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: <3.13,>=3.10
 Description-Content-Type: text/markdown
 Requires-Dist: uvicorn[standard]<1.0.0,>=0.30.6
-Requires-Dist: fastapi>=0.115.3
-Requires-Dist: starlette==0.49.1
+Requires-Dist: fastapi<1.0.0,>=0.115.3
+Requires-Dist: starlette>=1.0.1
 Requires-Dist: cloudevents<2.0.0,>=1.6.2
 Requires-Dist: six<2.0.0,>=1.16.0
 Requires-Dist: kubernetes>=23.3.0
@@ -35,28 +35,28 @@ Requires-Dist: grpcio-tools<2.0.0,>=1.73.0
 Requires-Dist: grpc-interceptor<1.0.0,>=0.15.4
 Requires-Dist: protobuf<7.0.0,>=6.33.5
 Requires-Dist: prometheus-client<1.0.0,>=0.20.0
-Requires-Dist: orjson<4.0.0,>=3.10.15
+Requires-Dist: orjson<4.0.0,>=3.11.6
 Requires-Dist: httpx<1.0.0,>=0.27.2
 Requires-Dist: timing-asgi<1.0.0,>=0.3.0
 Requires-Dist: tabulate<1.0.0,>=0.9.0
 Requires-Dist: pandas<3.0.0,>=2.2.0
 Requires-Dist: pydantic<3.0.0,>=2.5.0
 Requires-Dist: pyyaml<7.0.0,>=6.0.0
-Requires-Dist: urllib3>=2.6.0
-Requires-Dist: aiohttp>=3.13.3
+Requires-Dist: urllib3>=2.7.0
+Requires-Dist: aiohttp>=3.13.4
 Requires-Dist: h11>=0.16.0
-Requires-Dist: cryptography>=46.0.5
-Requires-Dist: python-multipart>=0.0.22
-Requires-Dist: pyjwt>=2.12.0
+Requires-Dist: cryptography>=46.0.7
+Requires-Dist: python-multipart>=0.0.27
+Requires-Dist: pyjwt>=2.13.0
 Requires-Dist: pyasn1>=0.6.3
 Provides-Extra: storage
-Requires-Dist: kserve-storage==0.19.0; extra == "storage"
+Requires-Dist: kserve-storage==0.20.0; extra == "storage"
 Provides-Extra: logging
 Requires-Dist: asgi-logger<1.0.0,>=0.1.0; extra == "logging"
 Provides-Extra: ray
 Requires-Dist: ray[serve]>=2.43.0; extra == "ray"
 Provides-Extra: llm
-Requires-Dist: vllm==0.20.0; extra == "llm"
+Requires-Dist: vllm==0.24.0; extra == "llm"
 
 # KServe Python SDK
 Python SDK for KServe Server and Client.

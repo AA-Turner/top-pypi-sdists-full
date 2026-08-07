@@ -34,6 +34,7 @@ mod compat;
 mod convert;
 mod errors;
 mod format;
+mod input;
 mod regex_compat;
 
 #[cfg(test)]
@@ -116,6 +117,7 @@ async fn run_jq(ctx: Context<'_>, parsed: JqArgs<'_>) -> Result<ExecResult> {
             Ok(t) => t,
             Err(e) => return Ok(e),
         };
+        ctx.consume_budget_input(text.len())?;
         match file_binding_bytes.checked_add(text.len()) {
             Some(total) if total <= MAX_FILE_VAR_BYTES => file_binding_bytes = total,
             _ => {
@@ -127,7 +129,7 @@ async fn run_jq(ctx: Context<'_>, parsed: JqArgs<'_>) -> Result<ExecResult> {
         }
         let value = match req.kind {
             FileVarKind::Raw => serde_json::Value::String(text),
-            FileVarKind::Slurp => match parse_json_stream(&text) {
+            FileVarKind::Slurp => match parse_jq_json_stream(&ctx, &text)? {
                 Ok(vals) => {
                     // Inner values are already depth-checked by parse_json_stream;
                     // the wrapping array adds one level which the recursive
@@ -155,6 +157,7 @@ async fn run_jq(ctx: Context<'_>, parsed: JqArgs<'_>) -> Result<ExecResult> {
                 Ok(t) => t,
                 Err(e) => return Ok(e),
             };
+            ctx.consume_budget_input(text.len())?;
             if !combined.is_empty() && !combined.ends_with('\n') {
                 combined.push('\n');
             }
@@ -163,7 +166,7 @@ async fn run_jq(ctx: Context<'_>, parsed: JqArgs<'_>) -> Result<ExecResult> {
         file_content = combined;
         file_content.as_str()
     } else {
-        ctx.stdin.unwrap_or("")
+        ctx.stdin.map(|stdin| &**stdin).unwrap_or("")
     };
 
     // Empty stdin without -n yields empty output (matches real jq for files
@@ -303,7 +306,7 @@ async fn run_jq(ctx: Context<'_>, parsed: JqArgs<'_>) -> Result<ExecResult> {
             })
             .collect()
     } else if parsed.slurp {
-        match parse_json_stream(input) {
+        match parse_jq_json_stream(&ctx, input)? {
             Ok(vals) => {
                 let arr: JqJson = JqJson::Array(vals);
                 vec![FilterInput {
@@ -315,7 +318,7 @@ async fn run_jq(ctx: Context<'_>, parsed: JqArgs<'_>) -> Result<ExecResult> {
             Err(e) => return Ok(ExecResult::err(format!("{e}\n"), 5)),
         }
     } else {
-        match parse_json_stream(input) {
+        match parse_jq_json_stream(&ctx, input)? {
             Ok(jq_vals) => jq_vals
                 .iter()
                 .enumerate()
@@ -347,7 +350,7 @@ async fn run_jq(ctx: Context<'_>, parsed: JqArgs<'_>) -> Result<ExecResult> {
     // periodically so a runaway filter aborts instead of wedging the host.
     let max_output_bytes = ctx
         .execution_extension::<ExecutionLimits>()
-        .map(|l| l.max_stdout_bytes)
+        .and_then(|limits| limits.try_with(|limits| limits.max_stdout_bytes).ok())
         .unwrap_or_else(|| ExecutionLimits::default().max_stdout_bytes);
     let deadline = ctx.execution_extension::<ExecutionDeadline>();
     let mut values_emitted: usize = 0;
@@ -393,6 +396,7 @@ async fn run_jq(ctx: Context<'_>, parsed: JqArgs<'_>) -> Result<ExecResult> {
         let cv_ctx = Ctx::<InputData<Val>>::new(data, Vars::new(var_vals));
 
         for result in filter.id.run((cv_ctx, jaq_input)) {
+            ctx.consume_budget_work(1)?;
             match jaq_core::unwrap_valr(result) {
                 Ok(val) => {
                     has_output = true;
@@ -428,7 +432,11 @@ async fn run_jq(ctx: Context<'_>, parsed: JqArgs<'_>) -> Result<ExecResult> {
                     }
                     values_emitted += 1;
                     if values_emitted.is_multiple_of(4096)
-                        && deadline.is_some_and(ExecutionDeadline::is_expired)
+                        && deadline.as_ref().is_some_and(|deadline| {
+                            deadline
+                                .try_with(ExecutionDeadline::is_expired)
+                                .unwrap_or(true)
+                        })
                     {
                         return Ok(ExecResult::err("jq: execution timed out\n".to_string(), 5));
                     }
@@ -454,6 +462,26 @@ async fn run_jq(ctx: Context<'_>, parsed: JqArgs<'_>) -> Result<ExecResult> {
     }
 
     Ok(ExecResult::ok(output))
+}
+
+fn parse_jq_json_stream(
+    ctx: &Context<'_>,
+    input: &str,
+) -> Result<std::result::Result<Vec<JqJson>, String>> {
+    let execution_budget = ctx
+        .execution_budget()
+        .map(|budget| {
+            budget
+                .try_with(Clone::clone)
+                .map_err(|_| crate::Error::Cancelled)
+        })
+        .transpose()?;
+    let normalized = match input::normalize(execution_budget.as_ref(), input) {
+        Ok(normalized) => normalized,
+        Err(input::NormalizeError::InvalidJson(message)) => return Ok(Err(message)),
+        Err(input::NormalizeError::Resource(error)) => return Err(error),
+    };
+    Ok(parse_json_stream(normalized.as_str()))
 }
 
 fn file_binding_exceeds_limit(used: usize, next: u64) -> bool {

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: protobuf-py
-Version: 0.2.0
+Version: 0.3.0
 Summary: Idiomatic Protocol Buffers for Python.
 Keywords: protobuf
 License-Expression: Apache-2.0
@@ -19,7 +19,7 @@ Classifier: Programming Language :: Python :: Free Threading
 Classifier: Topic :: File Formats
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
-Requires-Dist: protobuf-py-ext==0.2.0 ; (platform_machine == 'arm64' and platform_python_implementation == 'CPython' and sys_platform == 'darwin') or (platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux') or (platform_machine == 'x86_64' and platform_python_implementation == 'CPython' and sys_platform == 'linux') or (platform_machine == 'AMD64' and platform_python_implementation == 'CPython' and sys_platform == 'win32') or (platform_machine == 'ARM64' and platform_python_implementation == 'CPython' and sys_platform == 'win32')
+Requires-Dist: protobuf-py-ext==0.3.0 ; (platform_machine == 'arm64' and platform_python_implementation == 'CPython' and sys_platform == 'darwin') or (platform_machine == 'aarch64' and platform_python_implementation == 'CPython' and sys_platform == 'linux') or (platform_machine == 'x86_64' and platform_python_implementation == 'CPython' and sys_platform == 'linux') or (platform_machine == 'AMD64' and platform_python_implementation == 'CPython' and sys_platform == 'win32') or (platform_machine == 'ARM64' and platform_python_implementation == 'CPython' and sys_platform == 'win32')
 Requires-Python: >=3.10
 Project-URL: Documentation, https://protobufpy.com/
 Project-URL: Homepage, https://github.com/bufbuild/protobuf-py
@@ -61,7 +61,7 @@ data = user.to_binary()
 user = User.from_binary(data)
 
 print(user.first_name)  # Alice
-print(user.to_json())   # {"id": "123", "firstName": "Alice", "lastName": "Smith"}
+print(user.to_json())  # {"id": "123", "firstName": "Alice", "lastName": "Smith"}
 ```
 
 Protobuf is the easiest way to build APIs. We recommend using it with [Connect for Python](https://github.com/connectrpc/connect-py), which generates server stubs for you:
@@ -72,10 +72,14 @@ from connectrpc.request import RequestContext
 from gen.user_connect import UserService, UserServiceASGIApplication
 from gen.user_pb import GetUserRequest, GetUserResponse, User
 
+
 class UserHandler(UserService):
-    async def get_user(self, request: GetUserRequest, ctx: RequestContext) -> GetUserResponse:
+    async def get_user(
+        self, request: GetUserRequest, ctx: RequestContext
+    ) -> GetUserResponse:
         user = User(id=request.id, first_name="Alice", last_name="Smith")
         return GetUserResponse(user=user)
+
 
 # Serve it with any ASGI server, e.g. `uvicorn server:app`.
 app = UserServiceASGIApplication(UserHandler())
@@ -147,12 +151,8 @@ class User(Message[_UserFields]):
     __slots__ = ("id", "first_name", "last_name")
 
     def __init__(
-        self, *,
-        id: str = "",
-        first_name: str = "",
-        last_name: str = "",
-    ) -> None:
-        ...
+        self, *, id: str = "", first_name: str = "", last_name: str = ""
+    ) -> None: ...
 
     id: str
     first_name: str
@@ -219,7 +219,7 @@ for field in user:
 | Field assignment (`foo.x = 123`) | ✅ Direct assignment                         | ❌ `CopyFrom()` required                                     | ✅ Direct assignment                                          |
 | `copy.copy()` / `copy.replace()` | ✅                                           | ❌                                                           | ❌                                                            |
 | Global mutable registry          | ✅ Explicit `Registry`                       | ❌ Process-wide singleton behavior                           | ✅ N/A                                                        |
-| Zero dependencies                | ✅                                           | ✅                                                           | ❌ Includes `grpclib`, `python-dateutil`, `typing-extensions` |
+| Zero dependencies                | ✅                                           | ✅                                                           | ❌ Includes `grpclib`, `python-dateutil` |
 
 </details>
 

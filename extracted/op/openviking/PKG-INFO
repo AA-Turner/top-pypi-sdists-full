@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openviking
-Version: 0.4.12
+Version: 0.4.13
 Summary: An Agent-native context database
 Author-email: ByteDance <noreply@bytedance.com>
 License-Expression: AGPL-3.0
@@ -89,6 +89,10 @@ Requires-Dist: datasets>=2.0.0; extra == "test"
 Requires-Dist: pandas>=2.0.0; extra == "test"
 Requires-Dist: diff-match-patch>=20200713; extra == "test"
 Requires-Dist: hvac>=2.0.0; extra == "test"
+Provides-Extra: auth
+Requires-Dist: python-jose[cryptography]>=3.3.0; extra == "auth"
+Requires-Dist: httpx>=0.25.0; extra == "auth"
+Requires-Dist: python-ldap>=3.4.0; extra == "auth"
 Provides-Extra: opengauss
 Requires-Dist: psycopg2-binary>=2.9; extra == "opengauss"
 Provides-Extra: dev
@@ -149,6 +153,7 @@ Requires-Dist: opensandbox-server>=0.1.0; extra == "bot"
 Requires-Dist: agent-sandbox>=0.0.23; extra == "bot"
 Requires-Dist: fusepy>=3.0.1; extra == "bot"
 Requires-Dist: opencode-ai>=0.1.0a0; extra == "bot"
+Requires-Dist: python-jose[cryptography]>=3.3.0; extra == "bot"
 Provides-Extra: benchmark
 Requires-Dist: langchain>=1.0.0; extra == "benchmark"
 Requires-Dist: langchain-core>=1.0.0; extra == "benchmark"
@@ -156,12 +161,6 @@ Requires-Dist: langchain-openai>=1.0.0; extra == "benchmark"
 Requires-Dist: tiktoken>=0.5.0; extra == "benchmark"
 Requires-Dist: datasets>=2.0.0; extra == "benchmark"
 Requires-Dist: pandas>=2.0.0; extra == "benchmark"
-Provides-Extra: langchain
-Requires-Dist: langchain-core<2.0.0,>=1.0.0; extra == "langchain"
-Provides-Extra: langgraph
-Requires-Dist: langchain<2.0.0,>=1.0.0; extra == "langgraph"
-Requires-Dist: langchain-core<2.0.0,>=1.0.0; extra == "langgraph"
-Requires-Dist: langgraph<2.0.0,>=1.0.0; extra == "langgraph"
 Provides-Extra: local-embed
 Requires-Dist: llama-cpp-python>=0.3.0; extra == "local-embed"
 Dynamic: license-file
@@ -379,7 +378,6 @@ OpenViking welcomes collaboration with other open-source projects to build the c
 - [NoKV](https://github.com/NoKV-Lab/NoKV) - AI native distributed file system
 - [loopx](https://github.com/huangruiteng/loopx) - Lightweight loop engineering state kernel
 - [Hermes Agent](https://github.com/NousResearch/hermes-agent) - The agent that grows with you
-- [heima](https://github.com/litentry/heima) - Substrate-based EVM-compatible L1 chain
 
 Interested in joining our partner list? Please submit an issue to our community to apply.
 

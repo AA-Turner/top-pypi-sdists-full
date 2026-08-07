@@ -11,7 +11,7 @@ from tempfile import TemporaryDirectory
 from typing import Any
 
 from jsonschema import ValidationError
-from pep440 import is_canonical
+from packaging import version
 
 from nbformat import __version__ as nbf_version
 from nbformat import current_nbformat, read, write, writes
@@ -22,7 +22,7 @@ from .base import TestsBase
 
 
 def test_canonical_version():
-    assert is_canonical(nbf_version)
+    assert str(version.parse(nbf_version)) == nbf_version
 
 
 class TestAPI(TestsBase):
@@ -35,7 +35,7 @@ class TestAPI(TestsBase):
             nb = read(f, as_version=current_nbformat)
 
         # Check that the notebook was upgraded to the latest version automatically.
-        (major, minor) = get_version(nb)
+        (major, _minor) = get_version(nb)
         self.assertEqual(major, current_nbformat)
 
     def test_write_downgrade_2(self):
@@ -46,7 +46,7 @@ class TestAPI(TestsBase):
 
         jsons = writes(nb, version=2)
         nb2 = json.loads(jsons)
-        (major, minor) = get_version(nb2)
+        (major, _minor) = get_version(nb2)
         self.assertEqual(major, 2)
 
     def test_read_write_path(self):

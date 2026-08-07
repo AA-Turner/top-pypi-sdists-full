@@ -7,6 +7,8 @@ three concerns and nothing else:
   derived from the repo identity rather than hardcoded.
 - :mod:`pat` — the token's own lifecycle: expiry read from GitLab, rotation
   under a threshold, and the pre-filled creation URL shown on a miss.
+- :mod:`journal` — when the credential was last checked, rotated and swept, so
+  an unattended rotation is visible after the fact.
 - :mod:`npm`, :mod:`docker`, :mod:`uv` — one writer per ecosystem, each able to
   report its state, apply a token, and remove what it wrote.
 

@@ -33,6 +33,7 @@ from .literals import (
     BrowserActionStatusType,
     BrowserEnterprisePolicyTypeType,
     BrowserSessionStatusType,
+    CapacityProviderSessionStatusType,
     CloudWatchLogsFilterOperatorType,
     CodeInterpreterSessionStatusType,
     CommandExecutionStatusType,
@@ -159,6 +160,8 @@ __all__ = (
     "DeleteABTestResponseTypeDef",
     "DeleteBatchEvaluationRequestTypeDef",
     "DeleteBatchEvaluationResponseTypeDef",
+    "DeleteCapacityProviderSessionRequestTypeDef",
+    "DeleteCapacityProviderSessionResponseTypeDef",
     "DeleteEventInputTypeDef",
     "DeleteEventOutputTypeDef",
     "DeleteMemoryRecordInputTypeDef",
@@ -876,6 +879,11 @@ class DeleteABTestRequestTypeDef(TypedDict):
 
 class DeleteBatchEvaluationRequestTypeDef(TypedDict):
     batchEvaluationId: str
+
+
+class DeleteCapacityProviderSessionRequestTypeDef(TypedDict):
+    capacityProviderId: str
+    sessionId: str
 
 
 class DeleteEventInputTypeDef(TypedDict):
@@ -1611,6 +1619,13 @@ class DeleteBatchEvaluationResponseTypeDef(TypedDict):
     batchEvaluationId: str
     batchEvaluationArn: str
     status: BatchEvaluationStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DeleteCapacityProviderSessionResponseTypeDef(TypedDict):
+    capacityProviderArn: str
+    sessionId: str
+    status: CapacityProviderSessionStatusType
     ResponseMetadata: ResponseMetadataTypeDef
 
 

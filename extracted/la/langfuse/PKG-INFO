@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: langfuse
-Version: 4.14.2
+Version: 4.14.3
 Summary: Langfuse Python SDK - LLM observability/tracing, datasets, experiments, LLM-as-a-judge evaluation, and prompt management
 Author: langfuse
 Author-email: langfuse <developers@langfuse.com>

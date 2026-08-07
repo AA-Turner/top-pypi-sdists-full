@@ -15,13 +15,13 @@ classifiers = [
     "License :: OSI Approved :: BSD License",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12"
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14"
 ]
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 dependencies = [
     "fastjsonschema>=2.15",
     "jsonschema>=2.6",
@@ -51,19 +51,43 @@ docs = [
 "sphinx",
 "sphinxcontrib_github_alt",
 "sphinxcontrib-spelling",
+"intersphinx_registry",
 ]
 test = [
     "testpath",
     "pytest",
     "pre-commit",
-    "pep440"
+    "packaging"
 ]
+
+# These mirror the "docs" and "test" extras above, which are kept for
+# backwards compatibility (`pip install nbformat[test]`) and are what the
+# hatch environments below consume via `features`.
+[dependency-groups]
+docs = [
+    "myst_parser",
+    "pydata_sphinx_theme",
+    "sphinx",
+    "sphinxcontrib_github_alt",
+    "sphinxcontrib-spelling",
+    "intersphinx_registry",
+]
+test = [
+    "testpath",
+    "pytest",
+    "pre-commit",
+    "packaging",
+]
+dev = [{ include-group = "test" }]
 
 [project.scripts]
 jupyter-trust = "nbformat.sign:TrustNotebookApp.launch_instance"
 
 [tool.hatch.version]
 source = "nodejs"
+
+[tool.hatch.envs.default]
+installer = "uv"
 
 [tool.hatch.envs.docs]
 features = ["docs"]
@@ -85,22 +109,25 @@ nowarn = "test -W default {args}"
 
 [tool.hatch.envs.lint]
 detached = true
+installer = "uv"
 dependencies = ["pre-commit"]
 [tool.hatch.envs.lint.scripts]
 build = [
-  "pre-commit run --all-files ruff",
+  "pre-commit run --all-files ruff-check",
   "pre-commit run --all-files ruff-format"
 ]
 
 [tool.hatch.envs.typing]
 dependencies = [ "pre-commit"]
 detached = true
+installer = "uv"
 [tool.hatch.envs.typing.scripts]
 test = "pre-commit run --all-files --hook-stage manual mypy"
 
 [tool.pytest.ini_options]
 minversion = "6.0"
 xfail_strict = true
+log_level = "info"
 log_cli_level = "info"
 addopts = [
   "-ra", "--durations=10", "--color=yes", "--doctest-modules",
@@ -131,7 +158,7 @@ exclude_lines = [
 
 [tool.mypy]
 files = "nbformat"
-python_version = "3.8"
+python_version = "3.10"
 strict = true
 enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
 disable_error_code = ["no-untyped-def", "no-untyped-call"]
@@ -174,6 +201,7 @@ ignore = [
   "RET503", # Missing explicit `return` at the end of function able...
   "S101",   # Use of `assert` detected"
   "E731",   # Do not assign a `lambda` expression"
+  "UP031",  # Use format specifiers instead of percent format
 ]
 unfixable = [
   # Don't touch print statements

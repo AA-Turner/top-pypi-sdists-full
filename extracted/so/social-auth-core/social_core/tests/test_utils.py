@@ -3,7 +3,10 @@ import unittest
 from typing import TYPE_CHECKING, cast
 from unittest.mock import Mock, patch
 
+import requests
+
 from social_core.backends.base import BaseAuth
+from social_core.exceptions import AuthForbidden
 from social_core.pipeline.utils import partial_prepare
 from social_core.utils import (
     PARTIAL_PIPELINE_ALLOW_EXTERNAL_RESUME,
@@ -12,6 +15,8 @@ from social_core.utils import (
     PARTIAL_TOKEN_PENDING_SESSION_NAME,
     PARTIAL_TOKEN_SESSION_NAME,
     build_absolute_uri,
+    handle_http_errors,
+    is_url,
     partial_pipeline_data,
     partial_pipeline_result,
     sanitize_redirect,
@@ -101,6 +106,107 @@ class SanitizeRedirectTest(unittest.TestCase):
                 ["myapp1.com", "myapp2.com"], "http://notmyapp.com/path/"
             ),
             None,
+        )
+
+
+class SanitizeRedirectAllowedSchemesTest(unittest.TestCase):
+    schemes = ("http", "https", "com.example.app")
+
+    def test_allowed_private_use_scheme(self) -> None:
+        for url in [
+            "com.example.app://oauth2redirect",
+            "com.example.app:/oauth2redirect",
+            "com.example.app://oauth2redirect?code=1234",
+        ]:
+            self.assertEqual(sanitize_redirect(["myapp.com"], url, self.schemes), url)
+
+    def test_allowed_scheme_ignores_host_allowlist(self) -> None:
+        url = "com.example.app://not-a-real-host/path"
+        self.assertEqual(sanitize_redirect(["myapp.com"], url, self.schemes), url)
+
+    def test_scheme_not_in_allowlist(self) -> None:
+        for url in [
+            "com.other.app://oauth2redirect",
+            "javascript://myapp.com/%0Aalert(1)",
+            "ftp://myapp.com/path",
+        ]:
+            self.assertEqual(sanitize_redirect(["myapp.com"], url, self.schemes), None)
+
+    def test_web_urls_still_checked_against_hosts(self) -> None:
+        self.assertEqual(
+            sanitize_redirect(["myapp.com"], "http://myapp.com/path/", self.schemes),
+            "http://myapp.com/path/",
+        )
+        self.assertEqual(
+            sanitize_redirect(["myapp.com"], "http://notmyapp.com/path/", self.schemes),
+            None,
+        )
+
+    def test_relative_redirect_still_allowed(self) -> None:
+        self.assertEqual(
+            sanitize_redirect(["myapp.com"], "/path/", self.schemes), "/path/"
+        )
+
+    def test_evil_urls_still_rejected(self) -> None:
+        for url in ["///evil.com", "/\\evil.com", "/path/\n"]:
+            self.assertEqual(sanitize_redirect(["myapp.com"], url, self.schemes), None)
+
+    def test_scheme_matching_is_case_insensitive(self) -> None:
+        url = "com.example.app://oauth2redirect"
+        self.assertEqual(
+            sanitize_redirect(["myapp.com"], url, {"Com.Example.App"}), url
+        )
+        self.assertEqual(
+            sanitize_redirect(
+                ["myapp.com"], "COM.EXAMPLE.APP://oauth2redirect", {"com.example.app"}
+            ),
+            "COM.EXAMPLE.APP://oauth2redirect",
+        )
+
+    def test_restricting_schemes_blocks_web_urls(self) -> None:
+        self.assertEqual(
+            sanitize_redirect(
+                ["myapp.com"], "http://myapp.com/path/", ("com.example.app",)
+            ),
+            None,
+        )
+
+
+class IsUrlTest(unittest.TestCase):
+    def test_web_urls(self) -> None:
+        for value in ["http://myapp.com/", "https://myapp.com/", "/path/"]:
+            self.assertEqual(is_url(value), True)
+
+    def test_non_urls(self) -> None:
+        for value in [None, "LOGIN_REDIRECT_URL", "com.example.app://oauth2redirect"]:
+            self.assertEqual(is_url(value), False)
+
+    def test_allowed_private_use_scheme(self) -> None:
+        self.assertEqual(
+            is_url("com.example.app://oauth2redirect", {"com.example.app"}), True
+        )
+
+    def test_scheme_not_in_allowlist(self) -> None:
+        self.assertEqual(
+            is_url("com.other.app://oauth2redirect", {"com.example.app"}), False
+        )
+
+    def test_setting_names_are_not_urls(self) -> None:
+        self.assertEqual(is_url("LOGIN_REDIRECT_URL", {"com.example.app"}), False)
+
+    def test_malformed_web_scheme_not_promoted(self) -> None:
+        self.assertEqual(is_url("http:evil.example/path", {"http", "https"}), False)
+
+    def test_malformed_url_does_not_raise(self) -> None:
+        for value in ["foo://[bad", "com.example.app://[::1", "foo://["]:
+            self.assertEqual(is_url(value, {"foo", "com.example.app"}), False)
+
+    def test_scheme_matching_is_case_insensitive(self) -> None:
+        self.assertEqual(
+            is_url("com.example.app://oauth2redirect", {"Com.Example.App"}), True
+        )
+        self.assertEqual(
+            is_url("COM.EXAMPLE.APP://oauth2redirect", {"com.example.app"}), True
         )
 
 
@@ -629,6 +735,25 @@ class GetKeyAndSecretBasicAuthTest(unittest.TestCase):
             expected = b"Basic " + base64.b64encode(b"test_key:test_secret")
             self.assertEqual(result, expected)
             self.assertIsInstance(result, bytes)
+
+
+class HandleHttpErrorsTest(unittest.TestCase):
+    def test_unauthorized_and_forbidden_raise_auth_forbidden(self) -> None:
+        backend = BaseAuth(TestStrategy(TestStorage))
+
+        @handle_http_errors
+        def fail(_backend, error):
+            raise error
+
+        for status_code in (401, 403):
+            with self.subTest(status_code=status_code):
+                response = Mock(status_code=status_code, text="Access denied")
+                error = requests.HTTPError(response=response)
+
+                with self.assertRaises(AuthForbidden) as context:
+                    fail(backend, error)
+
+                self.assertIs(context.exception.__cause__, error)
 
 
 class IdKeyConfigurabilityTest(unittest.TestCase):

@@ -34,6 +34,7 @@ class IndexingJobIssue(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     INDEXING_JOB_ISSUE_UNSCHEDULABLE: _ClassVar[IndexingJobIssue]
     INDEXING_JOB_ISSUE_IMAGE_PULL_FAILED: _ClassVar[IndexingJobIssue]
     INDEXING_JOB_ISSUE_OTHER: _ClassVar[IndexingJobIssue]
+    INDEXING_JOB_ISSUE_POD_COMPLETION_STALLED: _ClassVar[IndexingJobIssue]
 
 DIRECTORY_OPTIONS_UNSPECIFIED: DirectoryOptions
 DIRECTORY_OPTIONS_MAIN: DirectoryOptions
@@ -53,6 +54,7 @@ INDEXING_JOB_ISSUE_WAITING_FOR_RESOURCES: IndexingJobIssue
 INDEXING_JOB_ISSUE_UNSCHEDULABLE: IndexingJobIssue
 INDEXING_JOB_ISSUE_IMAGE_PULL_FAILED: IndexingJobIssue
 INDEXING_JOB_ISSUE_OTHER: IndexingJobIssue
+INDEXING_JOB_ISSUE_POD_COMPLETION_STALLED: IndexingJobIssue
 
 class GetIndexingJobStatusRequest(_message.Message):
     __slots__ = ("deployment_id", "directory_prefix_enum", "indexing_job_id", "include_diagnostics")

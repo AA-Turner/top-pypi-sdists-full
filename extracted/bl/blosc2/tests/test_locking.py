@@ -1176,10 +1176,12 @@ def test_embed_store_cross_process_writers(tmp_path):
             keys = list(estore)
             assert "/seed" in keys
             for key in keys[-3:]:
-                node = estore.get(key)
-                if node is not None:  # a concurrent delete cannot happen here
-                    assert len(node[:]) == 10
-                    nreads += 1
+                node = estore.get(key)  # a concurrent delete cannot happen here
+                if node is None:
+                    continue
+                data = node[:]
+                assert len(data) == 10
+                nreads += 1
     finally:
         for w in writers:
             if w.poll() is None:
@@ -1264,11 +1266,14 @@ def test_dict_store_cross_process_writers(tmp_path):
             keys = list(dstore.keys())
             assert "/seed" in keys
             for key in keys:
-                if key.endswith("ext3"):
-                    node = dstore.get(key)
-                    if node is not None:
-                        assert len(node[:]) == 100
-                        nreads += 1
+                if not key.endswith("ext3"):
+                    continue
+                node = dstore.get(key)
+                if node is None:
+                    continue
+                data = node[:]
+                assert len(data) == 100
+                nreads += 1
     finally:
         for w in writers:
             if w.poll() is None:
@@ -1285,6 +1290,96 @@ def test_dict_store_cross_process_writers(tmp_path):
         for i in range(nkeys):
             assert np.array_equal(dstore[f"/{tag}/ext{i}"][:], np.arange(i, i + 100))
             assert np.array_equal(dstore[f"/{tag}/emb{i}"][:], np.arange(5))
+    dstore._closed = True
+
+
+DSTORE_OVERWRITER = """
+import sys
+import time
+import numpy as np
+import blosc2
+
+path, nrounds = sys.argv[1], int(sys.argv[2])
+dstore = blosc2.DictStore(path, mode="a", threshold=500, locking=True)
+for i in range(nrounds):
+    dstore["/hot"] = np.arange(i, i + 100)
+    time.sleep(0.005)
+dstore._closed = True
+"""
+
+
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="the reader keeps the leaf file open, which Windows refuses to let the writer remove",
+)
+def test_dict_store_read_during_overwrite(tmp_path, monkeypatch):
+    # A writer process rewriting the *same* external leaf this process keeps
+    # reading.  The overwrite removes and rewrites that exact file, so resolving
+    # the leaf path and opening it must happen under one lock; otherwise the
+    # reader hits a missing file (KeyError) or a half-written cframe.
+    # The real gap is microseconds wide, so widen it deliberately: with the
+    # resolve and the open under the same lock this delay is harmless, without
+    # it the writer wins the gap within a handful of reads.
+    orig_sync = blosc2.DictStore._sync_store
+
+    def slow_sync(self):
+        orig_sync(self)
+        time.sleep(0.02)
+
+    monkeypatch.setattr(blosc2.DictStore, "_sync_store", slow_sync)
+
+    path = str(tmp_path / "hot.b2d")
+    dstore = blosc2.DictStore(path, mode="w", threshold=500, locking=True)
+    dstore["/hot"] = np.arange(100)
+
+    writer = subprocess.Popen([sys.executable, "-c", DSTORE_OVERWRITER, path, "300"])
+    try:
+        nreads = 0
+        while writer.poll() is None and nreads < 60:
+            data = dstore["/hot"][:]
+            # Each round writes arange(i, i + 100); a torn read breaks the run
+            assert np.array_equal(data, np.arange(data[0], data[0] + 100))
+            nreads += 1
+    finally:
+        if writer.poll() is None:
+            writer.kill()
+        writer.wait()
+
+    assert nreads == 60
+    dstore._closed = True
+
+
+def test_dict_store_overwrite_never_writes_the_live_leaf(tmp_path, monkeypatch):
+    # The handle __getitem__ returns holds no file descriptor: the C layer
+    # re-opens the leaf by path for every chunk it decompresses.  So an
+    # overwrite that builds the new value *at* the live path can be caught
+    # mid-flight by a read already in progress, which is the deterministic form
+    # of the race test_dict_store_read_during_overwrite chases with timing.
+    # The new leaf must be built beside its final name and swapped in, so the
+    # live path only ever holds a complete cframe.
+    path = str(tmp_path / "atomic.b2d")
+    dstore = blosc2.DictStore(path, mode="w", threshold=500, locking=True)
+    dstore["/hot"] = np.arange(100)
+    leaf = os.path.join(dstore.working_dir, dstore.map_tree["/hot"])
+
+    written = []
+    orig_save = blosc2.NDArray.save
+
+    def spy_save(self, urlpath, **kwargs):
+        written.append(urlpath)
+        return orig_save(self, urlpath, **kwargs)
+
+    monkeypatch.setattr(blosc2.NDArray, "save", spy_save)
+
+    handle = dstore["/hot"]
+    dstore["/hot"] = np.arange(1000, 1100)
+
+    assert written, "the overwrite did not go through NDArray.save; adjust the spy"
+    assert leaf not in written, f"new leaf built in place at the live path: {written}"
+    # The staging file is gone and the live path carries the new value, which a
+    # handle taken before the overwrite can still read whole.
+    assert not [f for f in os.listdir(os.path.dirname(leaf)) if f.endswith(".tmp")]
+    assert np.array_equal(handle[:], np.arange(1000, 1100))
     dstore._closed = True
 
 

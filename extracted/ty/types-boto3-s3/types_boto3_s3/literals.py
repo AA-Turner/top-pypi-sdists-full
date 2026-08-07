@@ -285,6 +285,8 @@ ObjectLockRetentionModeType = Literal["COMPLIANCE", "GOVERNANCE"]
 ObjectNotExistsWaiterName = Literal["object_not_exists"]
 ObjectOwnershipType = Literal["BucketOwnerEnforced", "BucketOwnerPreferred", "ObjectWriter"]
 ObjectStorageClassType = Literal[
+    "AWS_BACKUP_LOW_COST_WARM",
+    "AWS_BACKUP_WARM",
     "DEEP_ARCHIVE",
     "EXPRESS_ONEZONE",
     "FSX_ONTAP",
@@ -315,11 +317,13 @@ RequestChargedType = Literal["requester"]
 RequestPayerType = Literal["requester"]
 RestoreRequestTypeType = Literal["SELECT"]
 S3TablesBucketTypeType = Literal["aws", "customer"]
-ServerSideEncryptionType = Literal["AES256", "aws:fsx", "aws:kms", "aws:kms:dsse"]
+ServerSideEncryptionType = Literal["AES256", "aws:backup", "aws:fsx", "aws:kms", "aws:kms:dsse"]
 SessionModeType = Literal["ReadOnly", "ReadWrite"]
 SseKmsEncryptedObjectsStatusType = Literal["Disabled", "Enabled"]
 StorageClassAnalysisSchemaVersionType = Literal["V_1"]
 StorageClassType = Literal[
+    "AWS_BACKUP_LOW_COST_WARM",
+    "AWS_BACKUP_WARM",
     "DEEP_ARCHIVE",
     "EXPRESS_ONEZONE",
     "FSX_ONTAP",
@@ -350,6 +354,8 @@ ServiceName = Literal[
     "account",
     "acm",
     "acm-pca",
+    "agent-registry",
+    "agent-registry-control",
     "aiops",
     "amp",
     "amplify",
@@ -654,6 +660,7 @@ ServiceName = Literal[
     "pipes",
     "polly",
     "pricing",
+    "pricing-plan-manager",
     "proton",
     "qapps",
     "qbusiness",

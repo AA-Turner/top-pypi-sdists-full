@@ -6,10 +6,9 @@ from typing import Callable, Coroutine, Dict, List, Optional, Tuple
 from uuid import UUID
 
 from cachetools import TTLCache
-from pydantic import Field, ValidationError
+from pydantic import ValidationError
 from sqlalchemy import delete, update
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing_extensions import Annotated
 
 from dstack._internal.core.backends.base.backend import Backend
 from dstack._internal.core.backends.base.configurator import (
@@ -23,6 +22,7 @@ from dstack._internal.core.backends.configurators import (
 from dstack._internal.core.backends.models import (
     AnyBackendConfigWithCreds,
     AnyBackendConfigWithoutCreds,
+    BackendConfigWithCreds,
 )
 from dstack._internal.core.errors import (
     BackendAuthError,
@@ -34,7 +34,6 @@ from dstack._internal.core.errors import (
     ServerClientError,
 )
 from dstack._internal.core.models.backends.base import BackendType
-from dstack._internal.core.models.common import CoreModel
 from dstack._internal.core.models.instances import (
     InstanceOfferWithAvailability,
 )
@@ -48,15 +47,11 @@ from dstack._internal.utils.logging import get_logger
 logger = get_logger(__name__)
 
 
-class _BackendConfigWithCreds(CoreModel):
-    __root__: Annotated[AnyBackendConfigWithCreds, Field(..., discriminator="type")]
-
-
 def serialize_source_backend_config(
     config: AnyBackendConfigWithCreds,
 ) -> Tuple[str, Optional[str]]:
     """Split user-intent backend config into non-sensitive and sensitive JSON blobs."""
-    source_config_dict = config.dict()
+    source_config_dict = config.model_dump()
     source_auth = source_config_dict.pop("creds", None)
     source_auth_json = None if source_auth is None else json.dumps(source_auth)
     return json.dumps(source_config_dict), source_auth_json
@@ -218,7 +213,7 @@ def get_source_backend_config_from_backend_model(
             )
             return None
     try:
-        return _BackendConfigWithCreds.parse_obj(source_config_dict).__root__
+        return BackendConfigWithCreds.model_validate(source_config_dict).root
     except ValidationError:
         logger.warning(
             "Failed to validate source config for %s backend. Falling back to stored config.",
@@ -475,6 +470,8 @@ async def get_project_backend_with_model_by_id_or_error(
 async def get_backend_offers(
     backends: List[Backend],
     requirements: Requirements,
+    full_offers: bool,
+    unallocated_resources: bool,
     exclude_not_available: bool = False,
 ) -> Iterable[Tuple[Backend, InstanceOfferWithAvailability]]:
     """
@@ -490,7 +487,10 @@ async def get_backend_offers(
                 yield (backend, offer)
 
     logger.debug("Requesting instance offers from backends: %s", [b.TYPE.value for b in backends])
-    tasks = [run_async(get_offers_tracked, backend, requirements) for backend in backends]
+    tasks = [
+        run_async(get_offers_tracked, backend, requirements, full_offers, unallocated_resources)
+        for backend in backends
+    ]
     offers_by_backend: list[Iterable[tuple[Backend, InstanceOfferWithAvailability]]] = []
     for backend, result in zip(backends, await asyncio.gather(*tasks, return_exceptions=True)):
         if isinstance(result, BackendError):
@@ -521,10 +521,10 @@ def check_backend_type_available(backend_type: BackendType):
 
 
 def get_offers_tracked(
-    backend: Backend, requirements: Requirements
+    backend: Backend, requirements: Requirements, full_offers: bool, unallocated_resources: bool
 ) -> Iterator[InstanceOfferWithAvailability]:
     start = time.time()
-    res = backend.compute().get_offers(requirements)
+    res = backend.compute().get_offers(requirements, full_offers, unallocated_resources)
     duration = time.time() - start
     logger.debug("Got offers from %s in %.6fs", backend.TYPE.value, duration)
     return res

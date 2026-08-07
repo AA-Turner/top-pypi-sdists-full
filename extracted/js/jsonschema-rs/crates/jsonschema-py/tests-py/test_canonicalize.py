@@ -146,15 +146,31 @@ def test_view_array_lengths():
         case canonical.ArrayView(
             min_items=min_items,
             max_items=max_items,
-            unique_items=unique_items,
+            distinctness=distinctness,
             prefix_items=prefix_items,
             items=items,
         ):
             assert min_items == 1
             assert max_items == 3
-            assert unique_items is True
+            assert distinctness == "all_distinct"
             assert prefix_items == []
             assert items.to_json_schema() == {"$schema": DRAFT202012, "type": "integer"}
+        case other:
+            pytest.fail(f"unexpected view: {other!r}")
+
+
+@pytest.mark.parametrize(
+    ("schema", "expected"),
+    (
+        ({"type": "array", "minItems": 1}, "unconstrained"),
+        ({"type": "array", "uniqueItems": True}, "all_distinct"),
+        ({"type": "array", "allOf": [{"not": {"type": "array", "uniqueItems": True}}]}, "some_repeated"),
+    ),
+)
+def test_view_array_distinctness(schema, expected):
+    match canonicalize(schema).view():
+        case canonical.ArrayView(distinctness=distinctness):
+            assert distinctness == expected
         case other:
             pytest.fail(f"unexpected view: {other!r}")
 
@@ -240,6 +256,22 @@ def test_view_object_pattern_properties():
             }
         case other:
             pytest.fail(f"unexpected view: {other!r}")
+
+
+def test_object_view_violations():
+    schema = canonicalize(
+        {
+            "type": "object",
+            "minProperties": 1,
+            "properties": {"filter": {"type": "string"}},
+            "not": {"additionalProperties": False, "properties": {"filter": {"type": "string"}}},
+        }
+    )
+    view = schema.view()
+    assert len(view.violations) == 1
+    [violation] = view.violations
+    assert isinstance(violation, canonical.NameFailsView)
+    assert violation.schema.to_json_schema()["const"] == "filter"
 
 
 def test_view_number_multiple_of():
@@ -395,7 +427,7 @@ def test_view_not_with_symbolic_reference():
     match canonicalize(
         {
             "not": {"$ref": "#/$defs/other"},
-            "$defs": {"other": {"type": "string"}},
+            "$defs": {"other": {"type": "object", "properties": {"child": {"$ref": "#/$defs/other"}}}},
         }
     ).view():
         case canonical.NotView(schema=inner):
@@ -690,8 +722,10 @@ def test_negate_integer_leaf():
     }
 
 
-def test_negate_keeps_a_reference_symbolic():
+def test_negate_resolves_a_reference():
     schema = canonicalize({"$defs": {"A": {"type": "string"}}, "$ref": "#/$defs/A"})
     complement = schema.negate()
-    assert complement.kind == "not"
-    assert complement.definition("#/$defs/A") == schema.definition("#/$defs/A")
+    assert complement.to_json_schema() == {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": ["null", "boolean", "number", "array", "object"],
+    }

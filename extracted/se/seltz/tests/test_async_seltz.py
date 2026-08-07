@@ -1,3 +1,4 @@
+import json
 import os
 from unittest.mock import MagicMock
 
@@ -690,3 +691,32 @@ async def test_answer_stream_yields_events():
     assert "text_delta" in kinds
     assert kinds[-1] == "finish_reason"
     assert len(text) > 0
+
+
+@pytest.mark.integration
+@needs_api_key
+async def test_answer_with_response_format_returns_json():
+    """answer(response_format=...) reaches the live API and returns an answer
+    that is a JSON string conforming to the requested schema; citations are
+    still returned."""
+    async with AsyncSeltz() as client:
+        response = await client.answer(
+            "Summarize the latest AI news",
+            response_format={
+                "type": "json_schema",
+                "json_schema": {
+                    "name": "news_summary",
+                    "schema": {
+                        "type": "object",
+                        "properties": {"summary": {"type": "string"}},
+                        "required": ["summary"],
+                        "additionalProperties": False,
+                    },
+                    "strict": True,
+                },
+            },
+        )
+    assert isinstance(response, AnswerResponse)
+    payload = json.loads(response.answer)
+    assert isinstance(payload["summary"], str)
+    assert len(response.citations) > 0

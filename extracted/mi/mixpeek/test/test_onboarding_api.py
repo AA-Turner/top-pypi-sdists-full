@@ -27,6 +27,13 @@ class TestOnboardingApi(unittest.TestCase):
     def tearDown(self) -> None:
         pass
 
+    def test_get_suggested_config_onboarding(self) -> None:
+        """Test case for get_suggested_config_onboarding
+
+        Get the org's signup-time suggested namespace
+        """
+        pass
+
     def test_infer_config_onboarding(self) -> None:
         """Test case for infer_config_onboarding
 

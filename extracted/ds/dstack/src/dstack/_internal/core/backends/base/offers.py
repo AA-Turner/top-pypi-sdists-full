@@ -6,7 +6,6 @@ from uuid import UUID
 
 import gpuhunt
 from cachetools import TTLCache
-from pydantic import parse_obj_as
 
 from dstack._internal.core.models.backends.base import BackendType
 from dstack._internal.core.models.instances import (
@@ -17,7 +16,7 @@ from dstack._internal.core.models.instances import (
     InstanceType,
     Resources,
 )
-from dstack._internal.core.models.resources import DEFAULT_DISK, CPUSpec, GPUSpec, Memory, Range
+from dstack._internal.core.models.resources import DEFAULT_DISK, GPUSpec, Memory, Range
 from dstack._internal.core.models.runs import Job, Requirements, Run
 from dstack._internal.utils.common import get_or_error
 
@@ -106,17 +105,17 @@ def catalog_item_to_offer(
     )
     if disk_size_mib is None:
         return None
-    resources = Resources.construct(
+    resources = Resources.model_construct(
         cpu_arch=item.cpu_arch,
         cpus=item.cpu,
         memory_mib=round(item.memory * 1024),
         gpus=gpus,
         spot=item.spot,
-        disk=Disk.construct(size_mib=disk_size_mib),
+        disk=Disk.model_construct(size_mib=disk_size_mib),
     )
-    return InstanceOffer.construct(
+    return InstanceOffer.model_construct(
         backend=backend,
-        instance=InstanceType.construct(
+        instance=InstanceType.model_construct(
             name=item.instance_name,
             resources=resources,
         ),
@@ -139,6 +138,11 @@ def offer_to_catalog_item(offer: InstanceOffer) -> gpuhunt.CatalogItem:
         gpu_vendor = gpu.vendor
         gpu_name = gpu.name
         gpu_memory = gpu.memory_mib / 1024
+    # Resources.disk.size_mib = 0 -> gpuhunt.CatalogItem.disk_size = None -> gpuhunt.matches()
+    # doesn't check disk size (gpuhunt.QueryFilter.{min_disk_size,max_disk_size} are ignored)
+    disk_size: Optional[float] = None
+    if (disk_size_mib := offer.instance.resources.disk.size_mib) != 0:
+        disk_size = disk_size_mib / 1024
     return gpuhunt.CatalogItem(
         provider=offer.backend.value,
         instance_name=offer.instance.name,
@@ -152,7 +156,7 @@ def offer_to_catalog_item(offer: InstanceOffer) -> gpuhunt.CatalogItem:
         gpu_name=gpu_name,
         gpu_memory=gpu_memory,
         spot=offer.instance.resources.spot,
-        disk_size=offer.instance.resources.disk.size_mib / 1024,
+        disk_size=disk_size,
     )
 
 
@@ -166,8 +170,7 @@ def requirements_to_query_filter(req: Optional[Requirements]) -> gpuhunt.QueryFi
 
     res = req.resources
     if res.cpu:
-        # TODO: Remove in 0.20. Use res.cpu directly
-        cpu = parse_obj_as(CPUSpec, res.cpu)
+        cpu = res.cpu
         q.cpu_arch = cpu.arch
         q.min_cpu = cpu.count.min
         q.max_cpu = cpu.count.max
@@ -245,7 +248,7 @@ def get_offers_disk_modifier(
         disk_size_range = requirements_disk_range.intersect(configurable_disk_size)
         if disk_size_range is None:
             return None
-        offer_copy = offer.copy(deep=True)
+        offer_copy = offer.model_copy(deep=True)
         offer_copy.instance.resources.disk = Disk(
             size_mib=get_or_error(disk_size_range.min) * 1024
         )

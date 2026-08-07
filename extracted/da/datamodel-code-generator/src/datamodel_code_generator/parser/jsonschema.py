@@ -139,6 +139,7 @@ _NUMBER_CONSTRAINT_KEYS: tuple[JsonSchemaConstraintKey, ...] = (
     "exclusiveMinimum",
 )
 _VALUE_STRING_CONSTRAINT_KEYS: tuple[JsonSchemaConstraintKey, ...] = ("pattern", "minLength", "maxLength")
+_ARRAY_CONSTRAINT_KEYS = frozenset({"maxItems", "minItems", "uniqueItems"})
 _ALL_OF_METADATA_FIELDS = ("nullable", "description", "default", "example", "examples", "readOnly", "writeOnly")
 _INHERITED_NESTED_SCHEMA_FIELDS = (
     "items",
@@ -181,7 +182,7 @@ _INHERITED_TYPE_SHAPE_FIELDS = frozenset({
 _INHERITED_CONSTRAINT_TYPE_FIELDS: tuple[tuple[frozenset[str], frozenset[str]], ...] = (
     (frozenset({"string"}), frozenset(_VALUE_STRING_CONSTRAINT_KEYS)),
     (frozenset({"integer", "number"}), frozenset(_NUMBER_CONSTRAINT_KEYS)),
-    (frozenset({"array"}), frozenset({"maxItems", "minItems", "uniqueItems"})),
+    (frozenset({"array"}), _ARRAY_CONSTRAINT_KEYS),
     (frozenset({"object"}), _INHERITED_PROPERTY_COUNT_CONSTRAINT_FIELDS),
 )
 _INHERITED_CONTAINER_TYPE_FIELDS: tuple[tuple[frozenset[str], frozenset[str]], ...] = (
@@ -1409,7 +1410,19 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
             if any(item is False for item in obj.items):
                 return False
             return obj.minItems == obj.maxItems == len(obj.items)
-        return False
+        return self._get_fixed_length_homogeneous_tuple_length(obj) is not None
+
+    def _get_fixed_length_homogeneous_tuple_length(self, obj: JsonSchemaObject) -> int | None:
+        """Return the length of an opted-in homogeneous fixed-length tuple."""
+        if (
+            not self.use_tuple_for_fixed_length_arrays
+            or obj.prefixItems is not None
+            or not isinstance(obj.items, JsonSchemaObject)
+        ):
+            return None
+        if (tuple_length := obj.minItems) is None or tuple_length != obj.maxItems or tuple_length < 0:
+            return None
+        return tuple_length
 
     @classmethod
     def _get_fixed_length_prefix_tuple_items(cls, obj: JsonSchemaObject) -> list[JsonSchemaObject | bool] | None:
@@ -1473,15 +1486,15 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
         *,
         include_true_tail_schema: bool = False,
         force_prefix_items: bool = False,
-    ) -> tuple[list[JsonSchemaObject | bool], bool, bool]:
-        """Return item schemas plus tuple/constraint flags for array-like schemas."""
+    ) -> tuple[list[JsonSchemaObject | bool], bool, bool, int | None]:
+        """Return item schemas plus tuple/constraint flags and homogeneous tuple length."""
         if (
             obj.prefixItems is not None
             and obj.minItems is not None
             and obj.minItems == obj.maxItems
             and (fixed_items := self._get_fixed_length_prefix_tuple_items(obj)) is not None
         ):
-            return fixed_items, True, True
+            return fixed_items, True, True, None
 
         if obj.prefixItems is not None and (force_prefix_items or self._has_prefix_items_tail_schema_or_boolean(obj)):
             items, has_false_schema = self._get_schemas_before_false(obj.prefixItems)
@@ -1497,15 +1510,17 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
                 is not None
             ):
                 items.append(tail_schema)
-            return items, False, False
+            return items, False, False, None
 
         match obj.items:
             case JsonSchemaObject() as item_schema:
-                return [item_schema], False, False
+                if (tuple_item_count := self._get_fixed_length_homogeneous_tuple_length(obj)) is not None:
+                    return [item_schema] if tuple_item_count else [], True, True, tuple_item_count
+                return [item_schema], False, False, None
             case list() as item_schemas:
                 items, has_false_schema = self._get_schemas_before_false(item_schemas)
                 if self._is_fixed_length_tuple(obj):
-                    return items, True, True
+                    return items, True, True, None
                 if (
                     not has_false_schema
                     and (
@@ -1517,15 +1532,15 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
                     is not None
                 ):
                     items.append(tail_schema)
-                return items, False, False
+                return items, False, False, None
 
         match obj.unevaluatedItems:
             case JsonSchemaObject() as item_schema:
-                return [item_schema], False, False
+                return [item_schema], False, False, None
             case True if include_true_tail_schema:
-                return [True], False, False
+                return [True], False, False, None
 
-        return [], False, False
+        return [], False, False, None
 
     @classmethod
     def _get_property_count_constraints(cls, obj: JsonSchemaObject) -> dict[str, int]:
@@ -1645,6 +1660,12 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
             if obj.maxItems is not None:
                 max_items.append(obj.maxItems)
             constraints["maxItems"] = min(max_items)
+        return constraints
+
+    def _get_array_constraints(self, obj: JsonSchemaObject) -> dict[str, Any]:
+        """Return direct and boolean-schema array constraints."""
+        constraints = self._get_constraint_values(obj)
+        constraints.update(self._get_array_items_constraints(obj))
         return constraints
 
     @classmethod
@@ -1782,11 +1803,11 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
                     active | {resolved_ref},
                 ):
                     return True
-        return any(
-            self._resolve_field_flag(sub, flag, active)
-            for sub in obj.allOf + obj.anyOf + obj.oneOf
-            if isinstance(sub, JsonSchemaObject)
-        )
+        for schemas in (obj.allOf, obj.anyOf, obj.oneOf):
+            for sub in schemas:
+                if isinstance(sub, JsonSchemaObject) and self._resolve_field_flag(sub, flag, active):
+                    return True
+        return False
 
     def _collect_inherited_fields_for_request_response(
         self,
@@ -2657,19 +2678,24 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
         )
         default_value = effective_default if effective_has_default is not None else field.default
         has_default = effective_has_default if effective_has_default is not None else field.has_default
-        constraints = self._get_constraint_values(field) if self.is_constraints_field(field) else None
+        skip_constraints = isinstance(field.type, list) and bool(self._get_array_union_non_array_types(field))
+        constraints = None
+        if not skip_constraints and self.is_constraints_field(field):
+            constraints = self._get_constraint_values(field)
         consumed = self.data_type_manager.CONSTRAINED_TYPE_CONSUMED_KEYS
         if constraints is not None and field_type.type in consumed:
             for key in consumed[field_type.type]:
                 constraints.pop(key, None)
         if constraints is not None and self.field_constraints and field.format == "hostname":
             constraints["pattern"] = self.data_type_manager.HOSTNAME_REGEX
-        if (field_type.is_dict or field_type.is_mapping) and (
-            property_count_constraints := self._get_property_count_constraints(field)
+        if (
+            not skip_constraints
+            and (field_type.is_dict or field_type.is_mapping)
+            and (property_count_constraints := self._get_property_count_constraints(field))
         ):
             constraints = constraints or {}
             constraints.update(property_count_constraints)
-        if array_items_constraints := self._get_array_items_constraints(field):
+        if not skip_constraints and (array_items_constraints := self._get_array_items_constraints(field)):
             constraints = constraints or {}
             constraints.update(array_items_constraints)
         self._suppress_array_length_constraints(constraints, field)
@@ -3777,24 +3803,33 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
         max_union_elements: int,
     ) -> DataType:
         """Build a lightweight list type from array item schemas."""
-        item_schemas, _, _ = self._get_array_item_schemas(
+        item_schemas, _, _, tuple_item_count = self._get_array_item_schemas(
             schema,
             include_true_tail_schema=True,
             force_prefix_items=True,
         )
-        item_types = [
-            item_type
-            for item_schema in item_schemas
-            if (
-                item_type := self._build_lightweight_item_type(
-                    item_schema, depth, visited, max_depth, max_union_elements
+        is_homogeneous_tuple = tuple_item_count is not None
+        item_types = (
+            []
+            if is_homogeneous_tuple and tuple_item_count == 0
+            else [
+                item_type
+                for item_schema in item_schemas
+                if (
+                    item_type := self._build_lightweight_item_type(
+                        item_schema, depth, visited, max_depth, max_union_elements
+                    )
                 )
-            )
-            is not None
-        ]
+                is not None
+            ]
+        )
+        if not item_types and not (is_homogeneous_tuple and tuple_item_count == 0):
+            item_types = [DataType(type=ANY, import_=IMPORT_ANY)]
         return self.data_type(
-            data_types=item_types or [DataType(type=ANY, import_=IMPORT_ANY)],
-            is_list=True,
+            data_types=item_types,
+            is_list=not is_homogeneous_tuple,
+            is_tuple=is_homogeneous_tuple,
+            tuple_item_count=tuple_item_count if is_homogeneous_tuple else None,
         )
 
     def _build_lightweight_item_type(
@@ -7861,19 +7896,113 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
             if item is not False
         ]
 
+    def _get_array_union_non_array_types(  # noqa: PLR6301
+        self,
+        obj: JsonSchemaObject,
+    ) -> tuple[str, ...]:
+        """Return the non-array branches of a heterogeneous array type union."""
+        match obj.type:
+            case list() as type_list if "array" in type_list:
+                return tuple(type_ for type_ in type_list if type_ not in {"array", "null"})
+        return ()
+
+    def _add_array_union_non_array_types(  # noqa: PLR0913
+        self,
+        data_types: list[DataType],
+        obj: JsonSchemaObject,
+        non_array_types: tuple[str, ...],
+        *,
+        name: str,
+        path: list[str],
+        localize_constraints: bool,
+    ) -> None:
+        """Add type-union branches that array parsing does not materialize itself."""
+        if not non_array_types or (obj.enum and not self.ignore_enum_constraints):
+            return
+
+        data_types[:0] = (
+            self._parse_array_union_constrained_branch(
+                name,
+                obj,
+                path,
+                type_,
+            )
+            if localize_constraints
+            else self.data_type_manager.get_data_type(self._get_type_with_mappings(type_, obj.format or "default"))
+            for type_ in non_array_types
+            if type_ != "object" or not obj.is_object
+        )
+
+    def _should_localize_array_union_constraints(
+        self,
+        obj: JsonSchemaObject,
+        non_array_types: tuple[str, ...] | None = None,
+    ) -> bool:
+        """Return whether this output can retain heterogeneous union constraints per branch."""
+        if (
+            not self._output_model_context.supports_internal_annotated_constraints
+            or (obj.enum and not self.ignore_enum_constraints)
+            or not (non_array_types if non_array_types is not None else self._get_array_union_non_array_types(obj))
+        ):
+            return False
+        return bool(self._get_inherited_constraint_fields(obj) or self._get_array_items_constraints(obj))
+
+    def _get_array_union_branch_schema(self, obj: JsonSchemaObject, type_: str) -> JsonSchemaObject:
+        """Build a shallow schema retaining only keywords valid for one union branch."""
+        schema = obj.model_dump(exclude_unset=True, by_alias=True)
+        distributed_fields = self._get_inherited_distributed_fields(obj)
+        branch_schema = self._select_inherited_distributed_shape(schema, distributed_fields, frozenset({type_}))
+        branch_schema["type"] = type_
+        if obj.format is not None:
+            branch_schema["format"] = obj.format
+        return self.SCHEMA_OBJECT_TYPE.model_validate(branch_schema)
+
+    def _parse_array_union_constrained_branch(
+        self,
+        name: str,
+        obj: JsonSchemaObject,
+        path: list[str],
+        type_: str,
+        fallback_data_type: DataType | None = None,
+    ) -> DataType:
+        """Parse a constrained union branch through the backend-compatible alias path."""
+        branch_schema = self._get_array_union_branch_schema(obj, type_)
+        if not self._has_effective_constraints(branch_schema):
+            return fallback_data_type or self.data_type_manager.get_data_type(
+                self._get_type_with_mappings(type_, obj.format or "default")
+            )
+
+        branch_path = get_special_path(f"array-union-{type_}", path)
+        branch_name = self.model_resolver.add(
+            branch_path,
+            f"{name}{type_.title()}",
+            class_name=True,
+        ).name
+        return JsonSchemaParser._parse_root_type_with_context(
+            self,
+            branch_name,
+            branch_schema,
+            branch_path,
+            data_model_root_type=self._nested_constrained_model_type,
+            preserve_constraints=True,
+            use_annotated=True,
+        )
+
     def parse_array_fields(
         self,
         name: str,
         obj: JsonSchemaObject,
         path: list[str],
         singular_name: bool = True,  # noqa: FBT001, FBT002
+        use_annotated: bool | None = None,  # noqa: FBT001
     ) -> DataModelFieldBase:
         """Parse array schema into a data model field with list type."""
         # Strict mode: check for version-specific array features
         self._check_array_version_features(obj, path)
+        use_annotated = self.use_annotated if use_annotated is None else use_annotated
 
         required, nullable = self._resolve_array_field_required_nullable(obj)
-        items, is_tuple, suppress_item_constraints = self._get_array_item_schemas(obj)
+        items, is_tuple, suppress_item_constraints, tuple_item_count = self._get_array_item_schemas(obj)
 
         if items:
             item_data_types = self.parse_list_item(
@@ -7883,21 +8012,41 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
                 obj,
                 singular_name=singular_name,
             )
-        else:
+        elif not (is_tuple and tuple_item_count == 0):
             item_data_types = self._fallback_array_item_data_types()
+        else:
+            item_data_types = []
 
         python_type_flags = self._get_python_type_flags(obj)
         container_flags: dict[str, bool] = {}
         if not is_tuple:
             container_flags = python_type_flags or {"is_list": True}
 
-        data_types: list[DataType] = [
-            self.data_type(
-                data_types=item_data_types,
-                is_tuple=is_tuple,
-                **container_flags,
+        non_array_types = self._get_array_union_non_array_types(obj)
+        localize_constraints = self._should_localize_array_union_constraints(obj, non_array_types)
+        array_data_type = self.data_type(
+            data_types=item_data_types,
+            is_tuple=is_tuple,
+            tuple_item_count=tuple_item_count,
+            **container_flags,
+        )
+        if localize_constraints:
+            array_data_type = self._parse_array_union_constrained_branch(
+                name,
+                obj,
+                path,
+                "array",
+                fallback_data_type=array_data_type,
             )
-        ]
+        data_types = [array_data_type]
+        self._add_array_union_non_array_types(
+            data_types,
+            obj,
+            non_array_types,
+            name=name,
+            path=path,
+            localize_constraints=localize_constraints,
+        )
         # TODO: decide special path word for a combined data model.
         if obj.allOf:
             data_types.append(self.parse_all_of(name, obj, get_special_path("allOf", path)))
@@ -7905,19 +8054,23 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
             data_types.append(self.parse_object(name, obj, get_special_path("object", path)))
         if obj.enum and not self.ignore_enum_constraints:
             data_types.append(self.parse_enum(name, obj, get_special_path("enum", path)))
-        constraints = self._get_constraint_values(obj)
-        constraints.update(self._get_array_items_constraints(obj))
+        constraints = self._get_array_constraints(obj)
+        if non_array_types:
+            constraints = {}
         if suppress_item_constraints:
             self._suppress_array_length_constraints(constraints, obj)
         return self.data_model_field_type(
-            data_type=self.data_type(data_types=data_types),
+            data_type=self.data_type(
+                data_types=data_types,
+                is_optional=isinstance(obj.type, list) and obj.type_has_null,
+            ),
             default=obj.default,
             required=required,
             constraints=constraints,
             nullable=nullable,
             strip_default_none=self.strip_default_none,
             extras=self.get_field_extras(obj),
-            use_annotated=self.use_annotated,
+            use_annotated=use_annotated,
             use_serialize_as_any=self.use_serialize_as_any,
             use_field_description=self.use_field_description,
             use_field_description_example=self.use_field_description_example,
@@ -7941,13 +8094,30 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
         self.set_schema_extensions(reference.path, obj)
         field = self.parse_array_fields(original_name or name, obj, [*path, name])
 
-        if any(d.reference == reference for d in field.data_type.all_data_types if d.reference):
+        non_array_types = self._get_array_union_non_array_types(obj)
+        direct_data_types = field.data_type.data_types
+        if (
+            not self._should_localize_array_union_constraints(obj, non_array_types)
+            and direct_data_types
+            and any(
+                data_type.reference == reference
+                for data_type in direct_data_types[0].all_data_types
+                if data_type.reference
+            )
+            and (len(direct_data_types) > 1 or not non_array_types)
+        ):
             # self-reference
+            recursive_tuple_item_count = direct_data_types[0].tuple_item_count
             field = self.data_model_field_type(
                 data_type=self.data_type(
                     data_types=[
-                        self.data_type(data_types=field.data_type.data_types[1:], is_list=True),
-                        *field.data_type.data_types[1:],
+                        self.data_type(
+                            data_types=direct_data_types[1:],
+                            is_list=recursive_tuple_item_count is None,
+                            is_tuple=recursive_tuple_item_count is not None,
+                            tuple_item_count=recursive_tuple_item_count,
+                        ),
+                        *direct_data_types[1:],
                     ]
                 ),
                 default=field.default,
@@ -7983,7 +8153,21 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
         """Parse a root-level type into a root model."""
         return JsonSchemaParser._parse_root_type_with_context(self, name, obj, path)
 
-    def _parse_root_type_with_context(  # noqa: PLR0912, PLR0914, PLR0915
+    @contextmanager
+    def _temporarily_enable_field_constraints(self) -> Generator[None, None, None]:
+        """Render an internal annotated alias with Field constraints without bypassing parser hooks."""
+        if self.field_constraints:
+            yield
+            return
+
+        previous_field_constraints = self.field_constraints
+        self.field_constraints = True
+        try:
+            yield
+        finally:
+            self.field_constraints = previous_field_constraints
+
+    def _parse_root_type_with_context(  # noqa: PLR0912, PLR0913, PLR0914, PLR0915
         self,
         name: str,
         obj: JsonSchemaObject,
@@ -7991,10 +8175,12 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
         *,
         data_model_root_type: type[DataModel] | None = None,
         preserve_constraints: bool = False,
+        use_annotated: bool | None = None,
     ) -> DataType:
         """Parse a root type with an internal output representation override."""
         reference: Reference | None = None
         array_constraints: Any = None
+        effective_use_annotated = self.use_annotated if use_annotated is None else use_annotated
         if obj.ref:
             data_type: DataType = self.get_ref_data_type(obj.ref)
         elif obj.custom_type_path:
@@ -8003,7 +8189,12 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
                 is_custom_type=True,
             )  # pragma: no cover
         elif obj.is_array:
-            array_field = self.parse_array_fields(name, obj, get_special_path("array", path))
+            array_field = self.parse_array_fields(
+                name,
+                obj,
+                get_special_path("array", path),
+                use_annotated=use_annotated,
+            )
             data_type = array_field.data_type  # pragma: no cover
             if preserve_constraints:
                 array_constraints = array_field.constraints
@@ -8055,7 +8246,11 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
             else:  # pragma: no cover
                 data_type = self.parse_enum(name, obj, path)
         elif obj.type:
-            data_type = self.get_data_type(obj)
+            if preserve_constraints and effective_use_annotated:
+                with self._temporarily_enable_field_constraints():
+                    data_type = self.get_data_type(obj)
+            else:
+                data_type = self.get_data_type(obj)
         else:
             data_type = self.data_type_manager.get_data_type(
                 Types.any,
@@ -8087,7 +8282,9 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
             reference = self.model_resolver.add(path, name, loaded=True, class_name=True)
         self._set_schema_metadata(reference.path, obj)
         self.set_schema_extensions(reference.path, obj)
-        constraints = array_constraints or (self._get_constraint_values(obj) if self.field_constraints else {})
+        constraints = array_constraints or (
+            self._get_constraint_values(obj) if self.field_constraints or preserve_constraints else {}
+        )
         if self._should_skip_root_field_constraints_for_multiple_types(obj):
             constraints = {}
         elif self.field_constraints and obj.format == "hostname":
@@ -8103,7 +8300,7 @@ class JsonSchemaParser(Parser["JSONSchemaParserConfig", "JsonSchemaFeatures"]):
                 nullable=nullable,
                 strip_default_none=self.strip_default_none,
                 extras=self.get_field_extras(obj),
-                use_annotated=self.use_annotated,
+                use_annotated=effective_use_annotated,
                 use_field_description=self.use_field_description,
                 use_field_description_example=self.use_field_description_example,
                 use_inline_field_description=self.use_inline_field_description,

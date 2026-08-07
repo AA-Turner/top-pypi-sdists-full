@@ -69,7 +69,9 @@ class OCICompute(
     def shapes_quota(self) -> resources.ShapesQuota:
         return resources.ShapesQuota.load(self.regions, self.config.compartment_id)
 
-    def get_all_offers_with_availability(self) -> List[InstanceOfferWithAvailability]:
+    def get_all_offers_with_availability(
+        self, unallocated_resources: bool
+    ) -> List[InstanceOfferWithAvailability]:
         offers = get_catalog_offers(
             backend=BackendType.OCI,
             locations=self.config.regions,
@@ -100,7 +102,9 @@ class OCICompute(
 
         return offers_with_availability
 
-    def get_offers_modifiers(self, requirements: Requirements) -> Iterable[OfferModifier]:
+    def get_offers_modifiers(
+        self, requirements: Requirements, full_offers: bool
+    ) -> Iterable[OfferModifier]:
         return [get_offers_disk_modifier(CONFIGURABLE_DISK_SIZE, requirements)]
 
     def terminate_instance(

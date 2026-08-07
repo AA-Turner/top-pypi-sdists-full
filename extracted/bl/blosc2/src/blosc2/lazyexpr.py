@@ -17,6 +17,7 @@ import enum
 import inspect
 import linecache
 import math
+import operator
 import os
 import pathlib
 import re
@@ -83,6 +84,59 @@ global safe_blosc2_globals
 safe_blosc2_globals = {}
 
 
+def _int64_datetime_operands(local_dict):
+    """Return `local_dict` with datetime64/timedelta64 values viewed as int64.
+
+    numexpr has no datetime types, but both are int64 counts underneath, so a
+    comparison is exact in that representation -- and much faster than the
+    NumPy fallback.  Returns None when the substitution would not be faithful:
+
+    * mixed units, because the counts are then on different scales (NumPy
+      promotes to the finer unit instead);
+    * NaT, which views as INT64_MIN and would come out as the smallest value
+      rather than never comparing true.
+
+    Both cases are rare and correctly handled by the NumPy fallback, just more
+    slowly.
+    """
+    converted = {}
+    units = set()
+    for key, value in local_dict.items():
+        dtype = getattr(value, "dtype", None)
+        # Frame locals get merged in below, so `local_dict` also carries blosc2
+        # containers that numexpr could not consume in the first place; leave
+        # anything that is not a NumPy value alone.
+        if dtype is None or dtype.kind not in "Mm" or not isinstance(value, np.ndarray | np.generic):
+            converted[key] = value
+            continue
+        units.add(np.datetime_data(dtype)[0])
+        if len(units) > 1 or np.isnat(value).any():
+            return None
+        converted[key] = np.asarray(value).view("i8")
+    return converted if units else None
+
+
+def _numpy_eval_datetime_aware(expression, _globals, local_dict):
+    """``eval`` an expression with NumPy, reading bare numbers as datetime counts.
+
+    NumPy refuses to compare a datetime64 against a plain number, but a string
+    expression has no way to spell a datetime literal, so blosc2 reads the
+    number as a count in the operand's own unit (see
+    `_int64_datetime_operands`).  Only comparisons are meant by this; anything
+    else keeps NumPy's error.
+    """
+    try:
+        return eval(expression, _globals, local_dict)
+    except TypeError:
+        int_dict = _int64_datetime_operands(local_dict)
+        if int_dict is None:
+            raise
+        res = eval(expression, _globals, int_dict)
+        if getattr(res, "dtype", None) != np.bool_:
+            raise
+        return res
+
+
 def ne_evaluate(expression, local_dict=None, **kwargs):
     """Safely evaluate expressions using numexpr when possible, falling back to numpy."""
     if local_dict is None:
@@ -104,15 +158,26 @@ def ne_evaluate(expression, local_dict=None, **kwargs):
         populate_safe_numpy_globals(expression)
         if "out" in kwargs:
             out = kwargs.pop("out")
-            out[:] = eval(expression, safe_numpy_globals, local_dict)
+            out[:] = _numpy_eval_datetime_aware(expression, safe_numpy_globals, local_dict)
             return out
-        res = eval(expression, safe_numpy_globals, local_dict)
+        res = _numpy_eval_datetime_aware(expression, safe_numpy_globals, local_dict)
         return np.asarray(res) if not hasattr(res, "shape") else res
     try:
         return numexpr.evaluate(expression, local_dict=local_dict, **kwargs)
     except ValueError as e:
-        if e.args and e.args[0] == "NumExpr 2 does not support Unicode as a dtype.":
+        msg = e.args[0] if e.args else ""
+        if msg == "NumExpr 2 does not support Unicode as a dtype.":
             pass
+        elif msg.startswith(("unknown type datetime64", "unknown type timedelta64")):
+            int_dict = _int64_datetime_operands(local_dict)
+            if int_dict is not None:
+                with contextlib.suppress(Exception):
+                    result = numexpr.evaluate(expression, local_dict=int_dict, **kwargs)
+                    if result.dtype == np.bool_:
+                        return result
+            # Only comparisons are exact as raw int64 counts; arithmetic
+            # (datetime64 - datetime64 -> timedelta64) needs NumPy's own type
+            # rules, so let it reach the fallback below.
         else:
             raise  # unsafe expression
     except Exception:
@@ -260,6 +325,15 @@ def _find_constructor_call(expression: str, constructor: str) -> re.Match | None
 
 
 relational_ops = ["==", "!=", "<", "<=", ">", ">="]
+# Arithmetic whose result dtype NumPy defines specially for datetime operands
+_datetime_binops = {
+    "+": operator.add,
+    "-": operator.sub,
+    "*": operator.mul,
+    "/": operator.truediv,
+    "//": operator.floordiv,
+    "%": operator.mod,
+}
 logical_ops = ["&", "|", "^", "~"]
 not_complex_ops = ["maximum", "minimum", "<", "<=", ">", ">="]
 funcs_2args = (
@@ -2420,6 +2494,13 @@ def slices_eval_getitem(
     _slice_bcast = tuple(slice(i, i + 1) if isinstance(i, int) else i for i in _slice)
     slice_shape = ndindex.ndindex(_slice_bcast).newshape(shape)  # includes dummy dimensions
 
+    # A UDF writes into an output of slice_shape, which keeps the integer-indexed
+    # axes as length 1; slicing its operands with the raw index would drop those
+    # axes and leave the kernel unable to write its result (e.g. `udf[:, 0]` on a
+    # 2-dim array: operand (10,) into output (10, 1)).  numexpr has no output
+    # buffer to agree with, so it keeps the raw index.
+    op_slice = _slice_bcast if callable(expression) else _slice
+
     # Get the slice of each operand
     slice_operands = {}
     for key, value in operands.items():
@@ -2431,11 +2512,11 @@ def slices_eval_getitem(
             continue
         if check_smaller_shape(value.shape, shape, slice_shape, _slice_bcast):
             # We need to fetch the part of the value that broadcasts with the operand
-            smaller_slice = compute_smaller_slice(shape, value.shape, _slice)
+            smaller_slice = compute_smaller_slice(shape, value.shape, op_slice)
             slice_operands[key] = value[smaller_slice]
             continue
 
-        slice_operands[key] = value[_slice]
+        slice_operands[key] = value[op_slice]
 
     # Evaluate the expression using slices of operands
     if callable(expression):
@@ -2465,6 +2546,71 @@ def slices_eval_getitem(
         # out should always have maximal shape
         out[_slice] = result
         return out
+
+
+def _drop_indexed_axes(result, shape, item):
+    """Reshape a ``__getitem__`` result to the shape NumPy would have produced.
+
+    Evaluation keeps integer-indexed axes as length 1 so that kernels always
+    see the array's own ndim; NumPy drops them.  Squeezing every length-1 axis
+    instead also ate ones the index kept, so ask NumPy for the answer:
+    ``broadcast_to`` has zero strides and allocates nothing, which makes its
+    shape algebra -- Ellipsis, ``None``, negative indices and all -- free.
+
+    See e.g. examples/ndarray/animated_plot.py
+    """
+    if not (isinstance(item, int) or (hasattr(item, "__iter__") and any(isinstance(i, int) for i in item))):
+        return result
+    try:
+        newshape = np.broadcast_to(np.empty((), dtype=bool), shape)[item].shape
+    except IndexError:
+        # `item` does not describe `shape` at all: a full reduction consumes the
+        # index while slicing its operands (see `_slice_operands_for_eager`), so
+        # by now the result is 0-d and there is nothing left to drop.
+        return result
+    # A where() result is filtered, so its length is data-dependent and `shape`
+    # says nothing about it; leave those alone.
+    return result.reshape(newshape) if math.prod(newshape) == result.size else result
+
+
+def _slice_operands_for_eager(operands, item):
+    """Slice operands prior to eager evaluation of a full-reduction expression.
+
+    A full reduction (e.g. ``mean(a + b)``) yields a 0-d result, so there is
+    nothing to slice in it; slice the operands first instead, e.g.
+    ``lazyexpr("mean(a + b)")[:10]`` means ``mean((a + b)[:10])`` (issue #457).
+
+    An operand that only broadcasts cannot take `item` verbatim -- it has fewer
+    axes than the expression, or length-1 ones the index would overrun -- so it
+    gets the matching slice of itself instead.
+    """
+    sliceable = {
+        key: value
+        for key, value in operands.items()
+        if not np.isscalar(value) and hasattr(value, "__getitem__") and hasattr(value, "shape")
+    }
+    if not sliceable:
+        return operands
+    # The broadcast-slice machinery below pairs each entry of the index with one
+    # axis, so it only understands entries that keep an axis.  An integer or a
+    # fancy component (array, list, mask) does not, and every operand then has
+    # to take the index verbatim -- correct whenever the operands share a shape,
+    # and NumPy's own error when one of them only broadcasts.
+    if isinstance(item, tuple) and not all(isinstance(i, slice) or i is Ellipsis or i is None for i in item):
+        return {key: value[item] if key in sliceable else value for key, value in operands.items()}
+    shape = np.broadcast_shapes(*(value.shape for value in sliceable.values()))
+    _slice = ndindex.ndindex(item).expand(shape).raw
+    slice_shape = ndindex.ndindex(_slice).newshape(shape)
+
+    sliced = {}
+    for key, value in operands.items():
+        if key not in sliceable:
+            sliced[key] = value
+        elif check_smaller_shape(value.shape, shape, slice_shape, _slice):
+            sliced[key] = value[compute_smaller_slice(shape, value.shape, _slice)]
+        else:
+            sliced[key] = value[item]
+    return sliced
 
 
 def infer_reduction_dtype(dtype, operation):
@@ -2705,7 +2851,7 @@ def reduce_slices(  # noqa: C901
         # Create a fake NDArray just to drive the miniexpr evaluation (values won't be used)
         res_eval = blosc2.uninit(shape, dtype, chunks=chunks, blocks=blocks, cparams=cparams, **kwargs)
         # Compute the number of blocks in the result
-        nblocks = res_eval.nbytes // res_eval.blocksize
+        nblocks = res_eval.schunk.nbytes // res_eval.blocksize
         # Initialize aux_reduc based on the reduction operation
         # Padding blocks won't be written, so initial values matter for the final reduction
         if reduce_op in {ReduceOp.SUM, ReduceOp.ANY, ReduceOp.CUMULATIVE_SUM}:
@@ -3339,6 +3485,14 @@ def check_dtype(op, value1, value2):
             return blosc2.float32
         if np.issubdtype(v1_dtype, np.integer) and np.issubdtype(v2_dtype, np.integer):
             return blosc2.float64
+
+    if (v1_dtype.kind in "Mm" or v2_dtype.kind in "Mm") and op in _datetime_binops:
+        # result_type describes promotion, not operator semantics, and the two
+        # part ways for datetimes: subtracting two datetime64s gives a
+        # timedelta64, and adding a timedelta64 to one gives a datetime64.
+        # Ask NumPy on empty operands, which costs nothing.
+        with contextlib.suppress(TypeError, ValueError):
+            return _datetime_binops[op](np.empty(0, v1_dtype), np.empty(0, v2_dtype)).dtype
 
     # Follow NumPy rules for scalar-array operations
     return blosc2.result_type(value1, value2)
@@ -4316,12 +4470,33 @@ class LazyExpr(LazyArray):
         plan = indexing.IndexPlan(usable=True, reason="mask-scan", base=target, exact_positions=flat_indices)
         return indexing.evaluate_full_query(self._where_args, plan)
 
-    def _compute_expr(self, item, kwargs):
+    def _compute_expr(self, item, kwargs):  # noqa: C901
         if any(method in self.expression for method in eager_funcs):
             # We have reductions in the expression (probably coming from a string lazyexpr)
             # Also includes slice
             _globals = get_expr_globals(self.expression)
-            lazy_expr = eval(self.expression, _globals, self.operands)
+            operands = self.operands
+            # Test the type before the value: `item` can be an array (fancy
+            # indexing), and `==` against a slice would broadcast instead of
+            # answering yes or no.
+            is_sliced = isinstance(item, slice) or (
+                isinstance(item, tuple) and any(isinstance(i, slice) for i in item)
+            )
+            # Match chunked_eval: a bare full slice is a no-op.
+            if isinstance(item, slice) and item == slice(None, None, None):
+                item, is_sliced = (), False
+            if (
+                is_sliced
+                and self.shape == ()
+                # `.slice()` already carries its own index; do not apply ours twice
+                and ".slice(" not in self.expression
+            ):
+                # A full reduction yields a 0-d result, so there is nothing to slice
+                # in it; slice the operands first instead, e.g.
+                # lazyexpr("mean(a + b)")[:10] means mean((a + b)[:10]).
+                operands = _slice_operands_for_eager(operands, item)
+                item = ()
+            lazy_expr = eval(self.expression, _globals, operands)
             if not isinstance(lazy_expr, blosc2.LazyExpr):
                 key, mask = process_key(item, lazy_expr.shape)
                 # An immediate evaluation happened (e.g. all operands are numpy arrays)
@@ -4508,11 +4683,7 @@ class LazyExpr(LazyArray):
     def __getitem__(self, item):
         kwargs = {"_getitem": True}
         result = self.compute(item, **kwargs)
-        # Squeeze single-element dimensions when indexing with integers
-        # See e.g. examples/ndarray/animated_plot.py
-        if isinstance(item, int) or (hasattr(item, "__iter__") and any(isinstance(i, int) for i in item)):
-            result = result.squeeze(axis=tuple(i for i in range(result.ndim) if result.shape[i] == 1))
-        return result
+        return _drop_indexed_axes(result, self.shape, item)
 
     def slice(self, item):
         return self.compute(item)  # should do a slice since _getitem = False
@@ -4989,7 +5160,8 @@ class LazyUDF(LazyArray):
         return chunked_eval(self.func, self.inputs_dict, item, _getitem=False, **aux_kwargs)
 
     def __getitem__(self, item):
-        return chunked_eval(self.func, self.inputs_dict, item, _getitem=True, **self.kwargs)
+        result = chunked_eval(self.func, self.inputs_dict, item, _getitem=True, **self.kwargs)
+        return _drop_indexed_axes(result, self.shape, item)
 
     def save(self, urlpath=None, **kwargs):
         """
@@ -5141,7 +5313,7 @@ def _numpy_eval_expr(expression, operands, prefer_blosc=False):
     else:
         _globals = safe_numpy_globals
     try:
-        _out = eval(expression, _globals, ops)
+        _out = _numpy_eval_datetime_aware(expression, _globals, ops)
     except RuntimeWarning:
         # Sometimes, numpy gets a RuntimeWarning when evaluating expressions
         # with synthetic operands (1's). Let's try with numexpr, which is not so picky

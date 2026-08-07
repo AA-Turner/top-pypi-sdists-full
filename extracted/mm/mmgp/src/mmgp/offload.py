@@ -1,4 +1,4 @@
-# ------------------ Memory Management 3.7.11 for the GPU Poor by DeepBeepMeep (mmgp)------------------
+# ------------------ Memory Management 3.7.12 for the GPU Poor by DeepBeepMeep (mmgp)------------------
 #
 # This module contains multiples optimisations so that models such as Flux (and derived), Mochi, CogView, HunyuanVideo, ...  can run smoothly on a 24 GB GPU limited card. 
 # This a replacement for the accelerate library that should in theory manage offloading, but doesn't work properly with models that are loaded / unloaded several
@@ -840,7 +840,7 @@ def _welcome():
     if welcome_displayed:
          return 
     welcome_displayed = True
-    print(f"{BOLD}{HEADER}************ Memory Management for the GPU Poor (mmgp 3.7.11) by DeepBeepMeep ************{ENDC}{UNBOLD}")
+    print(f"{BOLD}{HEADER}************ Memory Management for the GPU Poor (mmgp 3.7.12) by DeepBeepMeep ************{ENDC}{UNBOLD}")
 
 def change_dtype(model, new_dtype, exclude_buffers = False):
     for submodule_name, submodule in model.named_modules():  
@@ -2180,7 +2180,7 @@ def load_model_data(model, file_path, do_quantize = False, quantizationType = qi
 
 
         if quantization_map is None or hybrid_quantization_map :
-            conv_result = detect_and_convert(state_dict, default_dtype=default_dtype, verboseLevel=verboseLevel)
+            conv_result = detect_and_convert(state_dict, default_dtype=default_dtype, verboseLevel=verboseLevel, metadata=metadata)
             detected_kind = conv_result.get("kind")
             if conv_result.get("kind") not in ("none", "quanto"):
                 state_dict = conv_result["state_dict"]
@@ -2191,7 +2191,7 @@ def load_model_data(model, file_path, do_quantize = False, quantizationType = qi
 
             if detected_kind in (None, "none") and isinstance(file, str) and (".safetensors" in file or ".sft" in file):
                 try:
-                    info = detect_safetensors_format(state_dict, verboseLevel=verboseLevel)
+                    info = detect_safetensors_format(state_dict, verboseLevel=verboseLevel, metadata=metadata)
                     detected_kind = info.get("kind")
                 except Exception:
                     detected_kind = detected_kind or None

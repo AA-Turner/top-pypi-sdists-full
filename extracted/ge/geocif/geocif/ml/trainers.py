@@ -521,6 +521,79 @@ def auto_train(
 
             _pretrained = tabfm_v1_0_1.load(model_type="regression")
             model = _TabFMWithObjectDtype(_pretrained)
+        elif model_name == "exaone":
+            # LG AI Research EXAONE-Tabular (github.com/LGAI-Research/EXAONE-
+            # Tabular) — zero-shot tabular foundation model (in-context
+            # learning, no gradient updates), sklearn-style .fit/.predict.
+            # ``from_pretrained`` fetches the regression checkpoint from the HF
+            # Hub (cached under HF_HOME on /gpfs). CPU on this cluster (upstream
+            # recommends GPU; torch 2.13 cpu here).
+            #
+            # Unlike TabPFN/TabFM, EXAONE.fit()/predict() hard-require a 2-D
+            # *numeric* NumPy array (TypeError on a DataFrame) and run their own
+            # low-cardinality categorical detection on that numeric array. So we
+            # integer-encode object/category columns (Region etc.) with a
+            # fit-time level->code map and cast everything to float64. Unseen
+            # predict-time levels and NaN categoricals map to -1 (a distinct
+            # "unknown" code EXAONE still treats categorically). NaN in numeric
+            # features is fine — EXAONE's TabularPreprocessor mean-fills it;
+            # only targets must be NaN-free (LOOCV training rows already are).
+            from exaonetabular import EXAONETabularRegressor
+            import numpy as _np
+            import pandas as _pd
+
+            class _ExaoneNumeric:
+                def __init__(self):
+                    self._reg = EXAONETabularRegressor.from_pretrained(device="cpu")
+                    self._cat_maps = {}
+                    self._columns = None
+
+                @staticmethod
+                def _is_cat(s):
+                    return (
+                        hasattr(s, "cat")
+                        or s.dtype == object
+                        or str(s.dtype).startswith("string")
+                    )
+
+                def _to_numeric(self, X, fit):
+                    cols = []
+                    for c in X.columns:
+                        s = X[c]
+                        if self._is_cat(s):
+                            if fit:
+                                codes, uniques = _pd.factorize(s, sort=False)  # NaN -> -1
+                                self._cat_maps[c] = {v: i for i, v in enumerate(uniques)}
+                                col = codes.astype("float64")
+                            else:
+                                col = s.map(self._cat_maps.get(c, {})).to_numpy(dtype="float64")
+                                col = _np.where(_np.isnan(col), -1.0, col)  # unseen/NaN -> -1
+                            cols.append(col)
+                        else:
+                            cols.append(
+                                _pd.to_numeric(s, errors="coerce").to_numpy(dtype="float64")
+                            )
+                    return (
+                        _np.column_stack(cols)
+                        if cols
+                        else _np.empty((len(X), 0), dtype="float64")
+                    )
+
+                def fit(self, X, y):
+                    self._columns = list(X.columns)
+                    Xn = self._to_numeric(X, fit=True)
+                    yn = _np.asarray(
+                        _pd.to_numeric(_pd.Series(y), errors="coerce"), dtype="float64"
+                    )
+                    self._reg.fit(Xn, yn)
+                    return self
+
+                def predict(self, X):
+                    if self._columns is not None:
+                        X = X.reindex(columns=self._columns)
+                    return self._reg.predict(self._to_numeric(X, fit=False))
+
+            model = _ExaoneNumeric()
         elif model_name == "tabpfn_ft":
             from tabpfn.finetuning import FinetunedTabPFNRegressor
 

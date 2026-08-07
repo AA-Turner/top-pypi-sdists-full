@@ -6,18 +6,26 @@ use crate::{
     canonical::{
         ir::{
             ArrayLeaf, BoundCardinality, BoundInteger, BoundNumber, BoundRational, CanonicalJson,
-            Divisors, ExcludedDivisors, IntegerLeaf, NumberLeaf, ObjectLeaf, SchemaKind,
-            StringLeaf,
+            Divisors, ExcludedDivisors, IntegerLeaf, NumberLeaf, ObjectLeaf, ObjectViolation,
+            SchemaKind, StringLeaf,
         },
         CanonicalSchema,
     },
     JsonType, JsonTypeSet,
 };
 
-pub use crate::canonical::ir::CanonicalKind;
+pub use crate::canonical::ir::{CanonicalKind, Distinctness};
 
 impl CanonicalKind {
     /// Stable `snake_case` label of this kind (e.g. `"multi_type"`, `"raw"`).
+    #[must_use]
+    pub fn as_str(self) -> &'static str {
+        self.into()
+    }
+}
+
+impl Distinctness {
+    /// Stable `snake_case` label of this state (e.g. `"all_distinct"`).
     #[must_use]
     pub fn as_str(self) -> &'static str {
         self.into()
@@ -46,7 +54,7 @@ pub enum CanonicalView {
     Object(ObjectView),
     Const(Value),
     Enum(Vec<Value>),
-    /// The exact complement of an opaque schema, used when `not`, a conditional, or `oneOf` negates a symbolic ref.
+    /// The exact complement of an opaque schema, keeping the references it names symbolic.
     Not(Box<CanonicalSchema>),
     /// A value matches iff every opaque branch matches.
     AllOf(Vec<CanonicalSchema>),
@@ -108,7 +116,8 @@ pub struct NumberView {
 pub struct ArrayView {
     pub min_items: Option<Number>,
     pub max_items: Option<Number>,
-    pub unique_items: bool,
+    /// What the array says about elements coinciding.
+    pub distinctness: Distinctness,
     /// Per-index schemas: the element at position `i` satisfies `prefix_items[i]`.
     pub prefix_items: Vec<CanonicalSchema>,
     /// The schema every element from `prefix_items.len()` onward satisfies.
@@ -139,6 +148,23 @@ pub struct ObjectView {
     pub pattern_properties: BTreeMap<String, CanonicalSchema>,
     /// The schema every key `properties` does not name satisfies.
     pub additional_properties: Option<CanonicalSchema>,
+    /// The object must break each of these rules: negation stores the rule itself, so emitting
+    /// wraps it in `not` verbatim.
+    pub violations: Vec<ObjectViolationView>,
+}
+
+/// One demand produced by negation: the object must hold at least one entry that breaks the
+/// stored rule.
+#[derive(Debug, Clone, PartialEq)]
+pub enum ObjectViolationView {
+    /// Some key's name fails the schema.
+    NameFails(CanonicalSchema),
+    /// Some key outside `names` and matching none of `patterns` has a value failing `additional`.
+    UndeclaredValueFails {
+        names: Vec<String>,
+        patterns: Vec<String>,
+        additional: CanonicalSchema,
+    },
 }
 
 /// Payload of [`CanonicalView::Integer`]: the interval bounds and divisor on an integer value.
@@ -205,6 +231,24 @@ impl CanonicalSchema {
                     .additional
                     .as_ref()
                     .map(|shield| self.wrap_child(shield)),
+                leaf.get()
+                    .violations
+                    .iter()
+                    .map(|violation| match violation {
+                        ObjectViolation::NameFails(violated) => {
+                            ObjectViolationView::NameFails(self.wrap_child(violated))
+                        }
+                        ObjectViolation::UndeclaredValueFails {
+                            names,
+                            patterns,
+                            additional,
+                        } => ObjectViolationView::UndeclaredValueFails {
+                            names: names.iter().map(ToString::to_string).collect(),
+                            patterns: patterns.iter().map(ToString::to_string).collect(),
+                            additional: self.wrap_child(additional),
+                        },
+                    })
+                    .collect(),
             )),
             SchemaKind::Const(value) => CanonicalView::Const(value.to_value()),
             SchemaKind::Enum(values) => CanonicalView::Enum(
@@ -300,7 +344,7 @@ fn array_view(
             .maximum
             .as_ref()
             .map(BoundCardinality::to_number),
-        unique_items: leaf.unique,
+        distinctness: leaf.distinctness,
     }
 }
 
@@ -312,6 +356,7 @@ fn object_view(
     properties: BTreeMap<String, CanonicalSchema>,
     pattern_properties: BTreeMap<String, CanonicalSchema>,
     additional_properties: Option<CanonicalSchema>,
+    violations: Vec<ObjectViolationView>,
 ) -> ObjectView {
     ObjectView {
         min_properties: leaf.sizes.minimum.as_ref().map(BoundCardinality::to_number),
@@ -321,6 +366,7 @@ fn object_view(
         properties,
         pattern_properties,
         additional_properties,
+        violations,
     }
 }
 

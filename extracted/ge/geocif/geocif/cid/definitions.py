@@ -298,3 +298,14 @@ for _s in ENSO_CURR_MEI:
     _k = f"MEI_curr_{_s}"
     dict_enso[_k] = ["ENSO", f"Multivariate ENSO Index v2, {_s} of harvest year"]
     enso_col_map[_k] = _k
+
+# USDA NASS QuickStats Crop Condition Index (CCI). Weekly state-level obs are
+# collapsed to a MONTHLY MEAN per (state, year, month) in cid.cci.get_cci_frame,
+# joined per (adm1_name, year, Month) in indices.preprocess_input_df, then
+# aggregated over each stage window like the EO CIDs. US state-level, corn
+# (maize) / soybean only; all map to the single 'cci' column.
+dict_cci = {
+    "MEAN_CCI": ["CCI", "Crop Condition Index (NASS QuickStats), stage mean of monthly means"],
+    "MAX_CCI":  ["CCI", "Crop Condition Index (NASS QuickStats), stage max of monthly means"],
+    "MIN_CCI":  ["CCI", "Crop Condition Index (NASS QuickStats), stage min of monthly means"],
+}

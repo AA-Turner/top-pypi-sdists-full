@@ -7,6 +7,7 @@ import QuantConnect
 import QuantConnect.Lean.Engine.Results.Analysis
 import QuantConnect.Lean.Engine.Results.Analysis.Analyses
 import QuantConnect.Lean.Engine.Results.Analysis.Analyses.Messages
+import System.Text.RegularExpressions
 
 
 class MessageAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.BaseResultsAnalysis, metaclass=abc.ABCMeta):
@@ -16,9 +17,26 @@ class MessageAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.BaseRes
     """
 
     @property
-    @abc.abstractmethod
     def expected_message_text(self) -> typing.List[str]:
-        """This Property is protected."""
+        """
+        The text fragments a message must all contain (case-insensitive) to identify the issue.
+        Ignored when expected_message_pattern is set.
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @property
+    def expected_message_pattern(self) -> System.Text.RegularExpressions.Regex:
+        """
+        Optional regex that identifies the issue message, taking precedence over
+        expected_message_text. Use it for messages with variable parts fragments
+        cannot pin down, like method names formatted by algorithm language.
+        
+        
+        This Property is protected.
+        """
         ...
 
     def match(self, messages: typing.Sequence[str], expected_messages: typing.List[str]) -> typing.Sequence[str]:
@@ -38,8 +56,8 @@ class MessageAnalysis(QuantConnect.Lean.Engine.Results.Analysis.Analyses.BaseRes
     @overload
     def run(self, messages: typing.Sequence[str], language: QuantConnect.Language) -> typing.Sequence[QuantConnect.Analysis]:
         """
-        Runs the analysis by scanning messages for the expected text fragments
-        and returns results with solutions when matches are found.
+        Runs the analysis by scanning messages for the expected pattern or
+        text fragments and returns results with solutions when matches are found.
         """
         ...
 

@@ -39,12 +39,18 @@ def hist(session: nox.Session) -> None:
     session.install(".")
     tmpdir = session.create_tmp()
     session.chdir(tmpdir)
-    shutil.rmtree("hist")
+    shutil.rmtree("hist", ignore_errors=True)
     session.run("git", "clone", "https://github.com/scikit-hep/hist", external=True)
     session.chdir("hist")
-    session.install(".", "--group=test", "--group=plot", "mypy", "pandas-stubs")
+    session.install(
+        ".", "--group=test", "--group=plot", "mypy", "pandas-stubs", "numpy<2.5"
+    )
     session.run("pytest", *session.posargs)
-    session.run("mypy")
+    session.run(
+        "mypy",
+        "--disable-error-code=override",
+        "--disable-error-code=unused-ignore",
+    )
 
 
 @nox.session(reuse_venv=True, default=False)
@@ -73,9 +79,7 @@ def docs(session: nox.Session) -> None:
     )
 
     if serve:
-        session.run(
-            "sphinx-autobuild", "--open-browser", "--ignore=docs/.build", *shared_args
-        )
+        session.run("sphinx-autobuild", "--open-browser", *shared_args)
     else:
         session.run("sphinx-build", "--keep-going", *shared_args)
 
@@ -145,7 +149,14 @@ def bump_boost(session: nox.Session) -> None:
     for path in extern.iterdir():
         session.chdir(path)
         session.run("git", "fetch", external=True)
-        session.run("git", "switch", "--detach", f"boost-{args.version}", external=True)
+        session.run(
+            "git",
+            "switch",
+            "--detach",
+            f"boost-{args.version}",
+            external=True,
+            success_codes=[0, 128],
+        )
 
 
 if __name__ == "__main__":

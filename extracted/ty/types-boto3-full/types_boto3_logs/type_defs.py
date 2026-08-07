@@ -37,6 +37,7 @@ from .literals import (
     ExportTaskStatusCodeType,
     FlattenedElementType,
     ImportStatusType,
+    IndexCategoryType,
     IndexSourceType,
     IndexTypeType,
     IntegrationStatusType,
@@ -829,6 +830,7 @@ class DescribeExportTasksRequestTypeDef(TypedDict):
 
 class DescribeFieldIndexesRequestTypeDef(TypedDict):
     logGroupIdentifiers: Sequence[str]
+    indexCategories: NotRequired[Sequence[IndexCategoryType]]
     nextToken: NotRequired[str]
 
 
@@ -841,6 +843,7 @@ FieldIndexTypeDef = TypedDict(
         "firstEventTime": NotRequired[int],
         "lastEventTime": NotRequired[int],
         "type": NotRequired[IndexTypeType],
+        "indexCategory": NotRequired[IndexCategoryType],
     },
 )
 

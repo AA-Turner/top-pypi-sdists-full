@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pysae-ai-tools
-Version: 0.1.1706
+Version: 0.1.1714
 Summary: Shared Python tools for Pysae Claude Code skills
 Project-URL: repository, https://gitlab.com/pysae/tools/ai-tools
 Requires-Python: >=3.11
@@ -14,6 +14,7 @@ Requires-Dist: platformdirs<5,>=4.0
 Requires-Dist: pydantic>=2.0
 Requires-Dist: pymongo<5,>=4.16.0
 Requires-Dist: pyyaml<7,>=6.0
+Requires-Dist: ruamel-yaml<0.19,>=0.18
 Requires-Dist: tomlkit<0.14,>=0.13
 Requires-Dist: typer<0.25,>=0.24.1
 Requires-Dist: uvicorn>=0.34
@@ -167,10 +168,12 @@ Ce que la CLI écrit, par écosystème :
 |-----------|---------------|-------------|
 | Python (uv, pip) | le store d'uv (`uv auth dir`) | credential pour la racine de l'hôte GitLab — uv l'associe par préfixe d'URL, donc tous les index en dessous en bénéficient |
 | Node (npm, pnpm, Yarn 1, bun) | `~/.npmrc` | `@<owner>:registry` et `//<hôte>/api/v4/packages/npm/:_authToken` |
-| Node (Yarn 2+) | `~/.yarnrc.yml` | `npmScopes.<owner>.npmRegistryServer` et `npmRegistries` — Yarn 2+ ignore `.npmrc`, d'où le second fichier |
+| Node (Yarn 2+) | `~/.yarnrc.yml` | `npmScopes.<owner>.npmRegistryServer` et `npmRegistries` — Yarn 2+ ignore `.npmrc`, d'où le second fichier — plus `npmMinimalAgeGate: 0`, le délai de carence de Yarn visant le registre public bloquant sinon un paquet privé publié par notre CI quelques minutes plus tôt |
 | Docker | `~/.docker/config.json` | login sur `registry.<hôte>`, posé via `docker login --password-stdin` |
 
-La configuration Node est posée au niveau **utilisateur**, jamais du projet : un dépôt qui ne déclare aucune registry installe les paquets privés sans variable d'environnement ni fichier ajouté. Le token est rattaché au seul hôte GitLab et jamais posé en réglage global, donc aucune requête vers un registre public ne peut l'emporter. Les écritures sont chirurgicales : seules les clés de la registry GitLab sont créées ou mises à jour, le reste de chaque fichier est laissé intact.
+La configuration Node est posée au niveau **utilisateur**, jamais du projet : un dépôt qui ne déclare aucune registry installe les paquets privés sans variable d'environnement ni fichier ajouté. Le token est rattaché au seul hôte GitLab et jamais posé en réglage global, donc aucune requête vers un registre public ne peut l'emporter.
+
+Ces fichiers appartiennent à l'utilisateur, donc les écritures sont chirurgicales : seules nos clés sont créées ou mises à jour, le reste est laissé intact. Le `.npmrc` est édité ligne à ligne et le `.yarnrc.yml` via un parseur round-trip — commentaires, ordre des clés et style de quoting survivent. Un `.yarnrc.yml` illisible n'est jamais réécrit : la configuration s'interrompt en le signalant, avant d'avoir touché au `.npmrc`.
 
 **Réparer un credential invalide ou absent** — expiré, révoqué, ou simplement pas encore posé :
 
@@ -185,11 +188,30 @@ read -rs -p "PAT: " GITLAB_REGISTRY_TOKEN && export GITLAB_REGISTRY_TOKEN && ech
 pysae-ai-tools tools install uv node docker --configure-only
 ```
 
-Cette commande ne réinstalle aucun binaire : elle se contente de (re)poser le credential. `tools status uv node docker --json` indique pour chaque écosystème s'il est configuré, si le credential est exploitable et dans combien de jours il expire. Sous le seuil de renouvellement, la CLI fait tourner le PAT et repose la nouvelle valeur dans **tous** les écosystèmes déjà configurés — la rotation invalidant l'ancien token, en laisser une copie périmée quelque part casserait cet écosystème dès le lendemain. `pysae-ai-tools uninstall` retire le credential de partout où la CLI l'avait posé.
+Cette commande ne réinstalle aucun binaire : elle se contente de (re)poser le credential. `tools status uv node docker` indique pour chaque écosystème s'il est configuré, si le credential est exploitable, dans combien de jours il expire, et **quand sa validité a été vérifiée et quand il a été roté** pour la dernière fois. `pysae-ai-tools uninstall` retire le credential de partout où la CLI l'avait posé.
+
+### Renouvellement automatique
+
+Le PAT porte le scope `self_rotate`, donc la CLI le renouvelle elle-même avant l'échéance — pas de credential expiré à réparer à la main.
+
+Le tick est le même que celui des mises à jour (après n'importe quelle commande, au plus une fois par heure) mais il a **son propre interrupteur** : `auto_rotate_tokens = true` dans `~/.config/pysae-ai-tools/config.toml`. Couper `auto_update` ne laisse donc pas le token expirer. Contrairement à la vérification de version, ce tick tourne aussi quand la sortie est capturée ou en `--json` (le renouvellement se fait dans un process détaché qui n'écrit sur aucun flux visible) — c'est ainsi que les skills invoquent la CLI.
+
+À la main, à tout moment :
+
+```bash
+pysae-ai-tools tools rotate-tokens           # vérifie la validité, renouvelle si l'échéance approche
+pysae-ai-tools tools rotate-tokens --force   # renouvelle même loin de l'échéance (credential fuité)
+```
+
+Sous le seuil de renouvellement — 14 jours avant l'expiration, ou la moitié de la durée de vie du token si elle est plus courte — la CLI fait tourner le PAT et repose la nouvelle valeur dans **tous** les écosystèmes déjà configurés — la rotation invalidant l'ancien token, en laisser une copie périmée quelque part casserait cet écosystème dès le lendemain. Le remplaçant est demandé pour **la même durée de vie que l'original** : sans expiration explicite, GitLab n'accorde qu'une semaine, ce qui replacerait aussitôt le token sous le seuil et le ferait tourner à chaque exécution.
+
+**Jamais en CI** : là le token vient d'une variable de groupe partagée qu'aucun job ne peut réécrire — le faire tourner le révoquerait pour tous les autres jobs. Le veto est porté par la couche credential elle-même, donc aucun chemin (pas même `tools install` sur un runner) ne peut roter dans un pipeline.
 
 ## Mise à jour
 
 La CLI **s'auto-met à jour automatiquement** : après n'importe quelle commande, au plus une fois par heure (cache TTL 1h), elle vérifie si une version plus récente existe (PyPI en install registre, nouveaux commits sur `origin/main` en clone git) et lance `self-update` toute seule. C'est activé par défaut (`auto_update = true` dans `~/.config/pysae-ai-tools/config.toml`) ; à désactiver pour ne recevoir qu'une notification. La vérification est silencieuse en CI et en sortie non-interactive.
+
+Sur le même rythme mais avec un interrupteur distinct (`auto_rotate_tokens`), les tokens gérés par la CLI se renouvellent avant leur échéance — voir [Renouvellement automatique](#renouvellement-automatique).
 
 Mise à jour manuelle à tout moment :
 

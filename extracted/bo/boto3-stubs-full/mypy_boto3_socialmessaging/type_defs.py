@@ -35,6 +35,8 @@ __all__ = (
     "AssociateWhatsAppBusinessAccountInputTypeDef",
     "AssociateWhatsAppBusinessAccountOutputTypeDef",
     "BlobTypeDef",
+    "CreateWhatsAppDatasetInputTypeDef",
+    "CreateWhatsAppDatasetOutputTypeDef",
     "CreateWhatsAppFlowInputTypeDef",
     "CreateWhatsAppFlowOutputTypeDef",
     "CreateWhatsAppMessageTemplateFromLibraryInputTypeDef",
@@ -101,6 +103,8 @@ __all__ = (
     "ResponseMetadataTypeDef",
     "S3FileTypeDef",
     "S3PresignedUrlTypeDef",
+    "SendWhatsAppConversionEventInputTypeDef",
+    "SendWhatsAppConversionEventOutputTypeDef",
     "SendWhatsAppMessageInputTypeDef",
     "SendWhatsAppMessageOutputTypeDef",
     "TagResourceInputTypeDef",
@@ -138,6 +142,12 @@ class ResponseMetadataTypeDef(TypedDict):
 
 
 BlobTypeDef = Union[str, bytes, IO[Any], StreamingBody]
+CreateWhatsAppDatasetInputTypeDef = TypedDict(
+    "CreateWhatsAppDatasetInputTypeDef",
+    {
+        "id": str,
+    },
+)
 
 
 class S3FileTypeDef(TypedDict):
@@ -429,6 +439,11 @@ UpdateWhatsAppFlowInputTypeDef = TypedDict(
 )
 
 
+class CreateWhatsAppDatasetOutputTypeDef(TypedDict):
+    datasetId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class CreateWhatsAppFlowOutputTypeDef(TypedDict):
     flowId: str
     validationErrors: list[str]
@@ -475,6 +490,11 @@ class PostWhatsAppMessageMediaOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class SendWhatsAppConversionEventOutputTypeDef(TypedDict):
+    requestId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class SendWhatsAppMessageOutputTypeDef(TypedDict):
     messageId: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -511,6 +531,14 @@ CreateWhatsAppMessageTemplateInputTypeDef = TypedDict(
     {
         "templateDefinition": BlobTypeDef,
         "id": str,
+    },
+)
+SendWhatsAppConversionEventInputTypeDef = TypedDict(
+    "SendWhatsAppConversionEventInputTypeDef",
+    {
+        "id": str,
+        "datasetId": str,
+        "eventData": BlobTypeDef,
     },
 )
 
@@ -618,6 +646,7 @@ LinkedWhatsAppBusinessAccountSummaryTypeDef = TypedDict(
         "wabaName": str,
         "eventDestinations": list[WhatsAppBusinessAccountEventDestinationTypeDef],
         "marketingMessagesOnboardingStatus": NotRequired[str],
+        "datasetId": NotRequired[str],
     },
 )
 PutWhatsAppBusinessAccountEventDestinationsInputTypeDef = TypedDict(
@@ -639,6 +668,7 @@ LinkedWhatsAppBusinessAccountTypeDef = TypedDict(
         "eventDestinations": list[WhatsAppBusinessAccountEventDestinationTypeDef],
         "phoneNumbers": list[WhatsAppPhoneNumberSummaryTypeDef],
         "marketingMessagesOnboardingStatus": NotRequired[str],
+        "datasetId": NotRequired[str],
     },
 )
 

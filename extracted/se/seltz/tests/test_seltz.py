@@ -1,3 +1,4 @@
+import json
 import os
 from unittest.mock import MagicMock
 
@@ -327,6 +328,114 @@ def test_answer_forwards_model(monkeypatch):
     assert captured["model"] == "seltz-pro"
 
 
+def test_answer_builds_request_with_response_format():
+    """A response_format object is JSON-encoded into the request's string field."""
+    channel = MagicMock()
+    service = AnswerService(channel, api_key="test-key")
+
+    captured = {}
+
+    def fake_answer(req, metadata=None, timeout=None):
+        captured["req"] = req
+        return AnswerResponse(answer='{"summary": "x"}', citations=[])
+
+    service._stub.Answer = fake_answer
+
+    response_format = {
+        "type": "json_schema",
+        "json_schema": {
+            "name": "summary_answer",
+            "schema": {
+                "type": "object",
+                "properties": {"summary": {"type": "string"}},
+                "required": ["summary"],
+                "additionalProperties": False,
+            },
+        },
+    }
+    service.answer("AI news", response_format=response_format)
+
+    assert captured["req"].HasField("response_format")
+    # The proto field is a JSON-encoded string; it round-trips to the object.
+    assert json.loads(captured["req"].response_format) == response_format
+
+
+def test_answer_omits_response_format_when_not_provided():
+    """When response_format is not provided, the field is left unset (the answer
+    stays Markdown)."""
+    channel = MagicMock()
+    service = AnswerService(channel, api_key="test-key")
+
+    captured = {}
+
+    def fake_answer(req, metadata=None, timeout=None):
+        captured["req"] = req
+        return AnswerResponse(answer="An answer.", citations=[])
+
+    service._stub.Answer = fake_answer
+
+    service.answer("AI news")
+
+    assert not captured["req"].HasField("response_format")
+
+
+def test_answer_none_response_format_omitted():
+    """Passing response_format=None leaves the field unset (like OMIT), rather
+    than JSON-encoding to the string "null" — matches OpenAI-SDK callers that
+    pass None to mean "no structured output"."""
+    channel = MagicMock()
+    service = AnswerService(channel, api_key="test-key")
+
+    captured = {}
+
+    def fake_answer(req, metadata=None, timeout=None):
+        captured["req"] = req
+        return AnswerResponse(answer="An answer.", citations=[])
+
+    service._stub.Answer = fake_answer
+
+    service.answer("AI news", response_format=None)
+
+    assert not captured["req"].HasField("response_format")
+
+
+def test_answer_forwards_response_format(monkeypatch):
+    """response_format is forwarded from Seltz.answer() to AnswerService.answer()."""
+    captured = {}
+
+    def fake_answer(*args, **kwargs):
+        captured.update(kwargs)
+
+    monkeypatch.setattr(
+        "seltz.services.answer_service.AnswerService.answer", fake_answer
+    )
+    client = Seltz(api_key="test-key")
+    response_format = {"type": "json_object"}
+    client.answer("AI news", response_format=response_format)
+
+    assert captured["response_format"] == response_format
+
+
+def test_answer_stream_builds_request_with_response_format():
+    """response_format is JSON-encoded onto the AnswerStreamRequest as well."""
+    channel = MagicMock()
+    service = AnswerService(channel, api_key="test-key")
+
+    captured = {}
+
+    def fake_answer_stream(req, metadata=None):
+        captured["req"] = req
+        return iter([AnswerStreamResponse(text_delta='{"summary": "x"}')])
+
+    service._stub.AnswerStream = fake_answer_stream
+
+    response_format = {"type": "json_object"}
+    list(service.answer_stream("AI news", response_format=response_format))
+
+    assert captured["req"].HasField("response_format")
+    assert json.loads(captured["req"].response_format) == response_format
+
+
 def test_answer_stream_builds_request_and_yields_events():
     """answer_stream() builds an AnswerStreamRequest with Bearer metadata and no
     deadline, then yields each event from the stub stream."""
@@ -584,3 +693,32 @@ def test_answer_stream_yields_events():
     assert "text_delta" in kinds
     assert kinds[-1] == "finish_reason"
     assert len(text) > 0
+
+
+@pytest.mark.integration
+@needs_api_key
+def test_answer_with_response_format_returns_json():
+    """answer(response_format=...) reaches the live API and returns an answer
+    that is a JSON string conforming to the requested schema; citations are
+    still returned."""
+    client = Seltz()
+    response = client.answer(
+        "Summarize the latest AI news",
+        response_format={
+            "type": "json_schema",
+            "json_schema": {
+                "name": "news_summary",
+                "schema": {
+                    "type": "object",
+                    "properties": {"summary": {"type": "string"}},
+                    "required": ["summary"],
+                    "additionalProperties": False,
+                },
+                "strict": True,
+            },
+        },
+    )
+    assert isinstance(response, AnswerResponse)
+    payload = json.loads(response.answer)
+    assert isinstance(payload["summary"], str)
+    assert len(response.citations) > 0

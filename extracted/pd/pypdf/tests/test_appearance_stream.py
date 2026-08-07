@@ -1,6 +1,18 @@
 """Test the pypdf.generic._appearance_stream module."""
+import os
+import re
+import subprocess
+import sys
+from unittest import mock
 
+import pytest
+
+from pypdf import PdfWriter
+from pypdf._font import Font
+from pypdf.generic import RectangleObject
 from pypdf.generic._appearance_stream import BaseStreamConfig, TextStreamAppearance
+
+from . import RESOURCE_ROOT
 
 
 def test_comb():
@@ -54,7 +66,8 @@ def test_scale_text():
 
     layout.rectangle = (0, 0, 160, 360)
     font_size = 0.0
-    text = """Welcome to pypdf
+    text = """Welcome to pypdf!
+أهلاً بكم في pypdf!
 pypdf is a free and open source pure-python PDF library capable of splitting, merging, cropping, and
 transforming the pages of PDF files. It can also add custom data, viewing options, and passwords to PDF
 files. pypdf can retrieve text and metadata from PDFs as well.
@@ -67,12 +80,13 @@ See pdfly for a CLI application that uses pypdf to interact with PDFs.
     )
     assert b"12 Tf" in appearance_stream.get_data()
     assert b"pypdf is a free and open" in appearance_stream.get_data()
+    assert b"/Span << /ActualText" in appearance_stream.get_data()
 
     layout.rectangle = (0, 0, 160, 160)
     appearance_stream = TextStreamAppearance(
         layout=layout, text=text, font_size=font_size, is_multiline=is_multiline
     )
-    assert b"9.8 Tf" in appearance_stream.get_data()
+    assert b"9.6 Tf" in appearance_stream.get_data()
 
     layout.rectangle = (0, 0, 160, 12)
     appearance_stream = TextStreamAppearance(
@@ -98,3 +112,107 @@ Option D
         layout=layout, text=text, font_size=font_size, is_multiline=is_multiline
     )
     assert b"OneWord" in appearance_stream.get_data()
+
+
+def test_appearance_stream_rtl():
+    writer = PdfWriter(RESOURCE_ROOT / "fontsampler.pdf")
+    layout = BaseStreamConfig(
+        rectangle=RectangleObject([0, 0, 250, 30]),
+        border_width=0
+    )
+    test_string = "!مرحبا بالعالم Hello World!"
+    font_name = "/F7"
+    font_resource = writer.pages[0]["/Resources"]["/Font"][font_name]
+    font = Font.from_font_resource(font_resource)
+    reverse_cmap, encoding_cmap = font._get_typographic_maps()
+    unshaped_test_glyphs = [reverse_cmap[char] for char in test_string]
+    hex_unshaped_test_glyphs = "".join(encoding_cmap[glyph_id].hex() for glyph_id in unshaped_test_glyphs)
+    shaped_test_string = "!\ufee3\ufeae\ufea3\ufe92\ufe8e \ufe91\ufe8e\ufedf\ufecc\ufe8e\ufedf\ufee2 Hello World!"
+    shaped_test_glyphs = [reverse_cmap[char] for char in shaped_test_string]
+    # Reverse the arabic part of the test string to enable comparison with the RTL-supported case.
+    hex_shaped_test_glyphs = "".join(
+        encoding_cmap[glyph_id].hex()
+        for glyph_id in shaped_test_glyphs[:1] + shaped_test_glyphs[1:14][::-1] + shaped_test_glyphs[14:]
+    )
+    appearance = TextStreamAppearance(
+        layout=layout,
+        text=test_string,
+        font_resource=font_resource,
+        font=font,
+        font_name=font_name,
+        font_size=12.0,
+        font_color="0 g",
+        is_multiline=False
+    )
+    # The regex returns two matches. The first matches the text in /Span << /ActualText <[group 0]> >> BDC
+    # The second match concerns the encoded text data.
+    [hex_actual_text, hex_glyphs_rtl_enabled] = re.findall("<([a-zA-Z0-9]+?)> ", appearance.get_data().decode())
+    assert bytes.fromhex(hex_actual_text).decode("utf-16-be") == "\ufeff" + test_string
+    assert hex_shaped_test_glyphs == hex_glyphs_rtl_enabled
+
+    # RTL support disabled
+    with mock.patch("pypdf.generic._appearance_stream.HAS_RTL_SUPPORT", False):
+        appearance = TextStreamAppearance(
+            layout=layout,
+            text=test_string,
+            font_resource=font_resource,
+            font=font,
+            font_name=font_name,
+            font_size=12.0,
+            font_color="0 g",
+            is_multiline=False
+        )
+        [hex_glyphs_rtl_disabled] = re.findall("^<(.+?)>", appearance.get_data().decode(), re.MULTILINE)
+    assert hex_unshaped_test_glyphs == hex_glyphs_rtl_disabled
+    # The hex glyph sequences should be different when RTL support is enabled vs disabled
+    assert hex_glyphs_rtl_enabled != hex_glyphs_rtl_disabled
+
+    # fontTools support disabled
+    with mock.patch("pypdf._font.HAS_FONTTOOLS", False):
+        appearance = TextStreamAppearance(
+            layout=layout,
+            text=test_string,
+            font_resource=font_resource,
+            font=font,
+            font_name=font_name,
+            font_size=12.0,
+            font_color="0 g",
+            is_multiline=False
+        )
+        [hex_glyphs_rtl_enabled_fonttools_disabled] = re.findall(
+            "^<(.+?)>", appearance.get_data().decode(), re.MULTILINE
+        )
+    assert hex_shaped_test_glyphs != hex_glyphs_rtl_enabled_fonttools_disabled
+
+
+@pytest.mark.parametrize("module", ["arabic_reshaper", "bidi"])
+def test_appearance_stream__no_rtl_support(module, tmp_path):
+    env = os.environ.copy()
+    env["COVERAGE_PROCESS_START"] = "pyproject.toml"
+
+    source_file = tmp_path / "script.py"
+    source_file.write_text(
+        f"""
+import sys
+from io import BytesIO
+
+import pytest
+
+sys.modules["{module}"] = None
+from pypdf.generic._appearance_stream import TextStreamAppearance, HAS_RTL_SUPPORT
+
+assert HAS_RTL_SUPPORT is False
+"""
+    )
+
+    try:
+        env["PYTHONPATH"] = "." + os.pathsep + env["PYTHONPATH"]
+    except KeyError:
+        env["PYTHONPATH"] = "."
+    result = subprocess.run(  # noqa: S603
+        [sys.executable, source_file],
+        capture_output=True,
+        env=env,
+    )
+    assert result.returncode == 0
+    assert result.stdout == b""

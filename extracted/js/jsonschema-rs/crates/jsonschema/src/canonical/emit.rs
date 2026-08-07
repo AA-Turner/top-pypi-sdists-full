@@ -6,8 +6,9 @@ use serde_json::{json, Map, Value};
 use crate::{
     canonical::{
         ir::{
-            ArrayLeaf, BoundCardinality, BoundRational, CanonicalJson, ContainsFacet, Divisors,
-            ExcludedDivisors, IntegerLeaf, NumberLeaf, ObjectLeaf, Schema, SchemaKind, StringLeaf,
+            ArrayLeaf, BoundCardinality, BoundRational, CanonicalJson, ContainsFacet, Distinctness,
+            Divisors, ExcludedDivisors, IntegerLeaf, NumberLeaf, ObjectLeaf, ObjectViolation,
+            Schema, SchemaKind, StringLeaf,
         },
         DefinitionMap, CANONICAL_REFERENCE_PREFIX,
     },
@@ -296,7 +297,7 @@ fn emit_number(leaf: &NumberLeaf, draft: Draft) -> Value {
     Value::Object(map)
 }
 
-/// Emit an array leaf as `{"type":"array"}` plus its length bounds, uniqueness and element schemas.
+/// Emit an array leaf as `{"type":"array"}` plus its length bounds, distinctness and element schemas.
 /// A tuple prefix is spelled `prefixItems` with an `items` tail in 2020-12, and array-form `items`
 /// with an `additionalItems` tail in 2019-09 and earlier.
 fn emit_array(leaf: &ArrayLeaf, draft: Draft) -> Value {
@@ -320,8 +321,9 @@ fn emit_array(leaf: &ArrayLeaf, draft: Draft) -> Value {
         };
         map.insert(key.into(), emit(items.kind(), draft));
     }
-    // One `contains` demand sits inline; the keyword is single-valued, so the rest conjoin as
-    // single-demand `allOf` branches.
+    // What cannot share a key with the leaf's own map takes a clause of its own. The clauses
+    // conjoin under one `allOf` beside it, so the leaf's `type` reaches every one of them.
+    let mut surplus: Vec<Value> = Vec::new();
     debug_assert!(
         leaf.contains
             .windows(2)
@@ -337,20 +339,24 @@ fn emit_array(leaf: &ArrayLeaf, draft: Draft) -> Value {
     );
     let mut facets = leaf.contains.iter();
     if let Some(facet) = facets.next() {
+        // A demand's spelling is single-valued, so one sits inline and the rest take clauses.
         insert_contains(&mut map, facet, draft);
-        let rest: Vec<Value> = facets
-            .map(|facet| {
-                let mut entry = Map::new();
-                insert_contains(&mut entry, facet, draft);
-                Value::Object(entry)
-            })
-            .collect();
-        if !rest.is_empty() {
-            map.insert("allOf".into(), Value::Array(rest));
-        }
+        surplus.extend(facets.map(|facet| {
+            let mut entry = Map::new();
+            insert_contains(&mut entry, facet, draft);
+            Value::Object(entry)
+        }));
     }
-    if leaf.unique {
-        map.insert("uniqueItems".into(), Value::Bool(true));
+    match leaf.distinctness {
+        Distinctness::Unconstrained => {}
+        Distinctness::AllDistinct => {
+            map.insert("uniqueItems".into(), Value::Bool(true));
+        }
+        // A bare `uniqueItems` holds on every non-array, so the barred clause needs the type
+        // beside it or it would reject every value that is not an array.
+        Distinctness::SomeRepeated => {
+            surplus.push(json!({"not": {"type": "array", "uniqueItems": true}}));
+        }
     }
     if let Some(min) = &leaf.lengths.minimum {
         map.insert("minItems".into(), Value::Number(min.to_number()));
@@ -358,12 +364,43 @@ fn emit_array(leaf: &ArrayLeaf, draft: Draft) -> Value {
     if let Some(max) = &leaf.lengths.maximum {
         map.insert("maxItems".into(), Value::Number(max.to_number()));
     }
+    if !surplus.is_empty() {
+        map.insert("allOf".into(), Value::Array(surplus));
+    }
+    // An element schema holds over a non-array, so barring one bars every non-array; the type is
+    // what keeps the demands to arrays.
+    debug_assert_eq!(
+        map.get("type"),
+        Some(&Value::String("array".to_owned())),
+        "an array leaf emits its type beside the clauses conjoined with it"
+    );
     Value::Object(map)
 }
 
-/// Emit one `contains` demand into `map`; the count window keys appear only where a draft put them.
+/// Emit one existential demand into `map`, spelled as the draft carries it; the count window keys
+/// appear only where a draft put them.
+///
+/// ```text
+/// e.g.  a demand for a string, under Draft 4
+///       =>  {"not": {"items": {"not": {"type": "string"}}}}
+/// ```
 fn insert_contains(map: &mut Map<String, Value>, facet: &ContainsFacet, draft: Draft) {
-    map.insert("contains".into(), emit(facet.schema.kind(), draft));
+    let demand = emit(facet.schema.kind(), draft);
+    if matches!(draft, Draft::Draft4) {
+        // Draft 4 has no `contains`: an array holds a matching element exactly when its elements
+        // do not all fail the demand, which `not` and `items` spell between them.
+        debug_assert!(
+            facet.minimum.is_none(),
+            "a Draft 4 demand carries no count floor"
+        );
+        debug_assert!(
+            facet.maximum.is_none(),
+            "a Draft 4 demand carries no count ceiling"
+        );
+        map.insert("not".into(), keyed("items", keyed("not", demand)));
+        return;
+    }
+    map.insert("contains".into(), demand);
     if let Some(minimum) = &facet.minimum {
         map.insert("minContains".into(), Value::Number(minimum.to_number()));
     }
@@ -424,6 +461,58 @@ fn emit_object(leaf: &ObjectLeaf, draft: Draft) -> Value {
     }
     if let Some(max) = &leaf.sizes.maximum {
         map.insert("maxProperties".into(), Value::Number(max.to_number()));
+    }
+    let mut violated: Vec<Value> = leaf
+        .violations
+        .iter()
+        .map(|violation| match violation {
+            ObjectViolation::NameFails(violated) => {
+                keyed("not", emit_every_key_holds(violated, draft))
+            }
+            ObjectViolation::UndeclaredValueFails {
+                names,
+                patterns,
+                additional,
+            } => {
+                // A leaf carrying pattern entries has no complement, so the demand negation records
+                // beside a shield names keys and nothing else.
+                debug_assert!(patterns.is_empty(), "a value-shield demand names a pattern");
+                let mut inner = Map::new();
+                if !names.is_empty() {
+                    inner.insert(
+                        "properties".into(),
+                        Value::Object(
+                            names
+                                .iter()
+                                .map(|name| (name.to_string(), emit(&SchemaKind::True, draft)))
+                                .collect(),
+                        ),
+                    );
+                }
+                inner.insert(
+                    "additionalProperties".into(),
+                    emit(additional.kind(), draft),
+                );
+                let mut wrapper = Map::new();
+                wrapper.insert("not".into(), Value::Object(inner));
+                Value::Object(wrapper)
+            }
+        })
+        .collect();
+    if violated.len() == 1 {
+        let Value::Object(wrapper) = violated.remove(0) else {
+            unreachable!("violation wrappers are objects")
+        };
+        map.extend(wrapper);
+    } else if !violated.is_empty() {
+        // A demand rides on a keyword bringing two object leaves together, which is what makes a
+        // Draft 4 key constraint keep only the keys it names, and one closed map names those; the
+        // split spelling and its `allOf` therefore never appear beside a demand.
+        debug_assert!(
+            !map.contains_key("allOf"),
+            "violations beside a Draft 4 key spelling"
+        );
+        map.insert("allOf".into(), Value::Array(violated));
     }
     Value::Object(map)
 }
@@ -512,6 +601,40 @@ fn emit_closed_clause(clause: &KeyClause) -> Value {
     }
     map.insert("additionalProperties".into(), Value::Bool(false));
     Value::Object(map)
+}
+
+/// The schema an object meets exactly when every key it carries holds `names`.
+///
+/// ```text
+/// e.g.  {"const": "a"}  under Draft 4
+///       =>  {"properties": {"a": {}}, "additionalProperties": false}
+/// ```
+fn emit_every_key_holds(names: &Schema, draft: Draft) -> Value {
+    // Draft 4 has no `propertyNames`, so the constraint is spelled as the closed maps it takes to
+    // name exactly the keys it admits.
+    let clauses = matches!(draft, Draft::Draft4)
+        .then(|| draft4_key_clauses(names))
+        .flatten();
+    let Some(clauses) = clauses else {
+        // Draft 4 ignores `propertyNames`, so reaching it there would leave a demand no object can
+        // break; every key constraint Draft 4 can hold has a closed-map spelling.
+        debug_assert!(
+            !matches!(draft, Draft::Draft4),
+            "a Draft 4 key constraint reached emit without a closed-map spelling"
+        );
+        return keyed("propertyNames", emit(names.kind(), draft));
+    };
+    debug_assert!(
+        !clauses.is_empty(),
+        "a key constraint spells at least one closed map"
+    );
+    match clauses.as_slice() {
+        [clause] => emit_closed_clause(clause),
+        several => keyed(
+            "allOf",
+            Value::Array(several.iter().map(emit_closed_clause).collect()),
+        ),
+    }
 }
 
 /// The keys and patterns one closed map names: a key is admitted when it is named or matched.

@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from pyimouapi.const import (
     PARAM_CURRENT_OPTION,
+    PARAM_DEVICE_VOLUME,
     PARAM_MODE,
     PARAM_OPTIONS,
     PARAM_REF,
@@ -46,15 +47,81 @@ async def test_select_option_by_ref_updates_local_state_without_read() -> None:
     device = _ha_device()
     device.selects[PARAM_MODE] = {
         PARAM_REF: "15200",
-        PARAM_CURRENT_OPTION: "0",
-        PARAM_OPTIONS: ["0", "1", "2"],
+        PARAM_CURRENT_OPTION: "home",
+        PARAM_OPTIONS: ["home", "away", "disarm"],
+        PARAM_VALUE_TYPE: "int",
+    }
+    delegate = MagicMock()
+    delegate.async_set_iot_device_properties = AsyncMock()
+    delegate.async_get_iot_device_properties = AsyncMock()
+    manager = ImouHaDeviceManager(delegate)
+
+    await manager.async_select_option(device, PARAM_MODE, "away")
+
+    assert device.selects[PARAM_MODE][PARAM_CURRENT_OPTION] == "away"
+    props = delegate.async_set_iot_device_properties.await_args.args[3]
+    assert props == {"15200": 1}
+    delegate.async_get_iot_device_properties.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_select_volume_mute_writes_minus_one() -> None:
+    device = _ha_device()
+    device.selects[PARAM_DEVICE_VOLUME] = {
+        PARAM_REF: "15400",
+        PARAM_CURRENT_OPTION: "low",
+        PARAM_OPTIONS: ["mute", "low", "medium", "high"],
         PARAM_VALUE_TYPE: "int",
     }
     delegate = MagicMock()
     delegate.async_set_iot_device_properties = AsyncMock()
     manager = ImouHaDeviceManager(delegate)
 
-    await manager.async_select_option(device, PARAM_MODE, "1")
+    await manager.async_select_option(device, PARAM_DEVICE_VOLUME, "mute")
 
-    assert device.selects[PARAM_MODE][PARAM_CURRENT_OPTION] == "1"
+    assert device.selects[PARAM_DEVICE_VOLUME][PARAM_CURRENT_OPTION] == "mute"
+    props = delegate.async_set_iot_device_properties.await_args.args[3]
+    assert props == {"15400": -1}
+
+
+@pytest.mark.asyncio
+async def test_set_text_value_by_ref_updates_local_state_without_read() -> None:
+    """IoT text writes update local state without getIotDeviceProperties."""
+    device = _ha_device()
+    device.texts["overcharge_switch"] = {
+        PARAM_REF: "128900",
+        PARAM_STATE: "5",
+        PARAM_VALUE_TYPE: "int",
+    }
+    delegate = MagicMock()
+    delegate.async_set_iot_device_properties = AsyncMock()
+    delegate.async_get_iot_device_properties = AsyncMock()
+    manager = ImouHaDeviceManager(delegate)
+
+    await manager.async_set_text_value(device, "overcharge_switch", "100")
+
+    assert device.texts["overcharge_switch"][PARAM_STATE] == "100"
+    delegate.async_get_iot_device_properties.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_set_count_down_text_updates_local_state_without_read() -> None:
+    """Countdown text writes update local state without sleep/re-query."""
+    device = _ha_device()
+    device.switches["switch"] = {PARAM_REF: "10000", PARAM_STATE: False}
+    device.texts["count_down_switch"] = {
+        PARAM_REF: "28800",
+        PARAM_STATE: "0",
+    }
+    delegate = MagicMock()
+    delegate.async_iot_device_control = AsyncMock()
+    delegate.async_get_iot_device_properties = AsyncMock()
+    manager = ImouHaDeviceManager(delegate)
+    manager._async_update_device_switch_status_by_ref = AsyncMock()
+
+    await manager.async_set_text_value(device, "count_down_switch", "10")
+
+    assert device.texts["count_down_switch"][PARAM_STATE] == "10"
+    manager._async_update_device_switch_status_by_ref.assert_awaited_once()
+    delegate.async_iot_device_control.assert_awaited_once()
     delegate.async_get_iot_device_properties.assert_not_called()

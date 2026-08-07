@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: djlint
-Version: 1.44.0
+Version: 1.44.1
 Summary: HTML template linter and formatter (Django, Jinja, Twig, Nunjucks, Handlebars, Liquid, Go templates)
 Project-URL: documentation, https://djlint.com
 Project-URL: repository, https://github.com/djlint/djLint
@@ -35,7 +35,7 @@ Requires-Dist: pathspec>=0.9.0
 Requires-Dist: pyyaml>=5.1
 Requires-Dist: regex>=2022.6.2
 Requires-Dist: tomli>=0.2.0; python_version < '3.11'
-Requires-Dist: typing-extensions>=3.7.4; python_version < '3.11'
+Requires-Dist: typing-extensions>=4.3.0; python_version < '3.13'
 Description-Content-Type: text/markdown
 
 <h1 align="center">

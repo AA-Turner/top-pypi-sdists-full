@@ -7,19 +7,29 @@ from typing import Final
 
 from gotenberg_client._base import AsyncBaseRoute
 from gotenberg_client._base import SyncBaseRoute
+from gotenberg_client._common import DownloadFromMixin
+from gotenberg_client._common import EmbedsMixin
+from gotenberg_client._common import EncryptMixin
 from gotenberg_client._common import FlattenOptionMixin
 from gotenberg_client._common import MetadataMixin
 from gotenberg_client._common import PdfFormatMixin
 from gotenberg_client._common import PdfUniversalAccessMixin
+from gotenberg_client._common import RotateMixin
 from gotenberg_client._common import SplitModeMixin
+from gotenberg_client._common import StampMixin
+from gotenberg_client._common import WatermarkMixin
 from gotenberg_client._libreoffice.mixins import LibreOfficeCompressOptionsMixin
 from gotenberg_client._libreoffice.mixins import LibreOfficeMergeOptionMixin
+from gotenberg_client._libreoffice.mixins import LibreOfficeNativeWatermarkMixin
 from gotenberg_client._libreoffice.mixins import LibreOfficePagePropertiesMixin
+from gotenberg_client._libreoffice.mixins import LibreOfficeViewerPreferencesMixin
 from gotenberg_client._typing_compat import Self
 
 
 class _BaseOfficeDocumentToPdfRoute(
     LibreOfficePagePropertiesMixin,
+    LibreOfficeNativeWatermarkMixin,
+    LibreOfficeViewerPreferencesMixin,
     LibreOfficeCompressOptionsMixin,
     LibreOfficeMergeOptionMixin,
     SplitModeMixin,
@@ -27,6 +37,12 @@ class _BaseOfficeDocumentToPdfRoute(
     PdfUniversalAccessMixin,
     MetadataMixin,
     FlattenOptionMixin,
+    WatermarkMixin,
+    StampMixin,
+    RotateMixin,
+    EncryptMixin,
+    EmbedsMixin,
+    DownloadFromMixin,
 ):
     """
 

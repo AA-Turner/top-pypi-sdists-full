@@ -37,6 +37,7 @@ __all__ = (
     "ExecutionResultType",
     "ExecutionStatusType",
     "GetOfferingStatusPaginatorName",
+    "InsightsTypeType",
     "InstanceStatusType",
     "InteractionModeType",
     "ListArtifactsPaginatorName",
@@ -64,6 +65,7 @@ __all__ = (
     "PaginatorName",
     "RecurringChargeFrequencyType",
     "RegionName",
+    "ReportStatusType",
     "ResourceServiceName",
     "RuleOperatorType",
     "SampleTypeType",
@@ -159,6 +161,7 @@ ExecutionStatusType = Literal[
     "STOPPING",
 ]
 GetOfferingStatusPaginatorName = Literal["get_offering_status"]
+InsightsTypeType = Literal["TEST_REPORT"]
 InstanceStatusType = Literal["AVAILABLE", "IN_USE", "NOT_AVAILABLE", "PREPARING"]
 InteractionModeType = Literal["INTERACTIVE", "NO_VIDEO", "VIDEO_ONLY"]
 ListArtifactsPaginatorName = Literal["list_artifacts"]
@@ -184,6 +187,7 @@ NetworkProfileTypeType = Literal["CURATED", "PRIVATE"]
 OfferingTransactionTypeType = Literal["PURCHASE", "RENEW", "SYSTEM"]
 OfferingTypeType = Literal["RECURRING"]
 RecurringChargeFrequencyType = Literal["MONTHLY"]
+ReportStatusType = Literal["COMPLETED", "ERRORED", "PENDING", "RUNNING", "SKIPPED"]
 RuleOperatorType = Literal[
     "CONTAINS",
     "EQUALS",
@@ -274,6 +278,8 @@ ServiceName = Literal[
     "account",
     "acm",
     "acm-pca",
+    "agent-registry",
+    "agent-registry-control",
     "aiops",
     "amp",
     "amplify",
@@ -462,8 +468,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -490,6 +494,8 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -557,10 +563,10 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -578,6 +584,7 @@ ServiceName = Literal[
     "pipes",
     "polly",
     "pricing",
+    "pricing-plan-manager",
     "proton",
     "qapps",
     "qbusiness",
@@ -593,6 +600,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
@@ -620,6 +628,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -641,7 +650,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -662,6 +670,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",

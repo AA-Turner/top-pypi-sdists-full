@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: prowler
-Version: 5.37.1
+Version: 5.38.0
 Summary: Prowler is an Open Source security tool to perform AWS, GCP and Azure security best practices assessments, audits, incident response, continuous monitoring, hardening and forensics readiness. It contains hundreds of controls covering CIS, NIST 800, NIST CSF, CISA, RBI, FedRAMP, PCI-DSS, GDPR, HIPAA, FFIEC, SOC2, GXP, AWS Well-Architected Framework Security Pillar, AWS Foundational Technical Review (FTR), ENS (Spanish National Security Scheme) and your custom security frameworks.
 Project-URL: Changelog, https://github.com/prowler-cloud/prowler/releases
 Project-URL: Documentation, https://docs.prowler.com
@@ -61,7 +61,7 @@ Requires-Dist: boto3==1.40.61
 Requires-Dist: botocore==1.40.61
 Requires-Dist: cloudflare==4.3.1
 Requires-Dist: colorama==0.4.6
-Requires-Dist: cryptography==48.0.1
+Requires-Dist: cryptography==50.0.0
 Requires-Dist: dash-bootstrap-components==2.0.3
 Requires-Dist: dash==3.1.1
 Requires-Dist: defusedxml==0.7.1

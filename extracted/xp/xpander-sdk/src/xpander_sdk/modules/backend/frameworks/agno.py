@@ -35,11 +35,13 @@ from xpander_sdk.core.context_optimizer.constants import (
     PLAN_CHURN_WARN_AT,
     MANUAL_COMPACT_TOOL_ENABLED,
     MAX_REPEATED_TOOL_CALLS,
+    READ_TOOL_CALLS_REWARN_EVERY,
+    READ_TOOL_CALLS_WARN_AT,
     REPEATED_TOOL_CALL_WARN_AT,
+    TOOL_CALL_LIMIT_DEFAULT,
     TOTAL_TOOL_CALLS_WARN_AT,
     TRUNCATED_TOOL_CALL_MESSAGE,
     WRAPUP_GRACE_CALLS,
-    WRAPUP_MAX_CALLS,
 )
 from xpander_sdk.core.context_optimizer.context_optimizer import (
     XPanderContextOptimizer,
@@ -1438,10 +1440,9 @@ def _is_tool_disabled(task: Any, effective_name: str) -> bool:
 
 # Platform-default hard ceiling on tool calls per run; an explicit positive
 # agno_settings.tool_call_limit overrides it, 0/None mean "use this default".
-# Sized above heavy dp runs (a 40-step plan at 5-10 calls/step incl. plan
-# bookkeeping) - agno refuses over-limit calls gracefully but refuses ALL of
-# them, including xpfinalize_task, so headroom beats tightness here.
-DEFAULT_TOOL_CALL_LIMIT = 400
+# Sized for marathon runs - agno refuses over-limit calls gracefully but
+# refuses ALL of them, including xpfinalize_task, so headroom beats tightness.
+DEFAULT_TOOL_CALL_LIMIT = TOOL_CALL_LIMIT_DEFAULT
 
 # Plan-complete grace budget: the model cannot see plan completion (the prompt's plan
 # block omits flags for cache stability), so a finished dp run loops on xpget_agent_plan
@@ -1695,18 +1696,28 @@ def _bump_plan_churn(task, function_name: str) -> int:
 
 
 # Poll pair repeats legitimately after a write; control tools advance nothing.
+# Dynamic-dispatch discovery is plumbing: a discover->inspect->execute cycle must
+# cost one streak slot (the inner action), not three.
 _WRAPUP_EXEMPT_TOOLS = frozenset(
     {
         "xpsleep_agent_delay",
         "xpget_agent_task_execution_status",
         "xpcompact_context",
         "xpfinalize_task",
+        "xp_list_tools",
+        "xp_search_tools",
+        "xp_get_tool",
     }
 )
 # Wrap-up-streak-only mutation test; delivering (send/share/publish/upload) IS mutating.
 _MUTATING_NAME_RE = re.compile(
     r"insert|write|create|update|patch|delete|send|share|publish|upload", re.I
 )
+
+
+def _is_read_class_tool(eff_name: str) -> bool:
+    """Read-class tools get volume warnings but are never disabled."""
+    return eff_name != "manage_memory" and _MUTATING_NAME_RE.search(eff_name) is None
 
 
 def _bump_wrapup_streak(
@@ -2826,7 +2837,26 @@ async def build_agent_args(
         try:
             if not eff_name.startswith("xp"):
                 total_calls = _bump_total_calls(task, eff_name)
-                if total_calls >= MAX_TOTAL_TOOL_CALLS_PER_TOOL:
+                # read-class tools are warn-only: marathon agents legitimately make
+                # hundreds of read calls over hours; only mutating tools can be disabled
+                is_read_class = _is_read_class_tool(eff_name)
+                if is_read_class:
+                    over_warn = total_calls - READ_TOOL_CALLS_WARN_AT
+                    if (
+                        over_warn >= 0
+                        and over_warn % READ_TOOL_CALLS_REWARN_EVERY == 0
+                        and not stuck_warning
+                    ):
+                        stuck_warning = (
+                            f"⚠️ TOOL VOLUME: '{eff_name}' has been called {total_calls} "
+                            f"times in this task. Stop paginating or re-querying - work "
+                            f"with the data you already have."
+                        )
+                        logger.warning(
+                            f"[tool-volume] read-class '{eff_name}' at {total_calls} "
+                            f"total calls for agent {xpander_agent.id}"
+                        )
+                elif total_calls >= MAX_TOTAL_TOOL_CALLS_PER_TOOL:
                     # disable THIS tool, not the run - run-wide finalize here killed
                     # mandated writes on tools that were never overused; repeat calls
                     # advance the no-progress streak at the disabled-check above
@@ -2856,7 +2886,11 @@ async def build_agent_args(
                     )
                     _report_blocked_call(task, eff_name, message)
                     return message
-                if total_calls >= TOTAL_TOOL_CALLS_WARN_AT and not stuck_warning:
+                if (
+                    not is_read_class
+                    and total_calls >= TOTAL_TOOL_CALLS_WARN_AT
+                    and not stuck_warning
+                ):
                     stuck_warning = (
                         f"⚠️ TOOL VOLUME: '{eff_name}' has been called {total_calls} times in "
                         f"this task (hard cap {MAX_TOTAL_TOOL_CALLS_PER_TOOL}). Stop paginating or "
@@ -3592,20 +3626,20 @@ async def build_agent_args(
         if streak_warning:
             result = append_to_tool_result(result, streak_warning)
 
-        # Plan-less endgame: nudge first, finalize only at the hard cap - a mutation or a
-        # delivered steer resets, so legitimate write-then-read work is never locked out.
+        # Plan-less endgame: advisory only - a repeating nudge, never finalize. Read-heavy
+        # work after a write is legitimate at any length; the hard breakers contain storms.
         _log_junk_query(task, eff_name, arguments)
         wrapup_streak = _bump_wrapup_streak(task, eff_name, result_is_error, _bash_read_only)
-        if wrapup_streak == WRAPUP_GRACE_CALLS:
+        if wrapup_streak and wrapup_streak % WRAPUP_GRACE_CALLS == 0:
             result = append_to_tool_result(result, WRAPUP_NUDGE)
-        elif wrapup_streak > WRAPUP_MAX_CALLS:
-            optimizer_wu = args.get("compression_manager")
-            if isinstance(optimizer_wu, XPanderContextOptimizer) and not is_finalize_active(optimizer_wu):
-                enter_finalize_mode(optimizer_wu, reason="wrapup_budget")
-                logger.warning(
-                    f"[wrapup-budget] {wrapup_streak} non-mutating calls since the last "
-                    f"mutation (cap {WRAPUP_MAX_CALLS}); entering finalize mode"
-                )
+            # first nudge at INFO for operators; repeats at DEBUG to keep marathon logs quiet
+            wrapup_log = (
+                logger.info if wrapup_streak == WRAPUP_GRACE_CALLS else logger.debug
+            )
+            wrapup_log(
+                f"[wrapup-budget] {wrapup_streak} non-mutating calls since the last "
+                f"mutation; nudging"
+            )
 
         # Steering: the user's mid-run message rides this tool result; the run is never restarted.
         try:

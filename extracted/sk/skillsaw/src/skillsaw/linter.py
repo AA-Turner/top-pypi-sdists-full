@@ -13,6 +13,7 @@ import sys
 import warnings
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Set, TYPE_CHECKING
+from skillsaw.paths import safe_resolve
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +25,13 @@ from .utils import write_text_preserving
 
 if TYPE_CHECKING:
     from .baseline import BaselineFile, BaselineEntry
+
+
+# Violations that display like warnings but never flip the exit code.
+# Deprecation notices must stay advisory: every pre-0.18 `skillsaw init`
+# config names now-deprecated rules, so a fatal warning would break every
+# strict-mode CI run on upgrade.
+ADVISORY_RULE_IDS = frozenset({"deprecated-rule"})
 
 
 class CustomRuleWarning(UserWarning):
@@ -54,14 +62,19 @@ class Linter:
         no_custom_rules: bool = False,
         no_plugins: bool = False,
     ):
+        from .rules.builtin import canonical_rule_id
+
         self.context = context
         self.config = config or LinterConfig.default()
-        self._rule_ids = rule_ids
-        self._skip_rule_ids = skip_rule_ids or set()
+        # Legacy rule names keep working on the CLI: resolve --rule /
+        # --skip-rule arguments to canonical IDs before any matching.
+        self._rule_ids = {canonical_rule_id(r) for r in rule_ids} if rule_ids else rule_ids
+        self._skip_rule_ids = {canonical_rule_id(r) for r in (skip_rule_ids or set())}
         self._baseline = baseline
         self._no_custom_rules = no_custom_rules
         self._no_plugins = no_plugins
         self._plugin_load_violations: List[RuleViolation] = []
+        self._vendor_managed_cache: Dict[Path, bool] = {}
         self._stale_baseline_entries: List["BaselineEntry"] = []
         self._baseline_suppressed_count: int = 0
         # Prefer contexts constructed with the config's filters (see
@@ -96,6 +109,11 @@ class Linter:
     def _load_rules(self):
         """Load all enabled rules"""
         self._known_rule_ids: set = set()
+        # Deprecated non-builtin rules seen during loading, kept so a config
+        # entry that names one still gets its deprecation notice even when
+        # the rule itself no longer runs (builtins are covered by the
+        # registry).
+        self._deprecated_known: Dict[str, Rule] = {}
 
         # Load builtin rules
         self._load_builtin_rules()
@@ -129,6 +147,7 @@ class Linter:
                 rule_instance.repo_types,
                 rule_instance.formats,
                 since_version=rule_instance.since,
+                deprecated=rule_instance.deprecated,
             ):
                 self.rules.append(rule_instance)
                 logger.info("Rule %-30s enabled", rule_instance.rule_id)
@@ -207,7 +226,35 @@ class Linter:
                     )
                     continue
 
+                # Legacy aliases still resolve to their builtin everywhere a
+                # rule is named (config keys, flags, suppressions), so a
+                # plugin claiming one could never be addressed under its own
+                # name. Advisory IDs are reserved for skillsaw's own notices
+                # — a rule reporting under one would never affect the exit
+                # code.
+                from .rules.builtin import RULE_ALIASES
+
+                if rid in RULE_ALIASES or rid in ADVISORY_RULE_IDS:
+                    reason = (
+                        f"'{rid}' is a legacy alias of builtin rule '{RULE_ALIASES[rid]}'"
+                        if rid in RULE_ALIASES
+                        else f"'{rid}' is reserved for skillsaw's own advisory notices"
+                    )
+                    self._plugin_load_violations.append(
+                        RuleViolation(
+                            rule_id="plugin-load-error",
+                            severity=Severity.WARNING,
+                            message=(
+                                f"Plugin '{plugin.name}' provides rule '{rid}', but "
+                                f"{reason} — the plugin's rule was skipped."
+                            ),
+                        )
+                    )
+                    continue
+
                 self._known_rule_ids.add(rid)
+                if getattr(rule_instance, "deprecated", None) is not None:
+                    self._deprecated_known[rid] = rule_instance
                 if self._rule_ids and rid not in self._rule_ids:
                     continue
                 if rid in self._skip_rule_ids:
@@ -246,6 +293,7 @@ class Linter:
                         rule_instance.formats,
                         since_version=rule_instance.since,
                         default_enabled=rule_instance.default_enabled,
+                        deprecated=rule_instance.deprecated,
                     )
                 except Exception as e:
                     self._plugin_load_violations.append(
@@ -305,6 +353,18 @@ class Linter:
             for message in errors
         ]
 
+    def _lint_tree_error_violations(self) -> List[RuleViolation]:
+        """Translate persistent repository discovery errors into violations."""
+        errors = dict.fromkeys(self.context.lint_tree_errors)
+        return [
+            RuleViolation(
+                rule_id="repository-path-error",
+                severity=Severity.ERROR,
+                message=message,
+            )
+            for message in errors
+        ]
+
     def _load_custom_rule(self, rule_path: str):
         """
         Load a custom rule from a Python file
@@ -316,10 +376,17 @@ class Linter:
         if not path.is_absolute():
             base = self.config.config_dir or self.context.root_path
             path = base / path
-        path = path.resolve()
+        unresolved_path = path
+        path = safe_resolve(path)
+        if path is None:
+            raise ValueError(f"Custom rule path could not be resolved: {unresolved_path}")
 
-        if not path.exists():
+        try:
+            path.stat()
+        except (FileNotFoundError, NotADirectoryError):
             raise ValueError(f"Custom rule file not found: {path}")
+        except (OSError, ValueError) as e:
+            raise ValueError(f"Custom rule path cannot be accessed: {path}: {e}") from e
 
         warnings.warn(CustomRuleWarning(path), stacklevel=2)
         logger.info("Loading custom rules from %s", path)
@@ -357,7 +424,36 @@ class Linter:
                     and not inspect.isabstract(obj)
                 ):
                     rule_instance = obj()
+
+                    # Same reservation as plugin rules: a custom rule named
+                    # after a legacy alias could never be addressed (config
+                    # keys and flags resolve the alias to the builtin), and
+                    # an advisory ID would exempt its findings from the exit
+                    # code.
+                    from .rules.builtin import RULE_ALIASES
+
+                    rid = rule_instance.rule_id
+                    if rid in RULE_ALIASES or rid in ADVISORY_RULE_IDS:
+                        reason = (
+                            f"'{rid}' is a legacy alias of builtin rule '{RULE_ALIASES[rid]}'"
+                            if rid in RULE_ALIASES
+                            else f"'{rid}' is reserved for skillsaw's own advisory notices"
+                        )
+                        self._plugin_load_violations.append(
+                            RuleViolation(
+                                rule_id="plugin-load-error",
+                                severity=Severity.WARNING,
+                                message=(
+                                    f"Custom rule file {path.name} provides rule '{rid}', "
+                                    f"but {reason} — the rule was skipped."
+                                ),
+                            )
+                        )
+                        continue
+
                     self._known_rule_ids.add(rule_instance.rule_id)
+                    if getattr(rule_instance, "deprecated", None) is not None:
+                        self._deprecated_known[rule_instance.rule_id] = rule_instance
                     if self._rule_ids and rule_instance.rule_id not in self._rule_ids:
                         continue
                     if rule_instance.rule_id in self._skip_rule_ids:
@@ -377,6 +473,7 @@ class Linter:
                         rule_instance.repo_types,
                         rule_instance.formats,
                         since_version=rule_instance.since,
+                        deprecated=rule_instance.deprecated,
                     ):
                         rule_instance._source = "custom"
                         self.rules.append(rule_instance)
@@ -409,6 +506,7 @@ class Linter:
 
             skip_unknown = bool(installed_plugin_names())
         warnings = list(self._plugin_load_violations)
+        warnings.extend(self._deprecation_violations())
         for rule_id in self.config.rules:
             if rule_id not in self._known_rule_ids:
                 if skip_unknown:
@@ -427,6 +525,69 @@ class Linter:
                 )
         return warnings
 
+    def _deprecation_violations(self) -> List[RuleViolation]:
+        """Warnings for deprecated rules the user still runs or configures.
+
+        A deprecated rule that is actually going to run (explicitly enabled
+        or forced via --rule) warns that it will be removed in a future
+        release. A config entry for a deprecated rule that no longer runs
+        warns that the entry is now inert. Each rule warns once.
+        """
+        from .rules.builtin import BUILTIN_RULE_REGISTRY
+
+        violations: List[RuleViolation] = []
+        warned: set = set()
+
+        def _removal_hint(rule) -> str:
+            hint = f"deprecated since {rule.deprecated} and will be removed in a future release"
+            if getattr(rule, "replaced_by", None):
+                hint += f" — use '{rule.replaced_by}' instead"
+            return hint
+
+        for rule in self.rules:
+            # getattr: tests and duck-typed custom rules may not inherit the
+            # class attribute from Rule.
+            if getattr(rule, "deprecated", None) is None:
+                continue
+            warned.add(rule.rule_id)
+            violations.append(
+                RuleViolation(
+                    rule_id="deprecated-rule",
+                    severity=Severity.WARNING,
+                    message=f"Rule '{rule.rule_id}' is {_removal_hint(rule)}",
+                )
+            )
+        for rule_id in self.config.rules:
+            if rule_id in warned:
+                continue
+            # Builtins come from the registry; deprecated plugin and custom
+            # rules were recorded during loading so their inert config
+            # entries warn too.
+            rule_class = BUILTIN_RULE_REGISTRY.get(rule_id) or self._deprecated_known.get(rule_id)
+            if rule_class is None or getattr(rule_class, "deprecated", None) is None:
+                continue
+            violations.append(
+                RuleViolation(
+                    rule_id="deprecated-rule",
+                    severity=Severity.WARNING,
+                    message=(
+                        f"Rule '{rule_id}' is {_removal_hint(rule_class)}; it no longer "
+                        "runs unless the config sets 'enabled: true' — remove the config "
+                        "entry or enable it explicitly"
+                    ),
+                )
+            )
+        return violations
+
+    def deprecation_notices(self) -> List[RuleViolation]:
+        """Advisory notices for deprecated rules this run touches.
+
+        Public for CLI commands whose output does not include lint
+        violations (``skillsaw fix``) so they can still surface the
+        promised removal warnings.
+        """
+        return self._deprecation_violations()
+
     def _is_excluded(self, violation: RuleViolation) -> bool:
         """Check if a violation's file path matches any exclude pattern."""
         if violation.file_path is None:
@@ -440,13 +601,11 @@ class Linter:
         exclude = self.config.get_rule_config(rule_id).get("exclude")
         if not exclude:
             return False
-        from .context import path_matches_patterns
-
-        return path_matches_patterns(file_path, self.context.root_path, exclude)
+        return self.context.matches_patterns(file_path, exclude)
 
     def _get_suppression_map(self, file_path: Path) -> Optional[SuppressionMap]:
         """Get or build a suppression map for a file, with caching."""
-        resolved = file_path.resolve()
+        resolved = safe_resolve(file_path) or file_path
         if not hasattr(self, "_suppression_cache"):
             self._suppression_cache: Dict[Path, Optional[SuppressionMap]] = {}
         if resolved not in self._suppression_cache:
@@ -464,6 +623,25 @@ class Linter:
         if smap is None:
             return False
         return smap.is_suppressed(violation.rule_id, file_line)
+
+    def _is_vendor_managed(self, file_path: Optional[Path]) -> bool:
+        """Whether *file_path* belongs to a plugin installed into this checkout.
+
+        Content under ``.codex/plugins/`` is run by this repository but was
+        not written by it. The Codex-specific rules already stand down on
+        it, and so do the Agent Skill fixers — but a skill installed there
+        is an ordinary ``SkillBlock``, so every generic ``content-*`` fix
+        would otherwise apply to it and rewrite a vendor-managed file the
+        developer cannot own. Drawing the line here covers every rule,
+        including ones added later that never think about Codex.
+        """
+        if file_path is None:
+            return False
+        cached = self._vendor_managed_cache.get(file_path)
+        if cached is None:
+            cached = self.context.is_codex_installed_plugin(file_path)
+            self._vendor_managed_cache[file_path] = cached
+        return cached
 
     def _filter_violations(
         self, violations: List[RuleViolation], record_baseline: bool = True
@@ -496,6 +674,14 @@ class Linter:
                     v.file_path or "(no file)",
                     v.file_line or "?",
                 )
+            elif self._is_vendor_managed(v.file_path):
+                # Still reported — a hostile third-party skill is worth
+                # knowing about — but never advertised as fixable, because
+                # fix() is about to stand down on it. Confidence goes with
+                # fixability, or JSON/SARIF would still claim SAFE/SUGGEST.
+                v.fixable = False
+                v.fix_confidence = None
+                kept.append(v)
             else:
                 kept.append(v)
         if len(kept) < len(violations):
@@ -570,6 +756,8 @@ class Linter:
 
         # Tree contributors run lazily inside build_lint_tree (triggered by
         # the rule checks above), so their failures are only known now.
+        _ = self.context.lint_tree
+        violations.extend(self._lint_tree_error_violations())
         violations.extend(self._plugin_extension_error_violations())
 
         return self._filter_violations(violations)
@@ -619,7 +807,11 @@ class Linter:
 
             if visible and rule.supports_autofix:
                 try:
-                    fixes = rule.fix(self.context, visible)
+                    fixes = [
+                        f
+                        for f in rule.fix(self.context, visible)
+                        if not self._is_vendor_managed(f.file_path)
+                    ]
                     all_fixes.extend(fixes)
                     fixed_violations = {id(v) for fix in fixes for v in fix.violations_fixed}
                     remaining = [v for v in visible if id(v) not in fixed_violations]
@@ -631,6 +823,8 @@ class Linter:
             else:
                 all_violations.extend(visible)
 
+        _ = self.context.lint_tree
+        all_violations.extend(self._lint_tree_error_violations())
         all_violations.extend(self._plugin_extension_error_violations())
 
         # Baseline stale/suppressed accounting must consider all rules'
@@ -656,9 +850,9 @@ class Linter:
         independent: List[AutofixResult] = []
         has_conflicts = False
         for fix in fixes:
-            targets = {fix.file_path.resolve()}
+            targets = {safe_resolve(fix.file_path) or fix.file_path}
             if fix.rename_from is not None:
-                targets.add(fix.rename_from.resolve())
+                targets.add((safe_resolve(fix.rename_from) or fix.rename_from))
             if any(t in seen for t in targets):
                 has_conflicts = True
             else:
@@ -779,7 +973,7 @@ class Linter:
                     # the same inode even when their names differ in casing.
                     # Path.rename() handles this correctly, but we must not skip
                     # a case-only rename via the ``dst.exists()`` guard.
-                    same_file = src.resolve() == dst.resolve()
+                    same_file = (safe_resolve(src) or src) == (safe_resolve(dst) or dst)
                     if dst.exists() and not same_file:
                         continue
                     dst.parent.mkdir(parents=True, exist_ok=True)

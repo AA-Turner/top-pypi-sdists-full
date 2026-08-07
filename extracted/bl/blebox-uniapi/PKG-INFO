@@ -1,22 +1,36 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: blebox_uniapi
-Version: 2.5.5
+Version: 2.5.6
 Summary: Python API for accessing BleBox smart home devices
 Home-page: https://github.com/blebox/blebox_uniapi
 Author: BleBox
 Author-email: opensource@blebox.eu
 License: Apache Software License 2.0
 Keywords: blebox_uniapi
-Platform: UNKNOWN
 Classifier: Development Status :: 2 - Pre-Alpha
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Natural Language :: English
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
 Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE
+Requires-Dist: aiohttp>=3
+Requires-Dist: jmespath>1.0.0
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 ====================
 BleBox Python UniAPI
@@ -227,5 +241,3 @@ History
 ------------------
 
 * First release on PyPI.
-
-

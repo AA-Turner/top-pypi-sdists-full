@@ -2,21 +2,16 @@
 
 use super::{ScriptedExecutionTrace, ScriptedTool, ToolDefExtension, extension::InvocationLog};
 use crate::Bash;
+use crate::tool::timeout_response;
 use crate::tool::{
     Tool, ToolError, ToolExecution, ToolOutputChunk, ToolRequest, ToolResponse, ToolStatus,
     VERSION, localized, tool_output_from_response, tool_request_from_value, tool_request_schema,
     tool_response_schema,
 };
-// Timeout helpers are target-specific because wasm32 has no timer driver.
-#[cfg(not(target_family = "wasm"))]
-use crate::tool::timeout_response;
-#[cfg(target_family = "wasm")]
-use crate::tool::unsupported_timeout_response;
 use crate::tool_def::usage_from_schema;
 use async_trait::async_trait;
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
-#[cfg(not(target_family = "wasm"))]
 use std::time::Duration;
 
 // ============================================================================
@@ -26,7 +21,11 @@ use std::time::Duration;
 impl ScriptedTool {
     /// Create a fresh Bash instance with all tool builtins registered.
     fn create_bash(&self, log: InvocationLog) -> Bash {
-        let mut builder = Bash::builder().logic_only();
+        let mut builder = Bash::builder();
+        if let Some(ref profile) = self.profile {
+            builder = builder.profile(profile.clone());
+        }
+        builder = builder.logic_only();
 
         if let Some(ref limits) = self.limits {
             builder = builder.limits(limits.clone());
@@ -128,20 +127,22 @@ impl ScriptedTool {
 
         let fut = async {
             let result = if let Some(sender) = stream_sender {
-                let output_cb = Box::new(move |stdout_chunk: &str, stderr_chunk: &str| {
-                    if !stdout_chunk.is_empty() {
-                        let _ = sender.send(ToolOutputChunk {
-                            data: serde_json::json!(stdout_chunk),
-                            kind: "stdout".to_string(),
-                        });
-                    }
-                    if !stderr_chunk.is_empty() {
-                        let _ = sender.send(ToolOutputChunk {
-                            data: serde_json::json!(stderr_chunk),
-                            kind: "stderr".to_string(),
-                        });
-                    }
-                });
+                let output_cb = Box::new(
+                    move |stdout_chunk: &crate::StreamData, stderr_chunk: &crate::StreamData| {
+                        if !stdout_chunk.is_empty() {
+                            let _ = sender.send(ToolOutputChunk {
+                                data: serde_json::json!(stdout_chunk),
+                                kind: "stdout".to_string(),
+                            });
+                        }
+                        if !stderr_chunk.is_empty() {
+                            let _ = sender.send(ToolOutputChunk {
+                                data: serde_json::json!(stderr_chunk),
+                                kind: "stderr".to_string(),
+                            });
+                        }
+                    },
+                );
                 bash.exec_streaming(&commands, output_cb).await
             } else {
                 bash.exec(&commands).await
@@ -161,21 +162,12 @@ impl ScriptedTool {
 
         // Keep ScriptedTool on the shared ToolRequest contract: per-call
         // timeouts must abort the whole orchestration, including callbacks.
-        // wasm32 has no timer driver. Reject requested timeouts instead of
-        // allowing an unresolved callback to suspend orchestration forever.
-        #[cfg(not(target_family = "wasm"))]
         let response = if let Some(ms) = timeout_ms {
             let duration = Duration::from_millis(ms);
-            match tokio::time::timeout(duration, fut).await {
+            match crate::time_compat::timeout(duration, fut).await {
                 Ok(response) => response,
                 Err(_) => timeout_response(duration),
             }
-        } else {
-            fut.await
-        };
-        #[cfg(target_family = "wasm")]
-        let response = if timeout_ms.is_some() {
-            unsupported_timeout_response()
         } else {
             fut.await
         };
@@ -281,6 +273,7 @@ impl Tool for ScriptedTool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ExecutionLimits;
     use crate::ToolArgs;
     use crate::ToolDef;
     use crate::tool_def::parse_flags;
@@ -431,6 +424,20 @@ mod tests {
             start.elapsed() < Duration::from_secs(2),
             "timeout_ms should abort before sleep completes"
         );
+    }
+
+    #[tokio::test]
+    async fn test_scripted_tool_forwards_limits_and_output_caps() {
+        let tool = ScriptedTool::builder("bounded")
+            .limits(ExecutionLimits::new().max_commands(10).max_stdout_bytes(3))
+            .tool_fn(ToolDef::new("emit", "Emit output"), |_args| {
+                Ok("12345".to_string())
+            })
+            .build();
+
+        let response = tool.execute(ToolRequest::new("emit")).await;
+        assert_eq!(response.stdout, "123");
+        assert!(response.stdout_truncated);
     }
 
     #[tokio::test]

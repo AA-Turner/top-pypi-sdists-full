@@ -49,6 +49,8 @@ from .literals import (
     FeatureStatusType,
     FindingHistoryUpdateSourceTypeType,
     FindingsTrendsStringFieldType,
+    FreeTrialStatusValueType,
+    FreeTrialTypeType,
     GranularityFieldType,
     GroupByFieldType,
     HealthIssueCodeType,
@@ -113,6 +115,7 @@ __all__ = (
     "AcceptAdministratorInvitationRequestTypeDef",
     "AcceptInvitationRequestTypeDef",
     "AccountDetailsTypeDef",
+    "AccountFreeTrialStatusTypeDef",
     "ActionLocalIpDetailsTypeDef",
     "ActionLocalPortDetailsTypeDef",
     "ActionOutputTypeDef",
@@ -1171,6 +1174,7 @@ __all__ = (
     "FirewallPolicyStatelessCustomActionsDetailsTypeDef",
     "FirewallPolicyStatelessCustomActionsDetailsUnionTypeDef",
     "FirewallPolicyStatelessRuleGroupReferencesDetailsTypeDef",
+    "FreeTrialStatusTypeDef",
     "GenerateRecommendedPolicyV2RequestTypeDef",
     "GeneratorDetailsOutputTypeDef",
     "GeneratorDetailsTypeDef",
@@ -1278,6 +1282,9 @@ __all__ = (
     "ListFindingAggregatorsRequestPaginateTypeDef",
     "ListFindingAggregatorsRequestTypeDef",
     "ListFindingAggregatorsResponseTypeDef",
+    "ListFreeTrialStatusesV2RequestPaginateTypeDef",
+    "ListFreeTrialStatusesV2RequestTypeDef",
+    "ListFreeTrialStatusesV2ResponseTypeDef",
     "ListInvitationsRequestPaginateTypeDef",
     "ListInvitationsRequestTypeDef",
     "ListInvitationsResponseTypeDef",
@@ -1583,6 +1590,12 @@ class AcceptInvitationRequestTypeDef(TypedDict):
 class AccountDetailsTypeDef(TypedDict):
     AccountId: str
     Email: NotRequired[str]
+
+class FreeTrialStatusTypeDef(TypedDict):
+    FeatureType: FreeTrialTypeType
+    Status: FreeTrialStatusValueType
+    StartedAt: datetime
+    ExpiresAt: datetime
 
 class ActionLocalIpDetailsTypeDef(TypedDict):
     IpAddressV4: NotRequired[str]
@@ -4214,6 +4227,12 @@ class ListFindingAggregatorsRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
 
+class ListFreeTrialStatusesV2RequestTypeDef(TypedDict):
+    AccountIds: NotRequired[Sequence[str]]
+    Statuses: NotRequired[Sequence[FreeTrialStatusValueType]]
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+
 class ListInvitationsRequestTypeDef(TypedDict):
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
@@ -4498,6 +4517,11 @@ class ResourceInfoTypeDef(TypedDict):
 
 class CreateMembersRequestTypeDef(TypedDict):
     AccountDetails: Sequence[AccountDetailsTypeDef]
+
+class AccountFreeTrialStatusTypeDef(TypedDict):
+    AccountId: str
+    EvaluatedAt: datetime
+    FreeTrialStatuses: list[FreeTrialStatusTypeDef]
 
 class ActionRemoteIpDetailsTypeDef(TypedDict):
     IpAddressV4: NotRequired[str]
@@ -6801,6 +6825,11 @@ class ListEnabledProductsForImportRequestPaginateTypeDef(TypedDict):
 class ListFindingAggregatorsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
+class ListFreeTrialStatusesV2RequestPaginateTypeDef(TypedDict):
+    AccountIds: NotRequired[Sequence[str]]
+    Statuses: NotRequired[Sequence[FreeTrialStatusValueType]]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
 class ListInvitationsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
@@ -7120,6 +7149,11 @@ class StatelessCustomPublishMetricActionOutputTypeDef(TypedDict):
 
 class StatelessCustomPublishMetricActionTypeDef(TypedDict):
     Dimensions: NotRequired[Sequence[StatelessCustomPublishMetricActionDimensionTypeDef]]
+
+class ListFreeTrialStatusesV2ResponseTypeDef(TypedDict):
+    AccountFreeTrialStatuses: list[AccountFreeTrialStatusTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
 
 AwsApiCallActionOutputTypeDef = TypedDict(
     "AwsApiCallActionOutputTypeDef",

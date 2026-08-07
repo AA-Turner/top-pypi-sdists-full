@@ -87,14 +87,16 @@ async def get_job_plans(
     project: ProjectModel,
     run_spec: RunSpec,
     max_offers: Optional[int],
+    full_offers: bool,
+    unallocated_resources: bool,
+    for_offers_only: bool,
 ) -> list[JobPlan]:
     """
     Returns job plans for the given run spec.
 
     Normal run planning (`dstack apply`) selects the best fleet candidate for each planned job
     and builds offers from that path. `dstack offer` without `--group-by` uses the same
-    `/runs/get_plan` API, but its synthetic run spec is detected by
-    `_should_select_best_fleet_candidate()`. In that case, planning skips
+    `/runs/get_plan` API but with `for_offers_only=True`. In that case, planning skips
     best-fleet-candidate selection and collects offers directly: global offers when no fleets
     are specified, or offers from the selected fleets when `--fleet` is used.
 
@@ -117,7 +119,7 @@ async def get_job_plans(
         job_num=0,
     )
 
-    if _should_select_best_fleet_candidate(run_spec) and run_spec.merged_profile.instances is None:
+    if not for_offers_only and run_spec.merged_profile.instances is None:
         candidate_fleet_models = await _select_candidate_fleet_models(
             session=session,
             project=project,
@@ -145,6 +147,7 @@ async def get_job_plans(
             replica_group_name=replica_group_name,
         )
         if candidate_fleet_models is not None:
+            # Regular job planning
             fleet_model, instance_offers, backend_offers = await find_optimal_fleet_with_offers(
                 project=project,
                 fleet_models=candidate_fleet_models,
@@ -155,8 +158,11 @@ async def get_job_plans(
                 volumes=volumes,
                 exclude_not_available=False,
                 skip_backend_offers=skip_backend_offers,
+                full_offers=full_offers,
+                unallocated_resources=unallocated_resources,
             )
         elif run_spec.merged_profile.instances is not None:
+            # Regular job planning or offer collection
             instance_offers = await get_targeted_instance_offers(
                 session=session,
                 project=project,
@@ -166,6 +172,7 @@ async def get_job_plans(
             )
             backend_offers = []
         elif run_spec.merged_profile.fleets is not None:
+            # Offer collection
             instance_offers, backend_offers = await get_offers_in_run_candidate_fleets(
                 session=session,
                 project=project,
@@ -173,8 +180,11 @@ async def get_job_plans(
                 job=jobs[0],
                 volumes=volumes,
                 skip_backend_offers=skip_backend_offers,
+                full_offers=full_offers,
+                unallocated_resources=unallocated_resources,
             )
         else:
+            # Offer collection
             instance_offers, backend_offers = await get_non_fleet_offers(
                 session=session,
                 project=project,
@@ -182,6 +192,8 @@ async def get_job_plans(
                 job=jobs[0],
                 volumes=volumes,
                 skip_backend_offers=skip_backend_offers,
+                full_offers=full_offers,
+                unallocated_resources=unallocated_resources,
             )
 
         for job in jobs:
@@ -324,6 +336,8 @@ async def find_optimal_fleet_with_offers(
     exclude_not_available: bool,
     skip_backend_offers: bool = False,
     skip_backend_offers_on_pool_capacity: bool = False,
+    full_offers: bool = False,
+    unallocated_resources: bool = False,
 ) -> tuple[
     Optional[FleetModel],
     list[tuple[InstanceModel, InstanceOfferWithAvailability]],
@@ -427,6 +441,8 @@ async def find_optimal_fleet_with_offers(
                 job=job,
                 volumes=volumes,
                 max_offers=_PER_FLEET_MAX_OFFERS,
+                full_offers=full_offers,
+                unallocated_resources=unallocated_resources,
             )
         available_backend_offers = _exclude_non_available_backend_offers(backend_offers)
         candidates_with_backend_offers.append(
@@ -459,6 +475,8 @@ async def find_optimal_fleet_with_offers(
             job=job,
             volumes=volumes,
             max_offers=None,
+            full_offers=full_offers,
+            unallocated_resources=unallocated_resources,
         )
         if exclude_not_available:
             backend_offers = _exclude_non_available_backend_offers(backend_offers)
@@ -715,6 +733,8 @@ async def _get_backend_offers_in_fleet(
     volumes: Optional[list[list[Volume]]],
     fleet_spec: Optional[FleetSpec] = None,
     max_offers: Optional[int] = None,
+    full_offers: bool = False,
+    unallocated_resources: bool = False,
 ) -> list[tuple[Backend, InstanceOfferWithAvailability]]:
     if fleet_spec is None:
         fleet_spec = get_fleet_spec(fleet_model)
@@ -746,6 +766,8 @@ async def _get_backend_offers_in_fleet(
             privileged=job.job_spec.privileged,
             instance_mounts=check_run_spec_requires_instance_mounts(run_spec),
             max_offers=max_offers,
+            full_offers=full_offers,
+            unallocated_resources=unallocated_resources,
         )
     return backend_offers
 
@@ -793,6 +815,8 @@ async def get_non_fleet_offers(
     job: Job,
     volumes: Optional[list[list[Volume]]] = None,
     skip_backend_offers: bool = False,
+    full_offers: bool = False,
+    unallocated_resources: bool = False,
 ) -> tuple[
     list[tuple[InstanceModel, InstanceOfferWithAvailability]],
     list[tuple[Backend, InstanceOfferWithAvailability]],
@@ -821,6 +845,8 @@ async def get_non_fleet_offers(
             volumes=volumes,
             privileged=job.job_spec.privileged,
             instance_mounts=check_run_spec_requires_instance_mounts(run_spec),
+            full_offers=full_offers,
+            unallocated_resources=unallocated_resources,
         )
     return instance_offers, backend_offers
 
@@ -832,6 +858,8 @@ async def get_backend_offers_in_run_candidate_fleets(
     job: Job,
     volumes: Optional[list[list[Volume]]],
     max_offers_per_fleet: Optional[int] = None,
+    full_offers: bool = False,
+    unallocated_resources: bool = False,
 ) -> list[tuple[Backend, InstanceOfferWithAvailability]]:
     """
     Returns backend offers across the run's selected candidate fleets.
@@ -860,6 +888,8 @@ async def get_backend_offers_in_run_candidate_fleets(
             job=job,
             volumes=volumes,
             max_offers=max_offers_per_fleet,
+            full_offers=full_offers,
+            unallocated_resources=unallocated_resources,
         ):
             offer_identity = _get_backend_offer_identity(offer)
             if offer_identity not in seen_offer_identities:
@@ -876,6 +906,8 @@ async def get_offers_in_run_candidate_fleets(
     job: Job,
     volumes: Optional[list[list[Volume]]] = None,
     skip_backend_offers: bool = False,
+    full_offers: bool = False,
+    unallocated_resources: bool = False,
 ) -> tuple[
     list[tuple[InstanceModel, InstanceOfferWithAvailability]],
     list[tuple[Backend, InstanceOfferWithAvailability]],
@@ -923,6 +955,8 @@ async def get_offers_in_run_candidate_fleets(
             job=job,
             volumes=volumes,
             max_offers_per_fleet=None,
+            full_offers=full_offers,
+            unallocated_resources=unallocated_resources,
         )
     return instance_offers, backend_offers
 
@@ -934,7 +968,7 @@ def _get_backend_offer_identity(offer: InstanceOfferWithAvailability) -> Hashabl
     Needed to deduplicate identical backend offers when merging offers from multiple fleets for
     `dstack offer --fleet ...`.
     """
-    return _freeze_offer_identity_value(offer.dict())
+    return _freeze_offer_identity_value(offer.model_dump())
 
 
 def _freeze_offer_identity_value(value: object) -> Hashable:
@@ -980,27 +1014,6 @@ def _get_job_plan(
         total_offers=len(job_offers),
         max_price=max((offer.price for offer in job_offers), default=None),
     )
-
-
-def _should_select_best_fleet_candidate(run_spec: RunSpec) -> bool:
-    """
-    Returns ``True`` for normal run planning and ``False`` for `dstack offer` without
-    `--group-by`.
-
-    Both `dstack apply` and `dstack offer` without `--group-by` call `/runs/get_plan`. The
-    current way to recognize `dstack offer` without `--group-by` is the synthetic task spec
-    that the CLI sends with `type == "task"` and `commands == [":"]`.
-    TODO: Replace this command-shape hack with an explicit request/API signal for
-    `dstack offer` without `--group-by`.
-
-    When this function returns ``False``, the planner skips best-fleet-candidate selection
-    and goes directly to the special `dstack offer` collection path:
-    global offers when no fleets are specified, or offers from the selected fleets when
-    `--fleet` is used.
-
-    A real task with `commands == [":"]` would also match this special `dstack offer` path.
-    """
-    return not (run_spec.configuration.type == "task" and run_spec.configuration.commands == [":"])
 
 
 def _get_offers_from_instances(

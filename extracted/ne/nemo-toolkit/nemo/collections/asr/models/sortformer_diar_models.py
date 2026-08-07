@@ -23,7 +23,6 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import numpy as np
 import torch
 import torch.distributed as dist
-from hydra.utils import instantiate
 from omegaconf import DictConfig
 from pytorch_lightning import Trainer
 from torch.utils.data import DataLoader
@@ -41,7 +40,7 @@ from nemo.collections.asr.parts.utils.speaker_utils import generate_diarization_
 from nemo.collections.asr.parts.utils.vad_utils import ts_vad_post_processing
 from nemo.collections.common.data.lhotse import get_lhotse_dataloader_from_config
 from nemo.core.classes import ModelPT
-from nemo.core.classes.common import PretrainedModelInfo
+from nemo.core.classes.common import PretrainedModelInfo, safe_instantiate
 from nemo.core.neural_types import AudioSignal, LengthsType, NeuralType
 from nemo.core.neural_types.elements import ProbsType
 from nemo.utils import logging
@@ -71,6 +70,28 @@ class SortformerEncLabelModel(ModelPT, ExportableEncDecModel, SpkDiarizationMixi
             List of available pre-trained models.
         """
         result = []
+
+        model = PretrainedModelInfo(
+            pretrained_model_name="diar_sortformer_4spk-v1",
+            description="For details about this model, please visit https://huggingface.co/nvidia/diar_sortformer_4spk-v1",
+            location="https://huggingface.co/nvidia/diar_sortformer_4spk-v1",
+        )
+        result.append(model)
+
+        model = PretrainedModelInfo(
+            pretrained_model_name="diar_streaming_sortformer_4spk-v2",
+            description="For details about this model, please visit https://huggingface.co/nvidia/diar_streaming_sortformer_4spk-v2",
+            location="https://huggingface.co/nvidia/diar_streaming_sortformer_4spk-v2",
+        )
+        result.append(model)
+
+        model = PretrainedModelInfo(
+            pretrained_model_name="diar_streaming_sortformer_4spk-v2.1",
+            description="For details about this model, please visit https://huggingface.co/nvidia/diar_streaming_sortformer_4spk-v2.1",
+            location="https://huggingface.co/nvidia/diar_streaming_sortformer_4spk-v2.1",
+        )
+        result.append(model)
+
         return result
 
     def __init__(self, cfg: DictConfig, trainer: Trainer = None):
@@ -114,7 +135,7 @@ class SortformerEncLabelModel(ModelPT, ExportableEncDecModel, SpkDiarizationMixi
 
         self.eps = self._cfg.get("eps", 1e-3)
         self.negative_init_val = self._cfg.get("negative_init_val", -99)
-        self.loss = instantiate(self._cfg.loss)
+        self.loss = safe_instantiate(self._cfg.loss)
 
         self.async_streaming = self._cfg.get("async_streaming", False)
         self.streaming_mode = self._cfg.get("streaming_mode", False)
@@ -279,16 +300,14 @@ class SortformerEncLabelModel(ModelPT, ExportableEncDecModel, SpkDiarizationMixi
         Generate encoder outputs from frontend encoder.
 
         Args:
-            processed_signal (torch.Tensor):
-                tensor containing audio-feature (mel spectrogram, mfcc, etc.).
-            processed_signal_length (torch.Tensor):
-                tensor containing lengths of audio signal in integers.
+            processed_signal (torch.Tensor): tensor containing audio-feature
+                (mel spectrogram, mfcc, etc.).
+            processed_signal_length (torch.Tensor): tensor containing lengths
+                of audio signal in integers.
 
         Returns:
-            emb_seq (torch.Tensor):
-                tensor containing encoder outputs.
-            emb_seq_length (torch.Tensor):
-                tensor containing lengths of encoder outputs.
+            emb_seq (torch.Tensor): tensor containing encoder outputs.
+            emb_seq_length (torch.Tensor): tensor containing lengths of encoder outputs.
         """
         # Spec augment is not applied during evaluation/testing
         if self.spec_augmentation is not None and self.training:
@@ -440,9 +459,10 @@ class SortformerEncLabelModel(ModelPT, ExportableEncDecModel, SpkDiarizationMixi
             input_signal_length (torch.Tensor): The lengths of the input audio signals.
 
         Returns:
-            processed_signal (torch.Tensor): The aggregated audio signal.
-                                             The length of this tensor should match the original batch size.
-            processed_signal_length (torch.Tensor): The lengths of the processed audio signals.
+            A tuple of ``(processed_signal, processed_signal_length)`` where
+            ``processed_signal`` is the aggregated audio signal tensor
+            (length matches original batch size) and
+            ``processed_signal_length`` contains the lengths of the processed signals.
         """
         input_signal = input_signal.cpu()
         processed_signal_list, processed_signal_length_list = [], []
@@ -1135,10 +1155,10 @@ class SortformerEncLabelModel(ModelPT, ExportableEncDecModel, SpkDiarizationMixi
             override_config: (Optional[DiarizeConfig]) A config to override the default config.
 
         Returns:
-            *if include_tensor_outputs is False: A list of lists of speech segments with a corresponding speaker index,
-                in format "[begin_seconds, end_seconds, speaker_index]".
-            *if include_tensor_outputs is True: A tuple of the above list
-                and list of tensors of raw speaker activity probabilities.
+            If include_tensor_outputs is False: A list of lists of speech segments with a corresponding speaker index,
+            in format "[begin_seconds, end_seconds, speaker_index]".
+            If include_tensor_outputs is True: A tuple of the above list
+            and list of tensors of raw speaker activity probabilities.
         """
         return super().diarize(
             audio=audio,

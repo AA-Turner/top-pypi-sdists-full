@@ -1,6 +1,10 @@
 from __future__ import annotations
 
+import ctypes
+import importlib.resources
 import json
+import math
+import sys
 
 import numpy as np
 import pytest
@@ -107,6 +111,11 @@ def test_transform_log_axis_to_dict() -> None:
     assert data["axes"][0]["edges"] == pytest.approx(
         np.exp(np.linspace(0, np.log(10), 11))
     )
+    writer_info = data["axes"][0]["writer_info"]["boost-histogram"]
+    assert writer_info["transform"] == "log"
+    assert writer_info["bins"] == 10
+    assert writer_info["lower"] == pytest.approx(1)
+    assert writer_info["upper"] == pytest.approx(10)
 
 
 def test_transform_sqrt_axis_to_dict() -> None:
@@ -117,6 +126,88 @@ def test_transform_sqrt_axis_to_dict() -> None:
     assert data["axes"][0]["edges"] == pytest.approx(
         (np.linspace(0, np.sqrt(10), 11)) ** 2
     )
+    writer_info = data["axes"][0]["writer_info"]["boost-histogram"]
+    assert writer_info["transform"] == "sqrt"
+    assert writer_info["bins"] == 10
+    assert writer_info["lower"] == pytest.approx(0)
+    assert writer_info["upper"] == pytest.approx(10)
+
+
+@pytest.mark.parametrize(
+    "transform",
+    [
+        pytest.param(bh.axis.transform.log, id="log"),
+        pytest.param(bh.axis.transform.sqrt, id="sqrt"),
+        pytest.param(bh.axis.transform.Pow(2), id="pow2"),
+        pytest.param(bh.axis.transform.Pow(0.5), id="pow_half"),
+    ],
+)
+def test_round_trip_transform(transform: bh.axis.transform.AxisTransform) -> None:
+    h = bh.Histogram(bh.axis.Regular(5, 1, 10, transform=transform))
+    h.fill([0.5, 1.5, 3.0, 8.0, 50.0])
+    data = _json_round_trip(to_uhi(h))
+    h2 = from_uhi(data)
+
+    assert isinstance(h2.axes[0], bh.axis.Regular)
+    assert h2.axes[0].transform is not None
+    assert repr(h2.axes[0].transform) == repr(transform)
+    assert h == h2
+
+
+@pytest.mark.skipif(
+    sys.implementation.name == "pypy",
+    reason="ctypes function-pointer transforms hang forever on PyPy",
+)
+@pytest.mark.skipif(
+    sys.implementation.name == "graalpy",
+    reason="ctypes function-pointer transforms are not supported on GraalPy",
+)
+def test_round_trip_transform_custom_falls_back_to_variable() -> None:
+    """A transform we can't reconstruct (a raw function pointer) degrades to a
+    Variable axis rather than failing."""
+    ftype = ctypes.CFUNCTYPE(ctypes.c_double, ctypes.c_double)
+    transform = bh.axis.transform.Function(
+        ftype(math.log), ftype(math.exp), name="custom"
+    )
+    h = bh.Histogram(bh.axis.Regular(5, 1, 10, transform=transform))
+    data = to_uhi(h)
+
+    assert "writer_info" not in data["axes"][0]
+
+    h2 = from_uhi(data)
+    assert isinstance(h2.axes[0], bh.axis.Variable)
+    assert np.asarray(h2.axes[0].edges) == pytest.approx(np.asarray(h.axes[0].edges))
+
+
+def test_from_uhi_unknown_transform_falls_back_to_variable() -> None:
+    """An unrecognized transform name in writer_info reads back as a Variable
+    axis instead of raising."""
+    data = {
+        "uhi_schema": 1,
+        "axes": [
+            {
+                "type": "variable",
+                "edges": [1.0, 2.0, 4.0, 10.0],
+                "underflow": True,
+                "overflow": True,
+                "circular": False,
+                "writer_info": {
+                    "boost-histogram": {
+                        "transform": "mystery",
+                        "bins": 3,
+                        "lower": 1.0,
+                        "upper": 10.0,
+                    }
+                },
+            }
+        ],
+        "storage": {"type": "double"},
+        "metadata": {},
+    }
+
+    h = from_uhi(data)
+    assert isinstance(h.axes[0], bh.axis.Variable)
+    assert np.asarray(h.axes[0].edges) == pytest.approx([1.0, 2.0, 4.0, 10.0])
 
 
 @pytest.mark.parametrize(
@@ -608,3 +699,46 @@ def test_from_uhi_structure_only_no_error() -> None:
     h = from_uhi(data)
     assert h.storage_type is bh.storage.Double
     assert np.asarray(h) == pytest.approx(np.zeros(5))
+
+
+@pytest.mark.parametrize(
+    "storage_type",
+    [
+        pytest.param(bh.storage.Int64(), id="int64"),
+        pytest.param(bh.storage.AtomicInt64(), id="atomic_int64"),
+        pytest.param(bh.storage.Double(), id="double"),
+        pytest.param(bh.storage.Unlimited(), id="unlimited"),
+        pytest.param(bh.storage.Weight(), id="weight"),
+        pytest.param(bh.storage.Mean(), id="mean"),
+        pytest.param(bh.storage.WeightedMean(), id="weighted_mean"),
+    ],
+)
+@pytest.mark.parametrize(
+    "keep_storage", [True, False], ids=["with_data", "metadata_only"]
+)
+def test_to_uhi_matches_uhi_schema(
+    storage_type: bh.storage.Storage, keep_storage: bool
+) -> None:
+    """``to_uhi`` output conforms to the UHI histogram JSON schema, including the
+    metadata-only (``keep_storage=False``) form used for type-only storage."""
+    jsonschema = pytest.importorskip("jsonschema")
+    schema = json.loads(
+        importlib.resources.files("uhi.resources")
+        .joinpath("histogram.schema.json")
+        .read_text()
+    )
+
+    h = bh.Histogram(
+        bh.axis.Regular(3, 0, 1),
+        bh.axis.IntCategory([1, 2]),
+        storage=storage_type,
+    )
+    if isinstance(storage_type, (bh.storage.Mean, bh.storage.WeightedMean)):
+        h.fill([0.1, 0.5, 0.5], [1, 2, 2], sample=[1.0, 2.0, 3.0])
+    else:
+        h.fill([0.1, 0.5, 0.5], [1, 2, 2])
+
+    data = _json_round_trip(to_uhi(h, keep_storage=keep_storage))
+
+    # The schema describes a mapping of named histograms.
+    jsonschema.validate({"hist": data}, schema)

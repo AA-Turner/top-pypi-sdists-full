@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pika
-Version: 1.4.2
+Version: 1.4.4
 Summary: Pika Python AMQP Client Library
 Maintainer-email: "Gavin M. Roy" <gavinmroy@gmail.com>, Luke Bakken <lukerbakken@gmail.com>
 License: BSD-3-Clause

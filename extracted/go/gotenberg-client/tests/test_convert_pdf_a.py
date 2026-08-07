@@ -1,17 +1,18 @@
 # SPDX-FileCopyrightText: 2023-present Trenton H <rda0128ou@mozmail.com>
 #
 # SPDX-License-Identifier: MPL-2.0
+from http import HTTPStatus
 from pathlib import Path
 
 import pikepdf
 import pytest
-from httpx import codes
 
 from gotenberg_client import GotenbergClient
 from gotenberg_client._pdfa_ua.routes import AsyncConvertToArchiveFormatRoute
 from gotenberg_client.options import PdfAFormat
 
 
+@pytest.mark.live
 class TestPdfAConvert:
     @pytest.mark.parametrize(
         ("gt_format", "pike_format"),
@@ -28,7 +29,7 @@ class TestPdfAConvert:
         with sync_client.pdf_convert.to_pdfa() as route:
             resp = route.convert(pdf_sample_one_file).pdf_format(gt_format).run_with_retry()
 
-        assert resp.status_code == codes.OK
+        assert resp.status_code == HTTPStatus.OK
         assert "Content-Type" in resp.headers
         assert resp.headers["Content-Type"] == "application/pdf"
 
@@ -51,7 +52,7 @@ class TestPdfAConvert:
         with sync_client.pdf_convert.to_pdfa() as route:
             resp = route.convert_files([pdf_sample_one_file, other_test_file]).pdf_format(gt_format).run_with_retry()
 
-            assert resp.status_code == codes.OK
+            assert resp.status_code == HTTPStatus.OK
             assert "Content-Type" in resp.headers
             assert resp.headers["Content-Type"] == "application/zip"
 
@@ -65,7 +66,7 @@ class TestPdfAConvert:
                 route.convert(pdf_sample_one_file).pdf_format(PdfAFormat.A2b).enable_universal_access().run_with_retry()
             )
 
-        assert resp.status_code == codes.OK
+        assert resp.status_code == HTTPStatus.OK
         assert "Content-Type" in resp.headers
         assert resp.headers["Content-Type"] == "application/pdf"
 
@@ -82,11 +83,13 @@ class TestPdfAConvert:
                 .run_with_retry()
             )
 
-        assert resp.status_code == codes.OK
+        assert resp.status_code == HTTPStatus.OK
         assert "Content-Type" in resp.headers
         assert resp.headers["Content-Type"] == "application/pdf"
 
 
+@pytest.mark.live
+@pytest.mark.async_route
 class TestPdfAConvertAsync:
     async def test_pdf_universal_access_disable(
         self,
@@ -100,6 +103,6 @@ class TestPdfAConvertAsync:
             .run_with_retry()
         )
 
-        assert resp.status_code == codes.OK
+        assert resp.status_code == HTTPStatus.OK
         assert "Content-Type" in resp.headers
         assert resp.headers["Content-Type"] == "application/pdf"

@@ -12,6 +12,10 @@ configuration (auth tokens, MCP registration, contexts) so rotated secrets are
 picked up without any binary install. It never runs alongside a self-update
 (which reinstalls, and thus reconfigures, on its own).
 
+Renewing the tokens this CLI manages is a separate tick with its own switch and
+its own skip rules — see :mod:`pysae_ai_tools.token_rotation`. Nothing here
+gates it: a credential nearing expiry must not depend on ``auto_update``.
+
 Skipped in CI, non-interactive (piped stdout or stderr), or when ``--json`` is
 in the argv — so scripted usage is never disrupted.
 """

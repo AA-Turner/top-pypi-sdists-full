@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: skylos
-Version: 4.33.0
+Version: 4.33.1
 Summary: Open-source, local-first static analysis and PR gates for Python, TypeScript/JavaScript, Go, Java, Kotlin, PHP, Rust, Dart, C#, and Shell. Finds dead code, security issues, secrets, quality regressions, and AI-code mistakes.
 Author-email: Aaron Oh <aaronoh2015@gmail.com>
 License-Expression: Apache-2.0
@@ -507,6 +507,13 @@ or `--include-folder` to override an excluded folder.
 | C# | Yes | Yes | Partial | Unsupported | C# symbol coverage plus selected ASP.NET, process, SQL, HTTP, and file sinks |
 | Kotlin | Yes | Partial | Partial | Unsupported | Kotlin symbol extraction with conservative static-analysis coverage |
 | Shell | No | Yes | Partial | Unsupported | shell-script security checks for command injection, SSRF, and path traversal |
+
+Go dead-code and security checks require the native `skylos-go` engine. If
+Skylos discovers Go files but cannot run that engine, the report is marked
+incomplete, no grade or clean result is produced, and the CLI exits with status
+`2`. Run `skylos doctor` to verify engine availability and configure
+`SKYLOS_GO_BIN` when using a separately built engine. The official GitHub
+Action builds the matching native engine automatically.
 
 See [Rules Reference](https://docs.skylos.dev/rules-reference) for rule families
 and scanner scope.

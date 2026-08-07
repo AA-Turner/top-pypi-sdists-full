@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+from collections import defaultdict
 from typing import Any
 
 from pyshacl import validate
@@ -47,6 +48,32 @@ class ShaclFileDriver:
     def to_string(self) -> str:
         graph = self._state_to_graph(self.state)
         return graph.serialize(format="turtle")
+
+    def serialize_table_config(
+        self, table_ref: str, config: dict[str, Any] | None
+    ) -> str:
+        state = State()
+        state.tables = defaultdict(Table)
+        state.tables[table_ref] = Table(config=config or {})
+        return self._state_to_graph(state).serialize(format="turtle")
+
+    def serialize_check(
+        self,
+        table_ref: str,
+        check_ref: str,
+        check: Check | None,
+        system_check: bool = False,
+    ) -> str:
+        state = State()
+        state.tables = defaultdict(Table)
+        table = Table()
+        if check is not None:
+            if system_check:
+                table.system_checks[check_ref] = check
+            else:
+                table.checks[check_ref] = check
+        state.tables[table_ref] = table
+        return self._state_to_graph(state).serialize(format="turtle")
 
     def _validate_with_shacl(self, graph: Graph, filename: str) -> None:
         """Validate the graph against SHACL shapes.

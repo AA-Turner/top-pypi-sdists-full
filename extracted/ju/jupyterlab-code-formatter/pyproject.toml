@@ -1,12 +1,12 @@
 [build-system]
-requires = ["hatchling>=1.5.0", "jupyterlab>=4.0.0,<5", "hatch-nodejs-version"]
+requires = ["hatchling>=1.5.0", "jupyterlab>=4.0.0,<5", "hatch-nodejs-version>=0.3.2"]
 build-backend = "hatchling.build"
 
 [project]
 name = "jupyterlab_code_formatter"
 readme = "README.md"
 license = { file = "LICENSE" }
-requires-python = ">=3.7"
+requires-python = ">=3.10"
 classifiers = [
     "Framework :: Jupyter",
     "Framework :: Jupyter :: JupyterLab",
@@ -16,51 +16,62 @@ classifiers = [
     "License :: OSI Approved :: BSD License",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.7",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
 ]
 dependencies = [
-    "jupyter_server>=1.21,<3",
+    "jupyter_server>=2.4.0,<3",
     "packaging",
 ]
 dynamic = ["version", "description", "authors", "urls", "keywords"]
 
 [project.optional-dependencies]
 dev = [
+    "autopep8",
     "black==22.1.0",
     "blue==0.9.1",
-    "ruff",
-    "isort",
-    "yapf",
-    "rpy2",
-    "autopep8",
-    "jupyterlab>=3.0.0",
     "click==8.0.2",
-
+    "isort",
+    "jupyterlab>=4",
+    "rpy2",
+    "ruff",
+    "yapf",
 ]
 test = [
+    "black==22.1.0",
+    "blue==0.9.1",
     "coverage",
+    "isort",
     "pytest",
     "pytest-asyncio",
     "pytest-cov",
     "pytest-jupyter[server]>=0.6.0",
-    "black==22.1.0",
-    "blue==0.9.1",
-    "isort",
-    "yapf",
     "rpy2",
-    "importlib_metadata; python_version<'3.8'",
     "ruff",
+    "yapf",
+]
+docs = [
+    "furo>=2025",
+    "myst-parser>=1",
+    "sphinx>=5.3",
+    "sphinx-copybutton>=0.5.2",
+    "sphinx-inline-tabs>=2021.3.28b7",
+]
+
+[dependency-groups]
+ui-tests = [
+    "black==22.1.0",
+    "isort",
 ]
 
 [tool.hatch.version]
 source = "nodejs"
 
 [tool.hatch.metadata.hooks.nodejs]
-fields = ["description", "authors", "urls"]
+fields = ["description", "authors", "urls", "keywords"]
 
 [tool.hatch.build.targets.sdist]
 artifacts = ["jupyterlab_code_formatter/labextension"]
@@ -70,7 +81,6 @@ exclude = [".github", "binder"]
 "jupyterlab_code_formatter/labextension" = "share/jupyter/labextensions/jupyterlab_code_formatter"
 "install.json" = "share/jupyter/labextensions/jupyterlab_code_formatter/install.json"
 "jupyter-config/server-config" = "etc/jupyter/jupyter_server_config.d"
-"jupyter-config/nb-config" = "etc/jupyter/jupyter_notebook_config.d"
 
 [tool.hatch.build.hooks.version]
 path = "jupyterlab_code_formatter/_version.py"

@@ -22,31 +22,31 @@ from .utils import encode_params, find_obj, get_by_path
 
 # GraphQL operation IDs used by this module.
 # If you add a new endpoint, add it here manually.
-# Update this block with: `uv run scripts/update_gql_ops.py`
+# Update this block with: `uv run scripts/update-gql-ops.py`
 # This script rewrites the whole block automatically.
 
 # GQL_OPS_CODEGEN
 OP_AboutAccountQuery = "TzOG2twZEfhr9KmClvVVqA/AboutAccountQuery"
-OP_BlueVerifiedFollowers = "94iKIFXsW369GcGrPaEBcA/BlueVerifiedFollowers"
-OP_Bookmarks = "LoLaMO4GuHLEPJOhH9kjAw/Bookmarks"
+OP_BlueVerifiedFollowers = "cg6WLW39UujWMeX77xBnOA/BlueVerifiedFollowers"
+OP_Bookmarks = "aqjes8lRHRFG0HUglVTfNg/Bookmarks"
 OP_CommunityQuery = "-ElI1vg3dYbttVMhBhGdLw/CommunityQuery"
-OP_CommunityTweetsTimeline = "S8rty5gPlDOnHNuay5ecag/CommunityTweetsTimeline"
-OP_Followers = "18SNsfvwgu2CYIweeUVHAw/Followers"
-OP_Following = "PEIBUtChvR2i_NZCxbK3fA/Following"
-OP_GenericTimelineById = "GswYtMwzaFKSDx_SvC-f6g/GenericTimelineById"
-OP_ListLatestTweetsTimeline = "LV64djPRhnsVhGCK76s13w/ListLatestTweetsTimeline"
-OP_ListMembers = "_G-ikUlIqZSkW3Y9Qz8Htw/ListMembers"
-OP_Retweeters = "eio_KeZrPr83caqxWGNtiw/Retweeters"
-OP_SearchTimeline = "hz_94eVAtrtQo_vO3my7Rw/SearchTimeline"
-OP_TweetDetail = "rZA6K31W4E90vZKBmxXV3g/TweetDetail"
-OP_UserByRestId = "DaeC_2LfMgwCujE03HSZtw/UserByRestId"
-OP_UserByScreenName = "2qvSHpkWTMS9i0zJAwDNiA/UserByScreenName"
-OP_UserCreatorSubscriptions = "qhT9BsaNXNYh4R-e1REj7Q/UserCreatorSubscriptions"
-OP_UserMedia = "IS3w9vvPg1SJysLErvnFGg/UserMedia"
-OP_UserTweets = "6r5OLCC_wFH4CpRyXKuAmQ/UserTweets"
-OP_UserTweetsAndReplies = "klja8a2iJX_3to5RdfVlgw/UserTweetsAndReplies"
-OP_membersSliceTimeline_Query = "WSbJGJjZaVasSj9bnqSZSA/membersSliceTimeline_Query"
-OP_moderatorsSliceTimeline_Query = "GBMT3GOWy5dYsYC4XJfvow/moderatorsSliceTimeline_Query"
+OP_CommunityTweetsTimeline = "dD1uF9vQx0OX-e1rKA4YLw/CommunityTweetsTimeline"
+OP_Followers = "vJijlO_CM7dyGFNjDd7iqQ/Followers"
+OP_Following = "b8XpwALENnJdFSHchkK6rw/Following"
+OP_GenericTimelineById = "BrGScxnisMdTXyeLScaEhQ/GenericTimelineById"
+OP_ListLatestTweetsTimeline = "jW040BLUjh8X6Tw2ODQufA/ListLatestTweetsTimeline"
+OP_ListMembers = "wGce-45xnc5bs3HVvevC2w/ListMembers"
+OP_Retweeters = "_wJOTLm5HMqNdcr1nGWlyA/Retweeters"
+OP_SearchTimeline = "BGd0T_j7oVwlW5U79tO_0A/SearchTimeline"
+OP_TweetDetail = "559hs_YZNV4IgA3Z6zIIuw/TweetDetail"
+OP_UserByRestId = "xvmVfRLmnr1alc5f2dib0Q/UserByRestId"
+OP_UserByScreenName = "Gb-d6r0vxPOADdG62OEBpQ/UserByScreenName"
+OP_UserCreatorSubscriptions = "n5c96Ql2BupZFGeEOIp9cA/UserCreatorSubscriptions"
+OP_UserMedia = "2DC9TKrcUzwGC_QskSVl5w/UserMedia"
+OP_UserTweets = "eoJ5zbv51Z_KVl81v9PmLQ/UserTweets"
+OP_UserTweetsAndReplies = "wc5DRl4VaW5lSqJ8YbftZQ/UserTweetsAndReplies"
+OP_membersSliceTimeline_Query = "woAp_YdzAdqnWDrqLTNpAw/membersSliceTimeline_Query"
+OP_moderatorsSliceTimeline_Query = "0oYT9GRiWUhrz5xoqFE9uw/moderatorsSliceTimeline_Query"
 # GQL_OPS_CODEGEN
 
 GQL_URL = "https://x.com/i/api/graphql"
@@ -142,6 +142,25 @@ class API:
 
         return rep if is_res else None, new_total, is_cur and not is_lim
 
+    def _is_stalled(self, q: str, res: list, cur: str | None, seen: set[tuple[str, ...]]):
+        keys: list[tuple[str, ...]] = [("cursor", cur)] if cur is not None else []
+        if q == "SearchTimeline":
+            entry_ids = tuple(
+                str(x.get("entryId"))
+                for x in res
+                if isinstance(x, dict) and x.get("entryId") is not None
+            )
+            if entry_ids:
+                keys.append(("entries", *entry_ids))
+
+        if any(x in seen for x in keys):
+            return True
+
+        # Not sure whether A → B → A should count as a stall, so only compare the last page.
+        seen.clear()  # Comment this out to detect repeats across all pages.
+        seen.update(keys)
+        return False
+
     def _get_cursor(self, obj: dict, cursor_type="Bottom") -> str | None:
         # standard timeline cursor: {cursorType: "Bottom", value: "..."}
         # fallback: community endpoints use slice_info.next_cursor (plain string)
@@ -171,6 +190,7 @@ class API:
         queue, cur, cnt, active = op.split("/")[-1], None, 0, True
         kv, ft = {**kv}, {**GQL_FEATURES, **(ft or {})}
         empty_pages = 0
+        seen: set[tuple[str, ...]] = set()
 
         async with QueueClient(self.pool, queue, self.debug, proxy=self.proxy) as client:
             while active:
@@ -189,6 +209,10 @@ class API:
                 obj = rep.json()
                 els = self._gql_entries(obj)
                 cur = self._get_cursor(obj, cursor_type)
+
+                if self._is_stalled(queue, els, cur, seen):
+                    logger.warning(f"{queue} pagination stalled, stopping")
+                    return
 
                 rep, cnt, active = self._is_end(rep, queue, els, cur, cnt, limit)
                 if rep is None:

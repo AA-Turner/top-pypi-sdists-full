@@ -102,7 +102,9 @@ class AzureCompute(
             credential=credential, subscription_id=config.subscription_id
         )
 
-    def get_all_offers_with_availability(self) -> List[InstanceOfferWithAvailability]:
+    def get_all_offers_with_availability(
+        self, unallocated_resources: bool
+    ) -> List[InstanceOfferWithAvailability]:
         offers = get_catalog_offers(
             backend=BackendType.AZURE,
             locations=self.config.regions,
@@ -115,7 +117,9 @@ class AzureCompute(
         )
         return offers_with_availability
 
-    def get_offers_modifiers(self, requirements: Requirements) -> Iterable[OfferModifier]:
+    def get_offers_modifiers(
+        self, requirements: Requirements, full_offers: bool
+    ) -> Iterable[OfferModifier]:
         return [get_offers_disk_modifier(CONFIGURABLE_DISK_SIZE, requirements)]
 
     def create_instance(
@@ -288,9 +292,7 @@ class AzureCompute(
             image_reference=_get_gateway_image_ref(),
             vm_size=DEFAULT_GATEWAY_INSTANCE_TYPE,
             instance_name=instance_name,
-            user_data=get_gateway_user_data(
-                configuration.ssh_key_pub, router=configuration.router
-            ),
+            user_data=get_gateway_user_data(configuration.ssh_key_pub),
             ssh_pub_keys=[configuration.ssh_key_pub],
             spot=False,
             disk_size=30,

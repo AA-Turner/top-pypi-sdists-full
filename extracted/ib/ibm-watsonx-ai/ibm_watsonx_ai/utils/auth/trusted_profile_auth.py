@@ -6,13 +6,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Callable
 
-from ibm_watsonx_ai.utils.auth import IAMTokenAuth
-from ibm_watsonx_ai.utils.auth.base_auth import (
-    RefreshableTokenAuth,
-    TokenAuth,
-    TokenInfo,
-    _get_token_info,
-)
+from ibm_watsonx_ai.utils.auth.iam_auth import IAMTokenAuth
+from ibm_watsonx_ai.utils.auth.models import TokenInfo
+from ibm_watsonx_ai.utils.auth.refreshable_token_auth import RefreshableTokenAuth
+from ibm_watsonx_ai.utils.auth.token_auth import TokenAuth
+from ibm_watsonx_ai.utils.auth.utils import get_token_payload
 from ibm_watsonx_ai.wml_client_error import (
     AuthenticationError,
     InvalidCredentialsError,
@@ -46,19 +44,13 @@ class TrustedProfileAuth(RefreshableTokenAuth):
         on_token_refresh: Callable[[], None] | None = None,
         on_token_set: Callable[[], None] | None = None,
     ) -> None:
-        RefreshableTokenAuth.__init__(
-            self, api_client, on_token_creation, on_token_refresh
-        )
+        super().__init__(api_client, on_token_creation, on_token_refresh)
         self._trusted_profile_id = api_client.credentials.trusted_profile_id
 
         if api_client.credentials.api_key is not None:
-
-            def _on_token_refresh():
-                self._save_token_data(self._generate_token())
-
             self._internal_auth_method = IAMTokenAuth(
                 api_client,
-                on_token_refresh=_on_token_refresh,
+                on_token_refresh=lambda: self._save_token_data(self._generate_token()),
             )
         elif api_client.credentials.token is not None:
             self._internal_auth_method = TokenAuth(
@@ -162,7 +154,7 @@ class TrustedProfileAuth(RefreshableTokenAuth):
         """
         token = self._internal_auth_method.get_token()
         return (
-            "Profile" == _get_token_info(token).get("sub_type", "")
+            "Profile" == get_token_payload(token).get("sub_type", "")
             if token is not None
             else False
         )

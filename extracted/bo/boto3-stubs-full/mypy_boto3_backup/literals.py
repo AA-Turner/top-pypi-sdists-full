@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from mypy_boto3_backup.literals import AggregationPeriodType
+    from mypy_boto3_backup.literals import AccessPointStatusType
 
-    data: AggregationPeriodType = "FOURTEEN_DAYS"
+    data: AccessPointStatusType = "AVAILABLE"
     ```
 """
 
@@ -23,6 +23,7 @@ else:
 
 
 __all__ = (
+    "AccessPointStatusType",
     "AggregationPeriodType",
     "BackupJobStateType",
     "BackupJobStatusType",
@@ -36,6 +37,9 @@ __all__ = (
     "IndexType",
     "LegalHoldStatusType",
     "LifecycleDeleteAfterEventType",
+    "ListBackupAccessPointsByRecoveryPointPaginatorName",
+    "ListBackupAccessPointsByResourcePaginatorName",
+    "ListBackupAccessPointsPaginatorName",
     "ListBackupJobsPaginatorName",
     "ListBackupPlanTemplatesPaginatorName",
     "ListBackupPlanVersionsPaginatorName",
@@ -86,6 +90,9 @@ __all__ = (
 )
 
 
+AccessPointStatusType = Literal[
+    "AVAILABLE", "CREATING", "DELETING", "DISASSOCIATED", "DISASSOCIATING", "EXPIRED", "FAILED"
+]
 AggregationPeriodType = Literal["FOURTEEN_DAYS", "ONE_DAY", "SEVEN_DAYS"]
 BackupJobStateType = Literal[
     "ABORTED",
@@ -112,6 +119,12 @@ BackupJobStatusType = Literal[
     "RUNNING",
 ]
 BackupVaultEventType = Literal[
+    "ACCESS_POINT_AVAILABLE",
+    "ACCESS_POINT_CREATION_FAILED",
+    "ACCESS_POINT_DELETED",
+    "ACCESS_POINT_DELETION_FAILED",
+    "ACCESS_POINT_DISASSOCIATED",
+    "ACCESS_POINT_EXPIRED",
     "BACKUP_JOB_COMPLETED",
     "BACKUP_JOB_EXPIRED",
     "BACKUP_JOB_FAILED",
@@ -157,6 +170,11 @@ IndexStatusType = Literal["ACTIVE", "DELETING", "FAILED", "PENDING"]
 IndexType = Literal["DISABLED", "ENABLED"]
 LegalHoldStatusType = Literal["ACTIVE", "CANCELED", "CANCELING", "CREATING"]
 LifecycleDeleteAfterEventType = Literal["DELETE_AFTER_COPY"]
+ListBackupAccessPointsByRecoveryPointPaginatorName = Literal[
+    "list_backup_access_points_by_recovery_point"
+]
+ListBackupAccessPointsByResourcePaginatorName = Literal["list_backup_access_points_by_resource"]
+ListBackupAccessPointsPaginatorName = Literal["list_backup_access_points"]
 ListBackupJobsPaginatorName = Literal["list_backup_jobs"]
 ListBackupPlanTemplatesPaginatorName = Literal["list_backup_plan_templates"]
 ListBackupPlanVersionsPaginatorName = Literal["list_backup_plan_versions"]
@@ -227,6 +245,8 @@ ServiceName = Literal[
     "account",
     "acm",
     "acm-pca",
+    "agent-registry",
+    "agent-registry-control",
     "aiops",
     "amp",
     "amplify",
@@ -654,6 +674,9 @@ ResourceServiceName = Literal[
     "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
 PaginatorName = Literal[
+    "list_backup_access_points",
+    "list_backup_access_points_by_recovery_point",
+    "list_backup_access_points_by_resource",
     "list_backup_jobs",
     "list_backup_plan_templates",
     "list_backup_plan_versions",

@@ -16,6 +16,8 @@ from mypy_boto3_accessanalyzer.client import AccessAnalyzerClient
 from mypy_boto3_account.client import AccountClient
 from mypy_boto3_acm.client import ACMClient
 from mypy_boto3_acm_pca.client import ACMPCAClient
+from mypy_boto3_agent_registry.client import AgentRegistryClient
+from mypy_boto3_agent_registry_control.client import AgentRegistryControlClient
 from mypy_boto3_aiops.client import AIOpsClient
 from mypy_boto3_amp.client import PrometheusServiceClient
 from mypy_boto3_amplify.client import AmplifyClient
@@ -555,6 +557,42 @@ def client(
 ) -> ACMPCAClient:
     """
     Create client for ACMPCA service.
+    """
+
+@overload
+def client(
+    service_name: Literal["agent-registry"],
+    region_name: str | None = ...,
+    api_version: str | None = ...,
+    use_ssl: bool | None = ...,
+    verify: bool | str | None = ...,
+    endpoint_url: str | None = ...,
+    aws_access_key_id: str | None = ...,
+    aws_secret_access_key: str | None = ...,
+    aws_session_token: str | None = ...,
+    config: Config | None = ...,
+    aws_account_id: str | None = ...,
+) -> AgentRegistryClient:
+    """
+    Create client for AgentRegistry service.
+    """
+
+@overload
+def client(
+    service_name: Literal["agent-registry-control"],
+    region_name: str | None = ...,
+    api_version: str | None = ...,
+    use_ssl: bool | None = ...,
+    verify: bool | str | None = ...,
+    endpoint_url: str | None = ...,
+    aws_access_key_id: str | None = ...,
+    aws_secret_access_key: str | None = ...,
+    aws_session_token: str | None = ...,
+    config: Config | None = ...,
+    aws_account_id: str | None = ...,
+) -> AgentRegistryControlClient:
+    """
+    Create client for AgentRegistryControl service.
     """
 
 @overload

@@ -15,7 +15,7 @@
 """  # noqa: E501
 
 
-__version__ = "1.3.276"
+__version__ = "1.3.282"
 
 # Define package exports
 __all__ = [
@@ -1177,6 +1177,7 @@ __all__ = [
     "SubscriptionStatusResponse",
     "SubscriptionTier",
     "SubscriptionTierConfig",
+    "SuggestedConfigResponse",
     "SuggestedExtractor",
     "SuggestedStage",
     "SuitableCollection",
@@ -2506,6 +2507,7 @@ from mixpeek.models.subscription_status import SubscriptionStatus as Subscriptio
 from mixpeek.models.subscription_status_response import SubscriptionStatusResponse as SubscriptionStatusResponse
 from mixpeek.models.subscription_tier import SubscriptionTier as SubscriptionTier
 from mixpeek.models.subscription_tier_config import SubscriptionTierConfig as SubscriptionTierConfig
+from mixpeek.models.suggested_config_response import SuggestedConfigResponse as SuggestedConfigResponse
 from mixpeek.models.suggested_extractor import SuggestedExtractor as SuggestedExtractor
 from mixpeek.models.suggested_stage import SuggestedStage as SuggestedStage
 from mixpeek.models.suitable_collection import SuitableCollection as SuitableCollection

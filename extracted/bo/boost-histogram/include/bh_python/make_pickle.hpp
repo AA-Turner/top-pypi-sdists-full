@@ -51,10 +51,10 @@
 #include <boost/core/span.hpp>
 #include <boost/histogram/detail/array_wrapper.hpp>
 #include <boost/mp11/function.hpp> // mp_or
-#include <boost/mp11/utility.hpp>  // mp_valid
 
 #include <algorithm>
 #include <cstddef>
+#include <stdexcept>
 #include <string>
 #include <type_traits>
 #include <utility>
@@ -67,15 +67,6 @@ constexpr boost::span<T> make_span(T* begin, std::size_t size) noexcept {
     return boost::span<T>{begin, size};
 }
 } // namespace
-
-template <class T,
-          class = decltype(std::declval<T&>().serialize(std::declval<std::nullptr_t&>(),
-                                                        0))>
-struct has_method_serialize_impl {};
-
-template <class T>
-using has_method_serialize =
-    typename boost::mp11::mp_valid<has_method_serialize_impl, T>::type;
 
 namespace boost {
 namespace serialization {
@@ -134,8 +125,8 @@ class tuple_oarchive {
     using is_saving  = std::true_type;
     using is_loading = std::false_type;
 
-    explicit tuple_oarchive(py::tuple& tup)
-        : tup_(tup) {}
+    explicit tuple_oarchive(py::list& lst)
+        : lst_(lst) {}
 
     template <class T>
     tuple_oarchive& operator&(boost::nvp<T> t) {
@@ -173,8 +164,7 @@ class tuple_oarchive {
     }
 
     tuple_oarchive& operator<<(const py::object& obj) {
-        // maybe use growth factor 1.6 and shrink tuple to final size in destructor?
-        tup_ = tup_ + py::make_tuple(obj);
+        lst_.append(obj);
         return *this;
     }
 
@@ -242,7 +232,7 @@ class tuple_oarchive {
     }
 
   private:
-    py::tuple& tup_;
+    py::list& lst_;
 };
 
 class tuple_iarchive {
@@ -311,7 +301,16 @@ class tuple_iarchive {
 
     template <class T>
     tuple_iarchive& operator>>(py::array_t<T>& a) {
-        return operator>>(static_cast<py::object&>(a));
+        py::object obj;
+        this->operator>>(obj);
+        // validate that the pickled object really is an array of the right
+        // dtype; make a C-contiguous copy/conversion if needed
+        auto arr
+            = py::array_t<T, py::array::c_style | py::array::forcecast>::ensure(obj);
+        if(!arr)
+            throw py::value_error("expected a numpy array in pickle data");
+        a = std::move(arr);
+        return *this;
     }
 
     template <class T>
@@ -345,7 +344,9 @@ class tuple_iarchive {
         py::array_t<T> a;
         this->operator>>(a);
         // buffer wrapped by array_wrapper must already have correct size
-        BOOST_ASSERT(static_cast<std::size_t>(a.size()) == w.size);
+        if(static_cast<std::size_t>(a.size()) != w.size)
+            throw std::runtime_error(
+                "array size does not match expected size in pickle data");
         // sadly we cannot move the memory from the numpy array into the vector
         std::copy(a.data(), a.data() + a.size(), w.ptr);
         return *this;
@@ -370,10 +371,10 @@ template <class T>
 decltype(auto) make_pickle() {
     return py::pickle(
         [](const T& obj) {
-            py::tuple tup;
-            tuple_oarchive oa{tup};
+            py::list lst;
+            tuple_oarchive oa{lst};
             oa << obj;
-            return tup;
+            return py::tuple{lst};
         },
         [](const py::tuple& tup) {
             tuple_iarchive ia{tup};

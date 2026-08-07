@@ -253,6 +253,23 @@ def test_fix_null_name_replaces_in_place(temp_dir):
     assert len(fixed.splitlines()) == len(original.splitlines())
 
 
+def test_fix_anchored_empty_name_does_not_orphan_alias(temp_dir):
+    """A SAFE fix must bail when replacing the key would delete an anchor."""
+    skill = temp_dir / "anchored-name-skill"
+    skill.mkdir()
+    original = "---\nname: &shared\nalias: *shared\n" "description: Does things.\n---\n\n# Body\n"
+    (skill / "SKILL.md").write_text(original)
+
+    context = RepositoryContext(skill)
+    rule = AgentSkillValidRule()
+    violations = rule.check(context)
+    name_violation = next(v for v in violations if "Missing required 'name'" in v.message)
+    assert name_violation.fixable is False
+    assert name_violation.fix_confidence is None
+    assert rule.fix(context, violations) == []
+    assert (skill / "SKILL.md").read_text() == original
+
+
 def test_missing_description_fails(temp_dir):
     skill = temp_dir / "no-desc"
     skill.mkdir()
@@ -612,7 +629,9 @@ def test_structure_unknown_dir_warns(temp_dir):
     context = RepositoryContext(skill)
     violations = AgentSkillStructureRule().check(context)
     assert len(violations) == 1
-    assert "random-stuff" in violations[0].message
+    assert violations[0].message == (
+        "Unrecognized directory 'random-stuff' " "(expected: assets, evals, references, scripts)"
+    )
 
 
 def test_structure_custom_allowed_dirs(temp_dir):
@@ -781,6 +800,52 @@ def test_evals_missing_evals_array_fails(temp_dir):
     context = RepositoryContext(skill)
     violations = AgentSkillEvalsRule().check(context)
     assert any("evals" in v.message and "array" in v.message.lower() for v in violations)
+
+
+def test_evals_array_root_is_reported_as_wrong_format_not_bad_json(temp_dir):
+    """openai/plugins ships evals.json files that are top-level arrays of
+    eval cases (another harness's format). That still violates this rule,
+    but the message must say the format is wrong — "must be a JSON object"
+    reads as a syntax complaint about a file that parses fine."""
+    skill = temp_dir / "array-evals"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text("---\nname: array-evals\ndescription: Array evals\n---\n")
+    evals_dir = skill / "evals"
+    evals_dir.mkdir()
+    (evals_dir / "evals.json").write_text(
+        json.dumps(
+            [
+                {
+                    "id": "deploy-001-install-asks-mode",
+                    "question": "I want to install the tool.",
+                    "expected_skill": "array-evals",
+                    "ground_truth": "The agent asks how the user wants to run it.",
+                    "expected_behavior": ["Routes to array-evals", "Asks the mode question"],
+                }
+            ]
+        )
+    )
+
+    context = RepositoryContext(skill)
+    violations = AgentSkillEvalsRule().check(context)
+    assert len(violations) == 1
+    assert "valid JSON but not the Agent Skills evals format" in violations[0].message
+    assert "JSON array" in violations[0].message
+
+
+def test_evals_scalar_root_is_reported_as_wrong_format(temp_dir):
+    skill = temp_dir / "scalar-evals"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text("---\nname: scalar-evals\ndescription: Scalar evals\n---\n")
+    evals_dir = skill / "evals"
+    evals_dir.mkdir()
+    (evals_dir / "evals.json").write_text('"see evals.yaml"')
+
+    context = RepositoryContext(skill)
+    violations = AgentSkillEvalsRule().check(context)
+    assert len(violations) == 1
+    assert "valid JSON but not the Agent Skills evals format" in violations[0].message
+    assert "JSON scalar" in violations[0].message
 
 
 def test_evals_entry_missing_id_warns(temp_dir):
@@ -1660,6 +1725,21 @@ def test_fenced_code_block_reference(temp_dir):
     (skill / "scripts" / "run.py").write_text("print('hi')\n")
 
     assert AgentSkillUnreferencedFilesRule().check(RepositoryContext(skill)) == []
+
+
+def test_agents_is_a_recognized_optional_skill_directory(temp_dir):
+    from skillsaw.rules.builtin.agentskills.structure import AgentSkillStructureRule
+
+    skill = _make_skill(temp_dir)
+    (skill / "agents").mkdir()
+    (skill / "agents" / "openai.yaml").write_text("interface: {}\n", encoding="utf-8")
+
+    # Host metadata remains valid even when a repository narrows its package
+    # content allowlist. Keeping it outside that list also preserves existing
+    # violation messages and baseline fingerprints when a host extension is
+    # added.
+    rule = AgentSkillStructureRule({"allowed_dirs": []})
+    assert rule.check(RepositoryContext(skill)) == []
 
 
 def test_code_span_reference(temp_dir):

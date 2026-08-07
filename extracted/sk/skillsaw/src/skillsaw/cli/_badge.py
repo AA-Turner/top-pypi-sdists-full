@@ -9,6 +9,7 @@ from ..context import RepositoryContext
 from ..linter import Linter
 from ._config import load_config
 from ._helpers import _RuleProgress, _ansi_colors, color_enabled
+from skillsaw.paths import safe_resolve
 
 _BADGE_FILENAME = ".skillsaw-badge.json"
 _CARD_FILENAME = ".skillsaw-card.svg"
@@ -43,7 +44,7 @@ def _repo_display_name(root_path: Path) -> str:
             name = name[: -len(".git")]
         if name:
             return name
-    return root_path.resolve().name
+    return (safe_resolve(root_path) or root_path).name
 
 
 def _github_raw_url(root_path: Path, badge_path: Path):
@@ -68,7 +69,9 @@ def _github_raw_url(root_path: Path, badge_path: Path):
         branch = _git(root_path, "rev-parse", "--abbrev-ref", "HEAD") or "main"
 
     try:
-        rel = badge_path.resolve().relative_to(root_path.resolve())
+        rel = (safe_resolve(badge_path) or badge_path).relative_to(
+            (safe_resolve(root_path) or root_path)
+        )
     except ValueError:
         rel = Path(badge_path.name)
     return f"https://raw.githubusercontent.com/{owner}/{repo}/{branch}/{rel.as_posix()}"
@@ -98,6 +101,12 @@ def _run_badge(args):
         rule_progress.clear()
 
     from ..grade import compute_grade
+    from ..linter import ADVISORY_RULE_IDS
+
+    # Advisory notices (deprecation warnings) describe the config, not the
+    # repository's content — exclude them from the grade and card exactly
+    # like the lint command does.
+    violations = [v for v in violations if v.rule_id not in ADVISORY_RULE_IDS]
 
     content_tokens = sum(b.estimate_tokens() for b in context.lint_tree.content_blocks())
     grade = compute_grade(violations, content_tokens)
@@ -115,14 +124,16 @@ def _run_badge(args):
         from collections import Counter
 
         from ..card import render_card
-        from ..lint_target import PluginNode, SkillNode
+        from ..lint_target import SkillNode
 
         card_path = badge_path.parent / _CARD_FILENAME
         card_path.write_bytes(
             render_card(
                 grade,
                 repo_name=_repo_display_name(context.root_path),
-                plugin_count=len(context.lint_tree.find(PluginNode)),
+                # The deduplicated Claude∪Codex count every formatter
+                # reports; PluginNode covers only Claude-style directories.
+                plugin_count=len(context.distinct_plugin_dirs()),
                 skill_count=len(context.lint_tree.find(SkillNode)),
                 top_rules=Counter(v.rule_id for v in violations).most_common(3),
                 theme=getattr(args, "theme", "dark"),

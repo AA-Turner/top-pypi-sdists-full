@@ -27,16 +27,13 @@ class GetSecretsStoreSecretsResult:
     """
     A collection of values returned by getSecretsStoreSecrets.
     """
-    def __init__(__self__, account_id=None, direction=None, id=None, max_items=None, order=None, results=None, scopes=None, search=None, store_id=None):
+    def __init__(__self__, account_id=None, direction=None, max_items=None, order=None, results=None, scopes=None, search=None, store_id=None):
         if account_id and not isinstance(account_id, str):
             raise TypeError("Expected argument 'account_id' to be a str")
         pulumi.set(__self__, "account_id", account_id)
         if direction and not isinstance(direction, str):
             raise TypeError("Expected argument 'direction' to be a str")
         pulumi.set(__self__, "direction", direction)
-        if id and not isinstance(id, str):
-            raise TypeError("Expected argument 'id' to be a str")
-        pulumi.set(__self__, "id", id)
         if max_items and not isinstance(max_items, int):
             raise TypeError("Expected argument 'max_items' to be a int")
         pulumi.set(__self__, "max_items", max_items)
@@ -59,27 +56,16 @@ class GetSecretsStoreSecretsResult:
     @_builtins.property
     @pulumi.getter(name="accountId")
     def account_id(self) -> _builtins.str:
-        """
-        Account Identifier
-        """
         return pulumi.get(self, "account_id")
 
     @_builtins.property
     @pulumi.getter
     def direction(self) -> _builtins.str:
         """
-        Direction to sort objects
+        Direction to sort objects.
         Available values: "asc", "desc".
         """
         return pulumi.get(self, "direction")
-
-    @_builtins.property
-    @pulumi.getter
-    def id(self) -> _builtins.str:
-        """
-        The provider-assigned unique ID for this managed resource.
-        """
-        return pulumi.get(self, "id")
 
     @_builtins.property
     @pulumi.getter(name="maxItems")
@@ -93,7 +79,7 @@ class GetSecretsStoreSecretsResult:
     @pulumi.getter
     def order(self) -> _builtins.str:
         """
-        Order secrets by values in the given field
+        Order secrets by values in the given field.
         Available values: "name", "comment", "created", "modified", "status".
         """
         return pulumi.get(self, "order")
@@ -108,9 +94,9 @@ class GetSecretsStoreSecretsResult:
 
     @_builtins.property
     @pulumi.getter
-    def scopes(self) -> Optional[Sequence[Sequence[_builtins.str]]]:
+    def scopes(self) -> Optional[Sequence[_builtins.str]]:
         """
-        Only secrets with the given scopes will be returned
+        Only secrets with the given scopes will be returned.
         """
         return pulumi.get(self, "scopes")
 
@@ -118,16 +104,13 @@ class GetSecretsStoreSecretsResult:
     @pulumi.getter
     def search(self) -> Optional[_builtins.str]:
         """
-        Search secrets using a filter string, filtering across name and comment
+        Search secrets using a filter string, filtering across name and comment.
         """
         return pulumi.get(self, "search")
 
     @_builtins.property
     @pulumi.getter(name="storeId")
     def store_id(self) -> _builtins.str:
-        """
-        Store Identifier
-        """
         return pulumi.get(self, "store_id")
 
 
@@ -139,7 +122,6 @@ class AwaitableGetSecretsStoreSecretsResult(GetSecretsStoreSecretsResult):
         return GetSecretsStoreSecretsResult(
             account_id=self.account_id,
             direction=self.direction,
-            id=self.id,
             max_items=self.max_items,
             order=self.order,
             results=self.results,
@@ -152,7 +134,7 @@ def get_secrets_store_secrets(account_id: Optional[_builtins.str] = None,
                               direction: Optional[_builtins.str] = None,
                               max_items: Optional[_builtins.int] = None,
                               order: Optional[_builtins.str] = None,
-                              scopes: Optional[Sequence[Sequence[_builtins.str]]] = None,
+                              scopes: Optional[Sequence[_builtins.str]] = None,
                               search: Optional[_builtins.str] = None,
                               store_id: Optional[_builtins.str] = None,
                               opts: Optional[pulumi.InvokeOptions] = None) -> AwaitableGetSecretsStoreSecretsResult:
@@ -170,25 +152,18 @@ def get_secrets_store_secrets(account_id: Optional[_builtins.str] = None,
 
     example_secrets_store_secrets = cloudflare.get_secrets_store_secrets(account_id="985e105f4ecef8ad9ca31a8372d0c353",
         store_id="023e105f4ecef8ad9ca31a8372d0c353",
-        scopes=[[
-            "workers",
-            "ai_gateway",
-            "dex",
-            "access",
-        ]],
+        scopes=["workers"],
         search="search")
     ```
 
 
-    :param _builtins.str account_id: Account Identifier
-    :param _builtins.str direction: Direction to sort objects
+    :param _builtins.str direction: Direction to sort objects.
            Available values: "asc", "desc".
     :param _builtins.int max_items: Max items to fetch, default: 1000
-    :param _builtins.str order: Order secrets by values in the given field
+    :param _builtins.str order: Order secrets by values in the given field.
            Available values: "name", "comment", "created", "modified", "status".
-    :param Sequence[Sequence[_builtins.str]] scopes: Only secrets with the given scopes will be returned
-    :param _builtins.str search: Search secrets using a filter string, filtering across name and comment
-    :param _builtins.str store_id: Store Identifier
+    :param Sequence[_builtins.str] scopes: Only secrets with the given scopes will be returned.
+    :param _builtins.str search: Search secrets using a filter string, filtering across name and comment.
     """
     __args__ = dict()
     __args__['accountId'] = account_id
@@ -204,7 +179,6 @@ def get_secrets_store_secrets(account_id: Optional[_builtins.str] = None,
     return AwaitableGetSecretsStoreSecretsResult(
         account_id=pulumi.get(__ret__, 'account_id'),
         direction=pulumi.get(__ret__, 'direction'),
-        id=pulumi.get(__ret__, 'id'),
         max_items=pulumi.get(__ret__, 'max_items'),
         order=pulumi.get(__ret__, 'order'),
         results=pulumi.get(__ret__, 'results'),
@@ -215,7 +189,7 @@ def get_secrets_store_secrets_output(account_id: pulumi.Input[Optional[_builtins
                                      direction: pulumi.Input[Optional[Optional[_builtins.str]]] = None,
                                      max_items: pulumi.Input[Optional[Optional[_builtins.int]]] = None,
                                      order: pulumi.Input[Optional[Optional[_builtins.str]]] = None,
-                                     scopes: pulumi.Input[Optional[Optional[Sequence[Sequence[_builtins.str]]]]] = None,
+                                     scopes: pulumi.Input[Optional[Optional[Sequence[_builtins.str]]]] = None,
                                      search: pulumi.Input[Optional[Optional[_builtins.str]]] = None,
                                      store_id: pulumi.Input[Optional[_builtins.str]] = None,
                                      opts: Optional[Union[pulumi.InvokeOptions, pulumi.InvokeOutputOptions]] = None) -> pulumi.Output[GetSecretsStoreSecretsResult]:
@@ -233,25 +207,18 @@ def get_secrets_store_secrets_output(account_id: pulumi.Input[Optional[_builtins
 
     example_secrets_store_secrets = cloudflare.get_secrets_store_secrets(account_id="985e105f4ecef8ad9ca31a8372d0c353",
         store_id="023e105f4ecef8ad9ca31a8372d0c353",
-        scopes=[[
-            "workers",
-            "ai_gateway",
-            "dex",
-            "access",
-        ]],
+        scopes=["workers"],
         search="search")
     ```
 
 
-    :param _builtins.str account_id: Account Identifier
-    :param _builtins.str direction: Direction to sort objects
+    :param _builtins.str direction: Direction to sort objects.
            Available values: "asc", "desc".
     :param _builtins.int max_items: Max items to fetch, default: 1000
-    :param _builtins.str order: Order secrets by values in the given field
+    :param _builtins.str order: Order secrets by values in the given field.
            Available values: "name", "comment", "created", "modified", "status".
-    :param Sequence[Sequence[_builtins.str]] scopes: Only secrets with the given scopes will be returned
-    :param _builtins.str search: Search secrets using a filter string, filtering across name and comment
-    :param _builtins.str store_id: Store Identifier
+    :param Sequence[_builtins.str] scopes: Only secrets with the given scopes will be returned.
+    :param _builtins.str search: Search secrets using a filter string, filtering across name and comment.
     """
     __args__ = dict()
     __args__['accountId'] = account_id
@@ -266,7 +233,6 @@ def get_secrets_store_secrets_output(account_id: pulumi.Input[Optional[_builtins
     return __ret__.apply(lambda __response__: GetSecretsStoreSecretsResult(
         account_id=pulumi.get(__response__, 'account_id'),
         direction=pulumi.get(__response__, 'direction'),
-        id=pulumi.get(__response__, 'id'),
         max_items=pulumi.get(__response__, 'max_items'),
         order=pulumi.get(__response__, 'order'),
         results=pulumi.get(__response__, 'results'),

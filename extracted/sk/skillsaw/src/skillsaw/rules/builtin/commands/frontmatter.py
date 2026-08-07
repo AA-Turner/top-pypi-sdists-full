@@ -12,11 +12,15 @@ class CommandFrontmatterRule(Rule):
 
     default_enabled = True
 
+    provenance_scope = "claude"
+
     autofix_confidence = AutofixConfidence.SAFE
+
+    aliases = ("command-frontmatter",)
 
     @property
     def rule_id(self) -> str:
-        return "command-frontmatter"
+        return "claude-command-frontmatter"
 
     @property
     def description(self) -> str:
@@ -30,7 +34,7 @@ class CommandFrontmatterRule(Rule):
 
         violations = []
 
-        for block in context.lint_tree.find(CommandBlock):
+        for block in self.scoped_find(context, CommandBlock):
             if block.frontmatter_error:
                 # fix() only adds missing frontmatter/fields — malformed YAML
                 # needs a human.

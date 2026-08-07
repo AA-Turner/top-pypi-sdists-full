@@ -97,6 +97,39 @@ def test_main(output_file: Path) -> None:
     )
 
 
+def test_main_openapi_array_type_union_constraints(output_file: Path) -> None:
+    """Keep OpenAPI array and string constraints on their matching union branches."""
+    run_main_and_assert(
+        input_path=OPEN_API_DATA_PATH / "array_type_union_constraints.yaml",
+        output_path=output_file,
+        input_file_type="openapi",
+        assert_func=assert_file_content,
+        expected_file="array_type_union_constraints.py",
+        extra_args=[
+            "--output-model-type",
+            "pydantic_v2.BaseModel",
+            "--target-python-version",
+            "3.10",
+            "--use-standard-collections",
+            "--use-union-operator",
+            "--disable-timestamp",
+        ],
+        force_exec_validation=True,
+    )
+    for valid_json, invalid_json, expected_error_type in (
+        ('{"value":"ok"}', '{"value":"x"}', "string_too_short"),
+        ('{"value":["ok"]}', '{"value":[]}', "string_type"),
+    ):
+        assert_generated_model_json_validation(
+            output_file,
+            module_name="openapi_array_type_union_constraints",
+            model_name="Payload",
+            valid_json=valid_json,
+            invalid_json=invalid_json,
+            expected_error_type=expected_error_type,
+        )
+
+
 def test_main_inflect_import_without_typeguard_leak(output_file: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """OpenAPI generation should keep expected output when inflect starts cold."""
     monkeypatch.delitem(sys.modules, "inflect", raising=False)
@@ -110,6 +143,47 @@ def test_main_inflect_import_without_typeguard_leak(output_file: Path, monkeypat
         input_file_type=None,
         assert_func=assert_file_content,
         expected_file="general.py",
+    )
+
+
+def test_main_openapi_fixed_length_array_tuples_disabled(output_file: Path) -> None:
+    """Keep fixed-length homogeneous arrays as lists unless explicitly enabled."""
+    run_main_and_assert(
+        input_path=OPEN_API_DATA_PATH / "fixed_length_array_tuples.yaml",
+        output_path=output_file,
+        input_file_type="openapi",
+        assert_func=assert_file_content,
+        expected_file="fixed_length_array_tuples_disabled.py",
+        extra_args=["--output-model-type", "pydantic_v2.BaseModel"],
+        force_exec_validation=True,
+    )
+
+
+@pytest.mark.cli_doc(
+    options=["--use-tuple-for-fixed-length-arrays"],
+    option_description="""Generate tuple types for homogeneous fixed-length arrays.
+
+When `--use-tuple-for-fixed-length-arrays` is enabled and an array has one
+`items` schema with `minItems == maxItems`, generate a tuple type instead of a
+list. An empty fixed-length array becomes `tuple[()]`.""",
+    input_schema="openapi/fixed_length_array_tuples.yaml",
+    cli_args=["--use-tuple-for-fixed-length-arrays", "--output-model-type", "pydantic_v2.BaseModel"],
+    golden_output="openapi/fixed_length_array_tuples.py",
+)
+def test_main_openapi_fixed_length_array_tuples(output_file: Path) -> None:
+    """Generate tuple types for homogeneous fixed-length arrays."""
+    run_main_and_assert(
+        input_path=OPEN_API_DATA_PATH / "fixed_length_array_tuples.yaml",
+        output_path=output_file,
+        input_file_type="openapi",
+        assert_func=assert_file_content,
+        expected_file="fixed_length_array_tuples.py",
+        extra_args=[
+            "--output-model-type",
+            "pydantic_v2.BaseModel",
+            "--use-tuple-for-fixed-length-arrays",
+        ],
+        force_exec_validation=True,
     )
 
 

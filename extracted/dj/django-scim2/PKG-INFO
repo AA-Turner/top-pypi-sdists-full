@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-scim2
-Version: 0.21.0
+Version: 0.22.0
 Summary: A partial implementation of the SCIM 2.0 provider specification for use with Django.
 License: MIT
 License-File: LICENSE.txt
@@ -9,7 +9,7 @@ Author: Paul Logston
 Author-email: paul@15five.com
 Maintainer: Devs
 Maintainer-email: devs@15five.com
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment
 Classifier: Framework :: Django
@@ -18,7 +18,6 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -26,8 +25,8 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Internet
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Dist: django (==4.2.30)
-Requires-Dist: pygments (==2.20.0)
+Requires-Dist: django (>=4.2.30,<5.3)
+Requires-Dist: pygments (>=2.20.0,<3.0.0)
 Requires-Dist: scim2-filter-parser (>=0.5.0)
 Project-URL: Documentation, https://django-scim2.readthedocs.io/en/stable/
 Project-URL: Homepage, https://pypi.org/project/django-scim2/
@@ -138,10 +137,10 @@ the virtualenv with), run::
 Coverage
 --------
 
-.. |coverage| image:: https://codecov.io/gh/15five/django-scim2/graph/badge.svg
-    :target: https://codecov.io/gh/15five/django-scim2
+.. |coverage| image:: https://coveralls.io/repos/github/15five/django-scim2/badge.svg
+    :target: https://coveralls.io/github/15five/django-scim2
 
-https://codecov.io/gh/15five/django-scim2/
+https://coveralls.io/github/15five/django-scim2
 
 To run tests with coverage::
 

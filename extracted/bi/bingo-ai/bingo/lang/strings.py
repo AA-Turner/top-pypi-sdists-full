@@ -9834,3 +9834,94 @@ def get_slash_commands(lang: str = "en") -> list:
             val = desc.get("en", "") or ""
         result.append((cmd, val))
     return result
+
+
+# ── v7.4.2: TUI/chat i18n 키 (하드코딩 한국어 제거) ─────────────────
+_STRINGS.update({
+    "tui_no_model": {"ko": "(모델 없음)", "zh": "(无模型)", "en": "(no model)"},
+    "tui_no_target": {"ko": "(타겟 없음)", "zh": "(无目标)", "en": "(no target)"},
+    "tui_running": {"ko": "실행 중", "zh": "运行中", "en": "Running"},
+    "tui_idle": {"ko": "대기", "zh": "空闲", "en": "Idle"},
+    "tui_stop_hint": {"ko": "Esc/Ctrl-C 중단", "zh": "Esc/Ctrl-C 停止", "en": "Esc/Ctrl-C to stop"},
+    "tui_queue": {"ko": "큐", "zh": "队列", "en": "queue"},
+    "tui_queued": {"ko": "(실행 중 — 큐에 추가됨)", "zh": "(运行中 — 已加入队列)", "en": "(busy — queued)"},
+    "tui_hint_injected": {"ko": "↳ 실시간 힌트 주입됨", "zh": "↳ 已实时注入提示", "en": "↳ hint injected"},
+    "tui_type_hint": {"ko": "입력=힌트 주입", "zh": "输入=注入提示", "en": "type to add a hint"},
+    "tui_no_handler": {"ko": "내부 오류: 입력 핸들러 미설정", "zh": "内部错误：未设置输入处理器", "en": "Internal error: no input handler"},
+    "tui_input_hint": {
+        "ko": "입력창은 하단 고정 · Esc/Ctrl-C 중단 · /help",
+        "zh": "输入框固定在底部 · Esc/Ctrl-C 停止 · /help",
+        "en": "Input pinned at bottom · Esc/Ctrl-C to stop · /help",
+    },
+    "tui_interrupted": {"ko": "중단됨", "zh": "已中断", "en": "Interrupted"},
+    "tui_wsl2_hint": {
+        "ko": "WSL2: Windows 브라우저에서 {url} 접속",
+        "zh": "WSL2: 在 Windows 浏览器中访问 {url}",
+        "en": "WSL2: open {url} in your Windows browser",
+    },
+    "chat_no_model": {
+        "ko": "모델이 설정되지 않았습니다. /model 로 먼저 설정하세요.",
+        "zh": "尚未配置模型。请先用 /model 设置。",
+        "en": "No model configured. Set one first with /model.",
+    },
+    "tui_report_on_stop": {
+        "ko": "사용자 요청으로 중단됨 — 현재까지 결과로 리포트 생성",
+        "zh": "已按用户请求中断 — 用当前结果生成报告",
+        "en": "Stopped by user — generating report from results so far",
+    },
+    # slash 설명 (TUI 자동완성)
+    "tui_sc_target": {"ko": "타겟 설정/변경  (/target https://example.com)", "zh": "设置/切换目标  (/target https://example.com)", "en": "Set/change target  (/target https://example.com)"},
+    "tui_sc_model": {"ko": "모델 설정 (추가·전환·삭제)", "zh": "模型设置 (添加·切换·删除)", "en": "Model settings (add/switch/delete)"},
+    "tui_sc_status": {"ko": "현재 타겟·모델·언어 상태", "zh": "当前目标·模型·语言状态", "en": "Current target/model/language status"},
+    "tui_sc_clear": {"ko": "화면 초기화", "zh": "清屏", "en": "Clear screen"},
+    "tui_sc_session": {"ko": "세션 로그 저장 경로 표시", "zh": "显示会话日志保存路径", "en": "Show session log path"},
+    "tui_sc_help": {"ko": "도움말", "zh": "帮助", "en": "Help"},
+    "tui_sc_exit": {"ko": "종료", "zh": "退出", "en": "Exit"},
+    "tui_help_body": {
+        "ko": (
+            "[#00d4aa]사용법:[/]\n"
+            "  그냥 입력       — 일반 대화 (질문/설명/코딩 등)\n"
+            "  URL 포함 입력   — 해당 타겟 펜테스트 실행\n"
+            "  (타겟 설정 후 \"스캔해줘/공격해줘\" 등도 펜테스트로 실행)\n\n"
+            "[#00d4aa]명령어:[/]\n"
+            "  /target <url>  — 타겟 설정/변경\n"
+            "  /model         — 모델 설정\n"
+            "  /status        — 현재 상태 표시\n"
+            "  /clear         — 화면 초기화\n"
+            "  /session       — 세션 로그 경로 표시\n"
+            "  /exit          — 종료\n\n"
+            "[#546e7a]단축키 (TUI):[/] Esc/Ctrl-C 중단 · PgUp/PgDn 스크롤 · Ctrl-L 클리어 · Ctrl-D 종료\n"
+            "[#546e7a]플래그 (시작):[/] --no-web · --no-tui"
+        ),
+        "zh": (
+            "[#00d4aa]用法:[/]\n"
+            "  直接输入        — 普通对话 (提问/讲解/写代码等)\n"
+            "  含 URL 的输入   — 对该目标执行渗透测试\n"
+            "  (设置目标后输入 \"扫描/攻击\" 等也会执行渗透测试)\n\n"
+            "[#00d4aa]命令:[/]\n"
+            "  /target <url>  — 设置/切换目标\n"
+            "  /model         — 模型设置\n"
+            "  /status        — 显示当前状态\n"
+            "  /clear         — 清屏\n"
+            "  /session       — 显示会话日志路径\n"
+            "  /exit          — 退出\n\n"
+            "[#546e7a]快捷键 (TUI):[/] Esc/Ctrl-C 停止 · PgUp/PgDn 滚动 · Ctrl-L 清屏 · Ctrl-D 退出\n"
+            "[#546e7a]启动参数:[/] --no-web · --no-tui"
+        ),
+        "en": (
+            "[#00d4aa]Usage:[/]\n"
+            "  plain text     — normal chat (questions/explanations/coding)\n"
+            "  text with URL  — run a pentest against that target\n"
+            "  (after setting a target, \"scan it/attack it\" also runs a pentest)\n\n"
+            "[#00d4aa]Commands:[/]\n"
+            "  /target <url>  — set/change target\n"
+            "  /model         — model settings\n"
+            "  /status        — show current status\n"
+            "  /clear         — clear screen\n"
+            "  /session       — show session log path\n"
+            "  /exit          — exit\n\n"
+            "[#546e7a]Keys (TUI):[/] Esc/Ctrl-C stop · PgUp/PgDn scroll · Ctrl-L clear · Ctrl-D exit\n"
+            "[#546e7a]Flags (startup):[/] --no-web · --no-tui"
+        ),
+    },
+})

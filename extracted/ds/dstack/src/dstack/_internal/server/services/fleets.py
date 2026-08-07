@@ -16,7 +16,7 @@ from dstack._internal.core.errors import (
     ResourceExistsError,
     ServerClientError,
 )
-from dstack._internal.core.models.common import ApplyAction, CoreModel
+from dstack._internal.core.models.common import ApplyAction, CoreModel, validate_json_extra_ignore
 from dstack._internal.core.models.envs import Env
 from dstack._internal.core.models.fleets import (
     ApplyFleetPlanInput,
@@ -89,16 +89,21 @@ from dstack._internal.server.services.projects import (
 )
 from dstack._internal.server.services.resources import set_resources_defaults
 from dstack._internal.utils import random_names
+from dstack._internal.utils import ssh as ssh_utils
 from dstack._internal.utils.common import (
     EntityID,
     EntityName,
     EntityNameOrID,
     get_current_datetime,
+    get_lowest_unused_nums,
 )
 from dstack._internal.utils.logging import get_logger
-from dstack._internal.utils.ssh import pkey_from_str
 
 logger = get_logger(__name__)
+
+# How hard to retry row locks before reporting the fleet as busy.
+_LOCK_RETRY_ATTEMPTS = 10
+_LOCK_RETRY_INTERVAL = 0.5
 
 
 def switch_fleet_status(
@@ -342,7 +347,12 @@ async def list_project_fleet_models(
     options = [joinedload(FleetModel.project).load_only(ProjectModel.name)]
     if include_instances:
         options.append(selectinload(FleetModel.instances.and_(InstanceModel.deleted == False)))
-    res = await session.execute(select(FleetModel).where(*filters).options(*options))
+    res = await session.execute(
+        select(FleetModel)
+        .where(*filters)
+        .order_by(FleetModel.created_at.desc(), FleetModel.id)
+        .options(*options)
+    )
     return list(res.unique().scalars().all())
 
 
@@ -414,7 +424,6 @@ async def get_plan(
     user: UserModel,
     spec: FleetSpec,
 ) -> FleetPlan:
-    # Spec must be copied by parsing to calculate merged_profile
     effective_spec = copy_model(spec)
     effective_spec = await apply_plugin_policies(
         user=user.name,
@@ -788,7 +797,7 @@ async def delete_fleets(
         # Retry locking fleets to increase lock acquisition chances.
         # This hack is needed until requests are queued.
         fleet_models = []
-        for i in range(10):
+        for attempt in range(_LOCK_RETRY_ATTEMPTS):
             res = await session.execute(
                 select(FleetModel)
                 .where(
@@ -814,7 +823,8 @@ async def delete_fleets(
             fleet_models = res.scalars().unique().all()
             if len(fleet_models) == len(fleets_ids):
                 break
-            await asyncio.sleep(0.5)
+            if attempt < _LOCK_RETRY_ATTEMPTS - 1:
+                await asyncio.sleep(_LOCK_RETRY_INTERVAL)
         if len(fleet_models) != len(fleets_ids):
             # TODO: Make the endpoint fully async so we don't need to lock and error.
             msg = (
@@ -826,7 +836,7 @@ async def delete_fleets(
         # Retry locking instances to increase lock acquisition chances.
         # This hack is needed until requests are queued.
         instances_left_to_lock = set(instances_ids)
-        for i in range(10):
+        for attempt in range(_LOCK_RETRY_ATTEMPTS):
             res = await session.execute(
                 select(InstanceModel.id)
                 .where(
@@ -841,7 +851,8 @@ async def delete_fleets(
             instances_left_to_lock.difference_update(res.scalars().unique().all())
             if len(instances_left_to_lock) == 0:
                 break
-            await asyncio.sleep(0.5)
+            if attempt < _LOCK_RETRY_ATTEMPTS - 1:
+                await asyncio.sleep(_LOCK_RETRY_INTERVAL)
         if len(instances_left_to_lock) > 0:
             msg = (
                 "Failed to delete fleets: fleet instances are being processed currently. Try again later."
@@ -906,7 +917,7 @@ def fleet_model_to_fleet(
 
 
 def get_fleet_spec(fleet_model: FleetModel) -> FleetSpec:
-    return FleetSpec.__response__.parse_raw(fleet_model.spec)
+    return validate_json_extra_ignore(FleetSpec, fleet_model.spec)
 
 
 async def generate_fleet_name(session: AsyncSession, project: ProjectModel) -> str:
@@ -964,16 +975,7 @@ def get_fleet_requirements(fleet_spec: FleetSpec) -> Requirements:
 
 
 def get_next_instance_num(taken_instance_nums: set[int]) -> int:
-    if not taken_instance_nums:
-        return 0
-    min_instance_num = min(taken_instance_nums)
-    if min_instance_num > 0:
-        return 0
-    instance_num = min_instance_num + 1
-    while True:
-        if instance_num not in taken_instance_nums:
-            return instance_num
-        instance_num += 1
+    return next(get_lowest_unused_nums(used_nums=taken_instance_nums))
 
 
 def get_fleet_master_instance_provisioning_data(
@@ -990,8 +992,8 @@ def get_fleet_master_instance_provisioning_data(
                 and not instance_model.deleted
                 and instance_model.job_provisioning_data is not None
             ):
-                return JobProvisioningData.__response__.parse_raw(
-                    instance_model.job_provisioning_data
+                return validate_json_extra_ignore(
+                    JobProvisioningData, instance_model.job_provisioning_data
                 )
 
     return None
@@ -1051,7 +1053,7 @@ async def _create_fleet(
             name=spec.configuration.name,
             project=project,
             status=FleetStatus.ACTIVE,
-            spec=spec.json(),
+            spec=spec.model_dump_json(),
             instances=[],
             created_at=now,
             last_processed_at=now,
@@ -1142,7 +1144,7 @@ async def _update_fleet(
 
     _check_can_update_fleet_spec(fleet_sensitive.spec, spec)
 
-    fleet_model.spec = spec.json()
+    fleet_model.spec = spec.model_dump_json()
     # Reset consolidation attempt so the next pipeline pass picks up the spec change promptly.
     fleet_model.consolidation_attempt = 0
 
@@ -1371,6 +1373,11 @@ def _remove_fleet_spec_sensitive_info(spec: FleetSpec):
 
 
 def _validate_fleet_spec_and_set_defaults(spec: FleetSpec):
+    # Callers do not reparse afterwards, so the defaults set here must not touch any field that
+    # `ProfileParams` also declares — `spec.merged_profile` is computed at parse time and would
+    # silently keep the pre-default value. Only `configuration.resources` is written, which
+    # `ProfileParams` does not declare.
+    # TODO: Make callers reparse if this changes.
     if spec.configuration.name is not None:
         validate_dstack_resource_name(spec.configuration.name)
     _validate_fleet_configuration_subtype_specific_fields(spec.configuration)
@@ -1399,9 +1406,14 @@ def _validate_fleet_configuration_subtype_specific_fields(conf: FleetConfigurati
         subtype = "Backend"
         props_model = SSHFleetConfigurationProps
     non_default_fields: list[str] = []
-    for field in props_model.__fields__.values():
-        if getattr(conf, field.name) != field.default:
-            non_default_fields.append(field.name)
+    for name, field in props_model.model_fields.items():
+        # `FieldInfo` has no `.name` in pydantic v2, and `.default` is `PydanticUndefined` rather
+        # than `None` for a required field — comparing against it directly would silently report
+        # every required field as non-default. No props field is required today, but that would
+        # arm itself the moment one is added.
+        default = None if field.is_required() else field.get_default(call_default_factory=True)
+        if getattr(conf, name) != default:
+            non_default_fields.append(name)
     if non_default_fields:
         raise ServerClientError(
             f"{subtype} fleet configuration does not support the following fields:"
@@ -1433,7 +1445,7 @@ def _validate_ssh_key(ssh_key: SSHKey):
     if ssh_key.private is None:
         raise ServerClientError("Private key not provided")
     try:
-        pkey_from_str(ssh_key.private)
+        ssh_utils.pkey_from_str(ssh_key.private)
     except ValueError:
         raise ServerClientError(
             "Unsupported key type. "

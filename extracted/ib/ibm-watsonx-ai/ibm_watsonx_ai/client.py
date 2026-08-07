@@ -61,8 +61,12 @@ from ibm_watsonx_ai.task_credentials import TaskCredentials
 from ibm_watsonx_ai.training import Training
 from ibm_watsonx_ai.trashed_assets import TrashedAssets
 from ibm_watsonx_ai.utils import CPDVersion, get_user_agent_header
-from ibm_watsonx_ai.utils.auth import TokenAuth, TrustedProfileAuth, get_auth_method
-from ibm_watsonx_ai.utils.auth.base_auth import TokenRemovedDuringClientCopyPlaceholder
+from ibm_watsonx_ai.utils.auth import (
+    TokenAuth,
+    TokenRemovedDuringClientCopyPlaceholder,
+    TrustedProfileAuth,
+    get_auth_method,
+)
 from ibm_watsonx_ai.utils.utils import (
     DEFAULT_HTTP_CLIENT_CONFIG,
     HttpClientConfig,
@@ -793,7 +797,7 @@ to `APIClient.service_instance.get_details` method.
 
     @token.setter
     def token(self, value: str) -> None:
-        self._auth_method._token = value
+        self.set_token(value)
 
     @property
     def _ai_services(self) -> AIServices:
@@ -1089,6 +1093,7 @@ to `APIClient.service_instance.get_details` method.
         self._user_headers = headers
 
     def _get_icptoken(self) -> str:
+        # do not remove, used in documentation: https://www.ibm.com/docs/en/watsonx/w-and-w/2.3.x?topic=functions-writing-deployable-python
         return self.token
 
     def _is_default_space_set(self) -> bool:

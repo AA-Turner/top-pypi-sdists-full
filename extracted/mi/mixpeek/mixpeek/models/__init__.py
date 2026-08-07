@@ -1066,6 +1066,7 @@ from mixpeek.models.subscription_status import SubscriptionStatus
 from mixpeek.models.subscription_status_response import SubscriptionStatusResponse
 from mixpeek.models.subscription_tier import SubscriptionTier
 from mixpeek.models.subscription_tier_config import SubscriptionTierConfig
+from mixpeek.models.suggested_config_response import SuggestedConfigResponse
 from mixpeek.models.suggested_extractor import SuggestedExtractor
 from mixpeek.models.suggested_stage import SuggestedStage
 from mixpeek.models.suitable_collection import SuitableCollection

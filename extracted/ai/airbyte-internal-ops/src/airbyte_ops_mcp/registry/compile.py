@@ -330,16 +330,24 @@ def _compute_release_candidates(
     yanked: set[tuple[str, str]],
     progressive_rollouts: set[tuple[str, str]],
 ) -> dict[str, list[str]]:
-    """Derive active release candidates from versioned marker files.
+    """Derive the active release candidate from versioned marker files.
 
-    For each connector, collects all progressive rollout candidate versions
-    that are newer than the latest GA version and not yanked. Returns them
-    ordered highest-first so that the first entry is the "active" candidate
-    and subsequent entries are superseded (but still tracked) candidates.
+    For each connector, considers all progressive rollout candidate versions
+    that are newer than the latest GA version and not yanked, then advertises
+    only the highest (newest) one — the single version a rollout should be
+    advancing toward.
+
+    Advertising superseded candidates alongside the active one deadlocks
+    rollouts. Even after deletion/cancellation, the platform auto-recreates new
+    rollout records for every advertised candidate - resulting in an infinite
+    loop of deletion/recreation if older candidates continue to be presented.
+
+    Additionally, older candidates are already registered platform-side, so
+    only the newest needs to be discoverable within the compiled index.
 
     Returns:
-        dict mapping connector_name -> list of rollout candidate version
-        strings, ordered highest (newest) first.
+        dict mapping connector_name -> single-element list holding the highest
+        rollout candidate version string.
     """
     highest_ga = _compute_highest_ga_versions(
         connector_versions=connector_versions,
@@ -374,14 +382,16 @@ def _compute_release_candidates(
                 rc_candidates.append((parsed, version_str))
         candidates = ga_candidates or rc_candidates
         if candidates:
-            # Sort highest-first: newest RC is the active candidate
+            # Only the newest candidate is advertised; older ones are superseded.
             sorted_candidates = sorted(candidates, reverse=True)
-            rc_versions[connector] = [v_str for _, v_str in sorted_candidates]
+            active_candidate = sorted_candidates[0][1]
+            rc_versions[connector] = [active_candidate]
             logger.info(
-                "Computed %d rollout candidate(s) for %s: %s (latest GA: %s)",
-                len(sorted_candidates),
+                "Computed active rollout candidate for %s: %s "
+                "(superseded: %s, latest GA: %s)",
                 connector,
-                [v_str for _, v_str in sorted_candidates],
+                active_candidate,
+                [v_str for _, v_str in sorted_candidates[1:]],
                 latest_ga_str,
             )
     return rc_versions
@@ -429,14 +439,14 @@ def _apply_release_candidates_to_entries(
         {
             "releases": {
                 "releaseCandidates": {
-                    "<version_1>": { ...full candidate registry entry... },
-                    "<version_2>": { ...older candidate registry entry... }
+                    "<rollout_version>": { ...full candidate registry entry... }
                 }
             }
         }
 
-    Multiple entries may be present per connector. The platform iterates
-    all entries and creates rollout records for each.
+    The platform creates a rollout record for every entry it finds here, so
+    `_compute_release_candidates` advertises only the active (highest)
+    candidate — see its docstring for why superseded candidates are excluded.
 
     Args:
         entries: List of registry entry dicts (from `_compile_global_registry`).

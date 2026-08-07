@@ -5,11 +5,18 @@ Rule: mcp-valid-json
 from typing import List, Dict, Any
 from pathlib import Path
 
-from skillsaw.rule import Rule, RuleViolation, Severity
-from skillsaw.context import RepositoryContext
+from skillsaw.blocks import AgentPluginMcpBlock
+from skillsaw.context import RepositoryContext, RepositoryType
+from skillsaw.diagnostics import safe_display
 from skillsaw.lint_target import PluginNode
+from skillsaw.rule import Rule, RuleViolation, Severity
 from skillsaw.rules.builtin.content_analysis import McpBlock
 from skillsaw.rules.builtin.utils import read_json
+
+
+def _is_usable(value: Any) -> bool:
+    """Whether a required connection field names something spawnable."""
+    return isinstance(value, str) and bool(value.strip())
 
 
 class McpValidJsonRule(Rule):
@@ -26,6 +33,17 @@ class McpValidJsonRule(Rule):
         "ws": "url",
     }
 
+    # Server names reserved for Claude Code's built-in servers. A user
+    # server that shadows one of these is ignored, so warn on it. See
+    # the Claude Code MCP docs (code.claude.com/docs/en/mcp).
+    RESERVED_SERVER_NAMES = (
+        "workspace",
+        "claude-in-chrome",
+        "computer-use",
+        "Claude Preview",
+        "Claude Browser",
+    )
+
     @property
     def rule_id(self) -> str:
         return "mcp-valid-json"
@@ -41,6 +59,22 @@ class McpValidJsonRule(Rule):
         violations = []
 
         for block in context.lint_tree.find(McpBlock):
+            # Agent Plugins uses a closed, versioned schema with different
+            # defaults and failure boundaries. Its dedicated rule validates
+            # this block; running the permissive Claude/Codex shape check too
+            # would duplicate findings and accept fields the portable format
+            # rejects. Policy rules still see the McpBlock subclass.
+            #
+            # Defer only when that dedicated rule can actually run: the tree
+            # role is deliberately --type-invariant, but agent-plugin-mcp-valid
+            # is gated on RepositoryType.AGENT_PLUGIN, so under a forced
+            # non-agent ``--type`` an unconditional skip would leave the file
+            # validated by no rule at all.
+            if (
+                isinstance(block, AgentPluginMcpBlock)
+                and RepositoryType.AGENT_PLUGIN in context.repo_types
+            ):
+                continue
             if block.parse_error:
                 violations.append(
                     self.violation(f"Invalid JSON: {block.parse_error}", file_path=block.path)
@@ -54,10 +88,22 @@ class McpValidJsonRule(Rule):
                 )
                 continue
 
+            # Conditional strictness, not a skip: the tightened
+            # non-empty-string checks apply only inside Codex-ONLY plugins,
+            # so dual-manifest plugins keep their established Claude results.
+            require_usable = context.in_codex_only_plugin(block.path)
             if "mcpServers" in data:
-                violations.extend(self._validate_mcp_structure(data, block.path))
+                violations.extend(
+                    self._validate_mcp_structure(data, block.path, require_usable=require_usable)
+                )
             else:
-                violations.extend(self._validate_mcp_structure({"mcpServers": data}, block.path))
+                violations.extend(
+                    self._validate_mcp_structure(
+                        {"mcpServers": data},
+                        block.path,
+                        require_usable=require_usable,
+                    )
+                )
 
         # Also check mcpServers embedded in plugin.json (not a separate file node)
         for plugin_node in context.lint_tree.find(PluginNode):
@@ -94,7 +140,13 @@ class McpValidJsonRule(Rule):
 
         return violations
 
-    def _validate_mcp_structure(self, data: Dict[str, Any], file_path: Path) -> List[RuleViolation]:
+    def _validate_mcp_structure(
+        self,
+        data: Dict[str, Any],
+        file_path: Path,
+        *,
+        require_usable: bool = False,
+    ) -> List[RuleViolation]:
         """Validate MCP configuration structure"""
         violations = []
 
@@ -130,10 +182,11 @@ class McpValidJsonRule(Rule):
                 )
                 continue
 
-            if server_name == "workspace":
+            if server_name in self.RESERVED_SERVER_NAMES:
                 violations.append(
                     self.violation(
-                        f"MCP server name 'workspace' is reserved",
+                        f"MCP server name '{server_name}' is reserved "
+                        f"for a Claude Code built-in server",
                         file_path=file_path,
                         severity=Severity.WARNING,
                     )
@@ -154,6 +207,23 @@ class McpValidJsonRule(Rule):
                     violations.append(
                         self.violation(
                             f"MCP server '{server_name}' with type '{server_type}' must have a '{required_field}' field",
+                            file_path=file_path,
+                        )
+                    )
+                # Present is not the same as usable: ``"command": []`` and
+                # ``"command": ""`` satisfy a key-existence check while
+                # naming nothing the host can spawn. A non-string ``url``
+                # is left to the dedicated check below, so one defect
+                # still yields one violation.
+                elif (
+                    require_usable
+                    and not _is_usable(server_config[required_field])
+                    and not (required_field == "url" and not isinstance(server_config["url"], str))
+                ):
+                    violations.append(
+                        self.violation(
+                            f"MCP server '{safe_display(server_name)}' '{required_field}' "
+                            "must be a non-empty string",
                             file_path=file_path,
                         )
                     )

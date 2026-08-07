@@ -379,8 +379,9 @@ def main(
             "--check-release-notes/--no-check-release-notes",
             envvar="RELEASE_CHECK_RELEASE_NOTES",
             help=(
-                "Require docs/release-notes/ entries for the version "
-                "(set false only for repos without a docs/release-notes/ convention)."
+                "Require docs/release-notes/ entries for the version (set false only for repos "
+                "that keep release notes on but don't follow the docs/release-notes/ convention). "
+                "A repo with release.notes.enabled: false skips them already, without this flag."
             ),
         ),
     ] = True,

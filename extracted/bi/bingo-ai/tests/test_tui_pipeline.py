@@ -169,3 +169,192 @@ def test_chat_reply_stops_on_cancel(monkeypatch):
     # 취소로 즉시 끊겼으므로 응답은 비었거나 매우 짧고, 히스토리는 남지 않는다.
     assert reply == ""
     assert history == []
+
+
+# ── 실시간 힌트: submit_hint/drain thread-safe 계약 ────────────────
+def test_agentloop_submit_hint_and_drain():
+    import threading
+    from bingo.engine.loop import AgentLoop
+
+    lp = AgentLoop.__new__(AgentLoop)  # __init__ 우회 (모델 불필요)
+    lp._pending_injections = []
+    lp._live_hints = []
+    lp._live_hints_lock = threading.Lock()
+
+    assert lp.submit_hint("   ") is False          # 빈 힌트 무시
+    assert lp.submit_hint("try boolean-based sqli") is True
+    assert lp.submit_hint("skip captcha") is True
+    assert lp._pending_injections == []            # 아직 drain 전
+    lp._drain_live_hints()
+    assert len(lp._pending_injections) == 2
+    assert all(p.startswith("[User Hint] ") for p in lp._pending_injections)
+    assert lp._live_hints == []                    # drain 후 비움
+    lp._drain_live_hints()                          # 빈 상태 idempotent
+
+
+# ── 연결 실패 감지: 전송 계층 unreachable ─────────────────────────
+def test_conn_fail_counter_detects_and_resets():
+    from bingo.engine.loop import AgentLoop
+    from bingo.engine.executor import ToolResult
+
+    lp = AgentLoop.__new__(AgentLoop)
+    lp._consecutive_conn_fail_count = 0
+
+    # SSL 핸드셰이크 타임아웃 / HTTP_CODE:000 → 증가
+    lp._update_conn_fail_counter(ToolResult(output="HTTP_CODE:000\nSSL handshake timed out"))
+    assert lp._consecutive_conn_fail_count == 1
+    lp._update_conn_fail_counter(ToolResult(error="curl: (35) SSL connect error"))
+    assert lp._consecutive_conn_fail_count == 2
+    lp._update_conn_fail_counter(ToolResult(output="curl: (28) Operation timed out"))
+    assert lp._consecutive_conn_fail_count == 3
+
+    # 진짜 HTTP 응답을 받으면 리셋 (전송이 됐다는 뜻)
+    lp._update_conn_fail_counter(ToolResult(output="HTTP/1.1 200 OK\n<html>"))
+    assert lp._consecutive_conn_fail_count == 0
+
+    # 200 안에 000 문자열이 있어도, 실제 HTTP 상태가 있으면 리셋 유지
+    lp._update_conn_fail_counter(ToolResult(output="HTTP/2 403 Forbidden"))
+    assert lp._consecutive_conn_fail_count == 0
+
+
+def test_transport_bypass_mandate_injected_langs():
+    from bingo.engine.loop import AgentLoop
+
+    for lang, needle in (("ko", "포기"), ("zh", "放弃"), ("en", "give up")):
+        lp = AgentLoop.__new__(AgentLoop)
+        lp.lang = lang
+        lp._pending_injections = []
+        lp._consecutive_conn_fail_count = 3
+        lp._inject_transport_bypass_mandate()
+        assert len(lp._pending_injections) == 1
+        msg = lp._pending_injections[0]
+        assert "STOP BLOCKED" in msg
+        assert needle in msg
+        # 구체적 전송 우회 지시가 들어있어야 함
+        assert "http2" in msg.lower() or "HTTP/2" in msg
+        assert "tlsv1" in msg.lower()
+
+
+# ── TUI 실행 중 입력 라우팅: 힌트 vs 큐 ────────────────────────────
+def test_tui_busy_input_routes_hint_vs_queue():
+    ui = BingoTUI(_FakeCfg())
+    accepted: list = []
+    # 평문만 힌트로 수락 (cli._busy_input 계약 모사)
+    ui.on_busy_input = lambda t: (accepted.append(t) or True) if not t.startswith("/") else False
+    ui._busy = True
+
+    # 평문 → 힌트로 소비, 큐에 안 쌓임
+    ui._on_accept(_FakeBuf("boolean sqli 로 바꿔"))
+    assert accepted == ["boolean sqli 로 바꿔"]
+    assert ui._queue == []
+
+    # 슬래시 명령 → 힌트 거부 → 큐잉
+    ui._on_accept(_FakeBuf("/status"))
+    assert ui._queue == ["/status"]
+
+
+class _FakeBuf:
+    """prompt_toolkit Buffer 최소 모사 — text + document 교체."""
+    def __init__(self, text: str) -> None:
+        self.text = text
+        self.document = _FakeDoc(text)
+
+
+class _FakeDoc:
+    def __init__(self, text: str) -> None:
+        self.text = text
+
+    def __call__(self, text: str = ""):  # buff.document.__class__("")
+        return _FakeDoc(text)
+
+
+# ── run_in_terminal: 메인 루프 스케줄 vs 폴백 ─────────────────────
+def test_run_in_terminal_falls_back_when_no_loop():
+    """앱 루프가 없으면(비실행/워커 단독) 폴백으로 fn 을 직접 실행한다."""
+    ui = BingoTUI(_FakeCfg())
+    ui._app = None  # 실행 전 → loop 없음
+    ran: list = []
+    ui.run_in_terminal(lambda: ran.append("direct"))
+    assert ran == ["direct"]
+
+
+def test_run_in_terminal_schedules_onto_app_loop():
+    """앱 루프가 있으면 워커 스레드가 메인 루프에 스케줄하고 fn 을 실행한다.
+
+    실제 prompt_toolkit run_in_terminal 은 실행 중 앱을 요구하므로, 여기서는
+    ui.run_in_terminal 이 워커에서 호출됐을 때 app.loop 로 코루틴을
+    run_coroutine_threadsafe 스케줄해 fn 이 그 루프 위에서 도는 계약만 검증한다.
+    (get_app_or_none() 이 None 이면 in_terminal 은 즉시 yield 하고 fn 을 실행)
+    """
+    import asyncio
+    import threading
+
+    loop = asyncio.new_event_loop()
+    ready = threading.Event()
+
+    def _run_loop():
+        asyncio.set_event_loop(loop)
+        loop.call_soon(ready.set)
+        loop.run_forever()
+
+    t = threading.Thread(target=_run_loop, daemon=True)
+    t.start()
+    ready.wait(2)
+
+    ui = BingoTUI(_FakeCfg())
+
+    class _FakeApp:
+        pass
+
+    app = _FakeApp()
+    app.loop = loop
+    ui._app = app
+
+    ran: dict = {}
+
+    def _fn():
+        ran["thread"] = threading.current_thread().name
+        ran["done"] = True
+
+    # 워커 스레드 흉내 — 이 스레드엔 실행 중 루프 없음.
+    def _worker():
+        ui.run_in_terminal(_fn)
+
+    w = threading.Thread(target=_worker, name="bingo-task")
+    w.start()
+    w.join(3)
+
+    loop.call_soon_threadsafe(loop.stop)
+    t.join(2)
+
+    assert ran.get("done") is True  # fn 이 실행됨(메인 루프 경유)
+
+
+# ── Esc 즉시 취소: busy-gated eager + cancel.set() ─────────────────
+def test_escape_binding_busy_gated_and_cancels():
+    """실행 중일 때만 Esc 를 즉시(eager) 잡고, 핸들러가 cancel.set() 을 호출한다.
+
+    대기 중엔 eager 아니므로 방향키/편집 동작(이스케이프 시퀀스)이 보존된다.
+    """
+    ui = BingoTUI(_FakeCfg())
+    kb = ui._build_keybindings()
+
+    # escape 바인딩 찾기
+    esc = None
+    for b in kb.bindings:
+        keys = [getattr(k, "value", k) for k in b.keys]
+        if "escape" in keys:
+            esc = b
+            break
+    assert esc is not None, "escape binding not found"
+
+    # busy-gated eager — 대기 중엔 eager 아님, 실행 중엔 eager.
+    ui._busy = False
+    assert bool(esc.eager()) is False
+    ui._busy = True
+    assert bool(esc.eager()) is True
+
+    # busy + cancel 세팅 시 핸들러가 cancel.set() 호출.
+    ui._cancel = CancelToken()
+    esc.handler(object())  # event 인자는 escape 핸들러에서 미사용
+    assert ui._cancel.is_set() is True

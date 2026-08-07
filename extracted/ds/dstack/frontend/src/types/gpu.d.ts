@@ -22,8 +22,13 @@ declare interface IGPUSpecRequest {
     compute_capability?: any[];
 }
 
+declare interface ICPUSpecRequest {
+    arch?: 'x86' | 'arm' | null;
+    count?: TRange | number | string;
+}
+
 declare interface IResourcesSpecRequest {
-    cpu?: TRange | number | string;
+    cpu?: ICPUSpecRequest | number | string;
     memory?: TRange | number | string;
     shm_size?: number | string;
     gpu?: IGPUSpecRequest | number | string;
@@ -88,6 +93,7 @@ declare type TGpusListQueryParams = {
         profile?: { name: string; default?: boolean };
         ssh_key_pub: string;
     };
+    full_offers: boolean;
 };
 
 declare type TGpusListQueryResponse = {

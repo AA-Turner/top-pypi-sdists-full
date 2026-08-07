@@ -7,9 +7,9 @@ from io import BytesIO
 import pytest
 from fontTools.ttLib import TTFont
 
-from pypdf import PdfReader
-from pypdf._font import Font
-from pypdf.errors import PdfReadError
+from pypdf import PdfReader, PdfWriter
+from pypdf._font import Font, FontDescriptor
+from pypdf.errors import LimitReachedError, PdfReadError
 from pypdf.generic import (
     ArrayObject,
     DictionaryObject,
@@ -77,6 +77,42 @@ def test_collect_cid_character_widths_truncated_w(w_array):
     Font.from_font_resource(font_res)
 
 
+@pytest.mark.parametrize("bbox", [
+    pytest.param(ArrayObject([NumberObject(0), NumberObject(0), NumberObject(100)]), id="too-short"),
+    pytest.param(ArrayObject(NumberObject(v) for v in range(6)), id="too-long"),
+    pytest.param(ArrayObject([NameObject("/x"), NumberObject(0), NumberObject(1), NumberObject(2)]), id="non-numeric"),
+    pytest.param(NumberObject(0), id="not-a-sequence"),
+])
+def test_font_descriptor_malformed_bbox(bbox):
+    # A /FontBBox that is not four numbers must fall back to the default
+    # bounding box instead of crashing text extraction.
+    font_res = DictionaryObject({
+        NameObject("/BaseFont"): NameObject("/Foo"),
+        NameObject("/Subtype"): NameObject("/Type1"),
+        NameObject("/FontDescriptor"): DictionaryObject({
+            NameObject("/FontBBox"): bbox,
+        }),
+    })
+    font = Font.from_font_resource(font_res)
+    assert font.font_descriptor.bbox == FontDescriptor._DEFAULT_BBOX
+
+
+@pytest.mark.parametrize("bbox", [
+    pytest.param(ArrayObject([NumberObject(0), NumberObject(0)]), id="too-short"),
+    pytest.param(ArrayObject([NameObject("/x"), NumberObject(0), NumberObject(1), NumberObject(2)]), id="non-numeric"),
+])
+def test_type3_font_malformed_bbox(bbox):
+    # Type3 font without a /FontDescriptor but carrying a malformed /FontBBox.
+    font_res = DictionaryObject({
+        NameObject("/BaseFont"): NameObject("/Foo"),
+        NameObject("/Subtype"): NameObject("/Type3"),
+        NameObject("/ToUnicode"): NumberObject(0),
+        NameObject("/FontBBox"): bbox,
+    })
+    font = Font.from_font_resource(font_res)
+    assert font.font_descriptor.bbox == FontDescriptor._DEFAULT_BBOX
+
+
 def test_font_file():
     reader = PdfReader(RESOURCE_ROOT / "multilang.pdf")
 
@@ -127,10 +163,30 @@ def test_font_from_font_file():
                 tt_font_object.save(crippled_font_data)
                 font = Font.from_truetype_font_file(crippled_font_data)
                 crippled_font_data.seek(0)
+
+                # Test raising AttributeError in _get_typographic_maps due to missing cmap table
                 del tt_font_object["cmap"]
                 tt_font_object.save(crippled_font_data)
+                crippled_font_data_value = crippled_font_data.getvalue()
+                font.font_descriptor.font_file.set_data(crippled_font_data_value)
+                font._get_typographic_maps()
+
+                # Test raising PdfReadError in from_truetype_font_file due to missing cmap table
                 with pytest.raises(PdfReadError, match=r"Font file does not have a cmap table"):
                     Font.from_truetype_font_file(crippled_font_data)
+
+                # Test raising TTLibError in _get_typographic_maps due to corrupt font data
+                garbage_bytes = b"CORRUPT_HEADER!!" + crippled_font_data_value[16:]
+                font.font_descriptor.font_file.set_data(garbage_bytes)
+                font._get_typographic_maps()
+
+
+def test_font_as_font_resource():
+    writer = PdfWriter(RESOURCE_ROOT / "fontsampler.pdf")
+    font_resources = writer.pages[0]["/Resources"]["/Font"]
+    font_data = font_resources["/F7"]["/DescendantFonts"][0]["/FontDescriptor"]["/FontFile2"].get_data()
+    font = Font.from_truetype_font_file(BytesIO(font_data))
+    font._add_to_writer(writer, font_resources, NameObject("/" + font.name))
 
 
 def test_font_from_font_file_zero_units_per_em():
@@ -177,3 +233,78 @@ with pytest.raises(ImportError, match=r"^The 'fontTools' library is required to 
     )
     assert result.returncode == 0
     assert result.stdout == b""
+
+
+def test_font__collect_cid_character_widths__limits():
+    # Format 1 exceeding length.
+    d_font = DictionaryObject({
+        NameObject("/W"): ArrayObject([
+            NumberObject(1), ArrayObject([NumberObject(42)] * 100_000),
+        ])
+    })
+    current_widths = {}
+    with pytest.raises(
+            expected_exception=LimitReachedError, match=r"^CID width range too large: 100000 > 65536\.$"
+    ):
+        Font._collect_cid_character_widths(d_font=d_font, current_widths=current_widths)
+    assert current_widths == {}
+
+    # Format 1 exceeding entry count.
+    d_font = DictionaryObject({
+        NameObject("/W"): ArrayObject([
+            NumberObject(1), ArrayObject([NumberObject(42)] * 55_000),
+            NumberObject(1), ArrayObject([NumberObject(13)] * 60_000),
+        ])
+    })
+    current_widths = {}
+    with pytest.raises(
+            expected_exception=LimitReachedError, match=r"^Too many character widths: 115000 > 100000\.$"
+    ):
+        Font._collect_cid_character_widths(d_font=d_font, current_widths=current_widths)
+    assert current_widths == {
+        chr(character_index): 42
+        for character_index in range(1, 55_001, 1)
+    }
+
+    # Format 2 exceeding length.
+    d_font = DictionaryObject({
+        NameObject("/W"): ArrayObject([
+            NumberObject(1), NumberObject(100_000), NumberObject(42),
+        ])
+    })
+    current_widths = {}
+    with pytest.raises(
+            expected_exception=LimitReachedError, match=r"^CID width range too large: 100000 > 65536\.$"
+    ):
+        Font._collect_cid_character_widths(d_font=d_font, current_widths=current_widths)
+    assert current_widths == {}
+
+    # Format 2 exceeding entry count.
+    d_font = DictionaryObject({
+        NameObject("/W"): ArrayObject([
+            NumberObject(1), NumberObject(55_000), NumberObject(42),
+            NumberObject(1), NumberObject(60_000), NumberObject(13),
+        ])
+    })
+    current_widths = {}
+    with pytest.raises(
+            expected_exception=LimitReachedError, match=r"^Too many character widths: 115000 > 100000\.$"
+    ):
+        Font._collect_cid_character_widths(d_font=d_font, current_widths=current_widths)
+    assert current_widths == {
+        chr(character_index): 42
+        for character_index in range(1, 55_001, 1)
+    }
+
+    # Inverted range.
+    d_font = DictionaryObject({
+        NameObject("/W"): ArrayObject([
+            NumberObject(13), NumberObject(1), NumberObject(42),
+        ])
+    })
+    current_widths = {}
+    with pytest.raises(
+            expected_exception=LimitReachedError, match=r"^Invalid CID width range: 13\.\.2\.$"
+    ):
+        Font._collect_cid_character_widths(d_font=d_font, current_widths=current_widths)
+    assert current_widths == {}

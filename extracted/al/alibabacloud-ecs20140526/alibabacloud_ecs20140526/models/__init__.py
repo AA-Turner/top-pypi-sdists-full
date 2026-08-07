@@ -1221,6 +1221,7 @@ from ._create_elasticity_assurance_request import CreateElasticityAssuranceReque
 from ._create_elasticity_assurance_request import CreateElasticityAssuranceRequestTag
 from ._create_image_request import CreateImageRequestDiskDeviceMapping
 from ._create_image_request import CreateImageRequestFeatures
+from ._create_image_request import CreateImageRequestSecureBootOptions
 from ._create_image_request import CreateImageRequestTag
 from ._create_image_component_request import CreateImageComponentRequestTag
 from ._create_image_pipeline_request import CreateImagePipelineRequestAdvancedOptions
@@ -1550,6 +1551,7 @@ from ._describe_images_response_body import DescribeImagesResponseBodyImagesImag
 from ._describe_images_response_body import DescribeImagesResponseBodyImagesImageDiskDeviceMappingsDiskDeviceMapping
 from ._describe_images_response_body import DescribeImagesResponseBodyImagesImageDiskDeviceMappings
 from ._describe_images_response_body import DescribeImagesResponseBodyImagesImageFeatures
+from ._describe_images_response_body import DescribeImagesResponseBodyImagesImageSecureBootOptions
 from ._describe_images_response_body import DescribeImagesResponseBodyImagesImageTagsTag
 from ._describe_images_response_body import DescribeImagesResponseBodyImagesImageTags
 from ._describe_images_response_body import DescribeImagesResponseBodyImagesImage
@@ -3298,6 +3300,7 @@ __all__ = [
     CreateElasticityAssuranceRequestTag,
     CreateImageRequestDiskDeviceMapping,
     CreateImageRequestFeatures,
+    CreateImageRequestSecureBootOptions,
     CreateImageRequestTag,
     CreateImageComponentRequestTag,
     CreateImagePipelineRequestAdvancedOptions,
@@ -3627,6 +3630,7 @@ __all__ = [
     DescribeImagesResponseBodyImagesImageDiskDeviceMappingsDiskDeviceMapping,
     DescribeImagesResponseBodyImagesImageDiskDeviceMappings,
     DescribeImagesResponseBodyImagesImageFeatures,
+    DescribeImagesResponseBodyImagesImageSecureBootOptions,
     DescribeImagesResponseBodyImagesImageTagsTag,
     DescribeImagesResponseBodyImagesImageTags,
     DescribeImagesResponseBodyImagesImage,

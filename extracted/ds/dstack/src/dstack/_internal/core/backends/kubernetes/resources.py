@@ -26,7 +26,7 @@ from dstack._internal.core.models.instances import (
     InstanceType,
     Resources,
 )
-from dstack._internal.core.models.resources import CPUSpec, Memory, ResourcesSpec
+from dstack._internal.core.models.resources import Memory, ResourcesSpec
 from dstack._internal.utils import docker as docker_utils
 from dstack._internal.utils.common import get_or_error
 from dstack._internal.utils.logging import get_logger
@@ -179,7 +179,6 @@ class ResourceRequests(ResourceRequestsLimits):
 
     @classmethod
     def from_resources_spec(cls, spec: ResourcesSpec) -> Self:
-        assert isinstance(spec.cpu, CPUSpec)
         cpu = spec.cpu.count.min or 0
         memory_mib: int = 0
         if spec.memory.min is not None:
@@ -223,7 +222,6 @@ class ResourceRequests(ResourceRequestsLimits):
 class ResourceLimits(ResourceRequestsLimits):
     @classmethod
     def from_resources_spec(cls, spec: ResourcesSpec) -> Self:
-        assert isinstance(spec.cpu, CPUSpec)
         cpu = spec.cpu.count.max
         memory_mib: Optional[int] = None
         if spec.memory.max is not None:
@@ -236,7 +234,6 @@ class ResourceLimits(ResourceRequestsLimits):
         if spec.gpu is not None:
             # GPU resources cannot be overcommitted, limit must be equal to request
             gpu = spec.gpu.count.min or 0
-        assert isinstance(spec.cpu, CPUSpec)
         return cls(
             cpu=cpu,
             memory_mib=memory_mib,
@@ -385,8 +382,12 @@ def is_taint_tolerated(taint: V1Taint) -> bool:
     return taint.key in (NVIDIA_GPU_NODE_TAINT, AMD_GPU_NODE_TAINT)
 
 
-def get_instance_offers(api: CoreV1Api, region: str) -> list[InstanceOfferWithAvailability]:
-    nodes_allocated_resources = _get_nodes_allocated_resources(api)
+def get_instance_offers(
+    api: CoreV1Api, region: str, unallocated_resources: bool
+) -> list[InstanceOfferWithAvailability]:
+    nodes_allocated_resources: Optional[dict[str, KubernetesResources]] = None
+    if unallocated_resources:
+        nodes_allocated_resources = _get_nodes_allocated_resources(api)
     offers: list[InstanceOfferWithAvailability] = []
     for node in api.list_node().items:
         if (node_name := get_node_name(node)) is None:
@@ -394,7 +395,11 @@ def get_instance_offers(api: CoreV1Api, region: str) -> list[InstanceOfferWithAv
         offer = _get_instance_offer_from_node(
             node=node,
             node_name=node_name,
-            node_allocated_resources=nodes_allocated_resources.get(node_name),
+            node_allocated_resources=(
+                None
+                if nodes_allocated_resources is None
+                else nodes_allocated_resources.get(node_name)
+            ),
             region=region,
         )
         if offer is not None:

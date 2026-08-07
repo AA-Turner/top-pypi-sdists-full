@@ -1,10 +1,15 @@
-//! **The graded admin-op ladder, tiers 0–4** (CIRISServer#346, adoption debt
-//! #361) — the owner-gated routes that make the substrate's removal primitives
-//! reachable from this node.
+//! **The graded admin-op ladder** — tiers 0–4 (CIRISServer#346, adoption debt
+//! #361), plus tiers S and R (CIRISServer#345). The owner-gated routes that
+//! make the substrate's removal primitives reachable from this node.
 //!
 //! Every primitive these routes call shipped in persist and had **zero callers
 //! here** (#361: seven for seven). The mesh was manageable; this node could not
 //! manage it. This module is the caller.
+//!
+//! Tiers 0–4 all act on someone else. The two rungs that do not are the last
+//! two sections of this file: **tier S** (self-directed — and the only rung
+//! reachable under partition) and **tier R** (subject-side — the reader's own
+//! accept/refuse policy, which is the property NoCeM actually had).
 //!
 //! ```text
 //! POST /v1/admin/preview      read-only  -> exact row set + counts + SELECTION HASH
@@ -13,10 +18,39 @@
 //! POST /v1/admin/quarantine   tier 2     scope: moderate*    (+ un_quarantine)
 //! POST /v1/admin/descend      tier 3     scope: slash + QUORUM
 //! POST /v1/admin/deadmit      tier 4     scope: slash        (+ re_admit)
+//! POST /v1/admin/refuse-writes tier 4    scope: slash        (+ accept_writes)
 //! ```
 //!
 //! `*` — see [`REQUIRED_SCOPE_QUARANTINE`]. The FSD ladder says tier 2 is
 //! `moderate`; persist's own admission door says `slash`. The substrate wins.
+//!
+//! # Tier 4 is two acts, not one (CIRISServer#375)
+//!
+//! `deadmit` writes a signed [`Revocation`] on the append-only key plane, and
+//! says so in its own response: *"evidence a reader folds, **not a door that
+//! slams**"* — signature verification, the replication cursors and row ingest
+//! all deliberately keep working, because refusing a compromised key's older
+//! rows would destroy the evidence needed to adjudicate the compromise. That is
+//! the right act for a **compromised** key.
+//!
+//! `refuse-writes` emits persist's AV-77 `revocation:peer_admission:v1` row,
+//! which `check_peer_deadmission` reads at `put_attestation` to refuse that
+//! key's NEXT write — the only primitive in the stack that stops a hostile
+//! admitted peer. `compose::arm_peer_deadmission_gate` armed it at boot and
+//! refused to serve if the arming did not stick; nothing here emitted the row,
+//! so the one control that closes the door was armed, proven armed, and
+//! unreachable. This is the caller.
+//!
+//! Same rung and the same `slash` authority, walked by the same
+//! [`resolve_authority`], because both act on a key. Separate routes and
+//! separate `admin_action:{op}` suffixes because they reach different things,
+//! and a ledger that spelled them alike could not answer *"which did we do?"*.
+//! `refuse-writes` takes ONE chain rather than tier 3's quorum for the reason
+//! the 344-failure audit gave: gating is ordered by irreversibility, not by
+//! blast radius, and this reversal genuinely reaches the substrate. Two of the
+//! ladder's reversals do — `un-quarantine` restores what this node SERVES,
+//! `accept-writes` restores what it ACCEPTS — and they are the two rungs whose
+//! reversal is more than a record.
 //!
 //! # The five properties, each gated by a test in `tests/admin_ops.rs`
 //!
@@ -78,12 +112,55 @@
 //! The ids are wire-stable: renaming one silently un-translates that string in
 //! every locale. If the MEANING changes, mint a new id (`…:v2`).
 //!
+//! # Tier S — self-directed (CIRISServer#345)
+//!
+//! ```text
+//! GET  /v1/admin/self                    the three standings, never folded together
+//! POST /v1/admin/self/shed               shed my own load        (+ resume-load)
+//! POST /v1/admin/self/stop-accepting     stop accepting          (+ resume-accepting)
+//! POST /v1/admin/self/compelled          declare legal compulsion(+ compulsion-lifted)
+//! ```
+//!
+//! Every rung above acts on someone else. Tier S is the only one available
+//! under **partition** — a node that cannot reach its peers can still act on
+//! itself — so every call on it is local: the owner-binding walk, the config
+//! write and the tombstone all touch this node's own database and nothing
+//! else. See [`SelfAct`].
+//!
+//! Its authority is the **owner-binding**, re-derived exactly like every other
+//! rung's ([`REQUIRED_SCOPE_SELF_DIRECTED`]) and additionally required to be
+//! issued by the party [`is_steward_bound`](crate::auth::ownership::is_steward_bound)
+//! resolves as this node's responsible party — a third party's `infra:serve`
+//! grant is not the owner's.
+//!
+//! # Tier R — subject-side / per-reader (CIRISServer#345)
+//!
+//! ```text
+//! POST /v1/admin/reader/fold             read-only: what THIS reader does with what it holds
+//! POST /v1/admin/reader/honour           adopt one judgement
+//! POST /v1/admin/reader/decline          refuse one judgement   (a NORMAL outcome)
+//! ```
+//!
+//! NoCeM's actual property: a signed judgement takes effect at a consumer that
+//! *chose* to honour that signer. Tiers 1–4 apply automatically at the
+//! consumer, which is the property NoCeM was invented to avoid; tier R is the
+//! reader's own accept/refuse policy over other parties' judgements, and a
+//! decline is a **first-class outcome, never an error**.
+//!
+//! The reader's policy is not invented here: it is this node's own
+//! subscription set
+//! ([`trusted_roots_of`](ciris_persist::federation::trust_root::trusted_roots_of)),
+//! composed with persist's own scoped-delegation walk and folded by persist's
+//! own **pure** [`fold_quarantine`](ciris_persist::federation::quarantine::fold_quarantine).
+//! Only the *which signers* predicate is ours — the same shape
+//! `fold_mesh_config(…, roots, …)` already takes. See [`ReaderDecision`].
+//!
 //! # Deliberately NOT here
 //!
-//! Tiers S (self-directed) and R (subject-side reader policy), and everything
-//! on the mesh-config plane. The latter is blocked on CIRISConstitution#57:
-//! CC 4.2.1 scopes accord signatures to `EmergencyShutdown` alone, so nobody
-//! may sign a mesh-config row yet.
+//! Everything on the mesh-config plane; that surface is
+//! [`crate::mesh_config_surface`]. Tier S writes NOTHING there — see
+//! [`SelfAct::enforcement`] for what each self-directed act does and does not
+//! reach, stated in the response rather than left to be assumed.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
@@ -102,14 +179,18 @@ use ciris_persist::federation::admission::{
     MAX_MODERATION_DELEGATION_DEPTH,
 };
 use ciris_persist::federation::envelope::paths;
-use ciris_persist::federation::hard_case::{admin_action_event, admin_op, HardCaseEvent};
+use ciris_persist::federation::hard_case::{
+    admin_action_event, admin_action_kind, admin_field, admin_op, HardCaseEvent, HardCaseFilter,
+};
 use ciris_persist::federation::quarantine;
+use ciris_persist::federation::trust_root::trusted_roots_of;
 use ciris_persist::federation::types::{
-    attestation_tier, attestation_type, cohort_scope, Attestation, Revocation, SignedRevocation,
+    attestation_type, cohort_scope, Attestation, Revocation, SignedRevocation,
 };
 use ciris_persist::prelude::{CallerScope, Engine};
 
 use crate::auth::gate::CapabilityVerb;
+use crate::auth::ownership::{is_steward_bound, INFRA_SERVE};
 use crate::auth::roles::{Permission, UserRole};
 use crate::auth::session::{resolve_bearer, SessionCaller};
 
@@ -142,6 +223,20 @@ pub const REQUIRED_SCOPE_DESCEND: &str = DELEGATION_SCOPE_SLASH;
 /// The delegation scope tier 4 (`deadmit` / `re_admit`) requires.
 pub const REQUIRED_SCOPE_DEADMIT: &str = DELEGATION_SCOPE_SLASH;
 
+/// The delegation scope tier 4's **write-door** arm (`refuse_writes` /
+/// `accept_writes`) requires.
+///
+/// The SAME scope, walked by the SAME [`resolve_authority`], as the revocation
+/// arm beside it. Stated as its own constant rather than reusing
+/// [`REQUIRED_SCOPE_DEADMIT`] by aliasing, so that a future change to one act's
+/// authority is a visible change to one line and not an accident to the other —
+/// but it is deliberately the same value: **there is no laxer path for the
+/// harsher op.** That inversion has been found in this repo before (the FSD
+/// ladder advertised `moderate` for tier 2 while persist's own door required
+/// `slash`), and refusing a key's next write is strictly harsher than recording
+/// a revocation a reader may or may not fold.
+pub const REQUIRED_SCOPE_REFUSE_WRITES: &str = DELEGATION_SCOPE_SLASH;
+
 /// **Tier 3 quorum floor** — distinct authority ROOTS (not distinct
 /// `delegation_id`s: two chains from one root are one authority wearing two
 /// hats) that must each independently reach the acting key under `slash`.
@@ -165,6 +260,61 @@ pub const OP_THROTTLE_RELEASE: &str = "throttle_release";
 pub const OP_DESCEND: &str = "descend";
 /// `admin_action:{op}` suffix for the tier 4 reversal.
 pub const OP_RE_ADMISSION: &str = "re_admission";
+/// `admin_action:{op}` suffix for the tier 4 **write-door** act (AV-77).
+///
+/// Deliberately NOT `admin_op::DE_ADMISSION`, which the revocation arm beside it
+/// already uses. They are two different acts — one stops the next write, one
+/// records evidence a reader folds — and a ledger that spells them the same way
+/// cannot answer *"which one did we actually do?"* after the fact. The
+/// confusion IS the bug this route was filed against (CIRISServer#375).
+pub const OP_REFUSE_WRITES: &str = "refuse_writes";
+/// `admin_action:{op}` suffix for the reversal of [`OP_REFUSE_WRITES`] — the
+/// only reversal on the ladder that reaches the substrate's WRITE door
+/// (`un-quarantine` reaches the serve path; the other two are records).
+pub const OP_ACCEPT_WRITES: &str = "accept_writes";
+
+/// **The delegation scope every tier S and tier R op requires.**
+///
+/// `infra:serve` — "serve reads / relay / store / transport", the scope the CC
+/// 3.2 owner-binding stamps
+/// ([`OWNER_BINDING_INFRA_SCOPES`](crate::auth::ownership::OWNER_BINDING_INFRA_SCOPES)).
+/// Both families change what THIS node does with its own serving: tier S sheds
+/// or closes it, tier R decides whose judgements it honours about what it
+/// serves. Neither is a duty over another party, so neither takes a moderation
+/// scope a third party granted — which is also why tier S survives partition:
+/// the only chain it walks is the one its owner already gave it.
+pub const REQUIRED_SCOPE_SELF_DIRECTED: &str = INFRA_SERVE;
+
+/// `admin_action:{op}` suffix — tier S, "shed my own load".
+pub const OP_SELF_SHED: &str = "self_shed";
+/// `admin_action:{op}` suffix — the tier S shed reversal.
+pub const OP_SELF_SHED_RELEASE: &str = "self_shed_release";
+/// `admin_action:{op}` suffix — tier S, "stop accepting".
+pub const OP_SELF_STOP_ACCEPTING: &str = "self_stop_accepting";
+/// `admin_action:{op}` suffix — the tier S stop-accepting reversal.
+pub const OP_SELF_ACCEPTING_RESUMED: &str = "self_accepting_resumed";
+/// `admin_action:{op}` suffix — tier S, "declare legal compulsion". **Its own
+/// op, never a flavour of [`OP_SELF_STOP_ACCEPTING`]**: a reader has to be able
+/// to tell *this node chose to stop* from *this node was made to stop*.
+pub const OP_SELF_COMPELLED: &str = "self_compelled";
+/// `admin_action:{op}` suffix — a declared compulsion has ended.
+pub const OP_SELF_COMPULSION_LIFTED: &str = "self_compulsion_lifted";
+
+/// `admin_action:{op}` suffix — tier R, "I honour this judgement".
+pub const OP_READER_HONOUR: &str = "reader_honour";
+/// `admin_action:{op}` suffix — tier R, "I do not honour this judgement".
+/// Recorded as its own act because a decline is a decision, and the whole point
+/// of the rung is that it is not an error.
+pub const OP_READER_DECLINE: &str = "reader_decline";
+
+/// Hard ceiling on the judgement set one tier R fold reads. A fold an operator
+/// cannot read is not evidence.
+///
+/// **Above the ceiling the fold REFUSES; it never truncates.** Folding a
+/// truncated marker set is fail-open by construction — drop the governing
+/// withhold off the end of a page and the fold reports `not_quarantined`, which
+/// is a release nobody signed. See [`judgement_page_refusal`].
+pub const MAX_JUDGEMENT_PAGE: usize = 2_000;
 
 /// Default page size for a preview. A bound, not a working set.
 pub const DEFAULT_PREVIEW_LIMIT: i64 = 500;
@@ -227,9 +377,30 @@ fn err(code: StatusCode, token: &str, id: &str, text: String) -> Response {
 #[derive(Clone)]
 struct AdminOpsState {
     engine: Arc<Engine>,
-    /// THIS node's federation `key_id` — the ACTING key of every op here, and
-    /// the key whose delegated authority is re-walked.
-    node_key_id: String,
+}
+
+/// THIS node's federation `key_id` — the ACTING key of every op here, the key
+/// whose delegated authority is re-walked, and the identity every tombstone is
+/// signed under.
+///
+/// **Resolved from the engine, never accepted as a parameter**
+/// (CIRISServer#372 Level 2). It used to ride in [`AdminOpsState`] from
+/// `compose`'s `cfg.key_id`, which begins life as the `--key-id` CLI *label*.
+/// The key whose authority is walked and the key that signs the resulting
+/// revocation must be ONE identity — in the embedded fold the label and the
+/// engine signer differ, and an op authorised under one key but signed under
+/// another is exactly the producer/attester disagreement `scorer.rs` names.
+async fn self_key_id(st: &AdminOpsState) -> Result<String, Response> {
+    crate::self_identity::resolve(&st.engine, "admin_ops")
+        .await
+        .map_err(|e| {
+            err(
+                StatusCode::SERVICE_UNAVAILABLE,
+                crate::self_identity::REFUSAL_TOKEN,
+                crate::self_identity::MESSAGE_ID,
+                format!("{} ({e})", crate::self_identity::MESSAGE_TEXT),
+            )
+        })
 }
 
 /// Owner-authority gate. Identical spine to
@@ -281,8 +452,14 @@ async fn require_owner(st: &AdminOpsState, headers: &HeaderMap) -> Result<Sessio
 /// The gate stack every route in this module runs, in this order: serve-only
 /// floor (an unowned node performs no judgement on anyone's behalf) → owner
 /// session → the never-delegatable `Wipe` verb.
-async fn gate(st: &AdminOpsState, headers: &HeaderMap) -> Result<(), Response> {
-    if crate::auth::gate::require_owner_bound(&st.engine, &st.node_key_id)
+///
+/// **Returns THIS node's resolved signing identity** so every route runs on the
+/// one value the gate itself was evaluated against — the node whose
+/// owner-binding was walked here and the node whose delegated authority is
+/// re-walked below cannot be two different keys (CIRISServer#372 Level 2).
+async fn gate(st: &AdminOpsState, headers: &HeaderMap) -> Result<String, Response> {
+    let node_key_id = self_key_id(st).await?;
+    if crate::auth::gate::require_owner_bound(&st.engine, &node_key_id)
         .await
         .is_err()
     {
@@ -298,7 +475,7 @@ async fn gate(st: &AdminOpsState, headers: &HeaderMap) -> Result<(), Response> {
     if let Some(resp) = crate::auth::gate::require_verb(&caller, CapabilityVerb::Wipe) {
         return Err(resp);
     }
-    Ok(())
+    Ok(node_key_id)
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -399,6 +576,10 @@ impl Selection {
     /// its shape and may add predicates — so this is build-then-set: a new
     /// field arrives as a default we did not have to notice, rather than as a
     /// compile break.
+    ///
+    /// **`window` is a closed pair, and the open side needs a sentinel that is
+    /// safe under a TEXT comparison** — see [`open_upper_bound`]. This mattered
+    /// the moment persist v30.0.0 made the axis bind and not one release before.
     fn to_filter(&self) -> AttestationFilter {
         let n = self.normalized();
         let mut f = AttestationFilter::default();
@@ -411,8 +592,8 @@ impl Selection {
         f.window = match (n.after, n.before) {
             (None, None) => None,
             (a, b) => Some((
-                a.unwrap_or(DateTime::<Utc>::MIN_UTC),
-                b.unwrap_or(DateTime::<Utc>::MAX_UTC),
+                a.unwrap_or_else(open_lower_bound),
+                b.unwrap_or_else(open_upper_bound),
             )),
         };
         f
@@ -454,32 +635,75 @@ pub struct Preview {
     pub selection_hash: String,
 }
 
-/// **Where the time window is enforced — stated, because it is not where it
-/// should be.**
+/// **The open-ended side of a one-sided window, as a value the substrate's
+/// comparison can actually order.**
 ///
-/// `AttestationFilter::window` is a v17.4.0 axis and `list_attestations` on
-/// sqlite does not read it: its predicate builder emits `attesting_key_id`,
-/// `attested_key_id`, `attestation_type`, `pqc_completed`,
-/// `dimension_prefixes`, `dimension_exact`, `valid_at`, `confidence_floor`,
-/// `subject_key_id` and the scope gate — and nothing for `window`, `tier` or
-/// `attester_filter`. Only the `list_scores` / `resolve_scores` handles run the
-/// shared builder that does, and those join the subject table, so they cannot
-/// serve a general selection.
+/// `AttestationFilter::window` is a CLOSED `(start, end)` pair, so `after:` with
+/// no `before:` has to supply an upper bound. The obvious sentinel —
+/// `DateTime::<Utc>::MAX_UTC` — is **wrong here, and silently**: persist stores
+/// `asserted_at` as `to_rfc3339()` TEXT and binds the window the same way, so
+/// the predicate is a *string* comparison. `MAX_UTC` formats as
+/// `+262143-12-31T…`, and `'+'` (0x2B) sorts BELOW `'2'` (0x32) — so
+/// `asserted_at < MAX_UTC` is false for **every** row with a four-digit year and
+/// an `after:`-only selection returns NOTHING.
 ///
-/// This is the same silent-narrowing class `dimension_exact` was in until
-/// v17.5.2 (#461): the caller sets a predicate, the substrate returns rows that
-/// do not satisfy it, and nothing says so. A preview that silently ignored
-/// `after:` would hand an operator a hash over a blast radius twice the size
-/// they asked to ratify — so the window IS enforced, in this process, and the
-/// response says which.
+/// This was harmless for as long as `list_attestations` ignored the axis, and
+/// became a fail-closed selection the moment persist v30.0.0 (#596 item 2) made
+/// it bind. It was caught by [`WindowEnforcement`] being measured rather than
+/// declared: the in-process filter is still the authority, so the *selection*
+/// was never wrong — the push-down over-narrowed, and the page came back empty.
+///
+/// The sentinels stay inside the four-digit-year range, where lexicographic
+/// order and chronological order agree. **The stated assumption:** a row whose
+/// `asserted_at` falls outside years 0000–9999 would sort outside these bounds
+/// and be missed. No producer in this federation can emit one — persist's own
+/// `list_scores` handle has compared this column as text since v17.4.0 — and the
+/// in-process filter would still be correct about every row that came back.
+fn open_upper_bound() -> DateTime<Utc> {
+    "9999-12-31T23:59:59Z".parse().expect("in-range sentinel")
+}
+
+/// The lower twin of [`open_upper_bound`]. `MIN_UTC` happens to compare
+/// correctly (`'-'` sorts below `'2'`, so `>=` admits everything), but relying
+/// on that is relying on an accident of two sign characters; this one is
+/// ordered for the same stated reason its twin is.
+fn open_lower_bound() -> DateTime<Utc> {
+    "0000-01-01T00:00:00Z".parse().expect("in-range sentinel")
+}
+
+/// **Where the time window was enforced — MEASURED, not asserted.**
+///
+/// `AttestationFilter::window` is a v17.4.0 axis that `list_attestations`
+/// accepted and silently dropped until persist v30.0.0 (CIRISPersist#596 item
+/// 2): its predicate builder emitted nine axes and nothing for `window`, `tier`
+/// or `attester_filter`, so a caller setting `window` got a bound that was never
+/// applied. That is the same silent-narrowing class `dimension_exact` was in
+/// until v17.5.2 (#461), and it mattered here specifically: a preview that
+/// ignored `after:` hands an operator a selection hash over a blast radius
+/// larger than the one they were shown and then ratify.
+///
+/// **The axis now binds, so the window is pushed DOWN** — which also fixes the
+/// page-bound interaction, because the substrate's `limit` now bounds the
+/// windowed set rather than the whole corpus.
+///
+/// The in-process filter is kept anyway, and this enum is how it earns its
+/// keep: it is no longer the enforcement, it is the WITNESS. A row the substrate
+/// returns that does not satisfy the window is dropped here and flips the report
+/// to [`Application`](Self::Application) — so if the push-down ever stops
+/// binding again, the blast radius still narrows correctly AND the response says
+/// out loud where it was narrowed. A value that is checked rather than declared
+/// cannot go stale the way the sentence this replaced did.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum WindowEnforcement {
     /// No window was asked for.
     None,
-    /// Enforced in this process over the substrate's page, because
-    /// `list_attestations` does not honour the axis. The page bound is applied
-    /// BEFORE this filter, so a windowed selection can come back short while
-    /// [`Preview::truncated`] is set.
+    /// Asked for, and every row the substrate returned already satisfied it —
+    /// the push-down bound (persist v30.0.0 / #596 item 2).
+    Substrate,
+    /// Asked for, and this node had to drop at least one row the substrate
+    /// returned. **The push-down did not bind**: the selection is still correct,
+    /// but the page bound was applied to a wider set, so a windowed selection
+    /// can come back short while [`Preview::truncated`] is set.
     Application,
 }
 
@@ -487,6 +711,7 @@ impl WindowEnforcement {
     fn token(self) -> &'static str {
         match self {
             Self::None => "none",
+            Self::Substrate => "substrate",
             Self::Application => "application",
         }
     }
@@ -555,19 +780,25 @@ async fn run_preview(
         .await
         .map_err(|e| format!("list attestations: {e}"))?;
 
-    // The page bound is the substrate's; `truncated` is measured BEFORE the
-    // window filter, so a short windowed page is never mistaken for a complete
-    // one.
+    // The page bound is the substrate's, and since persist v30.0.0 (#596 item
+    // 2) it bounds the WINDOWED set — the window is a real push-down. Measured
+    // before the in-process re-check for the same reason as before: a short
+    // page must never be mistaken for a complete one.
     let truncated = i64::try_from(page.items.len()).unwrap_or(i64::MAX) >= limit;
     let n = selection.normalized();
-    let window_enforced = if n.after.is_some() || n.before.is_some() {
-        WindowEnforcement::Application
-    } else {
-        WindowEnforcement::None
-    };
+    let asked_for_window = n.after.is_some() || n.before.is_some();
     let in_window = |a: &ciris_persist::federation::types::Attestation| {
         n.after.is_none_or(|start| a.asserted_at >= start)
             && n.before.is_none_or(|end| a.asserted_at < end)
+    };
+    // The witness: did the push-down actually bind? Counted over what came
+    // back, so the reported enforcement point is a measurement rather than a
+    // claim about persist's version.
+    let dropped_here = page.items.iter().filter(|a| !in_window(a)).count();
+    let window_enforced = match (asked_for_window, dropped_here) {
+        (false, _) => WindowEnforcement::None,
+        (true, 0) => WindowEnforcement::Substrate,
+        (true, _) => WindowEnforcement::Application,
     };
 
     let mut per_attester: BTreeMap<String, usize> = BTreeMap::new();
@@ -620,6 +851,11 @@ fn preview_json(p: &Preview) -> serde_json::Value {
         "targets": p.targets,
         "rows": p.rows,
     });
+    // Emitted ONLY on the Application arm, which since persist v30.0.0 (#596
+    // item 2) means the push-down did not bind and this node narrowed the page
+    // itself. The sentence is unchanged and still describes exactly that case —
+    // re-wording it would leave 28 locale bundles holding a translation of
+    // different content, which is worse than an id that renders raw.
     if p.window_enforced == WindowEnforcement::Application {
         out["window_note"] = m(
             "admin.preview.window_in_application",
@@ -660,20 +896,17 @@ struct AuthorityProof {
 /// The scope set a `delegates_to` envelope declares — bare string OR array, the
 /// two wire shapes the substrate walk accepts.
 ///
-/// Hand-parsed here because persist's own `delegation_scope_set` is
-/// `pub(crate)`: there is **no public predicate for "does THIS delegation row
-/// carry scope S"**, only the issuer-to-target walk, which answers a different
-/// question (see [`resolve_authority`]). This mirrors persist's parse exactly;
-/// if it is ever exported, delete this and compose it.
+/// **This is persist's own parse, called** (v30.0.0 / CIRISPersist#596 item 3b).
+/// It used to be a copy, because `delegation_scope_set` was `pub(crate)` and the
+/// only public authority predicate was the issuer-to-target walk, which answers
+/// a different question (see [`resolve_authority`]). A second implementation of
+/// an authority rule is the split-truth shape a rule stated in one place and
+/// re-derived in another always becomes, so the copy was marked for deletion the
+/// day it was exported. This is that deletion.
 fn delegation_scopes(envelope: &serde_json::Value) -> BTreeSet<String> {
-    match envelope.get("scope") {
-        Some(serde_json::Value::String(s)) => std::iter::once(s.clone()).collect(),
-        Some(serde_json::Value::Array(arr)) => arr
-            .iter()
-            .filter_map(|v| v.as_str().map(str::to_owned))
-            .collect(),
-        _ => BTreeSet::new(),
-    }
+    ciris_persist::federation::admission::delegation_scope_set(envelope)
+        .into_iter()
+        .collect()
 }
 
 /// Resolve + re-derive one delegation under `scope`. Refusals are named.
@@ -789,8 +1022,13 @@ struct Committed {
 /// The shared commit gate: attribution → authority → **re-preview and compare
 /// the hash**. In that order, so an unattributed call is refused before any
 /// substrate work happens.
+///
+/// `node_key_id` is the value [`gate`] resolved from the engine — passed down
+/// rather than re-derived so the authority walked here is provably walked from
+/// the same identity the gate authorised (CIRISServer#372 Level 2).
 async fn commit_gate(
     st: &AdminOpsState,
+    node_key_id: &str,
     c: &Commit,
     scope: &str,
     extra_delegation_ids: &[String],
@@ -815,12 +1053,12 @@ async fn commit_gate(
         ));
     }
 
-    let authority = resolve_authority(&st.engine, &st.node_key_id, &c.delegation_id, scope).await?;
+    let authority = resolve_authority(&st.engine, node_key_id, &c.delegation_id, scope).await?;
     let mut quorum_roots: BTreeSet<String> = BTreeSet::new();
     quorum_roots.insert(authority.issuer_key_id.clone());
     let mut quorum_delegation_ids = vec![authority.delegation_id.clone()];
     for extra in extra_delegation_ids {
-        let proof = resolve_authority(&st.engine, &st.node_key_id, extra, scope).await?;
+        let proof = resolve_authority(&st.engine, node_key_id, extra, scope).await?;
         quorum_roots.insert(proof.issuer_key_id);
         quorum_delegation_ids.push(proof.delegation_id);
     }
@@ -844,7 +1082,7 @@ async fn commit_gate(
             .into_response());
     }
 
-    let preview = run_preview(&st.engine, &st.node_key_id, &c.selection)
+    let preview = run_preview(&st.engine, node_key_id, &c.selection)
         .await
         .map_err(|e| {
             err(
@@ -1008,9 +1246,10 @@ async fn preview(
     headers: HeaderMap,
     body: axum::body::Bytes,
 ) -> Response {
-    if let Err(resp) = gate(&st, &headers).await {
-        return resp;
-    }
+    let node_key_id = match gate(&st, &headers).await {
+        Ok(id) => id,
+        Err(resp) => return resp,
+    };
     let selection: Selection = match serde_json::from_slice(&body) {
         Ok(s) => s,
         Err(e) => {
@@ -1022,7 +1261,7 @@ async fn preview(
             )
         }
     };
-    match run_preview(&st.engine, &st.node_key_id, &selection).await {
+    match run_preview(&st.engine, &node_key_id, &selection).await {
         Ok(p) => {
             let mut out = preview_json(&p);
             out["source_locale"] = serde_json::json!(SOURCE_LOCALE);
@@ -1070,9 +1309,10 @@ async fn judgement_only(
         enforcement,
         reversal,
     } = spec;
-    if let Err(resp) = gate(st, headers).await {
-        return resp;
-    }
+    let node_key_id = match gate(st, headers).await {
+        Ok(id) => id,
+        Err(resp) => return resp,
+    };
     let c: Commit = match serde_json::from_slice(body) {
         Ok(v) => v,
         Err(e) => {
@@ -1084,7 +1324,7 @@ async fn judgement_only(
             )
         }
     };
-    let committed = match commit_gate(st, &c, scope, &[], 1).await {
+    let committed = match commit_gate(st, &node_key_id, &c, scope, &[], 1).await {
         Ok(v) => v,
         Err(resp) => return resp,
     };
@@ -1229,52 +1469,34 @@ struct QuarantineRequest {
 /// `record_quarantine_marker` takes an already-assembled, already-signed row
 /// and does the storing itself.
 ///
-/// Every sanctioned emit helper persist exposes (`emit_attestation_self`,
-/// `emit_with_local_signer`, `assemble_and_put`) canonicalizes, signs, assembles
-/// **and puts** in one step. There is no assemble-only variant, so the one door
-/// built for this op cannot be reached through the chokepoint built to stop
-/// hand-rolled rows. This is that hand-rolled row, kept to one function.
+/// **persist v30.0.0 (CIRISPersist#601 item 3 / #596 item 3) closed the gap this
+/// function was built around.** Every sanctioned emit helper
+/// (`emit_attestation_self`, `emit_with_local_signer`, `assemble_and_put`)
+/// canonicalized, signed, assembled **and put** in one step, so the one door
+/// built for this op could not be reached through the chokepoint built to stop
+/// hand-rolled rows — and this was that hand-rolled row. `assemble` now splits
+/// the recipe from the put, so the marker is produced by the same code path
+/// every other federation-tier row is, carrying the same admission gates (#293
+/// subject canonicality, #527 cohort_scope validate-never-default) that a
+/// hand-rolled row skipped by construction.
 async fn build_marker(
     engine: &Arc<Engine>,
     subject_key_id: &str,
     envelope: serde_json::Value,
 ) -> Result<Attestation, String> {
-    use base64::{engine::general_purpose::STANDARD as B64, Engine as _};
-
-    let key_id = engine
-        .local_derived_key_id()
+    let core = ciris_persist::federation::envelope::EnvelopeCore::from_value(envelope)
+        .map_err(|e| format!("type the quarantine-marker envelope: {e}"))?;
+    let mut input = ciris_persist::federation::EmitAttestationInput::with_envelope(
+        attestation_type::SCORES,
+        core,
+        cohort_scope::FEDERATION,
+    );
+    input.attested_key_id = Some(subject_key_id.to_owned());
+    engine
+        .assemble_attestation_self(input)
         .await
-        .map_err(|e| format!("derive acting key_id: {e}"))?;
-    let canonical = ciris_persist::verify::canonical::ceg_produce_canonicalize(&envelope)
-        .map_err(|e| format!("canonicalize marker: {e}"))?;
-    let sig = engine
-        .sign_hybrid(&canonical)
-        .await
-        .map_err(|e| format!("hybrid-sign marker: {e}"))?;
-    let now = Utc::now();
-    Ok(Attestation {
-        attestation_id: crate::ids::new_id(),
-        attesting_key_id: key_id.clone(),
-        attested_key_id: subject_key_id.to_owned(),
-        attestation_type: attestation_type::SCORES.to_string(),
-        weight: None,
-        asserted_at: now,
-        expires_at: None,
-        attestation_envelope: envelope,
-        original_content_hash: hex::encode(Sha256::digest(&canonical)),
-        scrub_signature_classical: B64.encode(&sig.classical.signature),
-        scrub_signature_pqc: Some(B64.encode(&sig.pqc.signature)),
-        scrub_key_id: key_id,
-        scrub_timestamp: now,
-        pqc_completed_at: Some(now),
-        persist_row_hash: String::new(),
-        subject_key_ids: Vec::new(),
-        withdraws_admission_rule: None,
-        cohort_scope: cohort_scope::FEDERATION.to_string(),
-        tier: attestation_tier::FEDERATION.to_string(),
-        promoted_at: None,
-        additional_scrubs: Vec::new(),
-    })
+        .map(|s| s.attestation)
+        .map_err(|e| format!("assemble quarantine marker: {e}"))
 }
 
 /// Shared body for quarantine + un-quarantine: same gates, different marker.
@@ -1284,9 +1506,10 @@ async fn quarantine_op(
     body: &axum::body::Bytes,
     release: bool,
 ) -> Response {
-    if let Err(resp) = gate(st, headers).await {
-        return resp;
-    }
+    let node_key_id = match gate(st, headers).await {
+        Ok(id) => id,
+        Err(resp) => return resp,
+    };
     let req: QuarantineRequest = match serde_json::from_slice(body) {
         Ok(v) => v,
         Err(e) => {
@@ -1308,7 +1531,8 @@ async fn quarantine_op(
         );
     }
     let c = req.commit;
-    let committed = match commit_gate(st, &c, REQUIRED_SCOPE_QUARANTINE, &[], 1).await {
+    let committed = match commit_gate(st, &node_key_id, &c, REQUIRED_SCOPE_QUARANTINE, &[], 1).await
+    {
         Ok(v) => v,
         Err(resp) => return resp,
     };
@@ -1478,9 +1702,10 @@ async fn descend(
     headers: HeaderMap,
     body: axum::body::Bytes,
 ) -> Response {
-    if let Err(resp) = gate(&st, &headers).await {
-        return resp;
-    }
+    let node_key_id = match gate(&st, &headers).await {
+        Ok(id) => id,
+        Err(resp) => return resp,
+    };
     let req: DescendRequest = match serde_json::from_slice(&body) {
         Ok(v) => v,
         Err(e) => {
@@ -1495,6 +1720,7 @@ async fn descend(
     let c = req.commit;
     let committed = match commit_gate(
         &st,
+        &node_key_id,
         &c,
         REQUIRED_SCOPE_DESCEND,
         &req.quorum_delegation_ids,
@@ -1636,9 +1862,10 @@ async fn deadmit(
     headers: HeaderMap,
     body: axum::body::Bytes,
 ) -> Response {
-    if let Err(resp) = gate(&st, &headers).await {
-        return resp;
-    }
+    let node_key_id = match gate(&st, &headers).await {
+        Ok(id) => id,
+        Err(resp) => return resp,
+    };
     let req: DeadmitRequest = match serde_json::from_slice(&body) {
         Ok(v) => v,
         Err(e) => {
@@ -1651,7 +1878,7 @@ async fn deadmit(
         }
     };
     let c = req.commit;
-    let committed = match commit_gate(&st, &c, REQUIRED_SCOPE_DEADMIT, &[], 1).await {
+    let committed = match commit_gate(&st, &node_key_id, &c, REQUIRED_SCOPE_DEADMIT, &[], 1).await {
         Ok(v) => v,
         Err(resp) => return resp,
     };
@@ -1826,17 +2053,2009 @@ async fn re_admit(
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+//  Tier 4, the WRITE DOOR — refuse-writes / accept-writes (AV-77)
+// ═══════════════════════════════════════════════════════════════════════════
+//
+//  CIRISServer#375. `deadmit` above writes a `Revocation` and says, correctly,
+//  that it is "evidence a reader folds, not a door that slams". This is the
+//  door. `compose::arm_peer_deadmission_gate` arms persist's AV-77 gate at boot
+//  and refuses to serve if the arming did not stick — and until now nothing in
+//  this server emitted the row that gate reads, so the one control that stops a
+//  hostile admitted peer's NEXT write was armed, proven armed, and unreachable.
+//
+//  Two acts, not one rung renamed: a COMPROMISED key wants its history readable
+//  (revocation), a HOSTILE one wants its next write stopped (this). Both are
+//  tier 4 because both act on a key under `slash`; they are separate routes and
+//  separate `admin_action:{op}` suffixes because they reach different things and
+//  an operator has to be able to tell afterwards which was done.
+
+/// **Does this node refuse that key's writes right now — and is that knowable?**
+///
+/// Three values because there are three facts, and the third is the dangerous
+/// one: rendered as "admitted" it is a false clean, which is the shape
+/// `FSD/RCA_INGEST_REJECTION_2026-08-05.md` cost 71 hours of a dead plane.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AdmissionStanding {
+    /// A live de-admission THIS node authored names the key: its next write
+    /// into this corpus is refused.
+    Refused,
+    /// No live de-admission this node authored names the key.
+    Admitted,
+    /// The corpus could not be read, so this node **does not know**. Not a
+    /// zero, and never to be folded into [`Admitted`](Self::Admitted).
+    Unreadable,
+}
+
+impl AdmissionStanding {
+    /// The stable program token a caller branches on.
+    #[must_use]
+    pub const fn token(self) -> &'static str {
+        match self {
+            Self::Refused => "refused",
+            Self::Admitted => "admitted",
+            Self::Unreadable => "unreadable",
+        }
+    }
+
+    fn note(self) -> serde_json::Value {
+        match self {
+            Self::Refused => m(
+                "admin.admission.standing.refused",
+                "This node holds a live de-admission of this key that it authored itself, so \
+                 the key's next write into this node's corpus is refused at the substrate's \
+                 own door.",
+            ),
+            Self::Admitted => m(
+                "admin.admission.standing.admitted",
+                "No live de-admission authored by this node names this key, so its writes are \
+                 admitted here. This says nothing about any other node: de-admission is local \
+                 to the corpus that emits it.",
+            ),
+            Self::Unreadable => m(
+                "admin.admission.standing.unreadable",
+                "This node could not read its own admission state for this key, so it does \
+                 not know whether that key's writes are refused. This is NOT 'admitted' — do \
+                 not render it as one.",
+            ),
+        }
+    }
+}
+
+fn standing_json(s: AdmissionStanding) -> serde_json::Value {
+    serde_json::json!({ "standing": s.token(), "message": s.note() })
+}
+
+/// **Ask persist, never re-derive.** The de-admission rule is
+/// `check_peer_deadmission`: this node's own rows, its own tombstone fold, its
+/// own expiry check. Re-implementing any of that here would be the two-lists
+/// class (#541) on the one control that stops an abuser.
+///
+/// persist exposes the rule as a predicate over a candidate ROW, so this asks
+/// it the operator's actual question — *"would a write from `peer` be refused
+/// here?"* — with a probe row. The probe is **never signed, never stored and
+/// never leaves this function**: `check_peer_deadmission` reads exactly two of
+/// its fields (`attesting_key_id`, and the envelope `dimension`, for the
+/// exemption arm that lets a node always lift its own denial), and the probe
+/// carries a dimension-less envelope so that arm is not taken.
+///
+/// The `de-admitted` discriminator is persist's own idiom, used by persist
+/// itself at `substrate_machine.rs` (`msg.contains(PEER_DEADMISSION_DIMENSION)`)
+/// and by its `bootstrap_admission` witnesses — matched on the CONSTANT, so a
+/// rename upstream breaks the build rather than silently turning every refusal
+/// into `Unreadable`.
+async fn read_admission_standing(
+    engine: &Arc<Engine>,
+    node_key_id: &str,
+    peer_key_id: &str,
+) -> AdmissionStanding {
+    use ciris_persist::federation::admission::PEER_DEADMISSION_DIMENSION;
+    use ciris_persist::federation::Error as FederationError;
+
+    let epoch = DateTime::<Utc>::MIN_UTC;
+    let probe = Attestation {
+        attestation_id: String::new(),
+        attesting_key_id: peer_key_id.to_owned(),
+        attested_key_id: peer_key_id.to_owned(),
+        attestation_type: attestation_type::SCORES.to_owned(),
+        weight: None,
+        asserted_at: epoch,
+        expires_at: None,
+        // Deliberately dimension-less: a probe carrying
+        // `PEER_DEADMISSION_DIMENSION` would take the exemption arm and every
+        // key would read as admitted.
+        attestation_envelope: serde_json::json!({}),
+        original_content_hash: String::new(),
+        scrub_signature_classical: String::new(),
+        scrub_signature_pqc: None,
+        scrub_key_id: peer_key_id.to_owned(),
+        scrub_timestamp: epoch,
+        pqc_completed_at: None,
+        persist_row_hash: String::new(),
+        subject_key_ids: Vec::new(),
+        withdraws_admission_rule: None,
+        cohort_scope: cohort_scope::FEDERATION.to_owned(),
+        tier: ciris_persist::federation::types::attestation_tier::FEDERATION.to_owned(),
+        promoted_at: None,
+        additional_scrubs: Vec::new(),
+    };
+    let directory = engine.federation_directory();
+    match ciris_persist::federation::admission::check_peer_deadmission(
+        directory.as_ref(),
+        &probe,
+        node_key_id,
+    )
+    .await
+    {
+        Ok(()) => AdmissionStanding::Admitted,
+        Err(FederationError::InvalidArgument(msg)) if msg.contains(PEER_DEADMISSION_DIMENSION) => {
+            AdmissionStanding::Refused
+        }
+        Err(e) => {
+            tracing::warn!(
+                peer_key_id,
+                error = %e,
+                "could not read this node's own de-admission standing for a peer — reporting \
+                 `unreadable`, NOT `admitted`"
+            );
+            AdmissionStanding::Unreadable
+        }
+    }
+}
+
+/// **Is the substrate actually consulting this node's de-admissions?**
+///
+/// AV-77's refusal predicate compares a writer against the key the host
+/// declared with `set_self_key_id`. Emitting the row while that is unset — or
+/// set to some OTHER key — writes a sanction that refuses nothing, which is the
+/// exact condition `compose::arm_peer_deadmission_gate` refuses to boot over:
+/// *"a silently-dormant sanction gate is strictly worse than no gate, because
+/// operators will believe de-admission works."*
+///
+/// Kept as a separate axis from [`AdmissionStanding`] on purpose. "This node
+/// holds a de-admission of K" and "the substrate is reading this node's
+/// de-admissions at all" are two questions, and one field answering both is the
+/// house's dominant defect class.
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum DeadmissionGate {
+    /// Declared, and it is the identity this node signs as.
+    Armed,
+    /// No identity declared — the gate is inert.
+    Dormant,
+    /// An identity IS declared and it is not the one this node signs as, so a
+    /// de-admission signed here is not the "me" the gate folds.
+    ForeignIdentity(String),
+}
+
+impl DeadmissionGate {
+    fn token(&self) -> &'static str {
+        match self {
+            Self::Armed => "armed",
+            Self::Dormant => "dormant",
+            Self::ForeignIdentity(_) => "foreign_identity",
+        }
+    }
+
+    /// The refusal for an act that would not take effect. `None` when armed.
+    fn refusal(&self) -> Option<Response> {
+        match self {
+            Self::Armed => None,
+            Self::Dormant => Some(refusal(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "deadmission_gate_dormant",
+                "admin.refusal.deadmission_gate_dormant",
+                "This node has not declared its own identity to the substrate, so the \
+                 de-admission gate is dormant: the row would be written and would refuse \
+                 nothing. Refused rather than handed back as done — a sanction gate that \
+                 silently does nothing is worse than no gate, because an operator will \
+                 believe de-admission works. This is a node-configuration fault, not a \
+                 fault of the request.",
+            )),
+            Self::ForeignIdentity(_) => Some(refusal(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "deadmission_gate_foreign_identity",
+                "admin.refusal.deadmission_gate_foreign_identity",
+                "The identity this node signs as and the identity the de-admission gate \
+                 compares writers against are two different keys, so a de-admission signed \
+                 here would never be folded as this node's own and would refuse nothing. \
+                 This is a node-configuration fault, not a fault of the request.",
+            )),
+        }
+    }
+}
+
+/// Resolve the gate axis. `node_key_id` is the identity [`gate`] already
+/// resolved from the engine — the key `emit_attestation_self` will stamp — so
+/// this compares the signer against the declaration rather than two labels.
+fn deadmission_gate(engine: &Arc<Engine>, node_key_id: &str) -> DeadmissionGate {
+    match engine.self_key_id() {
+        Some(declared) if declared == node_key_id => DeadmissionGate::Armed,
+        Some(declared) => DeadmissionGate::ForeignIdentity(declared),
+        None => DeadmissionGate::Dormant,
+    }
+}
+
+/// The AV-77 envelope. The de-admitted peer is named by the ROW's
+/// `attested_key_id` and NOT here: that is the column
+/// `check_peer_deadmission` folds over, so a second copy in the envelope could
+/// only ever disagree with the one that decides (persist says so itself, at
+/// `substrate_machine::deadmission_envelope`).
+///
+/// `score` is negative because the constant's contract says so ("`score < 0` —
+/// the denial"); the gate keys on `{type, attested_key_id, dimension,
+/// tombstone, expiry}` and never reads it. Emitting the documented shape keeps
+/// this a witness for the contract rather than for today's implementation.
+///
+/// `{delegation_id, reason}` ride IN the signed envelope, not only in this
+/// node's local `hard_case` ledger: the row replicates, and an act that does
+/// not carry its own authority cannot be told from an unauthorized one once the
+/// actor is gone. Keys come from persist's own attribution vocabulary
+/// (`admin_field`), never hand-mirrored literals (SRV-1/#322).
+fn deadmission_envelope(delegation_id: &str, reason: &str) -> serde_json::Value {
+    serde_json::json!({
+        (paths::DIMENSION): ciris_persist::federation::admission::PEER_DEADMISSION_DIMENSION,
+        "score": -1.0,
+        "confidence": 1.0,
+        (admin_field::DELEGATION_ID): delegation_id,
+        (admin_field::REASON): reason,
+    })
+}
+
+/// The `withdraws` that LIFTS one de-admission row. Persist's own envelope
+/// builder supplies the two `references_*` keys its precedence fold reads
+/// (`references_attestation_id_from_envelope`); the attribution is added for
+/// the same reason the de-admission carries it.
+fn accept_writes_envelope(
+    deadmission_id: &str,
+    delegation_id: &str,
+    reason: &str,
+) -> serde_json::Value {
+    let mut envelope = ciris_persist::federation::withdraws_attestation_envelope(
+        deadmission_id,
+        attestation_type::SCORES,
+    );
+    if let Some(o) = envelope.as_object_mut() {
+        o.insert(
+            admin_field::DELEGATION_ID.to_owned(),
+            serde_json::json!(delegation_id),
+        );
+        o.insert(admin_field::REASON.to_owned(), serde_json::json!(reason));
+    }
+    envelope
+}
+
+/// Emit one federation-tier row about `peer_key_id` through the sanctioned
+/// chokepoint. Never a hand-rolled 21-field `Attestation`: `emit_attestation_self`
+/// derives the attester from the engine's own signer (#247), canonicalizes,
+/// hybrid-signs and faces every admission gate a stored row faces.
+async fn emit_about_peer(
+    engine: &Arc<Engine>,
+    attestation_type: &str,
+    peer_key_id: &str,
+    envelope: serde_json::Value,
+) -> Result<String, String> {
+    let core = ciris_persist::federation::envelope::EnvelopeCore::from_value(envelope)
+        .map_err(|e| format!("type the envelope: {e}"))?;
+    let mut input = ciris_persist::federation::EmitAttestationInput::with_envelope(
+        attestation_type,
+        core,
+        // Federation scope, deliberately: persist's own description of AV-77 is
+        // "a signed, replicable, revocable CEG attestation about whose claims
+        // this node accepts". A peer that folds it reaches its OWN conclusion —
+        // which is what makes isolation of a real abuser emergent rather than
+        // decreed by whoever emitted first.
+        cohort_scope::FEDERATION,
+    );
+    input.attested_key_id = Some(peer_key_id.to_owned());
+    engine
+        .emit_attestation_self(input)
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// Every live de-admission row THIS node authored about `peer_key_id`, as an
+/// [`AttestationFilter`] push-down — the UI's filter IS the query filter (#343),
+/// never a whole-corpus scan filtered in this process.
+///
+/// "Live" is decided by [`read_admission_standing`] (persist's fold), not here:
+/// this only finds the candidate rows a lift must reference. Withdrawing a row
+/// that some other `withdraws` already killed is a no-op the substrate dedups,
+/// so over-collecting is safe and under-collecting is not.
+async fn deadmission_rows_for(
+    engine: &Arc<Engine>,
+    node_key_id: &str,
+    peer_key_id: &str,
+) -> Result<Vec<String>, String> {
+    let admission = ciris_persist::scope::build_caller_admission(engine, &node_key_id.to_owned())
+        .await
+        .map_err(|e| format!("resolve caller admission: {e}"))?;
+    let mut filter = AttestationFilter::default();
+    filter.attesting_key_id = Some(node_key_id.to_owned());
+    filter.attested_key_id = Some(peer_key_id.to_owned());
+    filter.attestation_type = Some(attestation_type::SCORES.to_owned());
+    filter.dimension_exact =
+        Some(ciris_persist::federation::admission::PEER_DEADMISSION_DIMENSION.to_owned());
+    let page = engine
+        .list_attestations(
+            filter,
+            None,
+            MAX_PREVIEW_LIMIT,
+            CallerScope::Authenticated { admission },
+        )
+        .await
+        .map_err(|e| format!("list de-admissions: {e}"))?;
+    Ok(page
+        .items
+        .iter()
+        .map(|a| a.attestation_id.clone())
+        .collect())
+}
+
+/// What `refuse-writes` reaches — including the half that is a limit.
+fn refuse_writes_enforcement() -> serde_json::Value {
+    m(
+        "admin.enforcement.refuse_writes",
+        "This node refuses the named keys' next write into its own corpus, at the substrate's \
+         own door and before any other gate runs. It is LOCAL by design: no node decrees \
+         another node's admission set, because a globally-effective de-admission would itself \
+         be a censorship weapon. Isolation of a genuine abuser is emergent — it arrives when \
+         many nodes independently reach the same conclusion — and is never decreed from here.",
+    )
+}
+
+/// What `refuse-writes` does NOT reach. Said in the response, because an
+/// operator who infers more than this delivers will stop looking.
+fn refuse_writes_not_reached() -> serde_json::Value {
+    m(
+        "admin.refuse_writes.not_reached",
+        "It unwrites nothing. Rows these keys already wrote here are untouched and still \
+         served — quarantine is the op that stops serving them. Rows that already replicated \
+         to peers are not recalled and cannot be. The keys are not removed, their signatures \
+         still verify, and they go on writing to every other node, including this node's \
+         peers, from which those rows may arrive here again by replication. One exemption \
+         survives on purpose so that a node can always lift its own denial, and it does not \
+         ask who is writing: a de-admitted key may still write de-admission rows here \
+         (CIRISPersist#608).",
+    )
+}
+
+/// How `refuse-writes` is undone — the honest reversibility statement.
+fn refuse_writes_reversal() -> serde_json::Value {
+    m(
+        "admin.refuse_writes.reversal",
+        "Reversible, and the reversal reaches the substrate rather than merely recording a \
+         change of mind: POST /v1/admin/accept-writes withdraws the de-admission and the \
+         key's writes are admitted here again. Two of this ladder's reversals reach the \
+         substrate — releasing a quarantine, which restores what this node SERVES, and this \
+         one, which restores what it ACCEPTS. Both rows survive and stay readable: 'refused \
+         and then re-admitted' is not the same fact as 'never refused'.",
+    )
+}
+
+/// One target's outcome, in the shape the two routes share.
+fn write_door_result(
+    target: &str,
+    outcome: &str,
+    before: AdmissionStanding,
+    after: AdmissionStanding,
+    extra: serde_json::Value,
+) -> serde_json::Value {
+    let mut out = serde_json::json!({
+        "target_key_id": target,
+        "outcome": outcome,
+        "standing_before": standing_json(before),
+        "standing_after": standing_json(after),
+    });
+    if let (Some(o), Some(more)) = (out.as_object_mut(), extra.as_object()) {
+        for (k, v) in more {
+            o.insert(k.clone(), v.clone());
+        }
+    }
+    out
+}
+
+/// `POST /v1/admin/refuse-writes` — **tier 4's write door.** Emit the AV-77
+/// de-admission the substrate's own put-gate reads.
+async fn refuse_writes(
+    State(st): State<AdminOpsState>,
+    headers: HeaderMap,
+    body: axum::body::Bytes,
+) -> Response {
+    let node_key_id = match gate(&st, &headers).await {
+        Ok(id) => id,
+        Err(resp) => return resp,
+    };
+    // Refused BEFORE any delegation is walked: an act that cannot take effect
+    // is not a question about the operator's authority, and the operator's next
+    // move is to fix the node rather than the request.
+    let gate_state = deadmission_gate(&st.engine, &node_key_id);
+    if let Some(resp) = gate_state.refusal() {
+        tracing::error!(
+            node_key_id = %node_key_id,
+            declared = ?st.engine.self_key_id(),
+            gate = gate_state.token(),
+            "refused a de-admission because the AV-77 gate would not enforce it"
+        );
+        return resp;
+    }
+    let c: Commit = match serde_json::from_slice(&body) {
+        Ok(v) => v,
+        Err(e) => {
+            return err(
+                StatusCode::BAD_REQUEST,
+                "bad_request",
+                "admin.refusal.bad_request",
+                format!("The request body could not be parsed: {e}"),
+            )
+        }
+    };
+    let committed =
+        match commit_gate(&st, &node_key_id, &c, REQUIRED_SCOPE_REFUSE_WRITES, &[], 1).await {
+            Ok(v) => v,
+            Err(resp) => return resp,
+        };
+
+    let now = Utc::now();
+    let context = tombstone_context(&committed, &c.selection);
+    let mut results = Vec::new();
+    for target in &committed.preview.targets {
+        let before = read_admission_standing(&st.engine, &node_key_id, target).await;
+        if before == AdmissionStanding::Refused {
+            results.push(write_door_result(
+                target,
+                "already_refused",
+                before,
+                before,
+                serde_json::json!({
+                    "message": m(
+                        "admin.refuse_writes.already_refused",
+                        "This key is already de-admitted here, so nothing was written and \
+                         the standing is unchanged.",
+                    ),
+                }),
+            ));
+            continue;
+        }
+        // `Unreadable` does NOT stop the act. This is the restrictive
+        // direction, and declining to sanction because a read failed would be
+        // failing open on the one control that stops an abuser. The response
+        // reports the unreadable `standing_before` rather than hiding it.
+        let envelope = deadmission_envelope(&committed.authority.delegation_id, &c.reason);
+        match emit_about_peer(&st.engine, attestation_type::SCORES, target, envelope).await {
+            Ok(deadmission_id) => {
+                let after = read_admission_standing(&st.engine, &node_key_id, target).await;
+                let ev = tombstone(
+                    OP_REFUSE_WRITES,
+                    target,
+                    &committed.authority.delegation_id,
+                    &c.reason,
+                    now,
+                    {
+                        let mut ctx = context.clone();
+                        if let Some(o) = ctx.as_object_mut() {
+                            o.insert("deadmission_id".into(), serde_json::json!(deadmission_id));
+                            o.insert("standing_before".into(), serde_json::json!(before.token()));
+                            o.insert("standing_after".into(), serde_json::json!(after.token()));
+                        }
+                        ctx
+                    },
+                );
+                let event_id = record(&st.engine, ev).await;
+                results.push(write_door_result(
+                    target,
+                    "refused",
+                    before,
+                    after,
+                    serde_json::json!({
+                        "deadmission_id": deadmission_id,
+                        "event_id": event_id.ok(),
+                    }),
+                ));
+            }
+            Err(e) => results.push(write_door_result(
+                target,
+                "error",
+                before,
+                before,
+                serde_json::json!({ "error": e }),
+            )),
+        }
+    }
+    tracing::warn!(
+        op = OP_REFUSE_WRITES,
+        tier = 4,
+        delegation_id = %committed.authority.delegation_id,
+        reason = %c.reason,
+        selection_hash = %committed.preview.selection_hash,
+        targets = committed.preview.targets.len(),
+        "graded admin op committed — this node now REFUSES those keys' writes"
+    );
+    (
+        StatusCode::OK,
+        Json(serde_json::json!({
+            "op": OP_REFUSE_WRITES,
+            "tier": 4,
+            "source_locale": SOURCE_LOCALE,
+            "required_scope": REQUIRED_SCOPE_REFUSE_WRITES,
+            "selection_hash": committed.preview.selection_hash,
+            "deadmission_gate": gate_state.token(),
+            "results": results,
+            "enforcement": refuse_writes_enforcement(),
+            "not_reached": refuse_writes_not_reached(),
+            "reversal": refuse_writes_reversal(),
+        })),
+    )
+        .into_response()
+}
+
+/// `POST /v1/admin/accept-writes` — the reversal, and the only one on this
+/// ladder that reaches the substrate's write door.
+async fn accept_writes(
+    State(st): State<AdminOpsState>,
+    headers: HeaderMap,
+    body: axum::body::Bytes,
+) -> Response {
+    let node_key_id = match gate(&st, &headers).await {
+        Ok(id) => id,
+        Err(resp) => return resp,
+    };
+    let c: Commit = match serde_json::from_slice(&body) {
+        Ok(v) => v,
+        Err(e) => {
+            return err(
+                StatusCode::BAD_REQUEST,
+                "bad_request",
+                "admin.refusal.bad_request",
+                format!("The request body could not be parsed: {e}"),
+            )
+        }
+    };
+    let committed =
+        match commit_gate(&st, &node_key_id, &c, REQUIRED_SCOPE_REFUSE_WRITES, &[], 1).await {
+            Ok(v) => v,
+            Err(resp) => return resp,
+        };
+    // A dormant gate does NOT block the lift. Withdrawing a de-admission is the
+    // lenient direction, the rows to withdraw are found by this node's own
+    // authorship rather than by the declaration, and refusing to lift a
+    // sanction because the sanction was not being enforced would leave the row
+    // standing to bite the moment the node is configured correctly. The state
+    // is reported so an operator is never told a lift "worked" without also
+    // being told the gate it lifts was not running.
+    let gate_state = deadmission_gate(&st.engine, &node_key_id);
+
+    let now = Utc::now();
+    let context = tombstone_context(&committed, &c.selection);
+    let mut results = Vec::new();
+    for target in &committed.preview.targets {
+        let before = read_admission_standing(&st.engine, &node_key_id, target).await;
+        match before {
+            AdmissionStanding::Admitted => {
+                results.push(write_door_result(
+                    target,
+                    "not_refused",
+                    before,
+                    before,
+                    serde_json::json!({
+                        "message": m(
+                            "admin.accept_writes.not_refused",
+                            "This key is not de-admitted here, so there is nothing to lift.",
+                        ),
+                    }),
+                ));
+                continue;
+            }
+            // Unlike the restrictive direction, a lift STOPS on an unreadable
+            // standing: there is nothing safe to do without knowing which rows
+            // hold the denial, and emitting a withdraws against a guess is how
+            // a lift silently misses the row that matters.
+            AdmissionStanding::Unreadable => {
+                results.push(write_door_result(
+                    target,
+                    "error",
+                    before,
+                    before,
+                    serde_json::json!({
+                        "error": "the de-admission standing could not be read, so this node \
+                                  does not know what it would be lifting",
+                    }),
+                ));
+                continue;
+            }
+            AdmissionStanding::Refused => {}
+        }
+        let rows = match deadmission_rows_for(&st.engine, &node_key_id, target).await {
+            Ok(rows) => rows,
+            Err(e) => {
+                results.push(write_door_result(
+                    target,
+                    "error",
+                    before,
+                    before,
+                    serde_json::json!({ "error": e }),
+                ));
+                continue;
+            }
+        };
+        let mut withdrew = Vec::new();
+        let mut errors = Vec::new();
+        for deadmission_id in &rows {
+            let envelope = accept_writes_envelope(
+                deadmission_id,
+                &committed.authority.delegation_id,
+                &c.reason,
+            );
+            match emit_about_peer(&st.engine, attestation_type::WITHDRAWS, target, envelope).await {
+                Ok(id) => withdrew.push(serde_json::json!({
+                    "deadmission_id": deadmission_id, "withdraws_id": id,
+                })),
+                Err(e) => errors.push(serde_json::json!({
+                    "deadmission_id": deadmission_id, "error": e,
+                })),
+            }
+        }
+        let after = read_admission_standing(&st.engine, &node_key_id, target).await;
+        let ev = tombstone(
+            OP_ACCEPT_WRITES,
+            target,
+            &committed.authority.delegation_id,
+            &c.reason,
+            now,
+            {
+                let mut ctx = context.clone();
+                if let Some(o) = ctx.as_object_mut() {
+                    o.insert("withdrew".into(), serde_json::json!(withdrew));
+                    o.insert("standing_before".into(), serde_json::json!(before.token()));
+                    o.insert("standing_after".into(), serde_json::json!(after.token()));
+                }
+                ctx
+            },
+        );
+        let event_id = record(&st.engine, ev).await;
+        results.push(write_door_result(
+            target,
+            if after == AdmissionStanding::Admitted {
+                "accepted"
+            } else {
+                "error"
+            },
+            before,
+            after,
+            serde_json::json!({
+                "withdrew": withdrew,
+                "errors": errors,
+                "event_id": event_id.ok(),
+            }),
+        ));
+    }
+    tracing::warn!(
+        op = OP_ACCEPT_WRITES,
+        tier = 4,
+        gate = gate_state.token(),
+        delegation_id = %committed.authority.delegation_id,
+        reason = %c.reason,
+        selection_hash = %committed.preview.selection_hash,
+        targets = committed.preview.targets.len(),
+        "graded admin op committed — this node accepts those keys' writes again"
+    );
+    (
+        StatusCode::OK,
+        Json(serde_json::json!({
+            "op": OP_ACCEPT_WRITES,
+            "tier": 4,
+            "source_locale": SOURCE_LOCALE,
+            "required_scope": REQUIRED_SCOPE_REFUSE_WRITES,
+            "selection_hash": committed.preview.selection_hash,
+            "deadmission_gate": gate_state.token(),
+            "results": results,
+            "enforcement": m(
+                "admin.enforcement.accept_writes",
+                "This node stops refusing the named keys' writes: the de-admission it \
+                 authored is withdrawn and the substrate admits their next write again. Both \
+                 the de-admission and this withdrawal survive as readable history.",
+            ),
+            "not_reached": m(
+                "admin.accept_writes.not_reached",
+                "It restores nothing that was refused while the de-admission stood. Those \
+                 writes were rejected at the door and never landed here; if the peer still \
+                 holds them it has to send them again. Nothing else about the key changes.",
+            ),
+        })),
+    )
+        .into_response()
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  Tier S — self-directed (the only rung available under partition)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// One of the three self-directed acts. **Three axes, and they are never
+/// folded together.**
+///
+/// The third is not a flavour of the second. *"This node chose to stop"* and
+/// *"this node was made to stop"* are the same observable — nothing arriving —
+/// with opposite meanings, and the only party who can tell them apart is the
+/// node itself, at the moment it acts. Collapsing them destroys the one signal
+/// every downstream party has, so they are separate ops, separate axes and
+/// separate standings, all the way through the read.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SelfAct {
+    /// *Shed my own load* — carry less.
+    ShedLoad,
+    /// *Stop accepting* — take on nothing new. A CHOICE this node made.
+    StopAccepting,
+    /// *I am under legal compulsion* — force applied from outside the mesh.
+    /// Not a choice, and never recorded as one.
+    LegalCompulsion,
+}
+
+impl SelfAct {
+    /// The three, in declaration order. **The closed set** — a fourth act must
+    /// appear here or the standing read will not show it, which is the
+    /// silently-missing-axis failure this module exists to avoid.
+    pub const ALL: &'static [Self] = &[Self::ShedLoad, Self::StopAccepting, Self::LegalCompulsion];
+
+    /// The standing axis this act moves. Stable program token.
+    #[must_use]
+    pub const fn axis(self) -> &'static str {
+        match self {
+            Self::ShedLoad => "load_shed",
+            Self::StopAccepting => "accepting",
+            Self::LegalCompulsion => "legal_compulsion",
+        }
+    }
+
+    /// The `admin_action:{op}` suffix of the DECLARATION.
+    #[must_use]
+    pub const fn assert_op(self) -> &'static str {
+        match self {
+            Self::ShedLoad => OP_SELF_SHED,
+            Self::StopAccepting => OP_SELF_STOP_ACCEPTING,
+            Self::LegalCompulsion => OP_SELF_COMPELLED,
+        }
+    }
+
+    /// The `admin_action:{op}` suffix of the LIFT.
+    #[must_use]
+    pub const fn lift_op(self) -> &'static str {
+        match self {
+            Self::ShedLoad => OP_SELF_SHED_RELEASE,
+            Self::StopAccepting => OP_SELF_ACCEPTING_RESUMED,
+            Self::LegalCompulsion => OP_SELF_COMPULSION_LIFTED,
+        }
+    }
+
+    /// **What this act actually reaches**, per the tier 1 precedent: when a
+    /// rung has no substrate, the route says so in its own response rather than
+    /// letting an operator infer an effect that does not happen.
+    fn enforcement(self) -> serde_json::Value {
+        match self {
+            Self::ShedLoad => m(
+                "admin.self.enforcement.shed",
+                "Recorded as this node's own attributed declaration, and nothing more. The \
+                 mesh-config plane that would carry a load ceiling is authored by trust roots, \
+                 and this node runs no consumer of the folded values yet, so no loop changes \
+                 what it carries. What changes is the record: an operator, a peer or a later \
+                 audit can tell that this node chose to carry less, under whose authority, and \
+                 when.",
+            ),
+            Self::StopAccepting => m(
+                "admin.self.enforcement.stop_accepting",
+                "Recorded as this node's own attributed declaration that it is taking on \
+                 nothing new. Nothing in this substrate enforces it: the receive plane is \
+                 peer-blind and the per-peer write quota is a fixed runaway-loop backstop, not \
+                 a policy surface a stop can key on. The declaration is the artifact — and it \
+                 is the one a peer reads to stop offering.",
+            ),
+            Self::LegalCompulsion => m(
+                "admin.self.enforcement.compelled",
+                "Recorded on its own axis, as its own act. This is a statement about force \
+                 applied from OUTSIDE the mesh, and by itself it changes nothing this node \
+                 does — deliberately. A compelled node may be made to keep serving, to stop, \
+                 or to hand something over; folding any of those into 'this node stopped \
+                 accepting' would destroy the only signal a downstream party has for telling \
+                 a choice from a compulsion.",
+            ),
+        }
+    }
+
+    /// The reversal's note. Symmetric with [`Self::enforcement`] because the
+    /// declaration reached nothing, so the lift reverses nothing but the
+    /// standing — which is exactly what [`ReversalReach::Symmetric`] means.
+    fn lift_note(self) -> serde_json::Value {
+        match self {
+            Self::LegalCompulsion => m(
+                "admin.self.lift.compelled",
+                "Recorded as a distinct act: a compulsion that ENDED is not a compulsion that \
+                 never happened. The declaration it lifts survives, and both remain readable.",
+            ),
+            _ => m(
+                "admin.self.lift.voluntary",
+                "Recorded as a distinct act. The declaration it lifts survives, and both \
+                 remain readable — 'declared and lifted' is not 'never declared'.",
+            ),
+        }
+    }
+}
+
+/// **The standing on one tier S axis — four values, and three of them are
+/// zeroes that must never render alike.**
+///
+/// `FSD/RCA_INGEST_REJECTION_2026-08-05.md` is what a collapsed zero cost: a
+/// dead plane invisible for 71 hours because "no signal" and "nothing wrong"
+/// were the same rendering. The three here are:
+///
+/// - [`NeverDeclared`](Self::NeverDeclared) — this node has never declared one;
+/// - [`Lifted`](Self::Lifted) — it declared one and lifted it. Not the same
+///   fact, and the difference is the entire history of the axis;
+/// - [`Unreadable`](Self::Unreadable) — the ledger could not be read, so this
+///   node **does not know**. This is the dangerous one: rendered as "nothing in
+///   force" it is a false clean, which is exactly the check that nearly
+///   reported a dead node healthy.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SelfStanding {
+    /// Declared, not lifted.
+    InForce,
+    /// Declared and then lifted.
+    Lifted,
+    /// No act on this axis has ever been recorded here.
+    NeverDeclared,
+    /// The ledger read failed. **Not** a zero.
+    Unreadable,
+}
+
+impl SelfStanding {
+    /// The stable program token a caller branches on.
+    #[must_use]
+    pub const fn token(self) -> &'static str {
+        match self {
+            Self::InForce => "in_force",
+            Self::Lifted => "lifted",
+            Self::NeverDeclared => "never_declared",
+            Self::Unreadable => "unreadable",
+        }
+    }
+
+    fn note(self) -> serde_json::Value {
+        match self {
+            Self::InForce => m(
+                "admin.self.standing.in_force",
+                "This node declared this and has not lifted it.",
+            ),
+            Self::Lifted => m(
+                "admin.self.standing.lifted",
+                "This node declared this and lifted it again. That is not the same fact as \
+                 never having declared it.",
+            ),
+            Self::NeverDeclared => m(
+                "admin.self.standing.never_declared",
+                "This node has never declared this. That is not the same fact as having \
+                 declared and lifted it, and not the same fact as being unable to read.",
+            ),
+            Self::Unreadable => m(
+                "admin.self.standing.unreadable",
+                "The record could not be read, so this node does not know its own standing on \
+                 this axis. This is NOT 'nothing in force' — do not render it as one.",
+            ),
+        }
+    }
+}
+
+/// One axis's folded standing, with the evidence that produced it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SelfFold {
+    pub axis: &'static str,
+    pub standing: SelfStanding,
+    /// The governing act's `event_id`.
+    pub event_id: Option<String>,
+    /// When the standing took effect — the governing act's instant. `None` for
+    /// both non-facts.
+    pub since: Option<DateTime<Utc>>,
+    pub delegation_id: Option<String>,
+    pub reason: Option<String>,
+    /// How many times this axis has been DECLARED here, ever.
+    pub declarations: usize,
+    /// How many times it has been LIFTED here, ever.
+    pub lifts: usize,
+}
+
+/// Read one string field off an admin-action event's `detail`, using persist's
+/// own field vocabulary (never a hand-mirrored literal — SRV-1/#322).
+fn detail_str(ev: &HardCaseEvent, key: &str) -> Option<String> {
+    ev.detail
+        .get(key)
+        .and_then(|v| v.as_str())
+        .filter(|s| !s.trim().is_empty())
+        .map(str::to_owned)
+}
+
+/// **The pure fold** over one axis — a function of
+/// `(act, node_key_id, events, now)` and nothing else, so it is testable
+/// without a substrate and cannot depend on the order rows arrived in.
+///
+/// # Ordering
+///
+/// Newest wins, by `(emitted_at, declaration-beats-lift, event_id)`. The last
+/// two are not decoration, and they are the same two persist's own
+/// [`fold_quarantine`](ciris_persist::federation::quarantine::fold_quarantine)
+/// and `fold_mesh_config` use:
+///
+/// - `emitted_at` alone is not a total order. Persist keys an admin-action
+///   `event_id` on the whole second, so a declaration and a lift recorded
+///   inside one second are two rows at one instant — reachable by ordinary
+///   operator haste, not only by construction;
+/// - **at a tie the DECLARATION wins.** Shed, stop and compulsion are the
+///   restrictive states and their lifts are the leniencies; resolving a
+///   collision toward the leniency is the fail-open direction. A wrongly-held
+///   declaration is recoverable by another lift; a wrongly-lifted one is
+///   recoverable by nothing, because the operator has already been told they
+///   are running;
+/// - `event_id` breaks the remainder.
+#[must_use]
+pub fn fold_self_standing(
+    act: SelfAct,
+    node_key_id: &str,
+    events: &[HardCaseEvent],
+    now: DateTime<Utc>,
+) -> SelfFold {
+    let assert_kind = admin_action_kind(act.assert_op());
+    let lift_kind = admin_action_kind(act.lift_op());
+    let mut mine: Vec<&HardCaseEvent> = events
+        .iter()
+        .filter(|e| {
+            (e.kind == assert_kind || e.kind == lift_kind)
+                && e.target_key_id.as_deref() == Some(node_key_id)
+                && e.emitted_at <= now
+        })
+        .collect();
+    let declarations = mine.iter().filter(|e| e.kind == assert_kind).count();
+    let lifts = mine.len() - declarations;
+    if mine.is_empty() {
+        return SelfFold {
+            axis: act.axis(),
+            standing: SelfStanding::NeverDeclared,
+            event_id: None,
+            since: None,
+            delegation_id: None,
+            reason: None,
+            declarations: 0,
+            lifts: 0,
+        };
+    }
+    // Sorts ASCENDING; the last element governs. `declaration_rank` is 1 for a
+    // declaration and 0 for a lift — restriction sorts LAST, i.e. wins.
+    let declaration_rank = |e: &HardCaseEvent| u8::from(e.kind == assert_kind);
+    mine.sort_by(|a, b| {
+        a.emitted_at
+            .cmp(&b.emitted_at)
+            .then_with(|| declaration_rank(a).cmp(&declaration_rank(b)))
+            .then_with(|| a.event_id.cmp(&b.event_id))
+    });
+    let governing = mine[mine.len() - 1];
+    SelfFold {
+        axis: act.axis(),
+        standing: if governing.kind == assert_kind {
+            SelfStanding::InForce
+        } else {
+            SelfStanding::Lifted
+        },
+        event_id: Some(governing.event_id.clone()),
+        since: Some(governing.emitted_at),
+        delegation_id: detail_str(governing, admin_field::DELEGATION_ID),
+        reason: detail_str(governing, admin_field::REASON),
+        declarations,
+        lifts,
+    }
+}
+
+/// Read one axis's ledger. **Both kinds are pushed into the query** — the
+/// `kind` predicate is real SQL on every backend — so this is never the
+/// whole-corpus scan that cost a 152-second boot phase (#343).
+async fn read_self_axis(
+    engine: &Arc<Engine>,
+    node_key_id: &str,
+    act: SelfAct,
+    now: DateTime<Utc>,
+) -> Result<SelfFold, String> {
+    let directory = engine.federation_directory();
+    let mut events: Vec<HardCaseEvent> = Vec::new();
+    for op in [act.assert_op(), act.lift_op()] {
+        let page = directory
+            .list_hard_case_events(HardCaseFilter {
+                kind: Some(admin_action_kind(op)),
+                since: None,
+            })
+            .await
+            .map_err(|e| e.to_string())?;
+        events.extend(page);
+    }
+    Ok(fold_self_standing(act, node_key_id, &events, now))
+}
+
+fn self_fold_json(f: &SelfFold) -> serde_json::Value {
+    serde_json::json!({
+        "axis": f.axis,
+        "standing": f.standing.token(),
+        "message": f.standing.note(),
+        "since": f.since.map(|d| d.to_rfc3339()),
+        "event_id": f.event_id,
+        "delegation_id": f.delegation_id,
+        "reason": f.reason,
+        "counts": { "declarations": f.declarations, "lifts": f.lifts },
+    })
+}
+
+/// The unreadable standing for one axis — built explicitly rather than by
+/// letting an error path fall through to a default, because the default of a
+/// standing is a zero and this is not one.
+fn self_axis_unreadable(act: SelfAct) -> SelfFold {
+    SelfFold {
+        axis: act.axis(),
+        standing: SelfStanding::Unreadable,
+        event_id: None,
+        since: None,
+        delegation_id: None,
+        reason: None,
+        declarations: 0,
+        lifts: 0,
+    }
+}
+
+/// The note every tier S response carries: WHY this rung exists.
+fn partition_note() -> serde_json::Value {
+    m(
+        "admin.self.partition",
+        "Every act on this rung is local: the owner-binding walk, the ledger write and this \
+         read all touch this node's own database and nothing else. It is the only rung \
+         available while partitioned — every other rung has to reach someone.",
+    )
+}
+
+/// `GET /v1/admin/self` — the three standings, side by side, never folded
+/// together.
+///
+/// Returns **503 when any axis is unreadable**, with that axis's standing still
+/// rendered as [`SelfStanding::Unreadable`]. Both halves say the same thing on
+/// purpose: a client that reads only the status and a client that reads only
+/// the body must each be unable to conclude "nothing in force".
+async fn self_standing(State(st): State<AdminOpsState>, headers: HeaderMap) -> Response {
+    let node_key_id = match self_key_id(&st).await {
+        Ok(v) => v,
+        Err(r) => return r,
+    };
+    if let Err(resp) = gate(&st, &headers).await {
+        return resp;
+    }
+    let now = Utc::now();
+    let mut standings = serde_json::Map::new();
+    let mut errors = serde_json::Map::new();
+    for &act in SelfAct::ALL {
+        let fold = match read_self_axis(&st.engine, &node_key_id, act, now).await {
+            Ok(f) => f,
+            Err(e) => {
+                errors.insert(act.axis().to_owned(), serde_json::json!(e));
+                self_axis_unreadable(act)
+            }
+        };
+        standings.insert(act.axis().to_owned(), self_fold_json(&fold));
+    }
+    let unreadable = !errors.is_empty();
+    let mut out = serde_json::json!({
+        "source_locale": SOURCE_LOCALE,
+        "tier": "S",
+        "node_key_id": node_key_id,
+        "standings": standings,
+        "partition": partition_note(),
+        "distinct_zeroes": m(
+            "admin.self.distinct_zeroes",
+            "Three of the four standings are zeroes and they mean different things: never \
+             declared, declared and lifted, and could not be read. Render them differently.",
+        ),
+    });
+    if unreadable {
+        out["unreadable_axes"] = serde_json::Value::Object(errors);
+        return (StatusCode::SERVICE_UNAVAILABLE, Json(out)).into_response();
+    }
+    (StatusCode::OK, Json(out)).into_response()
+}
+
+/// The body of every tier S act. **No selection and no selection hash** — and
+/// that is a considered divergence from tiers 0–4, not an omission.
+///
+/// The hash exists to bind an operator's ratification to an exact row SET, so
+/// a commit cannot act on a blast radius nobody reviewed. A tier S act selects
+/// nothing: its subject is this node, the row count is zero, and there is no
+/// window between preview and commit for anything to change. What the tier does
+/// keep is the property that actually carries here — attribution — and it adds
+/// one tiers 0–4 do not have: the authority must be **the owner's own**.
+#[derive(Debug, Clone, Deserialize)]
+pub struct SelfCommit {
+    /// **MANDATORY.** The owner's `delegates_to` id this act is taken under.
+    pub delegation_id: String,
+    /// **MANDATORY.** Free text: WHY. Recorded, never interpreted.
+    pub reason: String,
+    /// Read only by [`SelfAct::LegalCompulsion`], and optional there: an
+    /// operator under a gag order may be unable to name the authority
+    /// compelling them. Recorded verbatim, never interpreted, and its ABSENCE
+    /// is not a defect — "compelled, cannot say by whom" is a real and common
+    /// state, and refusing to record the act without it would mean the most
+    /// constrained operator is the one who cannot leave a trace.
+    #[serde(default)]
+    pub compelled_by: Option<String>,
+}
+
+/// Resolve the authority for a self-directed or reader act: the ordinary
+/// re-derivation, **plus** the requirement that the issuer is this node's
+/// responsible party.
+///
+/// `infra:serve` is a scope any number of parties could grant this node. Only
+/// one of them is its owner, and a self-directed act is the owner's own — so
+/// the chain is re-walked exactly as every other rung's is
+/// ([`resolve_authority`]) and then the issuer is compared against
+/// [`is_steward_bound`], the same single-owner projection `auth::gate` uses.
+async fn resolve_owner_authority(
+    st: &AdminOpsState,
+    delegation_id: &str,
+) -> Result<AuthorityProof, Response> {
+    let node_key_id = self_key_id(st).await?;
+    let proof = resolve_authority(
+        &st.engine,
+        &node_key_id,
+        delegation_id,
+        REQUIRED_SCOPE_SELF_DIRECTED,
+    )
+    .await?;
+    let Some(owner) = is_steward_bound(&st.engine, &node_key_id).await else {
+        return Err(refusal(
+            StatusCode::FORBIDDEN,
+            "node_unowned",
+            "admin.refusal.node_unowned",
+            "This node has no responsible party (owner-binding), so it performs no graded \
+             admin operation on anyone's behalf. Claim ownership first.",
+        ));
+    };
+    if proof.issuer_key_id != owner {
+        return Err(refusal(
+            StatusCode::FORBIDDEN,
+            "authority_not_the_owner",
+            "admin.refusal.authority_not_the_owner",
+            "A self-directed act is the owner's own. The named delegation carries the right \
+             scope but was not issued by this node's responsible party, and a third party's \
+             serve grant is not the owner's.",
+        ));
+    }
+    Ok(proof)
+}
+
+/// Shared body for all six tier S routes.
+async fn self_act_route(
+    st: &AdminOpsState,
+    headers: &HeaderMap,
+    body: &axum::body::Bytes,
+    act: SelfAct,
+    declaring: bool,
+) -> Response {
+    let node_key_id = match self_key_id(st).await {
+        Ok(v) => v,
+        Err(r) => return r,
+    };
+    if let Err(resp) = gate(st, headers).await {
+        return resp;
+    }
+    let c: SelfCommit = match serde_json::from_slice(body) {
+        Ok(v) => v,
+        Err(e) => {
+            return err(
+                StatusCode::BAD_REQUEST,
+                "bad_request",
+                "admin.refusal.bad_request",
+                format!("The request body could not be parsed: {e}"),
+            )
+        }
+    };
+    if c.reason.trim().is_empty() {
+        return refusal(
+            StatusCode::BAD_REQUEST,
+            "attribution_absent",
+            "admin.refusal.reason_absent",
+            "reason is required. An action with no recorded reason is indistinguishable \
+             from an unauthorized one once the actor is gone.",
+        );
+    }
+    let authority = match resolve_owner_authority(st, &c.delegation_id).await {
+        Ok(a) => a,
+        Err(resp) => return resp,
+    };
+
+    let op = if declaring {
+        act.assert_op()
+    } else {
+        act.lift_op()
+    };
+    let now = Utc::now();
+    let mut context = serde_json::json!({
+        "axis": act.axis(),
+        "act": if declaring { "declaration" } else { "lift" },
+        "self_directed": true,
+        "issuer_key_id": authority.issuer_key_id,
+    });
+    // `compelled_by` rides ONLY on the compulsion declaration. Recording it on
+    // any other act would let a voluntary stop carry the marks of a compelled
+    // one, which is the conflation this tier is built to prevent.
+    if act == SelfAct::LegalCompulsion && declaring {
+        if let Some(o) = context.as_object_mut() {
+            o.insert(
+                "compelled_by".into(),
+                serde_json::json!(c
+                    .compelled_by
+                    .as_deref()
+                    .map(str::trim)
+                    .filter(|s| !s.is_empty())),
+            );
+        }
+    }
+    let ev = tombstone(
+        op,
+        &node_key_id,
+        &authority.delegation_id,
+        &c.reason,
+        now,
+        context,
+    );
+    let event_id = match record(&st.engine, ev).await {
+        Ok(id) => id,
+        Err(e) => {
+            return err(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "store_unavailable",
+                "admin.refusal.store_unavailable",
+                format!("The self-directed act could not be recorded: {e}"),
+            )
+        }
+    };
+    tracing::warn!(
+        op,
+        tier = "S",
+        axis = act.axis(),
+        delegation_id = %authority.delegation_id,
+        reason = %c.reason,
+        "self-directed admin act recorded"
+    );
+
+    // Re-read the axis so the caller sees the standing this act produced,
+    // folded by the same function the standing route runs — never a second
+    // answer assembled from what we just wrote.
+    let standing = match read_self_axis(&st.engine, &node_key_id, act, now).await {
+        Ok(f) => f,
+        Err(_) => self_axis_unreadable(act),
+    };
+    let mut out = serde_json::json!({
+        "op": op,
+        "tier": "S",
+        "axis": act.axis(),
+        "source_locale": SOURCE_LOCALE,
+        "required_scope": REQUIRED_SCOPE_SELF_DIRECTED,
+        "delegation_id": authority.delegation_id,
+        "event_id": event_id,
+        "standing": self_fold_json(&standing),
+        "enforcement": act.enforcement(),
+        "partition": partition_note(),
+    });
+    if !declaring {
+        out["reversal"] = reversal_json(ReversalReach::Symmetric);
+        out["lift"] = act.lift_note();
+    }
+    (StatusCode::OK, Json(out)).into_response()
+}
+
+async fn self_shed(
+    State(st): State<AdminOpsState>,
+    headers: HeaderMap,
+    body: axum::body::Bytes,
+) -> Response {
+    self_act_route(&st, &headers, &body, SelfAct::ShedLoad, true).await
+}
+
+async fn self_resume_load(
+    State(st): State<AdminOpsState>,
+    headers: HeaderMap,
+    body: axum::body::Bytes,
+) -> Response {
+    self_act_route(&st, &headers, &body, SelfAct::ShedLoad, false).await
+}
+
+async fn self_stop_accepting(
+    State(st): State<AdminOpsState>,
+    headers: HeaderMap,
+    body: axum::body::Bytes,
+) -> Response {
+    self_act_route(&st, &headers, &body, SelfAct::StopAccepting, true).await
+}
+
+async fn self_resume_accepting(
+    State(st): State<AdminOpsState>,
+    headers: HeaderMap,
+    body: axum::body::Bytes,
+) -> Response {
+    self_act_route(&st, &headers, &body, SelfAct::StopAccepting, false).await
+}
+
+async fn self_compelled(
+    State(st): State<AdminOpsState>,
+    headers: HeaderMap,
+    body: axum::body::Bytes,
+) -> Response {
+    self_act_route(&st, &headers, &body, SelfAct::LegalCompulsion, true).await
+}
+
+async fn self_compulsion_lifted(
+    State(st): State<AdminOpsState>,
+    headers: HeaderMap,
+    body: axum::body::Bytes,
+) -> Response {
+    self_act_route(&st, &headers, &body, SelfAct::LegalCompulsion, false).await
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  Tier R — subject-side / per-reader (NoCeM's actual property)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// The `detail` key naming WHICH judgement a reader decision is about.
+///
+/// Server-minted, and it has to be: persist's
+/// [`admin_field`](ciris_persist::federation::hard_case::admin_field) owns
+/// `delegation_id` / `reason` / `op` — the three keys its own attribution gate
+/// reads — and has no vocabulary for a judgement reference, because no persist
+/// op takes one.
+pub const READER_JUDGEMENT_FIELD: &str = "judgement_id";
+
+/// **What THIS reader does with one judgement.** Four outcomes, and three of
+/// them are "not honoured" for three different reasons — the same discipline
+/// [`SelfStanding`] applies to the self axes, applied per judgement.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ReaderDecision {
+    /// This reader decided to honour it. The signer need not be subscribed —
+    /// deliberate adoption of one judgement is a first-class act.
+    HonouredExplicit,
+    /// No explicit decision, and the signer is in this reader's subscription
+    /// set, so it is honoured by policy.
+    HonouredBySubscription,
+    /// No explicit decision and the signer is not subscribed. **Not honoured,
+    /// and nobody decided that** — distinct from a decline, which is a
+    /// decision, and the distinction is what tells an operator whether they
+    /// have looked at this judgement yet.
+    UndecidedUnsubscribed,
+    /// This reader refused it. **A normal outcome, never an error.**
+    Declined,
+}
+
+impl ReaderDecision {
+    /// The stable program token.
+    #[must_use]
+    pub const fn token(self) -> &'static str {
+        match self {
+            Self::HonouredExplicit => "honoured_explicit",
+            Self::HonouredBySubscription => "honoured_by_subscription",
+            Self::UndecidedUnsubscribed => "undecided_unsubscribed",
+            Self::Declined => "declined",
+        }
+    }
+
+    /// Does this judgement enter this reader's fold?
+    #[must_use]
+    pub const fn honoured(self) -> bool {
+        matches!(self, Self::HonouredExplicit | Self::HonouredBySubscription)
+    }
+
+    fn note(self) -> serde_json::Value {
+        match self {
+            Self::HonouredExplicit => m(
+                "admin.reader.decision.honoured_explicit",
+                "This reader adopted this judgement deliberately.",
+            ),
+            Self::HonouredBySubscription => m(
+                "admin.reader.decision.honoured_by_subscription",
+                "No explicit decision was recorded; this reader subscribes to the signer, so \
+                 the judgement is honoured by policy.",
+            ),
+            Self::UndecidedUnsubscribed => m(
+                "admin.reader.decision.undecided_unsubscribed",
+                "This reader does not subscribe to the signer and has recorded no decision. \
+                 The judgement is not honoured, and that is nobody's decision yet — which is \
+                 a different fact from having refused it.",
+            ),
+            Self::Declined => m(
+                "admin.reader.decision.declined",
+                "This reader refused this judgement. A normal outcome: an issued judgement is \
+                 advisory to each reader, and refusing one is the property the whole rung \
+                 exists for.",
+            ),
+        }
+    }
+}
+
+/// The standing of a whole tier R read. Same three-way discipline: an empty
+/// answer and an unanswerable one never render alike.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ReaderStanding {
+    /// Judgements were held and classified.
+    Decided,
+    /// This node holds no judgement about that subject at all.
+    NoJudgementsHeld,
+    /// A read failed, so this reader does not know what it holds.
+    Unreadable,
+}
+
+impl ReaderStanding {
+    #[must_use]
+    pub const fn token(self) -> &'static str {
+        match self {
+            Self::Decided => "decided",
+            Self::NoJudgementsHeld => "no_judgements_held",
+            Self::Unreadable => "unreadable",
+        }
+    }
+
+    fn note(self) -> serde_json::Value {
+        match self {
+            Self::Decided => m(
+                "admin.reader.standing.decided",
+                "Every judgement this node holds about that subject is listed with what this \
+                 reader does about it.",
+            ),
+            Self::NoJudgementsHeld => m(
+                "admin.reader.standing.none_held",
+                "This node holds no judgement about that subject. Nobody has judged it here — \
+                 which is not the same as this node being unable to say.",
+            ),
+            Self::Unreadable => m(
+                "admin.reader.standing.unreadable",
+                "This reader could not read its own state, so it cannot say what it honours. \
+                 This is NOT 'no judgements' and NOT 'nothing withheld' — an unreadable policy \
+                 rendered as an empty one silently drops every restriction it carried.",
+            ),
+        }
+    }
+}
+
+/// Is this judgement set too large to fold? **Refuses; never truncates.**
+///
+/// Pure, so the boundary is testable without building 2,000 markers: a fold
+/// over a truncated page can lose the governing withhold and report
+/// `not_quarantined`, which is a release nobody signed.
+#[must_use]
+pub const fn judgement_page_refusal(held: usize) -> Option<usize> {
+    if held > MAX_JUDGEMENT_PAGE {
+        Some(MAX_JUDGEMENT_PAGE)
+    } else {
+        None
+    }
+}
+
+/// Every judgement this node holds about `subject_key_id`.
+///
+/// Persist's own gatherer (`markers_about`) is private, so the READ is mirrored
+/// here — but the PREDICATE is persist's
+/// ([`is_marker_dimension`](ciris_persist::federation::quarantine::is_marker_dimension))
+/// and the envelope key is persist's ([`paths::DIMENSION`]), so nothing that
+/// decides *what counts as a judgement* is restated. The same mirroring
+/// [`delegation_scopes`] documents, for the same reason, and the same test
+/// obligation: `tests/admin_ops.rs` asserts this gatherer plus persist's fold
+/// agrees with persist's own `resolve_quarantine` over the identical subject.
+async fn judgements_about(
+    engine: &Arc<Engine>,
+    subject_key_id: &str,
+) -> Result<Vec<Attestation>, String> {
+    let rows = engine
+        .federation_directory()
+        .list_attestations_for(subject_key_id)
+        .await
+        .map_err(|e| format!("list judgements: {e}"))?;
+    Ok(rows
+        .into_iter()
+        .filter(|r| {
+            r.attestation_envelope
+                .get(paths::DIMENSION)
+                .and_then(|v| v.as_str())
+                .is_some_and(quarantine::is_marker_dimension)
+        })
+        .collect())
+}
+
+/// This reader's subscription set, and which of `signers` it admits.
+///
+/// Two persist walks and no third rule of our own:
+/// [`trusted_roots_of`] is this node's own live trust edges (persist's leg-1
+/// predicate, not a re-filter of `list_attestations_by`), and
+/// `reachable_under_scope` is the §11.10 scoped-delegation walk every other
+/// rung here uses. A signer is admitted if it IS a subscribed root or a
+/// `slash`-bearing chain reaches it from one.
+///
+/// A failure on either walk is an error, never an empty set: an empty
+/// subscription set honours nothing, which withholds nothing, which is the
+/// fail-OPEN direction — a read error would silently release every quarantine
+/// this reader had adopted.
+async fn reader_subscription(
+    engine: &Arc<Engine>,
+    node_key_id: &str,
+    signers: &BTreeSet<String>,
+    now: DateTime<Utc>,
+) -> Result<(Vec<String>, BTreeSet<String>), String> {
+    let directory = engine.federation_directory();
+    let roots = trusted_roots_of(directory.as_ref(), node_key_id, now)
+        .await
+        .map_err(|e| format!("read subscription set: {e}"))?;
+    let mut admitted: BTreeSet<String> = BTreeSet::new();
+    for signer in signers {
+        if roots.iter().any(|r| r == signer) {
+            admitted.insert(signer.clone());
+            continue;
+        }
+        for root in &roots {
+            let reaches = engine
+                .reachable_under_scope(
+                    root,
+                    signer,
+                    DELEGATION_SCOPE_SLASH,
+                    MAX_MODERATION_DELEGATION_DEPTH,
+                )
+                .await
+                .map_err(|e| format!("subscription walk: {e}"))?;
+            if reaches {
+                admitted.insert(signer.clone());
+                break;
+            }
+        }
+    }
+    Ok((roots, admitted))
+}
+
+/// This reader's explicit decisions, keyed by judgement id: `true` = declined.
+///
+/// # Ordering
+///
+/// Newest wins; **at a tie the HONOUR wins**, and the argument is different
+/// from tier S's. Neither decision is inherently the restrictive one — honouring
+/// a *release* marker is a relaxation — so the tie is resolved on EVIDENCE
+/// rather than on state: the outcome that keeps the judgement inside the row
+/// set persist's fold sees is the one that loses no information, and persist's
+/// own fold then applies its own withhold-beats-release rule to what it is
+/// given. Two rules, two layers, neither reimplementing the other.
+async fn reader_decisions(engine: &Arc<Engine>) -> Result<BTreeMap<String, bool>, String> {
+    let directory = engine.federation_directory();
+    let mut events: Vec<(HardCaseEvent, bool)> = Vec::new();
+    for (op, declined) in [(OP_READER_HONOUR, false), (OP_READER_DECLINE, true)] {
+        let page = directory
+            .list_hard_case_events(HardCaseFilter {
+                kind: Some(admin_action_kind(op)),
+                since: None,
+            })
+            .await
+            .map_err(|e| format!("read reader decisions: {e}"))?;
+        events.extend(page.into_iter().map(|e| (e, declined)));
+    }
+    // Ascending; the last write for a judgement governs. `declined` sorts
+    // BEFORE `honoured` so an honour at the same instant is the survivor.
+    events.sort_by(|(a, da), (b, db)| {
+        a.emitted_at
+            .cmp(&b.emitted_at)
+            .then_with(|| db.cmp(da))
+            .then_with(|| a.event_id.cmp(&b.event_id))
+    });
+    let mut out: BTreeMap<String, bool> = BTreeMap::new();
+    for (ev, declined) in events {
+        if let Some(id) = detail_str(&ev, READER_JUDGEMENT_FIELD) {
+            out.insert(id, declined);
+        }
+    }
+    Ok(out)
+}
+
+/// The classification rule, alone and pure.
+///
+/// An explicit decision always beats the subscription default — in **both**
+/// directions. A decline overrides a subscribed signer (the reader's refusal is
+/// the whole rung) and an honour adopts an unsubscribed one (adoption is a
+/// decision too).
+#[must_use]
+pub const fn classify_judgement(explicit: Option<bool>, subscribed: bool) -> ReaderDecision {
+    match explicit {
+        Some(true) => ReaderDecision::Declined,
+        Some(false) => ReaderDecision::HonouredExplicit,
+        None if subscribed => ReaderDecision::HonouredBySubscription,
+        None => ReaderDecision::UndecidedUnsubscribed,
+    }
+}
+
+/// What one tier R read produced.
+struct ReaderFold {
+    standing: ReaderStanding,
+    /// `(judgement, decision)` for everything held about the subject.
+    judgements: Vec<(Attestation, ReaderDecision)>,
+    roots: Vec<String>,
+    /// This reader's fold — persist's own, over the honoured subset.
+    reader: quarantine::QuarantineFold,
+    /// What this node's SERVE paths do today — persist's own, over everything
+    /// held. The two differ exactly when the reader has declined something.
+    node: quarantine::QuarantineFold,
+}
+
+/// Run one tier R read over `subject_key_id`.
+///
+/// **`fold_quarantine` is called twice and written zero times.** It is persist's
+/// pure fold, and the only thing that differs between the two calls is which
+/// rows are handed to it — which is the whole of what "the reader decides"
+/// means, and the reason this rung needs no fold of its own.
+async fn run_reader_fold(
+    engine: &Arc<Engine>,
+    node_key_id: &str,
+    subject_key_id: &str,
+    now: DateTime<Utc>,
+) -> Result<ReaderFold, String> {
+    let held = judgements_about(engine, subject_key_id).await?;
+    if let Some(cap) = judgement_page_refusal(held.len()) {
+        return Err(format!(
+            "this node holds {} judgements about that subject, above the {cap} a single fold \
+             will read; folding a truncated set would report a release nobody signed",
+            held.len()
+        ));
+    }
+    let signers: BTreeSet<String> = held.iter().map(|r| r.attesting_key_id.clone()).collect();
+    let (roots, subscribed) = reader_subscription(engine, node_key_id, &signers, now).await?;
+    let explicit = reader_decisions(engine).await?;
+
+    let judgements: Vec<(Attestation, ReaderDecision)> = held
+        .iter()
+        .map(|r| {
+            let decision = classify_judgement(
+                explicit.get(&r.attestation_id).copied(),
+                subscribed.contains(&r.attesting_key_id),
+            );
+            (r.clone(), decision)
+        })
+        .collect();
+    let honoured: Vec<Attestation> = judgements
+        .iter()
+        .filter(|(_, d)| d.honoured())
+        .map(|(r, _)| r.clone())
+        .collect();
+
+    Ok(ReaderFold {
+        standing: if held.is_empty() {
+            ReaderStanding::NoJudgementsHeld
+        } else {
+            ReaderStanding::Decided
+        },
+        reader: quarantine::fold_quarantine(subject_key_id, &honoured, now),
+        node: quarantine::fold_quarantine(subject_key_id, &held, now),
+        judgements,
+        roots,
+    })
+}
+
+fn reader_fold_json(subject_key_id: &str, f: &ReaderFold) -> serde_json::Value {
+    let judgements: Vec<serde_json::Value> = f
+        .judgements
+        .iter()
+        .map(|(r, d)| {
+            serde_json::json!({
+                "judgement_id": r.attestation_id,
+                "signer_key_id": r.attesting_key_id,
+                "dimension": r.attestation_envelope.get(paths::DIMENSION)
+                    .and_then(|v| v.as_str()),
+                "asserted_at": r.asserted_at.to_rfc3339(),
+                "decision": d.token(),
+                "honoured": d.honoured(),
+                "message": d.note(),
+            })
+        })
+        .collect();
+    let diverges = f.reader.state != f.node.state;
+    serde_json::json!({
+        "source_locale": SOURCE_LOCALE,
+        "tier": "R",
+        "subject_key_id": subject_key_id,
+        "standing": f.standing.token(),
+        "message": f.standing.note(),
+        "subscription": { "roots": f.roots, "count": f.roots.len() },
+        "counts": { "judgements_held": f.judgements.len() },
+        "judgements": judgements,
+        "reader_fold": f.reader,
+        "node_fold": f.node,
+        "diverges": diverges,
+        "advisory": m(
+            "admin.reader.advisory",
+            "An issued judgement is advisory to each reader. `reader_fold` is what THIS \
+             reader's policy makes of what it holds; `node_fold` is what this node's serve \
+             paths do today, which is to honour every marker the substrate admitted. They can \
+             differ, and when they do the difference is the substrate gap: there is no \
+             reader-policy hook in the serve-side fold, so a decline is recorded and reported \
+             and does not yet stop this node withholding.",
+        ),
+    })
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct ReaderFoldRequest {
+    /// Whose judgements to read — the key the held judgements are ABOUT.
+    subject_key_id: String,
+}
+
+async fn reader_fold_route(
+    State(st): State<AdminOpsState>,
+    headers: HeaderMap,
+    body: axum::body::Bytes,
+) -> Response {
+    let node_key_id = match self_key_id(&st).await {
+        Ok(v) => v,
+        Err(r) => return r,
+    };
+    if let Err(resp) = gate(&st, &headers).await {
+        return resp;
+    }
+    let req: ReaderFoldRequest = match serde_json::from_slice(&body) {
+        Ok(v) => v,
+        Err(e) => {
+            return err(
+                StatusCode::BAD_REQUEST,
+                "bad_request",
+                "admin.refusal.bad_request",
+                format!("The request body could not be parsed: {e}"),
+            )
+        }
+    };
+    let subject = req.subject_key_id.trim();
+    if subject.is_empty() {
+        return refusal(
+            StatusCode::BAD_REQUEST,
+            "subject_absent",
+            "admin.refusal.subject_absent",
+            "subject_key_id is required: a reader fold is about one subject's judgements, and \
+             an unnamed subject is every subject.",
+        );
+    }
+    match run_reader_fold(&st.engine, &node_key_id, subject, Utc::now()).await {
+        Ok(f) => (StatusCode::OK, Json(reader_fold_json(subject, &f))).into_response(),
+        // The unreadable standing is rendered on BOTH halves: a 503 a client
+        // ignores must not leave it a body that reads like an empty policy.
+        Err(e) => (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(serde_json::json!({
+                "source_locale": SOURCE_LOCALE,
+                "tier": "R",
+                "subject_key_id": subject,
+                "standing": ReaderStanding::Unreadable.token(),
+                "message": ReaderStanding::Unreadable.note(),
+                "refusal": "reader_state_unreadable",
+                "error": e,
+            })),
+        )
+            .into_response(),
+    }
+}
+
+/// The body of a reader decision. Like tier S, **no selection hash**: the
+/// object is one immutable signed row named by its own id, so there is no set
+/// to ratify and no window in which it could change under the operator.
+#[derive(Debug, Clone, Deserialize)]
+pub struct ReaderCommit {
+    /// The `attestation_id` of the judgement being honoured or declined.
+    pub judgement_id: String,
+    /// **MANDATORY.** The owner's `delegates_to` id this decision is taken
+    /// under.
+    pub delegation_id: String,
+    /// **MANDATORY.** Free text: WHY. Recorded, never interpreted.
+    pub reason: String,
+}
+
+/// Shared body for honour + decline: same gates, opposite decision, and the
+/// SAME status code — a decline is not an error path.
+async fn reader_decision_route(
+    st: &AdminOpsState,
+    headers: &HeaderMap,
+    body: &axum::body::Bytes,
+    declining: bool,
+) -> Response {
+    let node_key_id = match self_key_id(st).await {
+        Ok(v) => v,
+        Err(r) => return r,
+    };
+    if let Err(resp) = gate(st, headers).await {
+        return resp;
+    }
+    let c: ReaderCommit = match serde_json::from_slice(body) {
+        Ok(v) => v,
+        Err(e) => {
+            return err(
+                StatusCode::BAD_REQUEST,
+                "bad_request",
+                "admin.refusal.bad_request",
+                format!("The request body could not be parsed: {e}"),
+            )
+        }
+    };
+    if c.reason.trim().is_empty() {
+        return refusal(
+            StatusCode::BAD_REQUEST,
+            "attribution_absent",
+            "admin.refusal.reason_absent",
+            "reason is required. An action with no recorded reason is indistinguishable \
+             from an unauthorized one once the actor is gone.",
+        );
+    }
+    let authority = match resolve_owner_authority(st, &c.delegation_id).await {
+        Ok(a) => a,
+        Err(resp) => return resp,
+    };
+
+    // The judgement must be a row this node HOLDS, and must be a judgement.
+    let judgement_id = c.judgement_id.trim();
+    let row = match st
+        .engine
+        .federation_directory()
+        .get_attestation(judgement_id)
+        .await
+    {
+        Ok(Some(r)) => r,
+        Ok(None) => {
+            return refusal(
+                StatusCode::NOT_FOUND,
+                "judgement_unresolved",
+                "admin.refusal.judgement_unresolved",
+                "That judgement is not a row this node holds, so this reader has nothing to \
+                 decide about. A reader decides what it HOLDS; it does not pre-refuse what it \
+                 has never seen.",
+            )
+        }
+        Err(e) => {
+            return err(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "store_unavailable",
+                "admin.refusal.store_unavailable",
+                format!("The substrate could not be read: {e}"),
+            )
+        }
+    };
+    let dimension = row
+        .attestation_envelope
+        .get(paths::DIMENSION)
+        .and_then(|v| v.as_str())
+        .unwrap_or_default()
+        .to_owned();
+    if !quarantine::is_marker_dimension(&dimension) {
+        return refusal(
+            StatusCode::BAD_REQUEST,
+            "not_a_judgement",
+            "admin.refusal.not_a_judgement",
+            "That row is not a judgement this rung can decide about. Tier R is the reader's \
+             policy over other parties' JUDGEMENTS, and an ordinary attestation is not one.",
+        );
+    }
+    let Some(subject) = row
+        .attestation_envelope
+        .get(quarantine::field::QUARANTINES)
+        .and_then(|v| v.as_str())
+        .filter(|s| !s.is_empty())
+    else {
+        return refusal(
+            StatusCode::BAD_REQUEST,
+            "judgement_subjectless",
+            "admin.refusal.judgement_subjectless",
+            "That judgement names no subject, so honouring or declining it would change \
+             nothing about anyone. This node does not record a decision it cannot apply.",
+        );
+    };
+
+    let op = if declining {
+        OP_READER_DECLINE
+    } else {
+        OP_READER_HONOUR
+    };
+    let now = Utc::now();
+    let mut ev = tombstone(
+        op,
+        subject,
+        &authority.delegation_id,
+        &c.reason,
+        now,
+        serde_json::json!({
+            READER_JUDGEMENT_FIELD: judgement_id,
+            "judgement_signer_key_id": row.attesting_key_id,
+            "judgement_dimension": dimension,
+            "decision": if declining { "declined" } else { "honoured" },
+        }),
+    );
+    // Persist keys an admin-action `event_id` on `(op, target, second)`, and
+    // the target of a reader decision is the judgement's SUBJECT — so two
+    // decisions about two judgements naming one subject inside one second would
+    // collapse onto each other. They are two acts, so the judgement id joins
+    // the key. Persist's prefix and shape are otherwise untouched.
+    ev.event_id = format!("{}:{judgement_id}", ev.event_id);
+    let event_id = match record(&st.engine, ev).await {
+        Ok(id) => id,
+        Err(e) => {
+            return err(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "store_unavailable",
+                "admin.refusal.store_unavailable",
+                format!("The reader decision could not be recorded: {e}"),
+            )
+        }
+    };
+    tracing::warn!(
+        op,
+        tier = "R",
+        judgement_id,
+        subject,
+        delegation_id = %authority.delegation_id,
+        reason = %c.reason,
+        "reader decision recorded"
+    );
+
+    let mut out = serde_json::json!({
+        "op": op,
+        "tier": "R",
+        "source_locale": SOURCE_LOCALE,
+        "required_scope": REQUIRED_SCOPE_SELF_DIRECTED,
+        "judgement_id": judgement_id,
+        "subject_key_id": subject,
+        "delegation_id": authority.delegation_id,
+        "event_id": event_id,
+        "outcome": if declining { "declined" } else { "honoured" },
+        // Stated in the payload, not only in the status code: a decline is a
+        // decision this rung is FOR, and a client that branches on shape rather
+        // than on 2xx must not read it as a failure.
+        "refused": false,
+        "message": if declining {
+            ReaderDecision::Declined.note()
+        } else {
+            ReaderDecision::HonouredExplicit.note()
+        },
+    });
+    // Show the state this decision produced, through the same read the fold
+    // route runs.
+    match run_reader_fold(&st.engine, &node_key_id, subject, now).await {
+        Ok(f) => out["standing"] = reader_fold_json(subject, &f),
+        Err(e) => {
+            out["standing"] = serde_json::json!({
+                "standing": ReaderStanding::Unreadable.token(),
+                "message": ReaderStanding::Unreadable.note(),
+                "error": e,
+            });
+        }
+    }
+    (StatusCode::OK, Json(out)).into_response()
+}
+
+async fn reader_honour(
+    State(st): State<AdminOpsState>,
+    headers: HeaderMap,
+    body: axum::body::Bytes,
+) -> Response {
+    reader_decision_route(&st, &headers, &body, false).await
+}
+
+async fn reader_decline(
+    State(st): State<AdminOpsState>,
+    headers: HeaderMap,
+    body: axum::body::Bytes,
+) -> Response {
+    reader_decision_route(&st, &headers, &body, true).await
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 //  Router
 // ═══════════════════════════════════════════════════════════════════════════
 
-/// The graded admin-op router. `node_key_id` is THIS node's #247 DERIVED
+/// The graded admin-op router.
+///
+/// **It takes no key id** (CIRISServer#372 Level 2). THIS node's #247 DERIVED
 /// federation key id — the ACTING key whose delegated authority every op
-/// re-walks, and the identity `emit_attestation_self` / `sign_hybrid` sign as.
-pub fn router(engine: Arc<Engine>, node_key_id: String) -> Router {
-    let state = AdminOpsState {
-        engine,
-        node_key_id,
-    };
+/// re-walks, and the identity `emit_attestation_self` / `sign_hybrid` sign as —
+/// is resolved per request from the engine that will actually sign (see
+/// [`self_key_id`]). There is no argument here for a caller, a harness or a CLI
+/// label to disagree with.
+pub fn router(engine: Arc<Engine>) -> Router {
+    let state = AdminOpsState { engine };
     Router::new()
         .route("/v1/admin/preview", axum::routing::post(preview))
         .route("/v1/admin/annotate", axum::routing::post(annotate))
@@ -1853,5 +4072,295 @@ pub fn router(engine: Arc<Engine>, node_key_id: String) -> Router {
         .route("/v1/admin/descend", axum::routing::post(descend))
         .route("/v1/admin/deadmit", axum::routing::post(deadmit))
         .route("/v1/admin/re-admit", axum::routing::post(re_admit))
+        // Tier 4's WRITE DOOR (AV-77) — deliberately not spelled `deadmit`.
+        .route(
+            "/v1/admin/refuse-writes",
+            axum::routing::post(refuse_writes),
+        )
+        .route(
+            "/v1/admin/accept-writes",
+            axum::routing::post(accept_writes),
+        )
+        // Tier S — self-directed. The read is a GET because it is a read.
+        .route("/v1/admin/self", axum::routing::get(self_standing))
+        .route("/v1/admin/self/shed", axum::routing::post(self_shed))
+        .route(
+            "/v1/admin/self/resume-load",
+            axum::routing::post(self_resume_load),
+        )
+        .route(
+            "/v1/admin/self/stop-accepting",
+            axum::routing::post(self_stop_accepting),
+        )
+        .route(
+            "/v1/admin/self/resume-accepting",
+            axum::routing::post(self_resume_accepting),
+        )
+        .route(
+            "/v1/admin/self/compelled",
+            axum::routing::post(self_compelled),
+        )
+        .route(
+            "/v1/admin/self/compulsion-lifted",
+            axum::routing::post(self_compulsion_lifted),
+        )
+        // Tier R — subject-side.
+        .route(
+            "/v1/admin/reader/fold",
+            axum::routing::post(reader_fold_route),
+        )
+        .route(
+            "/v1/admin/reader/honour",
+            axum::routing::post(reader_honour),
+        )
+        .route(
+            "/v1/admin/reader/decline",
+            axum::routing::post(reader_decline),
+        )
         .with_state(state)
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  The pure halves — unit-tested here, because a router cannot reach them all
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const NODE: &str = "node-under-test";
+
+    fn at(secs: i64) -> DateTime<Utc> {
+        DateTime::<Utc>::from_timestamp(1_800_000_000 + secs, 0).expect("instant")
+    }
+
+    fn act_event(op: &str, target: &str, when: DateTime<Utc>, suffix: &str) -> HardCaseEvent {
+        let mut ev = admin_action_event(op, target, Some(target), "deleg-1", "because", when);
+        ev.event_id = format!("{}:{suffix}", ev.event_id);
+        ev
+    }
+
+    #[test]
+    fn an_axis_with_no_acts_is_never_declared_and_carries_no_instant() {
+        let f = fold_self_standing(SelfAct::ShedLoad, NODE, &[], at(0));
+        assert_eq!(f.standing, SelfStanding::NeverDeclared);
+        assert!(f.since.is_none() && f.event_id.is_none());
+        assert_eq!((f.declarations, f.lifts), (0, 0));
+    }
+
+    #[test]
+    fn a_declaration_then_a_lift_is_lifted_and_not_never_declared() {
+        let events = vec![
+            act_event(OP_SELF_SHED, NODE, at(0), "a"),
+            act_event(OP_SELF_SHED_RELEASE, NODE, at(10), "b"),
+        ];
+        let f = fold_self_standing(SelfAct::ShedLoad, NODE, &events, at(100));
+        assert_eq!(f.standing, SelfStanding::Lifted);
+        assert_eq!((f.declarations, f.lifts), (1, 1));
+        assert_eq!(f.since, Some(at(10)));
+        assert_ne!(
+            SelfStanding::Lifted.token(),
+            SelfStanding::NeverDeclared.token()
+        );
+    }
+
+    /// **The write door's three zeroes, at the source.**
+    ///
+    /// `tests/admin_ops.rs` drives the `admitted → refused → admitted`
+    /// transition through the real route, but it cannot drive `Unreadable`
+    /// without a broken store — and that is the one that kills, because
+    /// rendered as `Admitted` it is a false clean. So the distinctness is
+    /// pinned here, over the values the routes actually emit rather than over
+    /// the bundle they are looked up in.
+    #[test]
+    fn the_three_admission_standings_never_render_alike() {
+        let all = [
+            AdmissionStanding::Refused,
+            AdmissionStanding::Admitted,
+            AdmissionStanding::Unreadable,
+        ];
+        for (i, a) in all.iter().enumerate() {
+            for b in &all[i + 1..] {
+                assert_ne!(
+                    a.token(),
+                    b.token(),
+                    "two standings share one program token, so a caller cannot branch on them"
+                );
+                assert_ne!(
+                    a.note(),
+                    b.note(),
+                    "two standings render the same sentence, so an operator cannot tell them \
+                     apart"
+                );
+            }
+        }
+        let unreadable = AdmissionStanding::Unreadable.note();
+        let text = unreadable["text"].as_str().unwrap_or_default();
+        assert!(
+            text.contains("NOT 'admitted'"),
+            "the unreadable standing must say IN THE STRING AN OPERATOR READS that it is not \
+             the clean one — a distinct token nobody renders is not a distinct fact: {text}"
+        );
+    }
+
+    #[test]
+    fn at_an_identical_instant_the_declaration_wins() {
+        // Persist keys an admin-action event_id on the whole second, so this is
+        // reachable by ordinary haste. Resolving it toward the lift would tell
+        // an operator they are running when they declared they are not.
+        let events = vec![
+            act_event(OP_SELF_COMPELLED, NODE, at(5), "zzz"),
+            act_event(OP_SELF_COMPULSION_LIFTED, NODE, at(5), "aaa"),
+        ];
+        let f = fold_self_standing(SelfAct::LegalCompulsion, NODE, &events, at(100));
+        assert_eq!(
+            f.standing,
+            SelfStanding::InForce,
+            "the restriction survives a tie, whichever event_id sorts first"
+        );
+    }
+
+    #[test]
+    fn the_axes_never_read_each_others_acts() {
+        let events = vec![act_event(OP_SELF_STOP_ACCEPTING, NODE, at(0), "a")];
+        assert_eq!(
+            fold_self_standing(SelfAct::StopAccepting, NODE, &events, at(1)).standing,
+            SelfStanding::InForce
+        );
+        assert_eq!(
+            fold_self_standing(SelfAct::LegalCompulsion, NODE, &events, at(1)).standing,
+            SelfStanding::NeverDeclared,
+            "a node that chose to stop has NOT declared a compulsion"
+        );
+        assert_eq!(
+            fold_self_standing(SelfAct::ShedLoad, NODE, &events, at(1)).standing,
+            SelfStanding::NeverDeclared
+        );
+    }
+
+    #[test]
+    fn another_nodes_acts_are_not_this_nodes_standing() {
+        let events = vec![act_event(OP_SELF_SHED, "some-other-node", at(0), "a")];
+        assert_eq!(
+            fold_self_standing(SelfAct::ShedLoad, NODE, &events, at(1)).standing,
+            SelfStanding::NeverDeclared
+        );
+    }
+
+    #[test]
+    fn a_future_dated_act_does_not_govern_yet() {
+        let events = vec![act_event(OP_SELF_SHED, NODE, at(500), "a")];
+        assert_eq!(
+            fold_self_standing(SelfAct::ShedLoad, NODE, &events, at(0)).standing,
+            SelfStanding::NeverDeclared
+        );
+    }
+
+    /// The branch no router test can reach on a healthy substrate, and the one
+    /// the RCA is about: an unreadable standing must not be a zero.
+    #[test]
+    fn unreadable_is_not_a_zero_on_either_half() {
+        for &act in SelfAct::ALL {
+            let u = self_axis_unreadable(act);
+            assert_eq!(u.standing, SelfStanding::Unreadable);
+            assert_eq!(u.axis, act.axis());
+        }
+        let ids: BTreeSet<String> = [
+            SelfStanding::InForce,
+            SelfStanding::Lifted,
+            SelfStanding::NeverDeclared,
+            SelfStanding::Unreadable,
+        ]
+        .iter()
+        .map(|s| {
+            s.note()["id"]
+                .as_str()
+                .expect("every standing note carries an id")
+                .to_owned()
+        })
+        .collect();
+        assert_eq!(
+            ids.len(),
+            4,
+            "four standings must render four different sentences: {ids:?}"
+        );
+    }
+
+    #[test]
+    fn every_self_act_has_its_own_axis_ops_and_notes() {
+        let axes: BTreeSet<&str> = SelfAct::ALL.iter().map(|a| a.axis()).collect();
+        let ops: BTreeSet<&str> = SelfAct::ALL
+            .iter()
+            .flat_map(|a| [a.assert_op(), a.lift_op()])
+            .collect();
+        let notes: BTreeSet<String> = SelfAct::ALL
+            .iter()
+            .map(|a| a.enforcement()["id"].as_str().expect("id").to_owned())
+            .collect();
+        assert_eq!(axes.len(), 3);
+        assert_eq!(ops.len(), 6, "six ops, none shared: {ops:?}");
+        assert_eq!(notes.len(), 3, "three enforcement notes: {notes:?}");
+    }
+
+    #[test]
+    fn an_explicit_reader_decision_beats_the_subscription_in_both_directions() {
+        assert_eq!(
+            classify_judgement(Some(true), true),
+            ReaderDecision::Declined,
+            "a decline overrides a subscribed signer — that is the whole rung"
+        );
+        assert_eq!(
+            classify_judgement(Some(false), false),
+            ReaderDecision::HonouredExplicit,
+            "adopting an unsubscribed signer's judgement is a decision too"
+        );
+        assert_eq!(
+            classify_judgement(None, true),
+            ReaderDecision::HonouredBySubscription
+        );
+        assert_eq!(
+            classify_judgement(None, false),
+            ReaderDecision::UndecidedUnsubscribed
+        );
+        assert!(ReaderDecision::HonouredBySubscription.honoured());
+        assert!(!ReaderDecision::UndecidedUnsubscribed.honoured());
+    }
+
+    #[test]
+    fn the_four_reader_decisions_render_four_different_sentences() {
+        let ids: BTreeSet<String> = [
+            ReaderDecision::HonouredExplicit,
+            ReaderDecision::HonouredBySubscription,
+            ReaderDecision::UndecidedUnsubscribed,
+            ReaderDecision::Declined,
+        ]
+        .iter()
+        .map(|d| d.note()["id"].as_str().expect("id").to_owned())
+        .collect();
+        assert_eq!(ids.len(), 4, "{ids:?}");
+        let standings: BTreeSet<String> = [
+            ReaderStanding::Decided,
+            ReaderStanding::NoJudgementsHeld,
+            ReaderStanding::Unreadable,
+        ]
+        .iter()
+        .map(|s| s.note()["id"].as_str().expect("id").to_owned())
+        .collect();
+        assert_eq!(
+            standings.len(),
+            3,
+            "'nothing held' and 'could not read' are different sentences: {standings:?}"
+        );
+    }
+
+    #[test]
+    fn an_oversized_judgement_set_refuses_rather_than_truncating() {
+        assert_eq!(judgement_page_refusal(0), None);
+        assert_eq!(judgement_page_refusal(MAX_JUDGEMENT_PAGE), None);
+        assert_eq!(
+            judgement_page_refusal(MAX_JUDGEMENT_PAGE + 1),
+            Some(MAX_JUDGEMENT_PAGE),
+            "one over the ceiling REFUSES; a truncated fold reports a release nobody signed"
+        );
+    }
 }

@@ -937,7 +937,7 @@ class TestAsyncServer:
         await s.disconnect('1', namespace='/foo')
         assert calls == s.eio.send.await_count
 
-    async def test_disconnect_with_partial_binary_packet(self, eio):
+    async def test_server_disconnect_with_partial_binary_packet(self, eio):
         eio.return_value.send = mock.AsyncMock()
         eio.return_value.disconnect = mock.AsyncMock()
         s = async_server.AsyncServer()
@@ -953,6 +953,23 @@ class TestAsyncServer:
         assert s._binary_packet['123'] is not None
         await s.disconnect('1')
         s.eio.send.assert_any_await('123', '1')
+        assert '123' not in s._binary_packet
+
+    async def test_client_disconnect_with_partial_binary_packet(self, eio):
+        eio.return_value.send = mock.AsyncMock()
+        eio.return_value.disconnect = mock.AsyncMock()
+        s = async_server.AsyncServer()
+        await s._handle_eio_connect('123', 'environ')
+        await s._handle_eio_message('123', '0')
+        await s._handle_eio_message(
+            '123',
+            '52-["my message","a",'
+            '{"_placeholder":true,"num":1},'
+            '{"_placeholder":true,"num":0}]',
+        )
+        await s._handle_eio_message('123', b'foo')
+        assert s._binary_packet['123'] is not None
+        await s._handle_disconnect('123', '/')
         assert '123' not in s._binary_packet
 
     async def test_namespace_handler(self, eio):

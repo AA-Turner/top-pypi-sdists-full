@@ -61,13 +61,21 @@
 //! here rather than through [`Engine::resolve_mesh_config`] for two reasons,
 //! both about zeroes:
 //!
-//! - `resolve_mesh_config` skips a root whose `list_attestations_for` answers
-//!   `Error::Unsupported`, so a backend that cannot answer for one root is
-//!   indistinguishable from a root that said nothing. This surface names the
-//!   roots it could not read ([`PlaneStanding::Unreadable`],
-//!   [`HistoryStanding::Partial`]);
+//! - **persist v30.0.0 (CIRISPersist#601 item 1) closed the first reason** —
+//!   `resolve_mesh_config` used to *skip* a root whose `list_attestations_for`
+//!   answered `Error::Unsupported`, so a backend that could not answer for one
+//!   root was indistinguishable from a root that said nothing; it now records
+//!   them on [`MeshConfigFold::unreadable_roots`]. What survives here is
+//!   NARROWER than that field and is why the gather stays: persist records only
+//!   `Unsupported` (any other error fails the whole fold), and it records the
+//!   root without the REASON. This surface keeps reading per root so a
+//!   transient backend error on ONE root degrades to
+//!   [`HistoryStanding::Partial`] with the error text attached rather than
+//!   taking the whole plane down — and it now writes the bare fact back onto
+//!   the fold, so a consumer reading the fold alone sees the partial read too;
 //! - the read surface and the history must describe the SAME instant, or the
-//!   `row_id` a UI joins them on can name a row the other half never saw.
+//!   `row_id` a UI joins them on can name a row the other half never saw, and
+//!   `resolve_mesh_config` returns a fold without the rows.
 //!
 //! # The baseline is the node's own, and a failed baseline read is fatal
 //!
@@ -101,9 +109,7 @@ use ciris_persist::federation::mesh_config::{
     field, fold_mesh_config, is_mesh_config_dimension, mesh_config_envelope, DIMENSION_PREFIX,
     EMERGENCY_MAX_TTL_HOURS, NAMESPACE_FAMILY,
 };
-use ciris_persist::federation::types::{
-    attestation_tier, attestation_type, cohort_scope, Attestation, ScrubSig,
-};
+use ciris_persist::federation::types::{attestation_type, cohort_scope, Attestation, ScrubSig};
 use ciris_persist::federation::{
     trust_root, MeshConfigBaseline, MeshConfigFold, MeshConfigForm, MeshConfigKey,
     MeshConfigOutcome, MeshConfigSetting,
@@ -113,6 +119,7 @@ use ciris_persist::prelude::Engine;
 use crate::auth::gate::CapabilityVerb;
 use crate::auth::roles::{Permission, UserRole};
 use crate::auth::session::{resolve_bearer, SessionCaller};
+use crate::mesh_config_effect::{consumption, Consumption};
 
 // ═══════════════════════════════════════════════════════════════════════════
 //  Routes + vocabulary
@@ -177,10 +184,29 @@ fn refusal(code: StatusCode, token: &str, id: &str, text: &str) -> Response {
 #[derive(Clone)]
 struct MeshConfigState {
     engine: Arc<Engine>,
-    /// THIS node's federation `key_id` — the SUBSCRIBER whose `trust:accepts`
-    /// edges enumerate the roots, and the node whose baseline is the ceiling.
-    /// The row's *author* is the signer's derived key id, resolved per call.
-    node_key_id: String,
+}
+
+/// THIS node's federation `key_id` — the SUBSCRIBER whose `trust:accepts` edges
+/// enumerate the roots, and the node whose baseline is the ceiling.
+///
+/// **Resolved from the engine, never accepted as a parameter**
+/// (CIRISServer#372 Level 2). It used to ride in [`MeshConfigState`] from
+/// `compose`'s `cfg.key_id`, which begins life as the `--key-id` CLI *label*;
+/// the subscriber whose roots are enumerated and the signer whose derived key
+/// authors the row must be ONE identity, and in the embedded fold the label and
+/// the signer differ. Asking the engine here makes them the same fact by
+/// construction — the same value [`build_row`] signs under.
+async fn self_key_id(st: &MeshConfigState) -> Result<String, Response> {
+    crate::self_identity::resolve(&st.engine, "mesh_config_surface")
+        .await
+        .map_err(|e| {
+            err(
+                StatusCode::SERVICE_UNAVAILABLE,
+                crate::self_identity::REFUSAL_TOKEN,
+                crate::self_identity::MESSAGE_ID,
+                format!("{} ({e})", crate::self_identity::MESSAGE_TEXT),
+            )
+        })
 }
 
 /// Owner-authority gate — the [`crate::federation_admin`] spine verbatim:
@@ -242,12 +268,18 @@ async fn require_owner(
 /// knob, only the owner directly.** `ConfigWrite` would have been the wrong
 /// verb in a way that matters — it is the SELF config plane's verb, and the two
 /// planes never merge.
+///
+/// **Returns THIS node's resolved signing identity** so every route runs on the
+/// one value the gate itself was evaluated against — the owner-binding walked
+/// here and the subscriber whose roots are read below cannot name two different
+/// nodes (CIRISServer#372 Level 2).
 async fn gate(
     st: &MeshConfigState,
     headers: &HeaderMap,
     verb: CapabilityVerb,
-) -> Result<(), Response> {
-    if crate::auth::gate::require_owner_bound(&st.engine, &st.node_key_id)
+) -> Result<String, Response> {
+    let node_key_id = self_key_id(st).await?;
+    if crate::auth::gate::require_owner_bound(&st.engine, &node_key_id)
         .await
         .is_err()
     {
@@ -263,7 +295,7 @@ async fn gate(
     if let Some(resp) = crate::auth::gate::require_verb(&caller, verb) {
         return Err(resp);
     }
-    Ok(())
+    Ok(node_key_id)
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -297,9 +329,62 @@ pub fn registry_json() -> Vec<Value> {
                 "owner_default": s.owner_default,
                 "consumer": s.consumer,
                 "knob": s.knob,
+                "consumed": consumption(*k).consumed(),
+                "consumption": consumption_json(*k),
             })
         })
         .collect()
+}
+
+/// **Whether a consumer for this key exists in THIS build** (CIRISServer#365).
+///
+/// persist names each key's consumer processor and says plainly that it runs
+/// none of them; this field answers the only question persist cannot — does the
+/// binary the operator is looking at have a caller? Without it the surface makes
+/// a false statement: `effective: 10` reads as *"this node is running 10"* when
+/// nothing reads the 10.
+///
+/// It is **not** a literal maintained beside the registry. It is
+/// [`crate::mesh_config_effect::consumption`], whose `Wired` arm names the
+/// accessor a consumer reads through — and the folded value is reachable ONLY
+/// through those accessors, so a key with no consumer is unreadable by
+/// construction. `tests/mesh_config_consumers.rs` closes the loop from the other
+/// side: every accessor named here must actually be CALLED in non-test code.
+/// The restated-value defect this repo keeps hitting (see `src/location.rs`) is
+/// refused structurally rather than promised in a comment.
+fn consumption_json(key: MeshConfigKey) -> Value {
+    let c = consumption(key);
+    let mut out = json!({
+        "state": c.as_str(),
+        "message": m(&c.message_id(), c.message_text()),
+    });
+    match c {
+        Consumption::Wired { site, effect } => {
+            out["site"] = json!(site);
+            out["effect"] = json!(effect);
+        }
+        Consumption::Elsewhere { owner, tracked_by } => {
+            out["owner"] = json!(owner);
+            out["tracked_by"] = json!(tracked_by);
+        }
+        Consumption::Unreachable {
+            owner,
+            blocker,
+            tracked_by,
+        } => {
+            out["owner"] = json!(owner);
+            // The one thing an operator can act on: what has to change before
+            // this key can be honoured. Carried as raw source text rather than
+            // an {id, text} pair on purpose — it names Rust symbols in another
+            // repo, which do not translate and must not be paraphrased.
+            out["blocker"] = json!(blocker);
+            out["tracked_by"] = json!(tracked_by);
+        }
+        Consumption::Unbuilt { tracked_by } => {
+            out["tracked_by"] = json!(tracked_by);
+        }
+    }
+    out
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -350,7 +435,7 @@ fn ttl_json(expires_at: Option<DateTime<Utc>>, now: DateTime<Utc>) -> Value {
 // ═══════════════════════════════════════════════════════════════════════════
 
 /// **What a zero on this surface MEANS.** Five different facts that all produce
-/// "nine keys at their baseline", separated by token rather than by band.
+/// "eleven keys at their baseline", separated by token rather than by band.
 ///
 /// This repo has collapsed a zero four times (`ScoreOutcome`, `RetentionOutcome`,
 /// edge's withhold ledger, `operator_surface`), so the rule is stated rather
@@ -625,6 +710,48 @@ struct Snapshot {
     now: DateTime<Utc>,
 }
 
+impl Snapshot {
+    /// Fold the gathered rows and **stamp the unread roots onto the fold**.
+    ///
+    /// The stamp is the v30.0.0 adoption (CIRISPersist#601 item 1) and the whole
+    /// reason this is a constructor rather than a struct literal: it must be
+    /// impossible to build a `Snapshot` whose fold claims full coverage of a
+    /// partial read. `fold_mesh_config` is pure over held rows and leaves the
+    /// field empty by construction — an unreadable root contributes no row, so
+    /// the pure fold cannot know it existed — and before persist added the
+    /// field there was nowhere to put the fact at all. [`resolve_fold`]
+    /// therefore handed [`crate::mesh_config_effect`] a fold that read as
+    /// complete, which is the swallowed zero persist fixed one layer down,
+    /// surviving one layer up.
+    ///
+    /// [`Self::unreadable_roots`] keeps the per-root REASON, which persist's
+    /// `Vec<String>` does not carry; the fold carries the bare fact for every
+    /// consumer that only ever sees a fold.
+    fn assemble(
+        node_key_id: &str,
+        baseline: MeshConfigBaseline,
+        roots: &[String],
+        rows: Vec<Attestation>,
+        unreadable_roots: BTreeMap<String, String>,
+        now: DateTime<Utc>,
+    ) -> Self {
+        let mut fold = fold_mesh_config(node_key_id, &baseline, roots, &rows, now);
+        // Sorted + deduped to match persist's own contract for the field, so no
+        // consumer comes to depend on this node's map ordering.
+        let mut unread: Vec<String> = unreadable_roots.keys().cloned().collect();
+        unread.sort();
+        unread.dedup();
+        fold.unreadable_roots = unread;
+        Self {
+            rows,
+            unreadable_roots,
+            baseline,
+            fold,
+            now,
+        }
+    }
+}
+
 /// Resolve this node's own baseline from its SELF config plane.
 ///
 /// Sparse: a key the owner has not pinned falls through to
@@ -681,14 +808,32 @@ async fn snapshot(
             }
         }
     }
-    let fold = fold_mesh_config(node_key_id, &baseline, &roots, &rows, now);
-    Ok(Snapshot {
+    Ok(Snapshot::assemble(
+        node_key_id,
+        baseline,
+        &roots,
         rows,
         unreadable_roots,
-        baseline,
-        fold,
         now,
-    })
+    ))
+}
+
+/// **The one read path a CONSUMER takes** (CIRISServer#365).
+///
+/// Returns exactly the fold this surface renders — same snapshot, same gather,
+/// persist's same pure `fold_mesh_config`. [`crate::mesh_config_effect`] calls
+/// this and nothing else, so a consumer's value and the operator surface's
+/// value cannot come from two code paths that drift; two lists that disagree is
+/// the `#541` shape, and the cure is to have one list.
+///
+/// An `Err` is *"the plane could not be read"* and never an empty fold — the
+/// consumer's unreadable arm depends on that distinction.
+pub(crate) async fn resolve_fold(
+    engine: &Arc<Engine>,
+    node_key_id: &str,
+    now: DateTime<Utc>,
+) -> Result<MeshConfigFold, String> {
+    snapshot(engine, node_key_id, now).await.map(|s| s.fold)
 }
 
 /// The roots that could not be read, as the wire carries them.
@@ -717,6 +862,13 @@ fn setting_json(s: &MeshConfigSetting, now: DateTime<Utc>) -> Value {
         "baseline": s.baseline,
         "effective": s.effective,
         "relieved": s.relieved,
+        // CIRISServer#365. `effective` is what the fold RESOLVED; `consumed`
+        // is whether anything in this build reads it. Printed together because
+        // `effective: 10` on its own is a false statement about a key nothing
+        // consumes, and this surface is the one place an operator is asked to
+        // trust the reading.
+        "consumed": consumption(s.key).consumed(),
+        "consumption": consumption_json(s.key),
         "provenance": {
             "source": provenance.as_str(),
             "message": provenance.message(),
@@ -831,14 +983,15 @@ async fn get_mesh_config(
     headers: HeaderMap,
     Query(q): Query<NowQuery>,
 ) -> Response {
-    if let Err(resp) = gate(&st, &headers, CapabilityVerb::ReadNodeState).await {
-        return resp;
-    }
+    let node_key_id = match gate(&st, &headers, CapabilityVerb::ReadNodeState).await {
+        Ok(id) => id,
+        Err(resp) => return resp,
+    };
     let now = match parse_now(q.now.as_deref()) {
         Ok(n) => n,
         Err(e) => return bad_now(e),
     };
-    match snapshot(&st.engine, &st.node_key_id, now).await {
+    match snapshot(&st.engine, &node_key_id, now).await {
         Ok(s) => (StatusCode::OK, Json(read_surface_json(Some(&s), now))).into_response(),
         Err(e) => {
             let mut body = read_surface_json(None, now);
@@ -963,9 +1116,10 @@ async fn get_history(
     headers: HeaderMap,
     Query(q): Query<HistoryQuery>,
 ) -> Response {
-    if let Err(resp) = gate(&st, &headers, CapabilityVerb::ReadNodeState).await {
-        return resp;
-    }
+    let node_key_id = match gate(&st, &headers, CapabilityVerb::ReadNodeState).await {
+        Ok(id) => id,
+        Err(resp) => return resp,
+    };
     let now = match parse_now(q.now.as_deref()) {
         Ok(n) => n,
         Err(e) => return bad_now(e),
@@ -974,7 +1128,7 @@ async fn get_history(
         .limit
         .unwrap_or(DEFAULT_HISTORY_LIMIT)
         .clamp(1, MAX_HISTORY_LIMIT);
-    match snapshot(&st.engine, &st.node_key_id, now).await {
+    match snapshot(&st.engine, &node_key_id, now).await {
         Ok(s) => (StatusCode::OK, Json(history_json(Some(&s), limit, now))).into_response(),
         Err(e) => {
             let mut body = history_json(None, limit, now);
@@ -1116,54 +1270,53 @@ async fn check_base(engine: &Arc<Engine>, base: &ConfigWriteBase) -> Option<Resp
     }
 }
 
-/// Assemble + hybrid-sign one mesh-config row.
+/// Assemble + hybrid-sign one mesh-config row, **through persist's own emit
+/// chokepoint** (`Engine::assemble_attestation_self`, v30.0.0 /
+/// CIRISPersist#601 item 3).
+///
+/// This used to hand-roll the 20-field [`Attestation`] — *around* the
+/// chokepoint built to stop exactly that — because every sanctioned emit helper
+/// also PUT the row, and this one cannot: a durable mesh-config row is judged by
+/// [`Engine::record_mesh_config_row`], which is its own door. persist split the
+/// recipe from the put after we and one other plane reported it independently,
+/// so the row now carries the emit path's admission gates (#293 subject
+/// canonicality, #527 cohort_scope validate-never-default) instead of skipping
+/// them by construction.
 ///
 /// The envelope comes from persist's own [`mesh_config_envelope`], so producer
-/// and fold cannot disagree about where a value lives. `attested_key_id` is the
-/// root, which is what makes the row findable by the fold's
+/// and fold cannot disagree about where a value lives; it is round-tripped
+/// through the typed [`EnvelopeCore`](ciris_persist::federation::envelope::EnvelopeCore)
+/// on the way in, which is **byte-invariant** — unknown keys ride `extra` and
+/// the signature is over JCS, so the `payload_sha256` a co-signer was handed by
+/// the dry run still covers these exact bytes. `attested_key_id` is the root,
+/// which is what makes the row findable by the fold's
 /// `list_attestations_for(root)` read.
+///
+/// `additional_scrubs` is attached AFTER assembly: co-signatures are the
+/// caller's data over the canonical bytes, not part of the recipe, and persist's
+/// `assemble` deliberately returns a row with none.
 async fn build_row(
     engine: &Arc<Engine>,
     envelope: Value,
     root_ref: &str,
     additional_scrubs: Vec<ScrubSig>,
-    now: DateTime<Utc>,
+    _now: DateTime<Utc>,
 ) -> Result<Attestation, String> {
-    use base64::{engine::general_purpose::STANDARD as B64, Engine as _};
-
-    let key_id = engine
-        .local_derived_key_id()
+    let core = ciris_persist::federation::envelope::EnvelopeCore::from_value(envelope)
+        .map_err(|e| format!("type the mesh-config envelope: {e}"))?;
+    let mut input = ciris_persist::federation::EmitAttestationInput::with_envelope(
+        attestation_type::SCORES,
+        core,
+        cohort_scope::FEDERATION,
+    );
+    input.attested_key_id = Some(root_ref.to_owned());
+    let signed = engine
+        .assemble_attestation_self(input)
         .await
-        .map_err(|e| format!("derive acting key_id: {e}"))?;
-    let canonical = ciris_persist::verify::canonical::ceg_produce_canonicalize(&envelope)
-        .map_err(|e| format!("canonicalize mesh-config row: {e}"))?;
-    let sig = engine
-        .sign_hybrid(&canonical)
-        .await
-        .map_err(|e| format!("hybrid-sign mesh-config row: {e}"))?;
-    Ok(Attestation {
-        attestation_id: crate::ids::new_id(),
-        attesting_key_id: key_id.clone(),
-        attested_key_id: root_ref.to_owned(),
-        attestation_type: attestation_type::SCORES.to_string(),
-        weight: None,
-        asserted_at: now,
-        expires_at: None,
-        attestation_envelope: envelope,
-        original_content_hash: hex::encode(Sha256::digest(&canonical)),
-        scrub_signature_classical: B64.encode(&sig.classical.signature),
-        scrub_signature_pqc: Some(B64.encode(&sig.pqc.signature)),
-        scrub_key_id: key_id,
-        scrub_timestamp: now,
-        pqc_completed_at: Some(now),
-        persist_row_hash: String::new(),
-        subject_key_ids: Vec::new(),
-        withdraws_admission_rule: None,
-        cohort_scope: cohort_scope::FEDERATION.to_string(),
-        tier: attestation_tier::FEDERATION.to_string(),
-        promoted_at: None,
-        additional_scrubs,
-    })
+        .map_err(|e| format!("assemble mesh-config row: {e}"))?;
+    let mut row = signed.attestation;
+    row.additional_scrubs = additional_scrubs;
+    Ok(row)
 }
 
 /// `sha256(JCS(envelope))` — the `payload_sha256` CC 4.2.1 names, so a
@@ -1221,8 +1374,14 @@ fn outcome_response(
 
 /// The shared tail of both write paths: check the base fields, resolve the
 /// baseline, assemble, sign, submit, render.
+///
+/// `node_key_id` is the value [`gate`] resolved from the engine — passed down
+/// rather than re-derived so the host this row is judged against is provably the
+/// same identity the gate authorised (CIRISServer#372 Level 2).
+#[allow(clippy::too_many_arguments)]
 async fn submit(
     st: &MeshConfigState,
+    node_key_id: &str,
     base: &ConfigWriteBase,
     form: MeshConfigForm,
     valid_until: Option<DateTime<Utc>>,
@@ -1290,7 +1449,7 @@ async fn submit(
     };
     let outcome = match st
         .engine
-        .record_mesh_config_row(&st.node_key_id, &baseline, &row, now)
+        .record_mesh_config_row(node_key_id, &baseline, &row, now)
         .await
     {
         Ok(o) => o,
@@ -1331,9 +1490,10 @@ async fn post_relief(
     headers: HeaderMap,
     body: axum::body::Bytes,
 ) -> Response {
-    if let Err(resp) = gate(&st, &headers, CapabilityVerb::Wipe).await {
-        return resp;
-    }
+    let node_key_id = match gate(&st, &headers, CapabilityVerb::Wipe).await {
+        Ok(id) => id,
+        Err(resp) => return resp,
+    };
     let req: ReliefRequest = match serde_json::from_slice(&body) {
         Ok(v) => v,
         Err(e) => {
@@ -1371,6 +1531,7 @@ async fn post_relief(
     // here, and a row that ratifies something is not an emergency.
     submit(
         &st,
+        &node_key_id,
         &req.base,
         MeshConfigForm::Emergency,
         Some(valid_until),
@@ -1386,9 +1547,10 @@ async fn post_durable(
     headers: HeaderMap,
     body: axum::body::Bytes,
 ) -> Response {
-    if let Err(resp) = gate(&st, &headers, CapabilityVerb::Wipe).await {
-        return resp;
-    }
+    let node_key_id = match gate(&st, &headers, CapabilityVerb::Wipe).await {
+        Ok(id) => id,
+        Err(resp) => return resp,
+    };
     let req: DurableRequest = match serde_json::from_slice(&body) {
         Ok(v) => v,
         Err(e) => {
@@ -1445,6 +1607,7 @@ async fn post_durable(
     }
     submit(
         &st,
+        &node_key_id,
         &req.base,
         MeshConfigForm::Durable,
         None,
@@ -1459,19 +1622,20 @@ async fn post_durable(
 //  Router
 // ═══════════════════════════════════════════════════════════════════════════
 
-/// Mount the Mesh Configuration surface. `node_key_id` is THIS node's
-/// federation key id — the SUBSCRIBER whose trust edges enumerate the roots and
-/// whose baseline is the ceiling every row is clamped against.
-pub fn router(engine: Arc<Engine>, node_key_id: String) -> Router {
+/// Mount the Mesh Configuration surface.
+///
+/// **It takes no key id** (CIRISServer#372 Level 2). THIS node's federation key
+/// id — the SUBSCRIBER whose trust edges enumerate the roots and whose baseline
+/// is the ceiling every row is clamped against — is resolved per request from
+/// the engine that will actually sign the row (see [`self_key_id`]). There is
+/// no argument here for a caller, a harness or a CLI label to disagree with.
+pub fn router(engine: Arc<Engine>) -> Router {
     Router::new()
         .route(ROUTE_READ, axum::routing::get(get_mesh_config))
         .route(ROUTE_HISTORY, axum::routing::get(get_history))
         .route(ROUTE_DURABLE, axum::routing::post(post_durable))
         .route(ROUTE_RELIEF, axum::routing::post(post_relief))
-        .with_state(MeshConfigState {
-            engine,
-            node_key_id,
-        })
+        .with_state(MeshConfigState { engine })
 }
 
 #[cfg(test)]
@@ -1484,17 +1648,25 @@ mod tests {
 
     const NOW: &str = "2026-08-03T12:00:00Z";
 
-    fn empty_snapshot(roots: Vec<String>, rows: Vec<Attestation>) -> Snapshot {
-        let baseline = MeshConfigBaseline::owner_defaults();
-        let now = ts(NOW);
-        let fold = fold_mesh_config("n", &baseline, &roots, &rows, now);
-        Snapshot {
+    /// Through [`Snapshot::assemble`] — the SAME constructor `snapshot()` runs,
+    /// so a test can never build a snapshot production could not.
+    fn snapshot_of(
+        roots: Vec<String>,
+        rows: Vec<Attestation>,
+        unreadable: BTreeMap<String, String>,
+    ) -> Snapshot {
+        Snapshot::assemble(
+            "n",
+            MeshConfigBaseline::owner_defaults(),
+            &roots,
             rows,
-            unreadable_roots: BTreeMap::new(),
-            baseline,
-            fold,
-            now,
-        }
+            unreadable,
+            ts(NOW),
+        )
+    }
+
+    fn empty_snapshot(roots: Vec<String>, rows: Vec<Attestation>) -> Snapshot {
+        snapshot_of(roots, rows, BTreeMap::new())
     }
 
     #[test]
@@ -1559,18 +1731,135 @@ mod tests {
 
     #[test]
     fn a_partial_history_is_not_a_complete_one() {
-        let mut s = empty_snapshot(vec!["r1".into(), "r2".into()], Vec::new());
-        s.unreadable_roots.insert("r2".into(), "boom".into());
+        let s = snapshot_of(
+            vec!["r1".into(), "r2".into()],
+            Vec::new(),
+            [("r2".to_string(), "boom".to_string())]
+                .into_iter()
+                .collect(),
+        );
         assert_eq!(HistoryStanding::of(Some(&s)), HistoryStanding::Partial);
         // And a plane with ANY unreadable root is unreadable, never "nothing set".
         assert_eq!(PlaneStanding::of(Some(&s)), PlaneStanding::Unreadable);
 
-        let mut all_bad = empty_snapshot(vec!["r1".into()], Vec::new());
-        all_bad.unreadable_roots.insert("r1".into(), "boom".into());
+        let all_bad = snapshot_of(
+            vec!["r1".into()],
+            Vec::new(),
+            [("r1".to_string(), "boom".to_string())]
+                .into_iter()
+                .collect(),
+        );
         assert_eq!(
             HistoryStanding::of(Some(&all_bad)),
             HistoryStanding::Unreadable
         );
+    }
+
+    /// **v30.0.0 adoption (CIRISPersist#601 item 1): the FOLD says the read was
+    /// partial, not just the wire.**
+    ///
+    /// `resolve_fold` hands `crate::mesh_config_effect` a `MeshConfigFold` and
+    /// nothing else. Before persist added `unreadable_roots` there was no field
+    /// on it that could carry "we could not ask root R", so a partial read
+    /// reached every consumer of a fold looking exactly like a complete one —
+    /// the swallowed zero persist fixed inside `resolve_mesh_config`, surviving
+    /// one layer up in the gather this surface does instead.
+    ///
+    /// The pair matters: the clean snapshot must report EMPTY, or "the field is
+    /// always populated" would pass for "the field works".
+    #[test]
+    fn the_fold_carries_the_roots_the_read_could_not_answer_for() {
+        let clean = empty_snapshot(vec!["r1".into(), "r2".into()], Vec::new());
+        assert!(
+            clean.fold.unreadable_roots.is_empty(),
+            "a clean read must not name any unreadable root"
+        );
+
+        // Two roots unread, inserted in reverse order: persist's contract for
+        // the field is sorted, so a consumer cannot depend on our map ordering.
+        let partial = snapshot_of(
+            vec!["r1".into(), "r2".into(), "r3".into()],
+            Vec::new(),
+            [
+                ("r3".to_string(), "backend said no".to_string()),
+                ("r1".to_string(), "boom".to_string()),
+            ]
+            .into_iter()
+            .collect(),
+        );
+        assert_eq!(
+            partial.fold.unreadable_roots,
+            vec!["r1".to_string(), "r3".to_string()],
+            "the fold must name the unread roots, sorted"
+        );
+        // The rest of the fold is untouched: every key still answers, because a
+        // partial read is HONOURED (most-restrictive across roots means an
+        // unread root can only have made the answer tighter) — it is reported,
+        // not discarded.
+        assert_eq!(partial.fold.settings.len(), MeshConfigKey::ALL.len());
+        assert_eq!(partial.fold.roots.len(), 3);
+    }
+
+    /// **The bytes a co-signer is handed must be the bytes the row carries.**
+    ///
+    /// [`build_row`] now goes through `Engine::assemble_attestation_self`
+    /// (v30.0.0 / CIRISPersist#601 item 3), which takes a typed
+    /// [`EnvelopeCore`](ciris_persist::federation::envelope::EnvelopeCore) —
+    /// so the envelope is round-tripped on the way in, while `payload_sha256`
+    /// (what the dry run hands a co-signer) is still computed from
+    /// [`mesh_config_envelope`]'s raw output. If that round trip lost or
+    /// reordered anything, an `additional_scrub` produced over the advertised
+    /// bytes would cover different content than the row it lands on — and it
+    /// would fail silently, as a scrub that simply does not count.
+    ///
+    /// The round trip is lossless by construction (unknown keys ride `extra`)
+    /// and canonicalization is JCS, so field order cannot matter. Both are
+    /// persist's properties, not ours, which is exactly why the dependency is
+    /// pinned here rather than assumed.
+    ///
+    /// **Mutation-verified**: dropping one key on the way through turns it red
+    /// naming the key that was lost.
+    #[test]
+    fn typing_the_envelope_does_not_move_the_bytes_a_cosigner_signs() {
+        use ciris_persist::federation::envelope::EnvelopeCore;
+
+        for (form, valid_until, ratifies) in [
+            (MeshConfigForm::Durable, None, None),
+            (
+                MeshConfigForm::Emergency,
+                Some(ts("2026-08-04T12:00:00Z")),
+                Some("row-being-ratified"),
+            ),
+        ] {
+            for &key in MeshConfigKey::ALL {
+                let raw = mesh_config_envelope(
+                    key,
+                    key.owner_default(),
+                    "root-a",
+                    form,
+                    valid_until,
+                    "deleg-1",
+                    ratifies,
+                    "because the mesh asked",
+                );
+                let typed = EnvelopeCore::from_value(raw.clone())
+                    .expect("every mesh-config envelope types")
+                    .to_value();
+                assert_eq!(
+                    typed,
+                    raw,
+                    "{} lost or changed a field on the way through EnvelopeCore",
+                    key.wire_name()
+                );
+                assert_eq!(
+                    payload_sha256(&typed).expect("canonicalize"),
+                    payload_sha256(&raw).expect("canonicalize"),
+                    "{}: the advertised payload_sha256 and the row's own bytes must be the \
+                     same bytes",
+                    key.wire_name()
+                );
+            }
+        }
     }
 
     #[test]
@@ -1614,7 +1903,7 @@ mod tests {
             v["emergency"]["max_ttl_hours"],
             json!(EMERGENCY_MAX_TTL_HOURS)
         );
-        // The unreadable arm carries NO settings — never nine clean defaults.
+        // The unreadable arm carries NO settings — never eleven clean defaults.
         assert_eq!(v["settings"], Value::Null);
         assert_eq!(v["standing"], json!("unreadable"));
     }

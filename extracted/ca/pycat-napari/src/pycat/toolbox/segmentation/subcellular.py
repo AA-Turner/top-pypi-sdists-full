@@ -179,8 +179,13 @@ def segment_subcellular_objects(original_image, pre_processed_image, cell_mask, 
         puncta_mask = np.zeros_like(cell_mask)
         refined_puncta_mask = np.zeros_like(cell_mask)
     else:
-        # Segment and refine on the cropped ROI
-        puncta_mask_crop = fz_segmentation_and_binarization(bg_removed_crop, mask_crop, ball_radius)
+        # Segment and refine on the cropped ROI. rim_close_radius is generous (vs. the 5px
+        # default used when raw_img is None) because raw_img makes that safe: the raw-image
+        # rim-brightness check in _bridge_fragmented_rims rejects any bridge a wider closing
+        # reaches that isn't real physical continuity, regardless of how far it reaches.
+        puncta_mask_crop = fz_segmentation_and_binarization(
+            bg_removed_crop, mask_crop, ball_radius,
+            rim_close_radius=4 * ball_radius, raw_img=orig_crop)
         # ── Pass the thresholds ON. They used to stop here. ────────────────────
         #
         # This call took `min_spot_radius` and `fast` and DROPPED the other five —
@@ -338,12 +343,28 @@ def run_segment_subcellular_objects(pre_processed_image_layer, original_image_la
     labeled_total_refined = sk.measure.label(total_refined_puncta_mask.astype(bool))
     n_condensates = int(labeled_total_refined.max())
     if n_condensates == 0:
+        # The Kurtosis/SNR/Intensity-scale thresholds this message used to suggest tuning are
+        # all PER-OBJECT conditions in puncta_refinement_func -- they never run for a cell the
+        # punctate gate (cell_has_punctate_signal, above) already skipped as "empty", using
+        # RAW, pre-enhancement intensity. A cell with real but statistically weak raw signal
+        # (peak just under punctate_gate_sigma/punctate_gate_abs_sigma) was unconditionally
+        # dropped with no visible knob to loosen, and this message pointed at thresholds that
+        # could not have helped. Reported by Meet Raval: "0 objects", console showing "no
+        # punctate signal above the absolute intensity floor" for the only cell in frame.
+        gate_note = (
+            "  • The whole-cell punctate gate skipped every cell before refinement even ran\n"
+            "    (console shows 'no punctate signal above the absolute intensity floor' or\n"
+            "    'has low contrast') -- lower 'Punctate gate — local/absolute (×σ)' under\n"
+            "    'Show refinement parameters', or uncheck 'Punctate gate enabled' as a last resort.\n"
+            if punctate_gate else "")
         napari_show_warning(
             "Condensate segmentation found 0 objects after refinement filtering.\n"
             "Possible causes:\n"
+            f"{gate_note}"
             "  • The image has not been preprocessed  --  run Pre-process and Background Removal first.\n"
-            "  • Thresholds are too strict for this image  --  try lowering Kurtosis threshold (e.g. -5),\n"
-            "    Local/Global SNR thresholds (e.g. 0.5), or the Intensity scale (e.g. 0.8).\n"
+            "  • Per-object thresholds are too strict FOR CELLS THE GATE ABOVE LET THROUGH  --  try\n"
+            "    lowering Kurtosis threshold (e.g. -5), Local/Global SNR thresholds (e.g. 0.5), or the\n"
+            "    Intensity scale (e.g. 0.8).\n"
             "  • The wrong image layer is selected in the dropdown  --  check both dropdowns point to\n"
             "    the correct pre-processed and raw layers.\n"
             "No mask layers were added to avoid cluttering the viewer with empty results."

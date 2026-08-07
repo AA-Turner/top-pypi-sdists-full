@@ -7,7 +7,6 @@ from typing_extensions import Self
 from dstack._internal.core.models.instances import Gpu
 from dstack._internal.core.models.resources import (
     DEFAULT_MEMORY_SIZE,
-    CPUSpec,
     Memory,
     ResourcesSpec,
 )
@@ -115,11 +114,9 @@ class RequestedResources:
     cpu_count: int
     memory_mib: int
     gpu_count: int
-    disk_mib: int
 
 
 def get_requested_resources_from_resources_spec(spec: ResourcesSpec) -> RequestedResources:
-    assert isinstance(spec.cpu, CPUSpec)
     # 1 is the default value of --cpus-per-task
     cpu_count = spec.cpu.count.min or 1
 
@@ -136,13 +133,8 @@ def get_requested_resources_from_resources_spec(spec: ResourcesSpec) -> Requeste
     if spec.gpu is not None:
         gpu_count = spec.gpu.count.min or 0
 
-    disk_mib: int = 0
-    if spec.disk is not None:
-        disk_mib = round((spec.disk.size.min or 0) * 1024)
-
     return RequestedResources(
         cpu_count=cpu_count,
         memory_mib=memory_mib,
         gpu_count=gpu_count,
-        disk_mib=disk_mib,
     )

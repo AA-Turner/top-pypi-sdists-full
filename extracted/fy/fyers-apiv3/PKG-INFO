@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: fyers_apiv3
-Version: 3.1.15
+Version: 3.1.16
 Summary: Fyers trading APIs.
 Home-page: https://github.com/FyersDev/fyers-api-sample-code/tree/sample_v3/v3/python
 Author: Fyers-Tech
@@ -10,6 +10,21 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
+Requires-Dist: requests==2.31.0
+Requires-Dist: asyncio==3.4.3
+Requires-Dist: aiohttp==3.9.3
+Requires-Dist: aws_lambda_powertools==1.25.5
+Requires-Dist: websocket-client==1.6.1
+Requires-Dist: setuptools==68.0.0
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: summary
 
 # The Fyers API Python client - v3.1.15
 

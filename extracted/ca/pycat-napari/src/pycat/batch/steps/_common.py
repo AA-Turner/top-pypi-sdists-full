@@ -69,6 +69,43 @@ def _load_image(image_path: Path, channel: int = 0):
     Load a single channel of an image file using AICSImage with a tifffile
     fallback for NumPy 2.0 compatibility.
 
+    Returns the plane as a dtype-max-normalised [0, 1] float32 — the SAME
+    convention the interactive 2-D loader uses (``to_unit_float32`` /
+    ``dtype_conversion_func(data, 'float32')``, see ``stack_access.py``:
+    *"[0, 1] is the contract"*, declared by 17 toolbox functions). Previously
+    this returned RAW counts (0-65535 for a uint16 source) while the GUI's
+    layer held the same pixels divided by 65535 -- same file, same pixels, a
+    factor of 65535 apart. Every self-normalising consumer (SNR, GLCM texture,
+    ratios) was immune and never showed it, but ``cell_analysis_func`` /
+    ``puncta_analysis_func`` report intensity directly with no internal
+    normalisation, so batch's cell_df/puncta_df intensity columns came out
+    ~65535x the GUI's for the exact same image. Reported by Meet Raval, with
+    matching CSVs from both paths (ratio measured at 65,344-65,924x across
+    intensity_mean/intensity_total on identical cells/puncta).
+
+    Normalising HERE, once, at the single chokepoint every batch step's image
+    data flows through, is what makes this fix hold everywhere rather than
+    needing a scale-aware patch at every consumer (the previous, narrower
+    attempt at exactly that — matching one function's absolute-threshold logic
+    onto raw-counts data — corrupted the image instead, see replay_upscaling's
+    history). `_raw_counts`/`_normalize_to_float` (this module) are unaffected
+    in spirit: a dtype-max division is a FIXED, frame-independent, purely
+    multiplicative rescale (unlike `_normalize_to_float`'s per-frame min-max,
+    which shifts the pedestal and IS what the raw-counts fixes were protecting
+    against) -- so it does not reintroduce the exposure-dependent partition/
+    intensity-ratio bugs those fixes exist for.
+
+    SIGNED integer sources (some camera/acquisition software writes non-negative
+    counts into a SIGNED 16-bit TIFF) are cast to uint16 before normalising --
+    mirroring `load_into_viewer`'s identical correction for the interactive
+    path (`if signedinteger: data = data.astype(np.uint16)`). Without it,
+    `to_unit_float32` divides by the SIGNED range's max (32767) instead of
+    65535 -- a clean, exact 2x -- for exactly this reason: a signed-vs-unsigned
+    dtype disagreement between readers (tifffile reports one TIFF's dtype as
+    int16; PIL, the GUI's own NumPy-2.0 fallback reader, can report the SAME
+    file differently) is a real, confirmed way for the two paths to disagree
+    without either being "wrong" about the file's nominal dtype tag.
+
     Parameters
     ----------
     image_path : Path
@@ -78,6 +115,14 @@ def _load_image(image_path: Path, channel: int = 0):
         non-zero channel for a given image type (e.g. Segmentation vs
         Fluorescence Image came from different channels in the GUI session).
     """
+    from pycat.file_io.stack_access import to_unit_float32
+
+    def _to_unit_float32_gui_convention(arr):
+        arr = np.asarray(arr)
+        if np.issubdtype(arr.dtype, np.signedinteger):
+            arr = arr.astype(np.uint16)
+        return to_unit_float32(arr, arr.dtype)
+
     microns_per_pixel = 1.0
 
     try:
@@ -87,6 +132,7 @@ def _load_image(image_path: Path, channel: int = 0):
         # runs once per file per step.
         from pycat.file_io.image_reader import read_plane
         data = read_plane(img, path=str(image_path), scene=0, t=0, c=channel)
+        data = _to_unit_float32_gui_convention(data)
         try:
             px_size = img.physical_pixel_sizes
             microns_per_pixel = float(px_size.Y) if px_size.Y else 1.0
@@ -115,7 +161,7 @@ def _load_image(image_path: Path, channel: int = 0):
     while data.ndim > 2:
         data = data[0]
 
-    return data.astype('float32'), microns_per_pixel
+    return _to_unit_float32_gui_convention(data), microns_per_pixel
 
 
 def _resolve_channel_for_layer(channel_assignment, layer_name_substring: str, default: int = 0) -> int:
@@ -161,6 +207,72 @@ def _resolve_channel_for_layer(channel_assignment, layer_name_substring: str, de
               f"For files with 3+ fluorophores, reference additional channels "
               f"directly via state['channels_by_name'][exact_layer_name].")
     return matches[0].get('channel_num', default)
+
+
+def _active_layer_channel_role(state: dict, active_name: str):
+    """**Was the recorded active layer the primary (segmentation) channel, or a
+    secondary (fluorescence / companion) one — and if secondary, which
+    ``channels_by_name`` key is it?**
+
+    ``preprocessing``/``background_removal`` used to decide this with a single
+    keyword test — ``'fluorescence' in active_name`` — which only works when the
+    GUI's generic placeholder names ("Segmentation Image"/"Fluorescence Image")
+    were actually used. A split-file recording (two separate ``open_image``
+    steps, e.g. an ``*_DAPI.tif`` + ``*_GFP.tif`` pair) or a channel-assignment
+    dialog with the sample's own identity as the layer name (PyCAT's
+    ``derive_layer_name``, e.g. "In_Cell"/"In_Cell [1]") never contains that
+    keyword, so the check silently returned ``False`` for every step that
+    genuinely ran on the companion channel — and preprocessing/background
+    removal ran on the DAPI/segmentation image every time, no matter what the
+    GUI recorded.
+
+    The second, more general signal: the recorded name matches (by substring,
+    the same test ``_resolve_image_layer`` already uses for named channels) a
+    ``channels_by_name`` entry that is NOT the primary segmentation channel.
+    That covers exactly the split-file / sample-identity-named case, without
+    touching the keyword path multi-channel configs already rely on.
+
+    "Is this the primary channel" is checked by NAME first
+    (``state['_primary_channel_name']``, set once at open_image time by both
+    the split-file and channel-assignment loaders) rather than array identity,
+    because ``replay_upscaling`` only re-upscales a ``channels_by_name`` entry
+    that is NOT (at upscale time) identical to the pre-upscale
+    ``state['image']`` — so a channel-assignment recording's own segmentation-
+    channel entry is deliberately left pointing at the stale pre-upscale array
+    forever after, and an identity check against the CURRENT ``state['image']``
+    would then wrongly call it "not primary" once upscaling has run. The
+    per-entry identity check in the loop below is a second, redundant guard for
+    the split-file case, where the primary is never added to
+    ``channels_by_name`` at all.
+
+    A NAIVE substring test is not enough, though: napari disambiguates a
+    duplicate layer NAME with a ``" [N]"`` suffix ("In_Cell" and "In_Cell
+    [1]"), so the primary's own recorded name is itself a substring of the
+    companion's ("in_cell" is inside "upscaled in_cell [1]") — the companion
+    would otherwise be misrouted to the primary. The LONGEST matching known
+    name wins, so a companion's longer, more specific name always beats the
+    shorter primary name it happens to share a prefix with.
+
+    Returns ``(is_fluor, channel_key)`` — ``channel_key`` is ``None`` unless the
+    match came from a named channel (so the caller can write processed output
+    to ``channels_processed_by_name[channel_key]``, keeping later lookups of
+    that recorded name in sync — mirroring what ``replay_upscaling`` already
+    does for the raw channel on upscale).
+    """
+    if 'fluorescence' in active_name:
+        return True, None
+    primary = state.get('image')
+    primary_name = str(state.get('_primary_channel_name') or '').lower()
+    best_len, best_key = -1, None
+    if primary_name and primary_name in active_name:
+        best_len = len(primary_name)                  # best_key stays None: "it's the primary"
+    for key, arr in (state.get('channels_by_name') or {}).items():
+        if arr is primary:
+            continue                      # this name IS the segmentation channel
+        lk = key.lower()
+        if lk and lk in active_name and len(lk) > best_len:
+            best_len, best_key = len(lk), key
+    return (best_key is not None), best_key
 
 
 def _save_array(arr: np.ndarray, path: Path):
@@ -218,22 +330,32 @@ def _resolve_image_layer(state: dict, layer_name, fallback=None):
     Resolve a RECORDED napari layer name to the actual array in ``state``.
 
     The GUI records which layer each step operated on (e.g.
-    ``"Upscaled Fluorescence Image"`` or
-    ``"Enhanced Background Removed Pre-Processed Upscaled Segmentation Image"``).
-    Replay must honour that recorded name instead of assuming a fixed
-    channel/stage, otherwise a step can silently run on the wrong channel
-    (e.g. Cellpose running on the foreground-suppressed segmentation channel
-    instead of the fluorescence channel, finding 0 cells).
+    ``"Upscaled Fluorescence Image"`` or a sample-identity name from a
+    split-file recording, ``"Enhanced Background Removed Pre-Processed
+    Upscaled In_Cell [1]"``). Replay must honour that recorded name instead of
+    assuming a fixed channel/stage, otherwise a step can silently run on the
+    wrong channel (e.g. Cellpose running on the wrong channel, or getting the
+    ENHANCED image where the recording asked for the RAW one).
 
     Resolution uses two independent facts encoded in the layer name:
 
-      1. WHICH CHANNEL  — "Segmentation" vs "Fluorescence" vs a named extra
-         channel from ``state['channels_by_name']`` (3+ fluorophore files).
+      1. WHICH CHANNEL  — the primary/segmentation channel (the "Segmentation"
+         keyword, OR ``state['_primary_channel_name']`` — the recorded name a
+         split-file/sample-identity recording actually uses, e.g. "In_Cell");
+         "Fluorescence"; or a named extra channel from
+         ``state['channels_by_name']`` (split-file companions, 3+ fluorophore
+         files).
       2. WHICH STAGE    — raw (upscaled) vs preprocessed / background-removed.
-         The processed segmentation array lives in ``state['preprocessed']``
-         (background_removal overwrites it with the enhanced bg-removed image),
-         and the processed fluorescence array in
-         ``state['preprocessed_fluorescence']``.
+         The primary/fluorescence roles each have a dedicated raw + processed
+         pair of state slots (``image``/``preprocessed``,
+         ``fluorescence_image``/``preprocessed_fluorescence``). A named extra
+         channel gets the SAME two-slot treatment via
+         ``channels_by_name`` (raw) / ``channels_processed_by_name``
+         (preprocessed, then overwritten by background-removed) — a single
+         shared slot per name cannot tell "raw" and "processed" apart, and a
+         step recorded BEFORE preprocessing (e.g. cell_analysis reading the
+         raw upscaled channel) would otherwise silently receive whatever a
+         LATER-run preprocessing step left behind.
 
     Parameters
     ----------
@@ -258,25 +380,46 @@ def _resolve_image_layer(state: dict, layer_name, fallback=None):
                     or 'preprocessed' in name)
 
     # --- which channel? ----------------------------------------------------
+    if 'segmentation' in name:
+        if is_processed:
+            return state.get('preprocessed', state['image'])
+        return state['image']
+
     if 'fluorescence' in name:
         if is_processed:
             return state.get('preprocessed_fluorescence',
                              state.get('fluorescence_image', state['image']))
         return state.get('fluorescence_image', state['image'])
 
-    if 'segmentation' in name:
+    # --- name-based resolution (split-file / sample-identity-named configs) ---
+    #
+    # Napari disambiguates a duplicate layer NAME with a " [N]" suffix ("In_Cell" and
+    # "In_Cell [1]"), so the primary's own recorded name can be a SUBSTRING of a
+    # companion's ("in_cell" is inside "upscaled in_cell [1]") — a plain substring
+    # test would misroute the companion to the primary. The LONGEST matching known
+    # name wins: a companion's longer, more specific name always beats the shorter
+    # primary name it happens to share a prefix with.
+    primary_name = str(state.get('_primary_channel_name') or '').lower()
+    channels_raw = state.get('channels_by_name') or {}
+    best_len, best_key = -1, None                 # best_key stays None while the primary leads
+    if primary_name and (primary_name in name or name in primary_name):
+        best_len = len(primary_name)
+    for key in channels_raw:
+        lk = key.lower()
+        if lk and (lk in name or name in lk) and len(lk) > best_len:
+            best_len, best_key = len(lk), key
+
+    if best_len >= 0 and best_key is None:
         if is_processed:
             return state.get('preprocessed', state['image'])
         return state['image']
 
-    # --- a named extra channel (files with 3+ fluorophores) ---------------
-    channels = state.get('channels_by_name', {}) or {}
-    if layer_name in channels:                       # exact recorded name
-        return channels[layer_name]
-    for key, arr in channels.items():                # loose base-name match
-        base = key.lower()
-        if base and (base in name or name in base):
-            return arr
+    if best_key is not None:
+        if is_processed:
+            proc = (state.get('channels_processed_by_name') or {}).get(best_key)
+            if proc is not None:
+                return proc
+        return channels_raw.get(best_key, fallback)
 
     return fallback
 

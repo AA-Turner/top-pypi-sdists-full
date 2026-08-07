@@ -4,7 +4,7 @@ import sys
 
 import numpy as np
 import pytest
-from numpy.testing import assert_almost_equal, assert_array_equal
+from pytest import approx
 
 import boost_histogram as bh
 
@@ -31,7 +31,7 @@ def test_threads(benchmark, threads, storage):
     hist_linear.fill(vals)
     hist_result = benchmark(fillit, hist_atomic, vals, threads=threads)
 
-    assert_array_equal(hist_linear, hist_result)
+    assert np.asarray(hist_linear) == approx(np.asarray(hist_result))
 
 
 @pytest.mark.parametrize("threads", [1, 4, 7], ids=lambda x: f"threads={x}")
@@ -48,7 +48,7 @@ def test_threaded_builtin(threads, storage):
     hist_atomic1.fill(vals)
     hist_atomic2.fill(vals, threads=threads)
 
-    assert_array_equal(hist_atomic1, hist_atomic2)
+    assert np.asarray(hist_atomic1) == approx(np.asarray(hist_atomic2))
 
 
 @pytest.mark.parametrize("threads", [1, 4, 7], ids=lambda x: f"threads={x}")
@@ -58,7 +58,7 @@ def test_threaded_numpy(threads):
     hist_1, _ = bh.numpy.histogram(vals)
     hist_2, _ = bh.numpy.histogram(vals, threads=threads)
 
-    assert_array_equal(hist_1, hist_2)
+    assert np.asarray(hist_1) == approx(np.asarray(hist_2))
 
 
 @pytest.mark.parametrize("threads", [1, 4, 7], ids=lambda x: f"threads={x}")
@@ -71,7 +71,7 @@ def test_threaded_weights(threads):
     hist_1.fill(x, y, weight=weights)
     hist_2.fill(x, y, weight=weights, threads=threads)
 
-    assert_almost_equal(hist_1.view(), hist_2.view())
+    assert hist_1.view() == approx(hist_2.view())
 
 
 @pytest.mark.parametrize("threads", [1, 4, 7], ids=lambda x: f"threads={x}")
@@ -88,8 +88,44 @@ def test_threaded_weight_storage(threads):
     hist_1.fill(x, y, weight=weights)
     hist_2.fill(x, y, weight=weights, threads=threads)
 
-    assert_almost_equal(hist_1.view().value, hist_2.view().value)
-    assert_almost_equal(hist_1.view().variance, hist_2.view().variance)
+    assert hist_1.view().value == approx(hist_2.view().value)
+    assert hist_1.view().variance == approx(hist_2.view().variance)
+
+
+@pytest.mark.parametrize("threads", [2, 4, 7], ids=lambda x: f"threads={x}")
+def test_threaded_scalar_broadcast(threads):
+    # Issue #1143 (B5): scalar positional args used to crash np.array_split
+    hist_1 = bh.Histogram(bh.axis.Regular(10, 0, 1), bh.axis.Regular(10, 0, 1))
+    hist_2 = hist_1.copy()
+
+    y = np.random.rand(13)
+    hist_1.fill(0.5, y)
+    hist_2.fill(0.5, y, threads=threads)
+
+    assert hist_1.view(flow=True) == approx(hist_2.view(flow=True))
+
+
+@pytest.mark.parametrize("threads", [2, 4, 7], ids=lambda x: f"threads={x}")
+def test_threaded_scalar_weight(threads):
+    # Issue #1143 (B5): 0-d array weights are not np.isscalar but must broadcast
+    x = np.random.rand(13)
+
+    hist_1 = bh.Histogram(bh.axis.Regular(10, 0, 1), storage=bh.storage.Weight())
+    hist_2 = hist_1.copy()
+
+    hist_1.fill(x, weight=np.array(2.0))
+    hist_2.fill(x, weight=np.array(2.0), threads=threads)
+
+    assert hist_1.view().value == approx(hist_2.view().value)
+    assert hist_1.view().variance == approx(hist_2.view().variance)
+
+
+@pytest.mark.parametrize("threads", [2, 4])
+def test_threaded_all_scalar(threads):
+    # All-scalar fills must fill exactly once, not once per thread
+    hist = bh.Histogram(bh.axis.Regular(10, 0, 1))
+    hist.fill(0.5, threads=threads)
+    assert hist.sum() == 1
 
 
 def test_no_profile():

@@ -3833,8 +3833,15 @@ class NDArray(blosc2_ext.NDArray, Operand):
 
     @property
     def nbytes(self) -> int:
-        """The number of bytes used by the array."""
-        return self.schunk.nbytes
+        """The number of bytes used by the array.
+
+        This is the logical size, ``size * dtype.itemsize``, matching NumPy.
+        It is smaller than the bytes actually stored whenever the shape does
+        not fill the chunk grid exactly; :attr:`cratio` keeps measuring the
+        stored (padded) data, so ``nbytes / cbytes`` need not equal ``cratio``.
+        Use ``.schunk.nbytes`` for the padded figure.
+        """
+        return self.size * self.dtype.itemsize
 
     @property
     def cbytes(self) -> int:
@@ -4557,13 +4564,13 @@ class NDArray(blosc2_ext.NDArray, Operand):
 
     def __getitem__(  # noqa: C901
         self,
-        key: None
-        | int
+        key: int
         | slice
         | Sequence[slice | int | np.bool_ | np.ndarray[int | np.bool_] | None]
         | NDArray[int | np.bool_]
         | blosc2.LazyExpr
-        | str,
+        | str
+        | None,
     ) -> np.ndarray | blosc2.LazyExpr:
         """
         Retrieve a (multidimensional) slice as specified by the key.

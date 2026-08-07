@@ -584,9 +584,10 @@ def _chat_reply(cfg, console, history: list, user_input: str, cancel=None) -> st
     """
     from rich.text import Text
 
+    _s = get_strings(getattr(cfg, "lang", "en") or "en")
     model_cfg = cfg.get_active_model_config()
     if not model_cfg:
-        console.print("[yellow]모델이 설정되지 않았습니다. /model 로 먼저 설정하세요.[/]")
+        console.print(f"[yellow]{_s.get('chat_no_model', 'No model configured. Set one first with /model.')}[/]")
         return ""
 
     from .models.registry import ModelRegistry
@@ -611,7 +612,7 @@ def _chat_reply(cfg, console, history: list, user_input: str, cancel=None) -> st
     for chunk in model.chat_stream(messages):
         # 협조적 취소 — 청크 경계에서 폴링 (TUI Stop).
         if cancel is not None and cancel.is_set():
-            console.print("\n[#ffaa00]⚡ 중단됨[/]")
+            console.print(f"\n[#ffaa00]⚡ {_s.get('tui_interrupted', 'Interrupted')}[/]")
             break
         if getattr(chunk, "error", None):
             console.print(Text(f"\n[error] {chunk.error}", style="red"))
@@ -630,7 +631,8 @@ def _chat_reply(cfg, console, history: list, user_input: str, cancel=None) -> st
 
 class _SessionState:
     """TUI/REPL 공유 세션 상태 — cfg·타겟·히스토리·세션로그·이벤트버스."""
-    __slots__ = ("cfg", "s", "event_bus", "target", "session_log", "chat_history")
+    __slots__ = ("cfg", "s", "event_bus", "target", "session_log",
+                 "chat_history", "active_loop")
 
     def __init__(self, cfg, s, event_bus) -> None:
         self.cfg = cfg
@@ -639,23 +641,13 @@ class _SessionState:
         self.target: str = ""
         self.session_log: list[str] = []
         self.chat_history: list[dict] = []
+        # 실행 중인 AgentLoop (있으면 실시간 힌트 주입 대상). None=대기/대화.
+        self.active_loop = None
 
 
-_HELP_TEXT = """[#00d4aa]Usage:[/]
-  그냥 입력       — 일반 대화 (질문/설명/코딩 등)
-  URL 포함 입력   — 해당 타겟 펜테스트 실행
-  (타겟 설정 후 "스캔해줘/공격해줘" 등도 펜테스트로 실행)
-
-[#00d4aa]Commands:[/]
-  /target <url>  — 타겟 설정/변경
-  /model         — 모델 설정
-  /status        — 현재 상태 표시
-  /clear         — 화면 초기화
-  /session       — 세션 로그 경로 표시
-  /exit          — 종료
-
-[#546e7a]Keys (TUI):[/] Esc/Ctrl-C 중단 · PgUp/PgDn 스크롤 · Ctrl-L 클리어 · Ctrl-D 종료
-[#546e7a]Flags (startup):[/] --no-web · --no-tui"""
+def _help_text(s: dict) -> str:
+    """현재 언어의 도움말 본문 반환 (i18n)."""
+    return s.get("tui_help_body", "") or ""
 
 
 def _dispatch_input(user_input: str, out, state: "_SessionState", cancel=None, ui=None) -> str | None:
@@ -678,7 +670,7 @@ def _dispatch_input(user_input: str, out, state: "_SessionState", cancel=None, u
     if _cmd in ("/exit", "/quit", "exit", "quit"):
         return "__exit__"
     if _cmd == "/help":
-        out.print(_HELP_TEXT)
+        out.print(_help_text(state.s))
         return None
     if _cmd == "/clear":
         if ui is not None:
@@ -724,8 +716,11 @@ def _dispatch_input(user_input: str, out, state: "_SessionState", cancel=None, u
             _t.s = state.s
             _t._cmd_model()
             state.cfg = BingoConfig.load()
+            # 언어가 바뀌었을 수 있으므로 문자열 사전 갱신
+            state.s = get_strings(state.cfg.lang)
             if ui is not None:
                 ui.config = state.cfg
+                ui.reload_strings(state.cfg)
         if ui is not None:
             # TUI 를 잠시 벗어나 일반 터미널에서 대화형 입력 처리
             ui.run_in_terminal(_do_model)
@@ -754,10 +749,14 @@ def _dispatch_input(user_input: str, out, state: "_SessionState", cancel=None, u
                 target=state.target, config=state.cfg, console=out,
                 event_bus=state.event_bus, cancel_token=cancel,
             )
-            loop.run(user_input)
+            state.active_loop = loop  # 실행 중 — 실시간 힌트 주입 대상
+            try:
+                loop.run(user_input)
+            finally:
+                state.active_loop = None
             state.session_log.append(f"  Findings: {len(loop.findings._findings)}")
         except KeyboardInterrupt:
-            out.print("\n[yellow]중단됨[/]")
+            out.print(f"\n[yellow]{state.s.get('tui_interrupted', 'Interrupted')}[/]")
         except Exception as e:
             import traceback
             from rich.text import Text
@@ -770,7 +769,7 @@ def _dispatch_input(user_input: str, out, state: "_SessionState", cancel=None, u
             _reply = _chat_reply(state.cfg, out, state.chat_history, user_input, cancel=cancel)
             state.session_log.append(f"  Assistant: {_reply[:200]}")
         except KeyboardInterrupt:
-            out.print("\n[yellow]중단됨[/]")
+            out.print(f"\n[yellow]{state.s.get('tui_interrupted', 'Interrupted')}[/]")
         except Exception as e:
             from rich.text import Text
             out.print(Text(f"Error: {e}", style="red"))
@@ -973,20 +972,38 @@ def main() -> None:
         if _web_port is not None:
             ui.console.print(f"  [#00ff41]⚡ Web UI:[/] [#00e5ff]http://127.0.0.1:{_web_port}[/]  [#546e7a](--no-web to disable)[/]")
             if _wsl2():
-                ui.console.print(f"  [#546e7a]WSL2: Windows 브라우저에서 [/][#00e5ff]http://localhost:{_web_port}[/][#546e7a] 접속[/]")
-        ui.console.print("  [#546e7a]입력창은 하단 고정 · Esc/Ctrl-C 중단 · /help[/]")
+                _u = f"[#00e5ff]http://localhost:{_web_port}[/]"
+                _wh = state.s.get("tui_wsl2_hint", "WSL2: open {url} in your Windows browser").format(url=_u)
+                ui.console.print(f"  [#546e7a]{_wh}[/]")
+        ui.console.print(f"  [#546e7a]{state.s.get('tui_input_hint', 'Input pinned at bottom · Esc/Ctrl-C to stop · /help')}[/]")
         ui.console.print()
 
     if _want_tui:
         try:
             from .ui.tui import run_tui
+            import re as _re_mod
+            _re_url = _re_mod.compile(r'https?://[^\s]+')
 
             def _handle(text: str, ui) -> None:
                 r = _dispatch_input(text, ui.console, state, cancel=ui.cancel_token, ui=ui)
                 if r == "__exit__":
                     ui.exit_app()
 
-            run_tui(state.cfg, _handle, on_start=_on_start)
+            def _busy_input(text: str) -> bool:
+                # 펜테스트 루프가 돌고 있으면 실시간 힌트로 주입.
+                # 슬래시 명령/URL 은 힌트가 아니라 새 동작 → 큐로.
+                _t = text.strip()
+                if _t.startswith("/") or _re_url.search(_t):
+                    return False
+                lp = state.active_loop
+                if lp is not None:
+                    try:
+                        return lp.submit_hint(_t)
+                    except Exception:
+                        return False
+                return False
+
+            ui = run_tui(state.cfg, _handle, on_start=_on_start, on_busy_input=_busy_input)
             _save_session(state)
             return
         except Exception as _tui_err:
@@ -999,7 +1016,9 @@ def main() -> None:
     if _web_port is not None:
         console.print(f"  [#00ff41]⚡ Web UI:[/] [#00e5ff]http://127.0.0.1:{_web_port}[/]  [#546e7a](--no-web to disable)[/]")
         if _wsl2():
-            console.print(f"  [#546e7a]WSL2: Windows 브라우저에서 [/][#00e5ff]http://localhost:{_web_port}[/][#546e7a] 접속[/]")
+            _u = f"[#00e5ff]http://localhost:{_web_port}[/]"
+            _wh = state.s.get("tui_wsl2_hint", "WSL2: open {url} in your Windows browser").format(url=_u)
+            console.print(f"  [#546e7a]{_wh}[/]")
         console.print()
 
     from prompt_toolkit import PromptSession
@@ -1024,7 +1043,7 @@ def main() -> None:
             if _dispatch_input(user_input, console, state) == "__exit__":
                 break
         except KeyboardInterrupt:
-            console.print("\n[yellow]중단됨[/]")
+            console.print(f"\n[yellow]{state.s.get('tui_interrupted', 'Interrupted')}[/]")
 
     _save_session(state)
 

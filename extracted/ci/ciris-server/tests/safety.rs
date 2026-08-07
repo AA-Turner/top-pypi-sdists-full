@@ -42,6 +42,10 @@ use ciris_server::safety::watchlist::{
     self, SeamOutcome, WatchlistClass, WatchlistEnable, WatchlistMode,
 };
 
+#[path = "support/revocation.rs"]
+mod revocation;
+use revocation::revoke;
+
 const NODE_KEY_ID: &str = "ciris-safety-node";
 
 // ─── substrate + identity helpers (mirror tests/ownership.rs) ───────────────
@@ -371,10 +375,39 @@ async fn withdraw_owner_binding(engine: &Engine, owner: &LocalSigner, member: &s
 /// directly — the track-record dimension is NOT admission-gated (unlike a live
 /// `moderation:*` ModerationEvent, which requires the author be an admitted
 /// duty-holder). This models a member who accrued upheld-action reputation.
-async fn seed_track_record(engine: &Engine, member: &str, community: &str, count: usize) {
+///
+/// **Returns how many of the `count` rows actually reached FEDERATION tier** —
+/// which is where `read_track_record` looks. Every caller asserts on that number
+/// rather than assuming it, because "the fixture seeded 3" and "the reader can
+/// see 3" turned out to be different facts (CIRISServer#357) and a fixture that
+/// cannot tell them apart is how the seam stayed invisible.
+async fn seed_track_record(engine: &Engine, member: &str, community: &str, count: usize) -> usize {
+    seed_track_record_witnessed(engine, member, community, count, None).await
+}
+
+/// [`seed_track_record`] with an explicit `witness_relation` on the envelope
+/// (`Some("self")` = the member vouching for its own action, the CC 6.2.3.1 /
+/// CC 2.1 anti-gaming case; `None` = the field absent, which CC 2.6.1.2 defaults
+/// to `external`).
+async fn seed_track_record_witnessed(
+    engine: &Engine,
+    member: &str,
+    community: &str,
+    count: usize,
+    witness_relation: Option<&str>,
+) -> usize {
     use ciris_persist::federation::types::LocalAttestationInput;
+    let mut promoted = 0usize;
     for i in 0..count {
-        let dimension = format!("moderation_track_record:{community}:item{i}:v1");
+        let tag = witness_relation.unwrap_or("default");
+        let dimension = format!("moderation_track_record:{community}:{tag}item{i}:v1");
+        let mut envelope = serde_json::json!({
+            "dimension": dimension,
+            "community_id": community,
+        });
+        if let Some(w) = witness_relation {
+            envelope["witness_relation"] = serde_json::json!(w);
+        }
         let input = LocalAttestationInput {
             attestation_id: None,
             attesting_key_id: member.to_string(),
@@ -383,10 +416,7 @@ async fn seed_track_record(engine: &Engine, member: &str, community: &str, count
             weight: None,
             expires_at: None,
             attestation_envelope: ciris_persist::federation::envelope::EnvelopeCore::from_value(
-                serde_json::json!({
-                    "dimension": dimension,
-                    "community_id": community,
-                }),
+                envelope,
             )
             .expect("test envelope is a JSON object"),
             subject_key_ids: vec![member.to_string()],
@@ -414,18 +444,22 @@ async fn seed_track_record(engine: &Engine, member: &str, community: &str, count
         // agreeing with the fixture's setup, not rejecting it. Tolerated by
         // NAME so a different refusal still fails loudly; a bare `.ok()` would
         // swallow the next real gate.
-        if let Err(e) = engine
+        match engine
             .attestation_promote(&id, cohort_scope::FEDERATION)
             .await
         {
-            let msg = e.to_string();
-            assert!(
-                msg.contains("has no live `moderate`-duty holder"),
-                "promote track record failed for a reason this fixture does not \
-                 deliberately create: {msg}"
-            );
+            Ok(_) => promoted += 1,
+            Err(e) => {
+                let msg = e.to_string();
+                assert!(
+                    msg.contains("has no live `moderate`-duty holder"),
+                    "promote track record failed for a reason this fixture does not \
+                     deliberately create: {msg}"
+                );
+            }
         }
     }
+    promoted
 }
 
 /// Put a community with the given roster. Each `(key_id, role)` is a member;
@@ -661,7 +695,7 @@ async fn existence_invariant_operates_with_a_live_moderator() {
 }
 
 #[tokio::test]
-async fn existence_invariant_auto_promotes_highest_track_record_on_lapse() {
+async fn existence_invariant_fails_closed_when_merit_is_unreadable() {
     let engine = node().await;
     let community = "community:lapsed";
     // Three eligible (owner-bound) members, NONE of whom is a named moderator yet
@@ -688,9 +722,9 @@ async fn existence_invariant_auto_promotes_highest_track_record_on_lapse() {
     // ledger a prior moderator accrued — it survives the lapse of their
     // `moderate` standing, which is exactly the signal merit auto-promotion
     // reads after a moderator steps down).
-    seed_track_record(&engine, high, community, 3).await;
-    seed_track_record(&engine, mid, community, 1).await;
-    // ── CIRISServer#356: this reads 0, and that is the SUBSTRATE being right ──
+    let promoted_high = seed_track_record(&engine, high, community, 3).await;
+    let promoted_mid = seed_track_record(&engine, mid, community, 1).await;
+    // ── CIRISServer#356/#357: this reads 0, and that is the SUBSTRATE being right ──
     //
     // `read_track_record` walks `list_attestations_by`, which is federation-tier
     // only. persist v26.0.0 (#589) made `attestation_promote` face the full
@@ -701,78 +735,441 @@ async fn existence_invariant_auto_promotes_highest_track_record_on_lapse() {
     // A lapsed community IS that state by definition. So the merit signal merit
     // auto-promotion reads cannot reach federation tier in the exact case merit
     // auto-promotion exists for. That is a real design conflict between two
-    // correct rules, not a fixture defect, and it is not ours to resolve
-    // unilaterally — filed as #356.
+    // correct rules, not a fixture defect, and it was not ours to resolve
+    // unilaterally — filed as #356, ruled on as #357.
     //
-    // Pinned at the observed value rather than the intended one, so the day the
-    // conflict is resolved this test fails and someone reads this comment.
+    // ── WHAT THIS TEST USED TO PIN, AND WHY IT CHANGED ──────────────────────
+    //
+    // It was written to fail the day the conflict was resolved, pinned at the
+    // observed values rather than the intended ones:
+    //
+    //     read_track_record(high) == 0            (seeded with 3)
+    //     auto_promotion_candidate() == Some(..)  and NOT `high`
+    //     existence_verdict() == AutoPromote { candidate: "promote-low", .. }
+    //
+    // `promote-low` — the member with no record at all. Measured, reproduced
+    // before the fix: the ranking had silently degraded from "promote the most
+    // proven member" to "promote whoever sorts first", wearing an entirely
+    // correct AutoPromote shape, with nothing in the verdict to say so.
+    //
+    // The maintainer ruled options 3+1 (#357): FAIL CLOSED first. The zeroes
+    // below still read 0 — that half was never the bug, and #589/§11.11 both
+    // stay untouched. What changed is the ANSWER built from them: a merit
+    // vector that is all-zero in a community that cannot reach the tier the
+    // ledger lives on is now reported as UNREADABLE, not ranked.
+    assert_eq!(
+        promoted_high, 0,
+        "the seam itself: a lapsed community cannot promote its merit rows to \
+         federation tier (persist CommunityHasNoModerator). If this is 3, the \
+         tier is no longer closed and this whole fixture premise moved."
+    );
+    assert_eq!(promoted_mid, 0, "same seam for the second seeded member");
     assert_eq!(
         moderation::read_track_record(&engine, high, community).await,
-        0,
+        Ok(0),
         "track record is federation-tier-only and a lapsed community cannot \
-         federate — see #356. If this is now 3, the conflict was resolved and \
-         this expectation must move back."
+         federate — the read is honest, it is the RANKING that must not trust it"
     );
     assert_eq!(
         moderation::read_track_record(&engine, mid, community).await,
-        0
+        Ok(0)
     );
     assert_eq!(
         moderation::read_track_record(&engine, low, community).await,
-        0
+        Ok(0)
     );
 
-    // No live moderator (all are bare members) → the verdict auto-promotes the
-    // highest track-record eligible member.
+    // No live moderator (all are bare members).
     assert!(
         !named::community_has_live_moderator(&engine, community)
             .await
             .unwrap(),
         "a roster of bare members has no live moderator"
     );
-    let candidate = named::auto_promotion_candidate(&engine, community)
+
+    // FAIL CLOSED (#357 part 1): no candidate, and a reason that says the
+    // instrument was never connected — not that it read nothing.
+    let outcome = named::auto_promotion_outcome(&engine, community)
         .await
         .unwrap();
-    // The consequence of #356, stated as behaviour rather than left implicit.
-    //
-    // Every track record reads 0 (see above), so merit auto-promotion has no
-    // merit to rank on and returns SOME candidate by roster order — here
-    // `promote-low`, the member with no record at all. The mechanism does not
-    // fail closed; it silently degrades from "promote the most proven" to
-    // "promote whoever sorts first", and the caller cannot tell the difference.
-    //
-    // That is the sharper half of #356: the read returning 0 is visible if you
-    // look, but a wrong-but-plausible candidate is not.
+    assert_eq!(
+        outcome,
+        named::PromotionOutcome::MeritUnreadable {
+            reason: moderation::MeritUnreadable::FederationTierClosed {
+                community_key_id: community.to_string(),
+            },
+        },
+        "an all-zero merit vector from a community that cannot reach the tier \
+         its ledger lives on must be UNREADABLE, never a ranking"
+    );
+    // The specific thing that used to happen must not: no candidate at all, and
+    // above all not `promote-low`, the member with no record.
     assert!(
-        candidate.is_some(),
-        "auto-promotion still returns a candidate — see #356"
+        !matches!(outcome, named::PromotionOutcome::Candidate { .. }),
+        "promoting on unreadable merit is not promoting on merit"
     );
-    assert_ne!(
-        candidate.as_deref(),
-        Some(high),
-        "with track records unreachable at federation tier, merit ranking cannot \
-         see `high`'s record. If this now picks `high`, #356 was resolved and \
-         this expectation must move back."
-    );
+
     let verdict = named::existence_verdict(&engine, community).await.unwrap();
     match verdict {
+        ExistenceVerdict::Quiesce { hard_case } => {
+            assert_eq!(hard_case, named::HARD_CASE_COMMUNITY_MERIT_UNREADABLE);
+            // The load-bearing property of #357 part 1: an operator can tell
+            // "merit was read and nobody qualified" from "merit could not be
+            // read at all". These two facts rendered identically before.
+            assert_ne!(
+                hard_case,
+                named::HARD_CASE_COMMUNITY_UNMODERATED,
+                "the unreadable-merit hard_case MUST be distinct from the \
+                 nobody-qualified one — they are different facts"
+            );
+        }
+        other => panic!("expected Quiesce (fail-closed on unreadable merit), got {other:?}"),
+    }
+}
+
+/// #357, the OTHER side of the fail-closed rule: when the merit signal really IS
+/// readable, merit auto-promotion still works and still picks the most proven
+/// member. Failing closed must not mean failing always.
+///
+/// The fixture is the realistic ledger-before-the-lapse shape (#357 option 4):
+/// the community accrues track records WHILE it has a live moderator — so the
+/// rows reach federation tier, asserted here, not assumed — and only then does
+/// the moderator's owner-binding lapse.
+#[tokio::test]
+async fn existence_invariant_auto_promotes_highest_track_record_on_lapse() {
+    let engine = node().await;
+    let community = "community:lapsed-with-ledger";
+    let founder = "ledger-founder"; // the moderator who will later lapse
+    let low = "ledger-low";
+    let high = "ledger-high";
+    let mid = "ledger-mid";
+    for m in [founder, low, high, mid] {
+        register_party(&engine, m, identity_type::AGENT).await;
+    }
+    let founder_owner = make_owner_bound(&engine, founder).await;
+    for m in [low, high, mid] {
+        make_owner_bound(&engine, m).await;
+    }
+    put_community(
+        &engine,
+        community,
+        &[
+            (founder, "founder"),
+            (low, "member"),
+            (high, "member"),
+            (mid, "member"),
+        ],
+    )
+    .await;
+
+    // While the community HAS a moderator its ledger can reach federation tier.
+    assert!(
+        named::community_has_live_moderator(&engine, community)
+            .await
+            .unwrap(),
+        "the owner-bound founder is a live moderator"
+    );
+    assert_eq!(
+        seed_track_record(&engine, high, community, 3).await,
+        3,
+        "with a live moderator the merit rows DO reach federation tier"
+    );
+    assert_eq!(seed_track_record(&engine, mid, community, 1).await, 1);
+    // CC 6.2.3.1 / CC 2.1 — `low` self-witnesses 5 actions. They promote fine
+    // (the substrate has no opinion on `witness_relation`); the READ excludes
+    // them. This is the anti-gaming exclusion biting in the real read path, not
+    // just in the pure predicate's unit test.
+    assert_eq!(
+        seed_track_record_witnessed(&engine, low, community, 5, Some("self")).await,
+        5,
+        "self-witnessed rows are stored + promoted like any other"
+    );
+
+    assert_eq!(
+        moderation::read_track_record(&engine, high, community).await,
+        Ok(3)
+    );
+    assert_eq!(
+        moderation::read_track_record(&engine, mid, community).await,
+        Ok(1)
+    );
+    assert_eq!(
+        moderation::read_track_record(&engine, low, community).await,
+        Ok(0),
+        "5 self-witnessed rows must count for NOTHING (CC 6.2.3.1 / CC 2.1): a \
+         serial self-witness accrues zero promotion standing"
+    );
+
+    // Now the moderator LAPSES — its owner-binding is withdrawn, so it is no
+    // longer steward-bound and no longer a named moderator.
+    withdraw_owner_binding(&engine, &founder_owner, founder).await;
+    assert!(
+        !named::community_has_live_moderator(&engine, community)
+            .await
+            .unwrap(),
+        "the founder's owner-binding lapsed ⇒ no live moderator"
+    );
+
+    // Merit is READABLE (the ledger reached federation tier before the lapse),
+    // so the ranking runs and picks the most proven member.
+    assert_eq!(
+        named::auto_promotion_outcome(&engine, community)
+            .await
+            .unwrap(),
+        named::PromotionOutcome::Candidate {
+            key_id: high.to_string(),
+            track_record: 3,
+        },
+        "readable merit ⇒ the highest track record wins, not the first sorted"
+    );
+    match named::existence_verdict(&engine, community).await.unwrap() {
         ExistenceVerdict::AutoPromote {
             candidate_key_id,
             hard_case,
         } => {
-            // #356 again: the verdict carries whatever candidate the merit
-            // ranking produced, and with all records unreachable that is not
-            // `high`. The VERDICT SHAPE is still correct — AutoPromote with the
-            // right hard_case — which is precisely why this is dangerous: an
-            // operator sees a well-formed promotion of the wrong member.
-            assert_ne!(
-                candidate_key_id, high,
-                "if this is `high` again, #356 was resolved — restore assert_eq"
-            );
+            assert_eq!(candidate_key_id, high);
             assert_eq!(hard_case, named::HARD_CASE_COMMUNITY_MODERATOR_PROMOTED);
         }
         other => panic!("expected AutoPromote, got {other:?}"),
     }
+}
+
+/// #357 — the THIRD answer, and the one that proves the other two are not the
+/// same: merit READ, and nobody qualified. Its `hard_case` must be distinct from
+/// the unreadable one.
+///
+/// The tier is OPEN here (the community has a live moderator), so an all-zero
+/// merit vector IS a measurement — and the honest answer is "nobody has a track
+/// record", never "the ledger is unreachable". This is the guard that keeps the
+/// fail-closed rule from over-firing and swallowing a real zero.
+#[tokio::test]
+async fn merit_read_but_nobody_qualified_is_a_distinct_zero() {
+    let engine = node().await;
+    let community = "community:no-merit-yet";
+    let founder = "nomerit-founder";
+    let member = "nomerit-member";
+    for m in [founder, member] {
+        register_party(&engine, m, identity_type::AGENT).await;
+        make_owner_bound(&engine, m).await;
+    }
+    put_community(
+        &engine,
+        community,
+        &[(founder, "founder"), (member, "member")],
+    )
+    .await;
+
+    // Tier OPEN: the ledger is reachable, it is simply empty.
+    assert!(named::community_has_live_moderator(&engine, community)
+        .await
+        .unwrap());
+    assert_eq!(
+        moderation::read_track_record(&engine, member, community).await,
+        Ok(0),
+        "a real, measured zero — the ledger was consulted"
+    );
+    let outcome = named::auto_promotion_outcome(&engine, community)
+        .await
+        .unwrap();
+    assert_eq!(
+        outcome,
+        named::PromotionOutcome::NoQualifiedCandidate,
+        "an all-zero vector with the tier OPEN is a finding, not an unread \
+         instrument — and a zero-merit member does not qualify for a MERIT \
+         promotion (that is the arbitrary pick #357 exists to refuse)"
+    );
+    assert!(
+        !matches!(outcome, named::PromotionOutcome::MeritUnreadable { .. }),
+        "a measured zero must never be reported as unreadable"
+    );
+
+    // And at the verdict boundary the two zeroes carry DIFFERENT hard_cases.
+    assert_ne!(
+        named::HARD_CASE_COMMUNITY_UNMODERATED,
+        named::HARD_CASE_COMMUNITY_MERIT_UNREADABLE,
+        "the whole point: an operator must be able to tell them apart"
+    );
+}
+
+/// **CIRISServer#357 part 2 (option 1) — WHY THE LOCAL-TIER READ IS HELD.**
+///
+/// The ruling was 3+1: fail closed, then read track records at LOCAL tier, since
+/// "the rows exist; only their tier is blocked". Part 1 landed. Part 2 did not,
+/// and this test is the reason, pinned so it cannot quietly stop being true.
+///
+/// A local-tier row is **producer-asserted end to end**. `attestation_upsert_local`
+/// runs no §11.10 moderation-duty admission (persist wires
+/// `check_delegated_duty_scores_admission` into `put_attestation`, the
+/// FEDERATION door, only), the row carries NO signature (local rows defer it to
+/// promote), and every field the counting predicate discriminates on —
+/// `dimension`, `community_id`, `witness_relation` — is written by the producer.
+/// `POST /v1/auth/attestation` exposes exactly this door to any registered key.
+///
+/// So a member with no record can mint its own merit, and the forgery is not
+/// merely hard to distinguish from the real thing — it is **structurally
+/// identical to it**. This test seeds an honest ledger and a forged one and
+/// shows every discriminable field matching. There is no predicate to add:
+/// the federation tier was not merely *where* the merit signal lived, it was
+/// *the entire reason the signal meant anything*. Reading below it reads
+/// unauthorized claims.
+///
+/// The self-witness exclusion (CC 6.2.3.1 / CC 2.1) does not save it either, in
+/// two independent ways: `witness_relation` is producer-written, so a forger
+/// simply omits it (CC 2.6.1.2 then defaults it to `external`, and it counts);
+/// and even a STRUCTURAL exclusion (attester == subject) is sidestepped by
+/// fabricating `moderation:*` events that name some other member as subject.
+///
+/// **What would make part 2 possible** (a follow-up, not this issue): a
+/// node-signed admission receipt — at emit time, the gated path
+/// (`admit_moderation_action` → `emit_moderation_event`) has already proven the
+/// author held the duty; if that proof were recorded under the NODE's key rather
+/// than inferred from the row's tier, a local-tier row could carry its own
+/// authority and the read could be widened safely. Note it cannot simply be a
+/// federation-tier receipt row: a row naming the community hits the same
+/// §11.11 refusal, which is the seam all over again.
+#[tokio::test]
+async fn local_tier_merit_is_producer_asserted_so_the_local_read_stays_held() {
+    use ciris_persist::federation::types::LocalAttestationInput;
+
+    let engine = node().await;
+    let community = "community:forgeable";
+    let honest = "forge-honest";
+    let forger = "forge-forger";
+    for m in [honest, forger] {
+        register_party(&engine, m, identity_type::AGENT).await;
+        make_owner_bound(&engine, m).await;
+    }
+    // Bare members, no founder ⇒ the lapsed state part 2 would be read in.
+    put_community(
+        &engine,
+        community,
+        &[(honest, "member"), (forger, "member")],
+    )
+    .await;
+    assert!(!named::community_has_live_moderator(&engine, community)
+        .await
+        .unwrap());
+
+    // The honest member's ledger: 2 rows, stuck at local tier by the seam.
+    assert_eq!(seed_track_record(&engine, honest, community, 2).await, 0);
+
+    // The forger holds NO moderation duty here — the §11.10 gate says so.
+    assert!(
+        !moderation::admit_moderation_action(&engine, forger, community, Duty::Moderate)
+            .await
+            .unwrap(),
+        "the forger is not admitted to exercise `moderate` in this community"
+    );
+
+    // …and yet the LOCAL door accepts its self-minted merit anyway: 3
+    // track-record rows AND a `moderation:*` ModerationEvent, the very dimension
+    // whose federation-tier writes are duty-gated. No admission, no signature.
+    assert_eq!(seed_track_record(&engine, forger, community, 3).await, 0);
+    let forged_event = LocalAttestationInput {
+        attestation_id: None,
+        attesting_key_id: forger.to_string(),
+        attested_key_id: Some(forger.to_string()),
+        attestation_type: attestation_type::SCORES.to_string(),
+        weight: None,
+        expires_at: None,
+        attestation_envelope: ciris_persist::federation::envelope::EnvelopeCore::from_value(
+            serde_json::json!({
+                "dimension": "moderation:spam:v1",
+                "community_id": community,
+            }),
+        )
+        .unwrap(),
+        subject_key_ids: vec![forger.to_string()],
+        cohort_scope: "self".to_string(),
+        scrub_signature_classical: None,
+        scrub_signature_pqc: None,
+    };
+    engine
+        .federation_directory()
+        .attestation_upsert_local(forged_event)
+        .await
+        .expect(
+            "THE HOLD: the local write door runs no §11.10 duty gate, so a \
+             non-duty-holder mints an admissible-looking ModerationEvent. If this \
+             ever fails, the local tier grew an authority boundary and #357 part \
+             2 should be revisited.",
+        );
+
+    // Read both ledgers back at local tier and compare every field a
+    // tier-widened `read_track_record` could discriminate on.
+    let local_rows = engine
+        .federation_directory()
+        .list_local_tier_attestations(None, 1000)
+        .await
+        .expect("list local tier");
+    let counts_for = |key: &str| -> Vec<&ciris_persist::federation::Attestation> {
+        local_rows
+            .iter()
+            .filter(|r| {
+                r.attesting_key_id == key
+                    && r.attestation_type == attestation_type::SCORES
+                    && r.attestation_envelope
+                        .get("community_id")
+                        .and_then(|v| v.as_str())
+                        == Some(community)
+            })
+            .collect()
+    };
+    let honest_rows = counts_for(honest);
+    let forged_rows = counts_for(forger);
+    assert_eq!(honest_rows.len(), 2, "the honest ledger");
+    assert_eq!(
+        forged_rows.len(),
+        4,
+        "the forged ledger — MORE merit than the honest member, minted at will"
+    );
+
+    for (label, rows) in [("honest", &honest_rows), ("forged", &forged_rows)] {
+        for r in rows.iter() {
+            let dim = r
+                .attestation_envelope
+                .get("dimension")
+                .and_then(|v| v.as_str())
+                .unwrap_or_default();
+            assert!(
+                dim.starts_with("moderation:") || dim.starts_with("moderation_track_record:"),
+                "{label}: counts as a moderation signal"
+            );
+            // CC 2.6.1.2 — no `witness_relation` ⇒ defaults to `external` ⇒ the
+            // self-witness exclusion does not fire. The forger just omits it.
+            assert!(
+                r.attestation_envelope.get("witness_relation").is_none(),
+                "{label}: witness_relation is producer-written, and absent here"
+            );
+            assert_eq!(r.tier, "local", "{label}: local tier");
+            assert!(
+                r.scrub_signature_classical.is_empty(),
+                "{label}: a local row carries NO signature — nothing to verify"
+            );
+            assert_eq!(
+                r.attesting_key_id.as_str(),
+                r.attested_key_id.as_str(),
+                "{label}: self-asserted, attester == attested"
+            );
+        }
+    }
+
+    // The verdict: on every discriminable field, the honest and the forged rows
+    // agree. There is no predicate that admits one and refuses the other, so
+    // widening the read to local tier would hand the moderator seat of a
+    // moderator-less community to whoever minted the most rows. Part 1's
+    // fail-closed answer stands instead.
+    assert_eq!(
+        named::auto_promotion_outcome(&engine, community)
+            .await
+            .unwrap(),
+        named::PromotionOutcome::MeritUnreadable {
+            reason: moderation::MeritUnreadable::FederationTierClosed {
+                community_key_id: community.to_string(),
+            },
+        },
+        "with part 2 held, the forger gains NOTHING: unreadable stays unreadable"
+    );
 }
 
 #[tokio::test]
@@ -810,17 +1207,20 @@ async fn existence_invariant_fails_secure_when_no_eligible_member() {
             .unwrap(),
         "no owner-bound member ⇒ no live moderator"
     );
-    assert!(
-        named::auto_promotion_candidate(&engine, community)
+    assert_eq!(
+        named::auto_promotion_outcome(&engine, community)
             .await
-            .unwrap()
-            .is_none(),
-        "no eligible (owner-bound) member ⇒ no auto-promotion candidate"
+            .unwrap(),
+        named::PromotionOutcome::NoQualifiedCandidate,
+        "no eligible (owner-bound) member ⇒ no auto-promotion candidate. This is \
+         a MEASURED nothing — the roster was scanned and named nobody — so it is \
+         NOT the #357 unreadable case and must not borrow its hard_case."
     );
     let verdict = named::existence_verdict(&engine, community).await.unwrap();
     match verdict {
         ExistenceVerdict::Quiesce { hard_case } => {
             assert_eq!(hard_case, named::HARD_CASE_COMMUNITY_UNMODERATED);
+            assert_ne!(hard_case, named::HARD_CASE_COMMUNITY_MERIT_UNREADABLE);
         }
         other => panic!("expected Quiesce (fail-secure), got {other:?}"),
     }
@@ -1136,9 +1536,21 @@ use axum::http::{Request, StatusCode};
 use ciris_server::safety::infohazard;
 use tower::ServiceExt as _;
 
-/// Emit a substrate-reserved `content_class:{class}` flag on `subject`, signed by
-/// a `substrate_persist`-typed flagger — the ONLY identity_type persist's
-/// reserved-prefix rule admits for `content_class:` (a viewer/agent is refused).
+/// The [`infohazard::FlagAuthority`] for a suite whose flags are put directly by
+/// `flagger` rather than through the router's substrate signer (CIRISServer#363
+/// — the reader has to be told whose withdrawal it believes, and these fixtures
+/// name their own emitter).
+fn authority_of(flagger: &LocalSigner) -> infohazard::FlagAuthority {
+    infohazard::FlagAuthority::from_key_ids([flagger.key_id().to_string()])
+}
+
+/// Emit a `content_class:{class}` flag on `subject`, signed by a
+/// `substrate_persist`-typed flagger.
+///
+/// **The identity_type is fixture colour, not a gate** (CIRISServer#363): at
+/// persist v30.2.0 the family is open vocabulary, so this row would be admitted
+/// from ANY key. What decides whether a reader believes it is the reader's own
+/// [`infohazard::FlagAuthority`] — see `authority_of`.
 async fn flag_subject(engine: &Engine, flagger: &LocalSigner, subject: &str, class: &str) {
     let flagger_key = flagger.key_id().to_string();
     let now = chrono::Utc::now();
@@ -1377,23 +1789,30 @@ async fn reveal_flagged_subject_gates_then_allows_after_consent_and_recloses_on_
     );
 
     // sanity: the pure decision fn agrees with the substrate resolution.
-    let d = infohazard::reveal_decision(&engine, other.key_id(), subject, None)
-        .await
-        .unwrap();
+    let d = infohazard::reveal_decision(
+        &engine,
+        other.key_id(),
+        subject,
+        None,
+        &authority_of(&flagger),
+    )
+    .await
+    .unwrap();
     assert!(matches!(d, infohazard::RevealDecision::Interstitial { .. }));
 }
 
 // ════════════════════════════════════════════════════════════════════════════
 // (8) PRODUCER HOOK (CC 4.5.13, CIRISServer#181) — POST /v1/safety/flag: a
 //     `moderate`-duty holder flags a subject and the NODE's substrate_persist
-//     identity emits the reserved `content_class` flag → the #161 reveal gate
+//     identity emits the `content_class` flag → the #161 reveal gate
 //     fires. The producer→gate link, over the REAL /v1/safety/flag endpoint.
 // ════════════════════════════════════════════════════════════════════════════
 
 /// Build + register a node-scoped `substrate_persist` signer under its DERIVED
 /// federation key_id (what `Engine::emit_attestation` FKs against) — the
 /// production shape `compose::register_substrate_key` uses. Returns the signer
-/// the flag router holds to author the reserved `content_class:*` flag.
+/// the flag router holds to author the `content_class:*` flag — and, since
+/// CIRISServer#363, the emitter its own reveal gate allowlists.
 async fn substrate_signer(engine: &Engine, alias: &str) -> Arc<LocalSigner> {
     let signer = party_signer(alias);
     let key_id = signer.derived_key_id();
@@ -1490,7 +1909,7 @@ async fn post_flag(
 }
 
 /// THE HEADLINE: a Moderate-duty holder flags a subject via the REAL
-/// `/v1/safety/flag` endpoint → the substrate emits the reserved `content_class`
+/// `/v1/safety/flag` endpoint → the substrate emits the `content_class`
 /// flag → `subject_flag` now returns `Some(class)` → `/v1/safety/reveal` returns
 /// the 403 interstitial for a non-consented viewer. The producer→gate link.
 #[tokio::test]
@@ -1502,8 +1921,11 @@ async fn flag_endpoint_makes_the_reveal_gate_fire() {
     make_owner_bound(&engine, founder).await;
     put_community(&engine, community, &[(founder, "founder")]).await;
 
-    // The node's substrate_persist producer identity (what the router holds).
+    // The node's substrate_persist producer identity (what the router holds) —
+    // and, since CIRISServer#363, the ONE emitter whose withdrawal the reveal
+    // gate believes. `router` derives the same authority internally.
     let substrate = substrate_signer(&engine, "producer-substrate").await;
+    let authority = infohazard::FlagAuthority::of_substrate_signer(&substrate);
     let app = ciris_server::safety::router(
         Arc::clone(&engine),
         HybridPolicy::Strict,
@@ -1517,7 +1939,7 @@ async fn flag_endpoint_makes_the_reveal_gate_fire() {
 
     // BEFORE the flag: the subject is unflagged ⇒ reveal ALLOWS (the gate is inert).
     assert!(
-        infohazard::subject_flag(&engine, subject, None)
+        infohazard::subject_flag(&engine, subject, None, &authority)
             .await
             .unwrap()
             .is_none(),
@@ -1586,12 +2008,14 @@ async fn flag_endpoint_makes_the_reveal_gate_fire() {
     assert_eq!(
         substrate_id_type,
         identity_type::SUBSTRATE_PERSIST,
-        "the emitter is identity_type = substrate_persist (the reserved-prefix rule)"
+        "the emitter is identity_type = substrate_persist — the production shape. \
+         NB this is no longer a persist gate (CIRISServer#363): the family is open \
+         vocabulary at v30.2.0 and it is the READ-side FlagAuthority that binds."
     );
 
     // THE LINK: subject_flag now resolves + the reveal gate FIRES (403).
     assert_eq!(
-        infohazard::subject_flag(&engine, subject, None)
+        infohazard::subject_flag(&engine, subject, None, &authority)
             .await
             .unwrap(),
         Some(infohazard::ContentFlag::Infohazard),
@@ -1625,7 +2049,7 @@ async fn flag_endpoint_makes_the_reveal_gate_fire() {
     );
     assert_eq!(body["action"], "clear");
     assert!(
-        infohazard::subject_flag(&engine, subject, None)
+        infohazard::subject_flag(&engine, subject, None, &authority)
             .await
             .unwrap()
             .is_none(),
@@ -1651,6 +2075,7 @@ async fn flag_endpoint_rejects_a_non_duty_caller() {
     put_community(&engine, community, &[(founder, "founder")]).await;
 
     let substrate = substrate_signer(&engine, "producer-substrate-2").await;
+    let authority = infohazard::FlagAuthority::of_substrate_signer(&substrate);
     let app =
         ciris_server::safety::router(Arc::clone(&engine), HybridPolicy::Strict, Some(substrate));
 
@@ -1676,7 +2101,7 @@ async fn flag_endpoint_rejects_a_non_duty_caller() {
     );
     // No flag landed on the subject (fail-secure — the gate stays inert).
     assert!(
-        infohazard::subject_flag(&engine, subject, None)
+        infohazard::subject_flag(&engine, subject, None, &authority)
             .await
             .unwrap()
             .is_none(),
@@ -1791,9 +2216,15 @@ async fn cc_243_blanket_revoke_re_closes_the_infohazard_gate() {
     .await;
     assert!(
         matches!(
-            infohazard::reveal_decision(&engine, viewer.key_id(), subject, None)
-                .await
-                .unwrap(),
+            infohazard::reveal_decision(
+                &engine,
+                viewer.key_id(),
+                subject,
+                None,
+                &authority_of(&flagger),
+            )
+            .await
+            .unwrap(),
             infohazard::RevealDecision::Allow
         ),
         "a scoped view-grant must open the gate"
@@ -1804,9 +2235,15 @@ async fn cc_243_blanket_revoke_re_closes_the_infohazard_gate() {
     emit_consent_scoped(&engine, &viewer, subject, "revoked", None, None, 20).await;
     assert!(
         matches!(
-            infohazard::reveal_decision(&engine, viewer.key_id(), subject, None)
-                .await
-                .unwrap(),
+            infohazard::reveal_decision(
+                &engine,
+                viewer.key_id(),
+                subject,
+                None,
+                &authority_of(&flagger),
+            )
+            .await
+            .unwrap(),
             infohazard::RevealDecision::Interstitial { .. }
         ),
         "a BLANKET consent:state:revoked MUST re-close the infohazard gate — a viewer \
@@ -1853,9 +2290,15 @@ async fn cc_243_an_unrelated_scope_revoke_does_not_re_close_the_gate() {
     .await;
     assert!(
         matches!(
-            infohazard::reveal_decision(&engine, viewer.key_id(), subject, None)
-                .await
-                .unwrap(),
+            infohazard::reveal_decision(
+                &engine,
+                viewer.key_id(),
+                subject,
+                None,
+                &authority_of(&flagger),
+            )
+            .await
+            .unwrap(),
             infohazard::RevealDecision::Allow
         ),
         "revoking an unrelated scope must NOT re-close the view gate"
@@ -1881,11 +2324,440 @@ async fn cc_243_a_scope_less_grant_cannot_back_into_a_view_consent() {
     emit_consent_scoped(&engine, &viewer, subject, "granted", None, None, 10).await;
     assert!(
         matches!(
-            infohazard::reveal_decision(&engine, viewer.key_id(), subject, None)
+            infohazard::reveal_decision(
+                &engine,
+                viewer.key_id(),
+                subject,
+                None,
+                &authority_of(&flagger),
+            )
+            .await
+            .unwrap(),
+            infohazard::RevealDecision::Interstitial { .. }
+        ),
+        "a bare consent:state:granted must NOT back into a scoped view-consent"
+    );
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// (9) THE READ-SIDE EMITTER PREDICATE (CIRISServer#363) — `content_class:` is
+//     OPEN VOCABULARY at persist v30.2.0's write door (CC 3.3.12), so nothing
+//     upstream stops an arbitrary admitted key from authoring a flag row. The
+//     discrimination is ours, on READ, and it is asymmetric: anyone may impose
+//     an interstitial, only an authorised emitter may lift one.
+// ════════════════════════════════════════════════════════════════════════════
+
+/// Put a `content_class:{class}:v1` `scores` row on `subject`, authored by
+/// `emitter` under its REGISTERED `emitter_key_id`, with `withdrawn` and an
+/// `asserted_at` offset of `secs` (so a later withdrawal supersedes an earlier
+/// flag under the latest-wins fold).
+///
+/// This goes through the REAL `put_attestation` door, which re-verifies the
+/// hybrid signature against `attesting_key_id`'s registered pubkeys — so every
+/// row here is one the substrate actually admits, not a hand-written fixture.
+async fn put_content_class_row(
+    engine: &Engine,
+    emitter: &LocalSigner,
+    emitter_key_id: &str,
+    subject: &str,
+    class: &str,
+    withdrawn: bool,
+    secs: i64,
+) {
+    let now = chrono::Utc::now() + chrono::Duration::seconds(secs);
+    let dimension = format!("content_class:{class}:v1");
+    let mut envelope = serde_json::json!({ "dimension": dimension, "content_class": class });
+    if withdrawn {
+        envelope["withdrawn"] = serde_json::Value::Bool(true);
+    }
+    let canonical = ceg_produce_canonicalize(&envelope).expect("canonicalize content_class row");
+    let sig = emitter
+        .sign_hybrid(&canonical)
+        .await
+        .expect("sign content_class row");
+    let attestation = Attestation {
+        attestation_id: format!("cc-{emitter_key_id}-{subject}-{class}-{withdrawn}-{secs}"),
+        attesting_key_id: emitter_key_id.to_string(),
+        attested_key_id: subject.to_string(),
+        attestation_type: attestation_type::SCORES.to_string(),
+        weight: None,
+        asserted_at: now,
+        expires_at: None,
+        attestation_envelope: envelope,
+        original_content_hash: hex::encode(Sha256::digest(&canonical)),
+        scrub_signature_classical: BASE64.encode(&sig.classical.signature),
+        scrub_signature_pqc: Some(BASE64.encode(&sig.pqc.signature)),
+        scrub_key_id: emitter_key_id.to_string(),
+        additional_scrubs: Vec::new(),
+        scrub_timestamp: now,
+        pqc_completed_at: Some(now),
+        persist_row_hash: String::new(),
+        subject_key_ids: vec![subject.to_string()],
+        withdraws_admission_rule: None,
+        cohort_scope: "federation".to_string(),
+        tier: attestation_tier::FEDERATION.to_string(),
+        promoted_at: None,
+    };
+    engine
+        .federation_directory()
+        .put_attestation(SignedAttestation { attestation })
+        .await
+        .expect("put content_class row");
+}
+
+/// Flag `subject` from the node's own authorised substrate emitter.
+async fn authorised_flag(engine: &Engine, substrate: &LocalSigner, subject: &str, secs: i64) {
+    put_content_class_row(
+        engine,
+        substrate,
+        &substrate.derived_key_id(),
+        subject,
+        "infohazard",
+        false,
+        secs,
+    )
+    .await;
+}
+
+/// **THE ATTACK (CIRISServer#363).** An ordinary admitted `agent`-typed key
+/// authors `content_class:infohazard:v1 {"withdrawn": true}` naming a subject it
+/// never flagged. The flag MUST survive, and the reveal gate MUST stay closed.
+///
+/// Verified RED against the pre-fix fold, driven end-to-end through the real
+/// `put_attestation` door: the attacker's row was ADMITTED by persist v30.2.0
+/// (the family is open vocabulary) and `subject_flag` returned `None`.
+#[tokio::test]
+async fn cc363_an_agent_key_cannot_clear_a_flag_it_did_not_set() {
+    let engine = node().await;
+    let subject = "cc363-subject";
+    register_party(&engine, subject, identity_type::USER).await;
+    let viewer = register_party(&engine, "cc363-viewer", identity_type::USER).await;
+
+    // The node's own substrate flag producer — the one authorised emitter.
+    let substrate = substrate_signer(&engine, "cc363-substrate").await;
+    let authority = infohazard::FlagAuthority::of_substrate_signer(&substrate);
+    authorised_flag(&engine, &substrate, subject, 0).await;
+    assert_eq!(
+        infohazard::subject_flag(&engine, subject, None, &authority)
+            .await
+            .unwrap(),
+        Some(infohazard::ContentFlag::Infohazard),
+        "the authorised emitter's flag resolves"
+    );
+
+    // THE ATTACK: a plain admitted agent key withdraws a flag it did not set.
+    // Note the row is ADMITTED by the substrate — nothing upstream refuses it.
+    let attacker = register_party(&engine, "cc363-attacker", identity_type::AGENT).await;
+    put_content_class_row(
+        &engine,
+        &attacker,
+        "cc363-attacker",
+        subject,
+        "infohazard",
+        true,
+        60,
+    )
+    .await;
+
+    assert_eq!(
+        infohazard::subject_flag(&engine, subject, None, &authority)
+            .await
+            .unwrap(),
+        Some(infohazard::ContentFlag::Infohazard),
+        "an agent-typed stranger CLEARED a child-safety flag it did not set \
+         (CIRISServer#363 — the fail-open)"
+    );
+    // And the whole gate, not just the flag resolver, stays closed.
+    assert!(
+        matches!(
+            infohazard::reveal_decision(&engine, viewer.key_id(), subject, None, &authority)
                 .await
                 .unwrap(),
             infohazard::RevealDecision::Interstitial { .. }
         ),
-        "a bare consent:state:granted must NOT back into a scoped view-consent"
+        "the reveal gate must not open on a forged withdrawal"
+    );
+}
+
+/// The escape hatch an `identity_type` check would have left open: at v30.2.0
+/// `substrate_persist` is SELF-ASSERTED (`conferral_mode` =
+/// `DerivedFromVerifiedState`, and the only enforcement loop covers
+/// `AccordCoScrubbed` claims — an empty set at this version). So an attacker
+/// simply registers under that identity_type instead of `agent`. The predicate
+/// is `attesting_key_id` membership, which this cannot fake.
+#[tokio::test]
+async fn cc363_a_self_declared_substrate_persist_key_cannot_clear_either() {
+    let engine = node().await;
+    let subject = "cc363-idtype-subject";
+    register_party(&engine, subject, identity_type::USER).await;
+    let substrate = substrate_signer(&engine, "cc363-idtype-substrate").await;
+    let authority = infohazard::FlagAuthority::of_substrate_signer(&substrate);
+    authorised_flag(&engine, &substrate, subject, 0).await;
+
+    // The attacker registers itself as `substrate_persist` — self-assertable,
+    // and persist admits the registration.
+    let impostor =
+        register_party(&engine, "cc363-impostor", identity_type::SUBSTRATE_PERSIST).await;
+    assert_eq!(
+        engine
+            .federation_directory()
+            .lookup_public_key("cc363-impostor")
+            .await
+            .unwrap()
+            .expect("impostor registered")
+            .identity_type,
+        identity_type::SUBSTRATE_PERSIST,
+        "the impostor really does carry the privileged identity_type"
+    );
+    put_content_class_row(
+        &engine,
+        &impostor,
+        "cc363-impostor",
+        subject,
+        "infohazard",
+        true,
+        60,
+    )
+    .await;
+
+    assert_eq!(
+        infohazard::subject_flag(&engine, subject, None, &authority)
+            .await
+            .unwrap(),
+        Some(infohazard::ContentFlag::Infohazard),
+        "a key that merely CALLS ITSELF substrate_persist cleared the flag — \
+         the predicate must be key identity, not a self-asserted identity_type"
+    );
+}
+
+/// Not a fix-by-breaking-the-feature: the authorised emitter can still SET and
+/// still CLEAR, and the gate follows both ways.
+#[tokio::test]
+async fn cc363_the_authorised_emitter_can_still_set_and_clear() {
+    let engine = node().await;
+    let subject = "cc363-legit-subject";
+    register_party(&engine, subject, identity_type::USER).await;
+    let viewer = register_party(&engine, "cc363-legit-viewer", identity_type::USER).await;
+    let substrate = substrate_signer(&engine, "cc363-legit-substrate").await;
+    let authority = infohazard::FlagAuthority::of_substrate_signer(&substrate);
+
+    // SET.
+    authorised_flag(&engine, &substrate, subject, 0).await;
+    assert_eq!(
+        infohazard::subject_flag(&engine, subject, None, &authority)
+            .await
+            .unwrap(),
+        Some(infohazard::ContentFlag::Infohazard),
+        "the authorised emitter can still flag"
+    );
+    assert!(matches!(
+        infohazard::reveal_decision(&engine, viewer.key_id(), subject, None, &authority)
+            .await
+            .unwrap(),
+        infohazard::RevealDecision::Interstitial { .. }
+    ));
+
+    // CLEAR — the same emitter, a newer row.
+    put_content_class_row(
+        &engine,
+        &substrate,
+        &substrate.derived_key_id(),
+        subject,
+        "infohazard",
+        true,
+        60,
+    )
+    .await;
+    assert_eq!(
+        infohazard::subject_flag(&engine, subject, None, &authority)
+            .await
+            .unwrap(),
+        None,
+        "the authorised emitter can still CLEAR — the feature is intact"
+    );
+    assert_eq!(
+        infohazard::reveal_decision(&engine, viewer.key_id(), subject, None, &authority)
+            .await
+            .unwrap(),
+        infohazard::RevealDecision::Allow,
+        "a legitimately cleared subject reveals again"
+    );
+}
+
+/// **FAIL CLOSED.** A node with no substrate flag signer wired has an EMPTY
+/// authority — it cannot evaluate ANY emitter as authorised. The subject stays
+/// flagged: "we could not check" is not "it is fine". This is the real
+/// production shape (`router(.., None)` leaves `/v1/safety/flag` 503-inert).
+#[tokio::test]
+async fn cc363_an_unevaluable_emitter_leaves_the_subject_flagged() {
+    let engine = node().await;
+    let subject = "cc363-failclosed-subject";
+    register_party(&engine, subject, identity_type::USER).await;
+    let viewer = register_party(&engine, "cc363-failclosed-viewer", identity_type::USER).await;
+    let substrate = substrate_signer(&engine, "cc363-failclosed-substrate").await;
+
+    authorised_flag(&engine, &substrate, subject, 0).await;
+    // The withdrawal is from the emitter that WOULD be authorised on a wired
+    // node — the only thing missing is our ability to evaluate it.
+    put_content_class_row(
+        &engine,
+        &substrate,
+        &substrate.derived_key_id(),
+        subject,
+        "infohazard",
+        true,
+        60,
+    )
+    .await;
+
+    let unevaluable = infohazard::FlagAuthority::none();
+    assert!(unevaluable.is_empty());
+    assert_eq!(
+        infohazard::subject_flag(&engine, subject, None, &unevaluable)
+            .await
+            .unwrap(),
+        Some(infohazard::ContentFlag::Infohazard),
+        "an unevaluable emitter must NOT clear — the subject stays flagged"
+    );
+    assert!(
+        matches!(
+            infohazard::reveal_decision(&engine, viewer.key_id(), subject, None, &unevaluable)
+                .await
+                .unwrap(),
+            infohazard::RevealDecision::Interstitial { .. }
+        ),
+        "and the gate stays closed"
+    );
+    // The SAME rows under a wired authority DO clear — so the assertion above
+    // is about the authority, not about some unrelated defect in the fixture.
+    let wired = infohazard::FlagAuthority::of_substrate_signer(&substrate);
+    assert_eq!(
+        infohazard::subject_flag(&engine, subject, None, &wired)
+            .await
+            .unwrap(),
+        None,
+        "the identical rows clear once the emitter CAN be evaluated"
+    );
+}
+
+/// An authorised emitter whose key has been REVOKED loses the authority: a
+/// rotated-out substrate key must not keep clearing child-safety flags.
+#[tokio::test]
+async fn cc363_a_revoked_authority_key_can_no_longer_clear() {
+    let engine = node().await;
+    let subject = "cc363-revoked-subject";
+    register_party(&engine, subject, identity_type::USER).await;
+    let substrate = substrate_signer(&engine, "cc363-revoked-substrate").await;
+    let authority = infohazard::FlagAuthority::of_substrate_signer(&substrate);
+
+    authorised_flag(&engine, &substrate, subject, 0).await;
+    put_content_class_row(
+        &engine,
+        &substrate,
+        &substrate.derived_key_id(),
+        subject,
+        "infohazard",
+        true,
+        60,
+    )
+    .await;
+    // Before the revocation the clear lands (the control).
+    assert_eq!(
+        infohazard::subject_flag(&engine, subject, None, &authority)
+            .await
+            .unwrap(),
+        None,
+        "control: the live authorised emitter clears"
+    );
+
+    // The substrate emitter's key is revoked, effective now.
+    let revoker = register_party(&engine, "cc363-revoker", identity_type::USER).await;
+    revoke(
+        &engine,
+        &revoker,
+        &substrate.derived_key_id(),
+        chrono::Utc::now(),
+        None,
+    )
+    .await;
+
+    assert_eq!(
+        infohazard::subject_flag(&engine, subject, None, &authority)
+            .await
+            .unwrap(),
+        Some(infohazard::ContentFlag::Infohazard),
+        "a REVOKED emitter's withdrawal must stop clearing — the flag returns"
+    );
+}
+
+/// The deliberate asymmetry, pinned as a property so it cannot drift silently:
+/// an UNauthorised emitter's flag still protects (over-withholding is this
+/// gate's safe direction, and dropping peer-replicated flags would open it),
+/// while the local authorised emitter can always lift what a stranger imposed.
+#[tokio::test]
+async fn cc363_an_unauthorised_set_still_protects_and_stays_liftable() {
+    let engine = node().await;
+    let subject = "cc363-asym-subject";
+    register_party(&engine, subject, identity_type::USER).await;
+    let substrate = substrate_signer(&engine, "cc363-asym-substrate").await;
+    let authority = infohazard::FlagAuthority::of_substrate_signer(&substrate);
+
+    // A stranger FLAGS. Protective, so it counts.
+    let stranger = register_party(&engine, "cc363-asym-stranger", identity_type::AGENT).await;
+    put_content_class_row(
+        &engine,
+        &stranger,
+        "cc363-asym-stranger",
+        subject,
+        "infohazard",
+        false,
+        0,
+    )
+    .await;
+    assert_eq!(
+        infohazard::subject_flag(&engine, subject, None, &authority)
+            .await
+            .unwrap(),
+        Some(infohazard::ContentFlag::Infohazard),
+        "an unauthorised SET still withholds — the safe direction"
+    );
+
+    // ...and the stranger cannot undo its own flag.
+    put_content_class_row(
+        &engine,
+        &stranger,
+        "cc363-asym-stranger",
+        subject,
+        "infohazard",
+        true,
+        60,
+    )
+    .await;
+    assert_eq!(
+        infohazard::subject_flag(&engine, subject, None, &authority)
+            .await
+            .unwrap(),
+        Some(infohazard::ContentFlag::Infohazard),
+        "clearing is STRICTER than flagging — not even the setter may lift it"
+    );
+
+    // The local duty-holder's emitter CAN lift it — the censorship residual is
+    // remediable, which is what makes the asymmetry acceptable.
+    put_content_class_row(
+        &engine,
+        &substrate,
+        &substrate.derived_key_id(),
+        subject,
+        "infohazard",
+        true,
+        120,
+    )
+    .await;
+    assert_eq!(
+        infohazard::subject_flag(&engine, subject, None, &authority)
+            .await
+            .unwrap(),
+        None,
+        "the authorised emitter lifts what a stranger imposed"
     );
 }

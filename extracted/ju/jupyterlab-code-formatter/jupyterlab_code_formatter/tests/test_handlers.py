@@ -1,6 +1,7 @@
 import json
 import sys
 import typing as t
+
 if sys.version_info >= (3, 8):
     from importlib.metadata import version
 else:
@@ -10,7 +11,16 @@ import pytest
 from jsonschema import validate
 from tornado.httpclient import HTTPResponse
 
-from jupyterlab_code_formatter.formatters import SERVER_FORMATTERS
+from jupyterlab_code_formatter import handlers
+from jupyterlab_code_formatter.formatters import SERVER_FORMATTERS, BlackFormatter
+
+try:
+    import rpy2
+except ImportError:
+    MISSING_RPY2 = True
+else:
+    MISSING_RPY2 = False
+skip_if_missing_rpy2 = pytest.mark.skipif(MISSING_RPY2, reason='missing rpy2')
 
 
 def _generate_list_formaters_entry_json_schema(
@@ -97,6 +107,90 @@ async def test_404_on_unknown(request_format):  # type: ignore[no-untyped-def]
         raise_error=False,
     )
     assert response.code == 404
+    # the reason has to be in the JSON body for the client to be able to show it
+    message = json.loads(response.body)["message"]
+    assert "UNKNOWN" in message
+    assert "unknown" in message
+    assert "black" in message
+
+
+async def test_404_on_unavailable(request_format, monkeypatch):  # type: ignore[no-untyped-def]
+    """Check that a formatter which is known but not installed is reported as such."""
+    monkeypatch.setattr(BlackFormatter, "importable", property(lambda self: False))
+
+    response: HTTPResponse = await request_format(
+        formatter="black",
+        code=[SIMPLE_VALID_PYTHON_CODE],
+        options={},
+        raise_error=False,
+    )
+
+    assert response.code == 404
+    message = json.loads(response.body)["message"]
+    assert "black" in message
+    assert "not available" in message
+
+
+@pytest.mark.parametrize(
+    "code,expected_problem",
+    (
+        # a labextension running on a too old JupyterLab cannot read the cell
+        # source, and `JSON.stringify` turns the resulting `undefined` into `null`
+        ([SIMPLE_VALID_PYTHON_CODE, None], "entry of `code` to be a string, got NoneType"),
+        ([123], "entry of `code` to be a string, got int"),
+        (SIMPLE_VALID_PYTHON_CODE, "`code` to be a list of strings, got str"),
+        (None, "`code` to be a list of strings, got NoneType"),
+    ),
+)
+async def test_400_on_malformed_code(request_format, code, expected_problem):  # type: ignore[no-untyped-def]
+    """Check that a `code` payload which is not a list of strings is rejected."""
+    response: HTTPResponse = await request_format(
+        formatter="black",
+        code=code,
+        options={},
+        raise_error=False,
+    )
+
+    assert response.code == 400
+    message = json.loads(response.body)["message"]
+    assert expected_problem in message
+
+
+async def test_400_on_malformed_code_mentions_jupyterlab(request_format, monkeypatch):  # type: ignore[no-untyped-def]
+    """Check that an outdated JupyterLab is called out as the likely cause."""
+    monkeypatch.setattr(
+        handlers, "_outdated_jupyterlab_version", lambda: "3.4.5", raising=True
+    )
+
+    response: HTTPResponse = await request_format(
+        formatter="black",
+        code=[None],
+        options={},
+        raise_error=False,
+    )
+
+    assert response.code == 400
+    message = json.loads(response.body)["message"]
+    assert "JupyterLab 3.4.5 is too old" in message
+    assert f"pin jupyterlab-code-formatter to {handlers.LAST_JUPYTERLAB_3_RELEASE}" in message
+
+
+async def test_400_on_malformed_code_without_jupyterlab(request_format, monkeypatch):  # type: ignore[no-untyped-def]
+    """Check the fallback message used when JupyterLab's version looks fine."""
+    monkeypatch.setattr(
+        handlers, "_outdated_jupyterlab_version", lambda: None, raising=True
+    )
+
+    response: HTTPResponse = await request_format(
+        formatter="black",
+        code=[None],
+        options={},
+        raise_error=False,
+    )
+
+    assert response.code == 400
+    message = json.loads(response.body)["message"]
+    assert "different versions of jupyterlab-code-formatter" in message
 
 
 async def test_can_apply_python_formatter(request_format):  # type: ignore[no-untyped-def]
@@ -405,6 +499,7 @@ wat??"""
     assert json_result["code"][0]["code"] == expected
 
 
+@skip_if_missing_rpy2
 async def test_can_use_styler(request_format):  # type: ignore[no-untyped-def]
     given = "a = 3; 2"
     expected = "a <- 3\n2"
@@ -422,6 +517,7 @@ async def test_can_use_styler(request_format):  # type: ignore[no-untyped-def]
     assert json_result["code"][0]["code"] == expected
 
 
+@skip_if_missing_rpy2
 async def test_can_use_styler2(request_format):  # type: ignore[no-untyped-def]
     given = """data_frame(
      small  = 2 ,
@@ -447,6 +543,7 @@ async def test_can_use_styler2(request_format):  # type: ignore[no-untyped-def]
     assert json_result["code"][0]["code"] == expected
 
 
+@skip_if_missing_rpy2
 async def test_can_use_styler3(request_format):  # type: ignore[no-untyped-def]
     given = "1++1/2*2^2"
     expected = "1 + +1/2*2^2"
@@ -469,6 +566,7 @@ async def test_can_use_styler3(request_format):  # type: ignore[no-untyped-def]
     assert json_result["code"][0]["code"] == expected
 
 
+@skip_if_missing_rpy2
 async def test_can_use_styler4(request_format):  # type: ignore[no-untyped-def]
     given = """a <- function() {
     ### not to be indented
@@ -500,6 +598,7 @@ async def test_can_use_styler4(request_format):  # type: ignore[no-untyped-def]
     assert json_result["code"][0]["code"] == expected
 
 
+@skip_if_missing_rpy2
 async def test_can_use_styler5(request_format):  # type: ignore[no-untyped-def]
     given = """call(
 #          SHOULD BE ONE SPACE BEFORE
@@ -523,6 +622,7 @@ async def test_can_use_styler5(request_format):  # type: ignore[no-untyped-def]
     assert json_result["code"][0]["code"] == expected
 
 
+@skip_if_missing_rpy2
 async def test_can_use_styler6(request_format):  # type: ignore[no-untyped-def]
     given = "1+1-3"
     expected = "1 + 1 - 3"
@@ -543,7 +643,87 @@ async def test_can_use_styler6(request_format):  # type: ignore[no-untyped-def]
     assert json_result["code"][0]["code"] == expected
 
 
-@pytest.mark.skip(reason="rust toolchain doesn't seem to be picked up here for some reason.")
+@skip_if_missing_rpy2
+@pytest.mark.parametrize(
+    "formatter,options",
+    (("styler", {}), ("formatR", {"indent": 2})),
+)
+async def test_will_not_escape_ipython_syntax_in_r(request_format, formatter, options):  # type: ignore[no-untyped-def]
+    """Check that IPython-only escaping is not applied to R code.
+
+    `!x` is negation in R, escaping it as a comment used to leave behind the
+    escape marker (or comment the line out altogether).
+    """
+    given = """f <- function(x) {
+  !x
+}"""
+
+    response: HTTPResponse = await request_format(
+        formatter=formatter,
+        code=[given],
+        options=options,
+    )
+    json_result = _check_http_code_and_schema(
+        response=response,
+        expected_code=200,
+        expected_schema=EXPECTED_FROMAT_SCHEMA,
+    )
+    assert json_result["code"][0]["code"] == given
+
+
+@skip_if_missing_rpy2
+@pytest.mark.parametrize(
+    "formatter,options",
+    (("styler", {}), ("formatR", {"indent": 2})),
+)
+async def test_will_escape_magic_in_r(request_format, formatter, options):  # type: ignore[no-untyped-def]
+    """Check that magics are still hidden from R formatters.
+
+    `%%R` is not valid R, but it can wrap an R cell in a Python notebook,
+    so R would fail to parse the cell unless the line gets escaped.
+    """
+    given = """%%R
+x <- 1"""
+
+    response: HTTPResponse = await request_format(
+        formatter=formatter,
+        code=[given],
+        options=options,
+    )
+    json_result = _check_http_code_and_schema(
+        response=response,
+        expected_code=200,
+        expected_schema=EXPECTED_FROMAT_SCHEMA,
+    )
+    assert json_result["code"][0]["code"] == given
+
+
+@skip_if_missing_rpy2
+async def test_will_escape_quarto_comments_in_r(request_format):  # type: ignore[no-untyped-def]
+    """Check that Quarto's comments are still hidden from R formatters.
+
+    Without escaping, `start_comments_with_one_space` rewrites `#| eval: false`
+    into `# | eval: false`, which Quarto no longer recognises as a cell option.
+    """
+    given = """#| eval: false
+x <- 1"""
+
+    response: HTTPResponse = await request_format(
+        formatter="styler",
+        code=[given],
+        options={"start_comments_with_one_space": True},
+    )
+    json_result = _check_http_code_and_schema(
+        response=response,
+        expected_code=200,
+        expected_schema=EXPECTED_FROMAT_SCHEMA,
+    )
+    assert json_result["code"][0]["code"] == given
+
+
+@pytest.mark.skip(
+    reason="rust toolchain doesn't seem to be picked up here for some reason."
+)
 async def test_can_rustfmt(request_format):  # type: ignore[no-untyped-def]
     given = """// function to add two numbers
 fn add() {

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: kedro-datasets
-Version: 9.5.0
+Version: 9.6.0
 Summary: Kedro-Datasets is where you can find all of Kedro's data connectors.
 Author: Kedro
 License: Apache Software License (Apache 2.0)
@@ -15,7 +15,7 @@ Requires-Dist: lazy_loader
 Provides-Extra: pandas-base
 Requires-Dist: pandas<4.0,>=1.3; extra == "pandas-base"
 Provides-Extra: spark-base
-Requires-Dist: pyspark<5.0,>=2.2; extra == "spark-base"
+Requires-Dist: pyspark<5.0,>=3.3; extra == "spark-base"
 Provides-Extra: hdfs-base
 Requires-Dist: hdfs<3.0,>=2.5.8; extra == "hdfs-base"
 Provides-Extra: s3fs-base
@@ -30,7 +30,7 @@ Provides-Extra: networkx-base
 Requires-Dist: networkx~=3.4; extra == "networkx-base"
 Provides-Extra: spark-core
 Provides-Extra: spark-local
-Requires-Dist: pyspark<5.0,>=2.2; extra == "spark-local"
+Requires-Dist: pyspark<5.0,>=3.3; extra == "spark-local"
 Provides-Extra: spark-databricks
 Provides-Extra: spark-emr
 Provides-Extra: spark-s3
@@ -285,16 +285,22 @@ Requires-Dist: kedro-datasets[pandas-base]; extra == "yaml-yamldataset"
 Requires-Dist: PyYAML<7.0,>=4.2; extra == "yaml-yamldataset"
 Provides-Extra: yaml
 Requires-Dist: kedro-datasets[yaml-yamldataset]; extra == "yaml"
-Provides-Extra: chromadb-chromadbdataset
-Requires-Dist: chromadb>=1.0.0; extra == "chromadb-chromadbdataset"
+Provides-Extra: chromadb-dataset
+Requires-Dist: chromadb>=1.0.0; extra == "chromadb-dataset"
 Provides-Extra: chromadb
-Requires-Dist: kedro-datasets[chromadb-chromadbdataset]; extra == "chromadb"
+Requires-Dist: kedro-datasets[chromadb-dataset]; extra == "chromadb"
 Provides-Extra: darts-torch-model-dataset
 Requires-Dist: u8darts[all]; extra == "darts-torch-model-dataset"
 Provides-Extra: darts
 Requires-Dist: kedro-datasets[darts-torch-model-dataset]; extra == "darts"
 Provides-Extra: databricks-externaltabledataset
 Requires-Dist: kedro-datasets[hdfs-base,s3fs-base]; extra == "databricks-externaltabledataset"
+Provides-Extra: faiss-dataset
+Requires-Dist: faiss-cpu; extra == "faiss-dataset"
+Provides-Extra: faiss
+Requires-Dist: kedro-datasets[faiss-dataset]; extra == "faiss"
+Provides-Extra: feast
+Requires-Dist: feast[gcp]>=0.64.0; extra == "feast"
 Provides-Extra: langchain-promptdataset
 Requires-Dist: langchain>=0.3.0; extra == "langchain-promptdataset"
 Provides-Extra: langchain
@@ -361,6 +367,10 @@ Provides-Extra: video-videodataset
 Requires-Dist: opencv-python~=4.13.0.92; extra == "video-videodataset"
 Provides-Extra: video
 Requires-Dist: kedro-datasets[video-videodataset]; extra == "video"
+Provides-Extra: weaviate-dataset
+Requires-Dist: weaviate-client>=4.0; extra == "weaviate-dataset"
+Provides-Extra: weaviate
+Requires-Dist: kedro-datasets[weaviate-dataset]; extra == "weaviate"
 Provides-Extra: docs
 Requires-Dist: mkdocs>=1.6.1; extra == "docs"
 Requires-Dist: mkdocs-material>=9.6.11; extra == "docs"
@@ -388,7 +398,8 @@ Requires-Dist: dask[complete]>=2021.10; extra == "test"
 Requires-Dist: deltalake>=0.10.0; extra == "test"
 Requires-Dist: delta-spark<3.0,>=1.0; python_version <= "3.11" and extra == "test"
 Requires-Dist: delta-spark<4.1,>=4.0; python_version >= "3.12" and extra == "test"
-Requires-Dist: dill~=0.3.1; extra == "test"
+Requires-Dist: dill~=0.3.1; python_version < "3.14" and extra == "test"
+Requires-Dist: dill~=0.4.1; python_version >= "3.14" and extra == "test"
 Requires-Dist: duckdb>=1.4.0; extra == "test"
 Requires-Dist: filelock<4.0,>=3.4.0; extra == "test"
 Requires-Dist: fiona<2.0,>=1.8; python_version < "3.14" and extra == "test"
@@ -422,7 +433,7 @@ Requires-Dist: polars[deltalake,xlsx2csv]>=1.0; extra == "test"
 Requires-Dist: pyarrow>=1.0; python_version < "3.11" and extra == "test"
 Requires-Dist: pyarrow>=7.0; python_version >= "3.11" and extra == "test"
 Requires-Dist: pyodbc~=5.0; extra == "test"
-Requires-Dist: pyspark<4.0,>=3.0; python_version < "3.11" and extra == "test"
+Requires-Dist: pyspark<4.0,>=3.3; python_version < "3.11" and extra == "test"
 Requires-Dist: pyspark<4.0,>=3.4; python_version == "3.11" and extra == "test"
 Requires-Dist: pyspark<4.1,>=4.0; python_version >= "3.12" and extra == "test"
 Requires-Dist: pytest-cov<8.0,>=7.0; extra == "test"
@@ -468,6 +479,8 @@ Requires-Dist: types-decorator; extra == "lint"
 Requires-Dist: types-six; extra == "lint"
 Requires-Dist: types-tabulate; extra == "lint"
 Provides-Extra: experimental
+Requires-Dist: weaviate-client>=4.0; extra == "experimental"
+Requires-Dist: faiss-cpu; extra == "experimental"
 Requires-Dist: langchain-openai; extra == "experimental"
 Requires-Dist: langchain-cohere; extra == "experimental"
 Requires-Dist: langchain-anthropic; extra == "experimental"
@@ -477,16 +490,22 @@ Requires-Dist: h5netcdf>=1.2.0; extra == "experimental"
 Requires-Dist: netcdf4>=1.6.4; extra == "experimental"
 Requires-Dist: xarray>=2023.1.0; extra == "experimental"
 Requires-Dist: rioxarray; extra == "experimental"
+Requires-Dist: feast[gcp]>=0.64.0; extra == "experimental"
+Requires-Dist: google-cloud-bigquery>=3.0; extra == "experimental"
+Requires-Dist: pandas-gbq>=0.12.0; extra == "experimental"
 Requires-Dist: torch; extra == "experimental"
 Requires-Dist: opencv-python~=4.13.0.92; extra == "experimental"
 Requires-Dist: prophet>=1.1.5; extra == "experimental"
 Requires-Dist: opik; extra == "experimental"
 Requires-Dist: optuna; extra == "experimental"
 Requires-Dist: u8darts[all]; extra == "experimental"
+Requires-Dist: numpy<2.5; extra == "experimental"
 Requires-Dist: pypdf>=3.0.0; extra == "experimental"
 Requires-Dist: polars>=1.0; extra == "experimental"
 Requires-Dist: SQLAlchemy>=1.4; extra == "experimental"
 Provides-Extra: experimental-test
+Requires-Dist: weaviate-client>=4.0; extra == "experimental-test"
+Requires-Dist: faiss-cpu; extra == "experimental-test"
 Requires-Dist: delta-spark<3.0,>=1.0; python_version <= "3.11" and extra == "experimental-test"
 Requires-Dist: delta-spark<4.1,>=4.0; python_version >= "3.12" and extra == "experimental-test"
 Requires-Dist: langchain-openai; extra == "experimental-test"
@@ -500,12 +519,15 @@ Requires-Dist: h5netcdf>=1.2.0; extra == "experimental-test"
 Requires-Dist: netcdf4<1.7.4,>=1.6.4; extra == "experimental-test"
 Requires-Dist: xarray>=2023.1.0; extra == "experimental-test"
 Requires-Dist: rioxarray; extra == "experimental-test"
+Requires-Dist: feast[gcp]>=0.64.0; extra == "experimental-test"
+Requires-Dist: google-cloud-bigquery>=3.0; extra == "experimental-test"
+Requires-Dist: pandas-gbq>=0.12.0; extra == "experimental-test"
 Requires-Dist: torch; extra == "experimental-test"
 Requires-Dist: opencv-python~=4.13.0.92; extra == "experimental-test"
 Requires-Dist: prophet>=1.1.5; extra == "experimental-test"
 Requires-Dist: opik; extra == "experimental-test"
 Requires-Dist: optuna; extra == "experimental-test"
-Requires-Dist: pyspark<4.0,>=3.0; python_version < "3.11" and extra == "experimental-test"
+Requires-Dist: pyspark<4.0,>=3.3; python_version < "3.11" and extra == "experimental-test"
 Requires-Dist: pyspark<4.0,>=3.4; python_version == "3.11" and extra == "experimental-test"
 Requires-Dist: pyspark>=4.0; python_version >= "3.12" and extra == "experimental-test"
 Requires-Dist: pytest-cov<8.0,>=7.0; extra == "experimental-test"
@@ -513,6 +535,7 @@ Requires-Dist: pytest-mock<2.0,>=1.7.1; extra == "experimental-test"
 Requires-Dist: pytest-xdist[psutil]~=2.2.1; extra == "experimental-test"
 Requires-Dist: pytest~=7.2; extra == "experimental-test"
 Requires-Dist: u8darts[all]; extra == "experimental-test"
+Requires-Dist: numpy<2.5; extra == "experimental-test"
 Requires-Dist: pypdf>=3.0.0; extra == "experimental-test"
 Requires-Dist: moto==5.0.0; extra == "experimental-test"
 Requires-Dist: gcsfs>=2023.1; extra == "experimental-test"

@@ -6,11 +6,14 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Callable, List, Optional, Dict, Any, TYPE_CHECKING
+from typing import Callable, List, Optional, Dict, Any, Type, TypeVar, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from .context import RepositoryContext
     from .blocks import ContentBlock
+    from .lint_target import LintTarget
+
+TargetT = TypeVar("TargetT", bound="LintTarget")
 
 
 class Severity(Enum):
@@ -50,6 +53,10 @@ class RuleViolation:
     # Confidence of the fix when ``fixable``: SAFE fixes apply with plain
     # ``skillsaw fix``, SUGGEST fixes require ``--suggest``.
     fix_confidence: Optional["AutofixConfidence"] = None
+    # Stable suffix for external and baseline identities when a rule emits
+    # sibling findings at the same path and line. Rules should set this from
+    # their first release so existing external fingerprints never churn.
+    fingerprint_discriminator: Optional[str] = None
 
     def __post_init__(self):
         if self.block is None and self.file_path is not None:
@@ -107,12 +114,39 @@ class Rule(ABC):
     formats = None
     config_schema = {}
     since = "0.1.0"
+    # Former rule IDs this rule was known by. Aliases resolve to the
+    # canonical ``rule_id`` everywhere a rule is named: config keys,
+    # --rule / --skip-rule, inline suppression directives, baseline
+    # matching, and ``skillsaw explain``.
+    aliases: tuple = ()
+    # Version in which the rule was deprecated (e.g. "0.18.0"); None means
+    # active. A deprecated rule no longer runs under ``enabled: auto`` —
+    # it only runs when a config sets ``enabled: true`` or a --rule flag
+    # names it — and naming it anywhere emits a warning that the rule
+    # will be removed in a future release.
+    deprecated: Optional[str] = None
+    # Rule ID that supersedes this one, named in deprecation messages.
+    replaced_by: Optional[str] = None
+    # One-sentence rationale rendered on the documentation site's
+    # Deprecated page and each deprecated rule's own page.
+    deprecated_reason: Optional[str] = None
     # Default activation when the user config doesn't mention the rule:
     # True (always on), False (opt-in), or "auto" (on when repo_types /
     # formats match the repository). ``LinterConfig.default()`` is generated
     # from this, so the class is the single source of truth. Per project
     # policy new rules must use "auto" or False — never True.
     default_enabled: Any = "auto"
+    # Which ecosystem's format conventions this rule enforces. None (the
+    # default) means ecosystem-neutral — content and security rules read
+    # every block whoever owns it. "claude" makes scoped_find() drop
+    # nodes whose provenance_dir() is claimed exclusively by other
+    # ecosystems, so a Codex-only plugin is exempt from Claude manifest,
+    # frontmatter, and naming requirements. Dual-manifest and unclaimed
+    # directories stay in scope. Conditional-strictness rules (the
+    # ecosystem-tightened hooks/MCP shape checks) stay None and consult
+    # RepositoryContext.in_codex_only_plugin() instead — tightening is
+    # their semantic, not a skip.
+    provenance_scope: Optional[str] = None
     autofix_confidence: Optional["AutofixConfidence"] = None
     _source: str = "builtin"
     baseline_mode: Optional[str] = None  # "ceiling" or "floor"
@@ -144,7 +178,7 @@ class Rule(ABC):
     @property
     @abstractmethod
     def rule_id(self) -> str:
-        """Unique identifier for this rule (e.g., 'plugin-json-required')"""
+        """Unique identifier for this rule (e.g., 'claude-plugin-json-required')"""
         pass
 
     @property
@@ -181,6 +215,31 @@ class Rule(ABC):
         """
         pass
 
+    def scoped_find(self, context: "RepositoryContext", node_type: Type[TargetT]) -> List[TargetT]:
+        """``context.lint_tree.find(node_type)``, filtered to this rule's
+        :attr:`provenance_scope`.
+
+        The one place format-scope filtering happens: a format rule
+        declares which ecosystem's conventions it enforces and iterates
+        its targets through this helper — never with an inline ownership
+        guard in the rule body. The ownership question itself is answered
+        by ``RepositoryContext.in_format_scope``, a view over the cached
+        :class:`PluginProvenance` record.
+
+        Memoized like ``find()`` itself: the scope depends only on the
+        ecosystem and the static tree, so every rule declaring the same
+        scope shares one filtered list rather than re-running the filter
+        per rule, per node.
+        """
+        if self.provenance_scope is None:
+            return context.lint_tree.find(node_type)
+        ecosystem = self.provenance_scope
+        return context.lint_tree.find_filtered(
+            node_type,
+            ("provenance_scope", ecosystem),
+            lambda node: context.in_format_scope(node, ecosystem),
+        )
+
     def fix(
         self,
         context: "RepositoryContext",
@@ -204,12 +263,15 @@ class Rule(ABC):
         metric: Optional[str] = None,
         fixable: Optional[bool] = None,
         fix_confidence: Optional[AutofixConfidence] = None,
+        fingerprint_discriminator: Optional[str] = None,
     ) -> RuleViolation:
         """Create a violation for this rule.
 
         Pass ``block`` for content-based violations.  ``file_path`` is
         accepted for backward compatibility and auto-wraps into a block.
         ``metric`` disambiguates multiple ratchet violations per file.
+        ``fingerprint_discriminator`` disambiguates sibling findings at the
+        same path and line without changing identities for other rules.
 
         ``fixable`` defaults from the rule: True when the rule overrides
         ``fix()`` and declares a class-level ``autofix_confidence``.  Rules
@@ -235,4 +297,5 @@ class Rule(ABC):
             metric=metric,
             fixable=fixable,
             fix_confidence=fix_confidence,
+            fingerprint_discriminator=fingerprint_discriminator,
         )

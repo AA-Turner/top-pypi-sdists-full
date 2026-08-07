@@ -4,10 +4,12 @@
 #  -----------------------------------------------------------------------------------------
 import copy
 import json
+import warnings
 from typing import Any
 
 from ibm_watsonx_ai import APIClient
 from ibm_watsonx_ai.wml_client_error import (
+    ApiRequestFailure,
     MissingToolRequiredProperties,
     ResourceByNameNotFound,
     WMLClientError,
@@ -64,9 +66,6 @@ class Tool(WMLResource):
         self.input_schema = input_schema
         self.config_schema = config_schema
         self.config = config
-
-        if not self._client.CLOUD_PLATFORM_SPACES and self._client.CPD_version < 5.2:
-            raise WMLClientError(error_msg="Operation is unsupported for this release.")
 
         WMLResource.__init__(self, __name__, self._client)
 
@@ -188,14 +187,47 @@ class Toolkit(WMLResource):
     def __init__(self, api_client: APIClient, params: dict[str, dict] | None = None):
         self._client = api_client
         self.params = params
-        self._tools: list[Tool] | None = None
-        if not self._client.CLOUD_PLATFORM_SPACES and self._client.CPD_version < 5.2:
-            raise WMLClientError(error_msg="Operation is unsupported for this release.")
+
+        self._tools: list[Tool] = self._retrieve_tools_from_api()
 
         WMLResource.__init__(self, __name__, self._client)
 
+    def _retrieve_tools_from_api(self) -> list[Tool]:
+        response = self._client.httpx_client.get(
+            url=self._client._href_definitions.get_utility_agent_tools_href(),
+            headers=self._client._get_headers(),
+        )
+
+        try:
+            details = self._handle_response(
+                200, "getting utility agent tools", response
+            )
+        except ApiRequestFailure as exc:
+            # Endpoint removed (August 2026, CPD 5.4)
+            raise WMLClientError("Operation is unsupported for this release.") from exc
+
+        toolkit_deprecation_message = (
+            "watsonx.ai Agent Lab and Utility Agent Tools are being deprecated. "
+            "The replacement offering is watsonx Orchestrate Agent Lab/builder."
+        )
+
+        warnings.warn(toolkit_deprecation_message, category=DeprecationWarning)
+
+        return [
+            Tool(
+                api_client=self._client,
+                name=r["name"],
+                description=r["description"],
+                agent_description=r.get("agent_description"),
+                input_schema=r.get("input_schema"),
+                config_schema=r.get("config_schema"),
+                config=(self.params or {}).get(r["name"]),
+            )
+            for r in details.get("resources", [])
+        ]
+
     def get_tools(self) -> list[Tool]:
-        """Get list of available utility agent tools. Cache tools as Tool objects on first call in Toolkit instance.
+        """Get list of available utility agent tools.
 
         :return: list of available tools
         :rtype: list[Tool]
@@ -208,27 +240,6 @@ class Toolkit(WMLResource):
             tools = toolkit.get_tools()
 
         """
-        if self._tools is None:
-            response = self._client.httpx_client.get(
-                url=self._client._href_definitions.get_utility_agent_tools_href(),
-                headers=self._client._get_headers(),
-            )
-            resources = self._handle_response(
-                200, "getting utility agent tools", response
-            ).get("resources", [])
-
-            self._tools = [
-                Tool(
-                    api_client=self._client,
-                    name=r["name"],
-                    description=r["description"],
-                    agent_description=r.get("agent_description"),
-                    input_schema=r.get("input_schema"),
-                    config_schema=r.get("config_schema"),
-                    config=(self.params or {}).get(r["name"]),
-                )
-                for r in resources
-            ]
         return self._tools
 
     def get_tool(self, tool_name: str) -> Tool:
@@ -250,13 +261,10 @@ class Toolkit(WMLResource):
         """
         Toolkit._validate_type(tool_name, "tool_name", str)
 
-        tools = self.get_tools()
-
-        tool = next(filter(lambda el: el.name == tool_name, tools), None)
-        if tool is None:
-            raise ResourceByNameNotFound(tool_name, "utility agent tool")
-        else:
-            return tool
+        try:
+            return next(filter(lambda el: el.name == tool_name, self._tools))
+        except StopIteration:
+            raise ResourceByNameNotFound(tool_name, "utility agent tool") from None
 
 
 def convert_to_watsonx_tool(utility_tool: Tool) -> dict:

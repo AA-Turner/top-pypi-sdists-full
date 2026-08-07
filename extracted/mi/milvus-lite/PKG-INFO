@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: milvus-lite
-Version: 3.1.1
+Version: 3.2.0
 Summary: Lightweight version of Milvus for local development and testing
 Project-URL: Homepage, https://github.com/milvus-io/milvus-lite
 Project-URL: Repository, https://github.com/milvus-io/milvus-lite

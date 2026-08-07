@@ -25,8 +25,9 @@ use monty::{MontyRun, RunProgress};
 use monty_types::{
     CompileOptions, ExcType, ExtFunctionResult, FileMode, LimitedTracker, MontyDate, MontyDateTime,
     MontyException, MontyFileHandle, MontyObject, NameLookupResult, OsFunctionCall, PrintWriter,
-    ResourceLimits, dir_stat, file_stat, symlink_stat,
+    ResourceError, ResourceLimits, ResourceTracker, dir_stat, file_stat, symlink_stat,
 };
+use std::cell::Cell;
 use std::collections::HashMap;
 use std::future::Future;
 use std::path::{Path, PathBuf};
@@ -48,6 +49,86 @@ const DISABLED_STDLIB_MODULES: &[&str] = &["re"];
 // Security decision: virtual Python datetime uses a fixed UTC instant so
 // sandboxed code cannot fingerprint host clock/timezone state.
 const VIRTUAL_NOW_UNIX_SECS: i64 = 1_704_067_200; // 2024-01-01T00:00:00Z
+
+/// Bridges Monty's statement/allocation checkpoints into the shared request
+/// budget while retaining Monty's own memory/time/recursion ceilings.
+#[derive(Debug)]
+struct BudgetTracker {
+    runtime: LimitedTracker,
+    execution: Option<crate::limits::ExecutionBudget>,
+    vm_checkpoints: Cell<u64>,
+}
+
+impl BudgetTracker {
+    fn budget_error(err: crate::limits::LimitExceeded) -> ResourceError {
+        // Monty's tracker error type has no host-defined variant. The shared
+        // budget retains the precise poisoned reason; use an uncatchable
+        // memory error only to stop the VM at this checkpoint.
+        let _ = err;
+        ResourceError::Memory { limit: 0, used: 1 }
+    }
+
+    fn consume_work(&self) -> std::result::Result<(), ResourceError> {
+        if let Some(budget) = &self.execution {
+            budget.consume_work(1).map_err(Self::budget_error)?;
+        }
+        Ok(())
+    }
+
+    fn check_vm(&self) -> std::result::Result<(), ResourceError> {
+        if let Some(budget) = &self.execution {
+            budget.check().map_err(Self::budget_error)?;
+            let checkpoints = self.vm_checkpoints.get().wrapping_add(1);
+            self.vm_checkpoints.set(checkpoints);
+            if checkpoints.is_multiple_of(64) {
+                budget.consume_work(1).map_err(Self::budget_error)?;
+            }
+        }
+        Ok(())
+    }
+}
+
+impl ResourceTracker for BudgetTracker {
+    fn on_free(&self, get_size: impl FnOnce() -> usize) {
+        self.runtime.on_free(get_size);
+    }
+
+    fn check_time(&self) -> std::result::Result<(), ResourceError> {
+        self.check_vm()?;
+        self.runtime.check_time()
+    }
+
+    fn check_recursion_depth(
+        &self,
+        current_depth: usize,
+    ) -> std::result::Result<(), ResourceError> {
+        self.runtime.check_recursion_depth(current_depth)
+    }
+
+    fn check_large_result(&self, estimated_bytes: usize) -> std::result::Result<(), ResourceError> {
+        self.runtime.check_large_result(estimated_bytes)
+    }
+
+    fn on_grow(
+        &self,
+        additional_bytes: impl FnOnce() -> usize,
+    ) -> std::result::Result<(), ResourceError> {
+        self.consume_work()?;
+        self.runtime.on_grow(additional_bytes)
+    }
+
+    fn gc_interval(&self) -> Option<usize> {
+        self.runtime.gc_interval()
+    }
+
+    fn on_execution_start(&self) {
+        self.runtime.on_execution_start();
+    }
+
+    fn on_execution_stop(&self) {
+        self.runtime.on_execution_stop();
+    }
+}
 const VIRTUAL_NOW_NANOS: u32 = 123_456_000; // 123456 µs for deterministic microseconds
 
 const PYTHON_INPROCESS_OPT_IN_ENV: &str = "BASHKIT_ALLOW_INPROCESS_PYTHON";
@@ -57,7 +138,7 @@ pub(crate) struct PythonInprocessOptIn(pub bool);
 
 fn python_inprocess_enabled(ctx: &Context<'_>) -> bool {
     ctx.execution_extension::<PythonInprocessOptIn>()
-        .is_some_and(|opt_in| opt_in.0)
+        .is_some_and(|opt_in| opt_in.try_with(|opt_in| opt_in.0).unwrap_or(false))
         // Unit tests in this module build Context::new_for_test without
         // execution extensions. Keep local test ergonomics only under cfg(test).
         || {
@@ -169,6 +250,7 @@ pub struct PythonExternalFns {
     names: Vec<String>,
     /// Async handler invoked when Python calls one of these functions.
     handler: PythonExternalFnHandler,
+    prelude: Option<String>,
 }
 
 impl std::fmt::Debug for PythonExternalFns {
@@ -230,7 +312,25 @@ impl Python {
         names: Vec<String>,
         handler: PythonExternalFnHandler,
     ) -> Self {
-        self.external_fns = Some(PythonExternalFns { names, handler });
+        self.external_fns = Some(PythonExternalFns {
+            names,
+            handler,
+            prelude: None,
+        });
+        self
+    }
+
+    pub(crate) fn with_external_handler_and_prelude(
+        mut self,
+        names: Vec<String>,
+        handler: PythonExternalFnHandler,
+        prelude: String,
+    ) -> Self {
+        self.external_fns = Some(PythonExternalFns {
+            names,
+            handler,
+            prelude: Some(prelude),
+        });
         self
     }
 }
@@ -430,6 +530,8 @@ impl Builtin for Python {
                 1,
             ));
         }
+        ctx.consume_budget_input(code.len())?;
+        ctx.consume_budget_work(u64::try_from(code.len().div_ceil(64)).unwrap_or(u64::MAX))?;
 
         // THREAT[TM-INF]: Python environment access is intentionally scoped
         // to exported variables only (`ctx.env`). Shell-local variables in
@@ -442,22 +544,53 @@ impl Builtin for Python {
         let mut limits = self.limits.clone();
         if let Some(remaining) = ctx
             .execution_extension::<ExecutionDeadline>()
-            .map(ExecutionDeadline::remaining)
+            .and_then(|deadline| deadline.try_with(ExecutionDeadline::remaining).ok())
         {
             limits.common.max_duration = limits.common.max_duration.min(remaining);
         }
+        // Monty exposes an independent VM ceiling. Reserve a conservative
+        // share so repeated runtime invocations cannot each claim a fresh full
+        // memory/allocation allowance from one host request.
+        ctx.consume_budget_work(
+            u64::try_from(limits.common.max_memory.div_ceil(64)).unwrap_or(u64::MAX),
+        )?;
 
-        run_python(
-            &code,
-            &filename,
-            ctx.fs.clone(),
-            ctx.cwd,
-            ctx.env,
-            &limits,
-            self.external_fns.as_ref(),
-        )
-        .await
+        let code = if let Some(prelude) = self
+            .external_fns
+            .as_ref()
+            .and_then(|external| external.prelude.as_ref())
+        {
+            format!("{prelude}\n{code}")
+        } else {
+            code
+        };
+        let policy = PythonExecutionPolicy {
+            limits: &limits,
+            external_fns: self.external_fns.as_ref(),
+            execution_budget: ctx
+                .execution_budget()
+                .and_then(|budget| budget.try_with(Clone::clone).ok()),
+        };
+        let execution_budget = ctx
+            .execution_budget()
+            .and_then(|budget| budget.try_with(Clone::clone).ok());
+        let future = run_python(&code, &filename, ctx.fs.clone(), ctx.cwd, ctx.env, policy);
+        #[cfg(feature = "scripted_tool")]
+        let future = crate::tool_registry::scope_runtime_call(
+            crate::tool_registry::ToolCallScope::from_context(&ctx),
+            future,
+        );
+        match execution_budget {
+            Some(budget) => budget.run(future).await?,
+            None => future.await,
+        }
     }
+}
+
+struct PythonExecutionPolicy<'a> {
+    limits: &'a PythonLimits,
+    external_fns: Option<&'a PythonExternalFns>,
+    execution_budget: Option<crate::limits::ExecutionBudget>,
 }
 
 /// Execute Python code via Monty with resource limits and VFS bridging.
@@ -470,9 +603,13 @@ async fn run_python(
     fs: Arc<dyn FileSystem>,
     cwd: &Path,
     env: &HashMap<String, String>,
-    py_limits: &PythonLimits,
-    external_fns: Option<&PythonExternalFns>,
+    policy: PythonExecutionPolicy<'_>,
 ) -> Result<ExecResult> {
+    let PythonExecutionPolicy {
+        limits: py_limits,
+        external_fns,
+        execution_budget,
+    } = policy;
     // Strip shebang if present
     let code = if code.starts_with("#!") {
         match code.find('\n') {
@@ -493,7 +630,11 @@ async fn run_python(
         .max_memory(py_limits.common.max_memory)
         .max_recursion_depth(Some(py_limits.common.max_call_depth));
 
-    let tracker = LimitedTracker::new(limits);
+    let tracker = BudgetTracker {
+        runtime: LimitedTracker::new(limits),
+        execution: execution_budget.clone(),
+        vm_checkpoints: Cell::new(0),
+    };
     // Important security decision: cap collected print output at the same
     // memory budget as the VM heap. Monty 0.0.19 added a byte cap on
     // `PrintWriter::CollectString` because a `while True: print(...)` loop
@@ -523,6 +664,9 @@ async fn run_python(
     };
 
     loop {
+        if let Some(budget) = &execution_budget {
+            budget.consume_work(1)?;
+        }
         match progress {
             RunProgress::OsCall(os_call) => {
                 let function_call = os_call.function_call.clone();
@@ -537,6 +681,9 @@ async fn run_python(
                 }
             }
             RunProgress::FunctionCall(call) => {
+                if let Some(budget) = &execution_budget {
+                    budget.consume_work(100)?;
+                }
                 let result = if let Some(ef) = external_fns {
                     call_external_with_deadline(
                         ef,
@@ -1092,7 +1239,7 @@ fn format_exception_with_output(e: MontyException, printed: &str) -> ExecResult 
     let stderr = format!("{e}\n");
     let mut result = ExecResult::err(stderr, 1);
     if !printed.is_empty() {
-        result.stdout = printed.to_string();
+        result.stdout = printed.to_string().into();
     }
     result
 }

@@ -31,8 +31,42 @@ from pathlib import Path
 
 from xbsl import dataset, engine, fixer, metamodel, terms
 
+#: The platform accepts BOTH spellings of the service file names - its converter checks the
+#: pairs itself (`Проект`/`Project`, `Подсистема`/`Subsystem`). The Russian name stays
+#: canonical for creation; a project whose descriptor carries the English name gets English
+#: twins.
 PROJECT_FILE = "Проект.yaml"
+PROJECT_FILE_EN = "Project.yaml"
+PROJECT_FILES = (PROJECT_FILE, PROJECT_FILE_EN)
 SUBSYSTEM_FILE = "Подсистема.yaml"
+SUBSYSTEM_FILE_EN = "Subsystem.yaml"
+SUBSYSTEM_FILES = (SUBSYSTEM_FILE, SUBSYSTEM_FILE_EN)
+
+
+def project_file_in(directory: Path) -> Path | None:
+    """The project descriptor inside the directory, either spelling, or None."""
+    for name in PROJECT_FILES:
+        candidate = directory / name
+        if candidate.is_file():
+            return candidate
+    return None
+
+
+def subsystem_file_in(directory: Path) -> Path | None:
+    """The subsystem descriptor inside the directory, either spelling, or None."""
+    for name in SUBSYSTEM_FILES:
+        candidate = directory / name
+        if candidate.is_file():
+            return candidate
+    return None
+
+
+def _rglob_names(root: Path, names: tuple[str, ...]) -> list[Path]:
+    """Files under the root carrying any of the given names, sorted once."""
+    found: list[Path] = []
+    for name in names:
+        found.extend(root.rglob(name))
+    return sorted(found)
 
 _WORD = "A-Za-zА-Яа-яЁё0-9_"  # identifier character class (for regex word boundaries)
 _IDENTIFIER = re.compile(r"^[A-Za-zА-Яа-яЁё_][A-Za-zА-Яа-яЁё0-9_]*$")
@@ -592,7 +626,7 @@ def project_language(directory: Path) -> str:
     """
     root = directory
     for candidate in (directory, *directory.parents):
-        if (candidate / PROJECT_FILE).exists():
+        if project_file_in(candidate) is not None:
             root = candidate
             break
     russian = english = 0
@@ -996,7 +1030,7 @@ class ObjectHit:
 def find_projects(root: Path) -> list[dict]:
     """Projects under the root: [{vendor, name, dir, subsystems: [names]}], hidden directories skipped."""
     out = []
-    for project_yaml in sorted(root.rglob(PROJECT_FILE)):
+    for project_yaml in _rglob_names(root, PROJECT_FILES):
         rel = project_yaml.relative_to(root)
         if any(part.startswith(".") for part in rel.parts):
             continue
@@ -1005,7 +1039,7 @@ def find_projects(root: Path) -> list[dict]:
         vendor = _vendor_of(text, project_dir.parent.name)
         name = element_name(text, project_dir.name)
         subsystems = sorted(
-            p.parent.name for p in project_dir.rglob(SUBSYSTEM_FILE)
+            p.parent.name for p in _rglob_names(project_dir, SUBSYSTEM_FILES)
             if not any(part.startswith(".") for part in p.relative_to(project_dir).parts)
         )
         out.append({
@@ -1023,7 +1057,7 @@ def _vendor_of(text: str, default: str) -> str:
 
 def _iter_objects(root: Path):
     for yaml_path in engine.find_sources(root, "*.yaml"):
-        if yaml_path.name in (PROJECT_FILE, SUBSYSTEM_FILE):
+        if yaml_path.name in PROJECT_FILES or yaml_path.name in SUBSYSTEM_FILES:
             continue
         text = _read(yaml_path)
         kind = element_kind(text)
@@ -1034,17 +1068,17 @@ def _iter_objects(root: Path):
 
 def _namespace_of(yaml_path: Path, root: Path) -> tuple[str | None, str]:
     """(subsystem name, vendor::project::subsystem) for an object file."""
-    subsystem = yaml_path.parent.name if (yaml_path.parent / SUBSYSTEM_FILE).is_file() else None
+    subsystem = yaml_path.parent.name if subsystem_file_in(yaml_path.parent) else None
     project_dir = yaml_path.parent
     while project_dir != project_dir.parent:
-        if (project_dir / PROJECT_FILE).is_file():
+        if project_file_in(project_dir) is not None:
             break
         if project_dir == root:
             break
         project_dir = project_dir.parent
     vendor = project = ""
-    project_yaml = project_dir / PROJECT_FILE
-    if project_yaml.is_file():
+    project_yaml = project_file_in(project_dir)
+    if project_yaml is not None:
         text = _read(project_yaml)
         vendor = _vendor_of(text, project_dir.parent.name)
         project = element_name(text, project_dir.name)
@@ -1429,6 +1463,7 @@ class ScaffoldResult:
     changes: list[FileChange] = field(default_factory=list)
     notes: list[str] = field(default_factory=list)  # warnings, manual steps
     renames: list[FileRename] = field(default_factory=list)  # file renames (before edits)
+    deletes: list[Path] = field(default_factory=list)  # files removed from disk (after edits)
 
     def as_dict(self, content: bool = True) -> dict:
         files = []
@@ -1445,6 +1480,7 @@ class ScaffoldResult:
                 {"from": str(r.old_path), "to": str(r.new_path)} for r in self.renames
             ],
             "files": files,
+            "deletes": [str(p) for p in self.deletes],
             "notes": self.notes,
         }
 
@@ -1471,6 +1507,10 @@ def apply_result(result: ScaffoldResult) -> list[str]:
             source = engine.load(change.path)
             change.path.write_bytes(fixer.encode(source, change.content))
         written.append(str(change.path))
+    # Deletions run last: should anything above fail, nothing has been erased yet.
+    # missing_ok - a file already gone is the goal reached, not an error.
+    for path in result.deletes:
+        path.unlink(missing_ok=True)
     return written
 
 
@@ -1743,12 +1783,25 @@ def op_add_subsystem(
     auto_interface: bool = True,
     uses: list[str] | None = None,
 ) -> ScaffoldResult:
-    """Create a subsystem: a folder + Подсистема.yaml (blocks assembled from the parameters)."""
+    """Create a subsystem: a folder + Подсистема.yaml (blocks assembled from the parameters).
+
+    The file name follows the spelling of the enclosing project's descriptor: next to a
+    `Project.yaml` the subsystem is created as `Subsystem.yaml` - a project keeps one
+    spelling throughout.
+    """
     name = _check_identifier(name, "подсистемы")
     parent_dir = Path(parent_dir)
-    yaml_path = parent_dir / name / SUBSYSTEM_FILE
-    if yaml_path.exists():
-        raise ScaffoldError(f"Файл уже существует: {yaml_path}")
+    file_name = SUBSYSTEM_FILE
+    for candidate in (parent_dir, *parent_dir.parents):
+        descriptor = project_file_in(candidate)
+        if descriptor is not None:
+            if descriptor.name == PROJECT_FILE_EN:
+                file_name = SUBSYSTEM_FILE_EN
+            break
+    yaml_path = parent_dir / name / file_name
+    other = subsystem_file_in(parent_dir / name)
+    if yaml_path.exists() or other is not None:
+        raise ScaffoldError(f"Файл уже существует: {other or yaml_path}")
     lang = project_language(parent_dir)
     lines: list[str] = []
     if uses:
@@ -1796,8 +1849,9 @@ def op_new_project(
     name = _check_identifier(name, "проекта")
     subsystem = _check_identifier(subsystem, "подсистемы")
     project_dir = Path(root) / vendor / name
-    if (project_dir / PROJECT_FILE).exists():
-        raise ScaffoldError(f"Проект уже существует: {project_dir / PROJECT_FILE}")
+    existing = project_file_in(project_dir)
+    if existing is not None:
+        raise ScaffoldError(f"Проект уже существует: {existing}")
     lines = [f"Ид: {new_uuid()}"]
     if library:
         lines.append("ВидПроекта: Библиотека")
@@ -1852,7 +1906,8 @@ def _find_project_yaml(root: Path) -> Path:
         raise ScaffoldError(
             f"Под корнем {root} несколько проектов ({listed}) – укажите project_yaml"
         )
-    return projects[0]["dir"] / PROJECT_FILE
+    found = project_file_in(projects[0]["dir"])
+    return found if found is not None else projects[0]["dir"] / PROJECT_FILE
 
 
 def op_add_dependency(
@@ -3978,4 +4033,106 @@ def op_rename_object(
             "\"untracked working tree files would be overwritten by merge\" – там перед "
             "обновлением надо удалить файл со старым именем"
         )
+    return result
+
+
+# --- operation: object deletion ------------------------------------------------------------
+
+
+def op_delete_object(
+    root: Path,
+    name: str | None = None,
+    *,
+    yaml_path: Path | None = None,
+    reader=None,
+) -> ScaffoldResult:
+    """Delete a configuration object whole: its yaml/module pair, its forms and its row
+    component - and NAME every remaining reference instead of editing it.
+
+    Deleted is the object's file family in its directory, the same one op_rename_object
+    renames: `<Имя>.yaml`, the `<Имя>.xbsl` / `<Имя>.<Часть>.xbsl` modules, the forms
+    `<Имя>Форма*` and the card-list row component `СтрокаСписка<Имя>` (both suffixes with
+    their pairs). The subsystem membership needs no separate cleanup - in 1C:Element a
+    subsystem is the FOLDER the files live in, so removing the files removes the object
+    from it.
+
+    The remaining references are listed by file and line, string literals and comments
+    INCLUDED on purpose: a router that opens a form by a name in a string, seeding data,
+    dictionary keys - exactly the leftovers that otherwise surface only as a compile or
+    runtime error. The tool does not edit them: which mention is dead code and which must
+    be rewritten differently is the author's call.
+
+    yaml_path resolves the ambiguity when the project has several objects named `name`.
+    """
+    root = Path(root)
+    if not root.is_dir():
+        raise ScaffoldError(f"Корень проекта не найден: {root}")
+
+    if yaml_path is not None:
+        yaml_path = Path(yaml_path)
+        if not yaml_path.is_file():
+            raise ScaffoldError(f"Файл не найден: {yaml_path}")
+        text = (reader or _read)(yaml_path)
+        kind = element_kind(text)
+        if kind is None:
+            raise ScaffoldError(f"В {yaml_path} нет ВидЭлемента – это не объект конфигурации")
+        file_name = element_name(text, yaml_path.stem)
+        if name and file_name != name:
+            raise ScaffoldError(f"В {yaml_path.name} объект называется '{file_name}', а не '{name}'")
+        subsystem, namespace = _namespace_of(yaml_path, root)
+        hit = ObjectHit(kind, file_name, yaml_path, subsystem, namespace, text)
+    else:
+        if not name:
+            raise ScaffoldError("Укажите имя объекта либо путь к его yaml")
+        hit = find_object(root, _check_identifier(name, "объекта"))
+
+    escaped = re.escape(hit.name)
+    family = re.compile(
+        rf"^(?:{escaped}"
+        rf"|{escaped}Форма(?:[А-ЯЁA-Z][{_WORD}]*)?"
+        rf"|СтрокаСписка{escaped})$"
+    )
+    result = ScaffoldResult()
+    for path in sorted(hit.path.parent.iterdir()):
+        if not path.is_file() or path.suffix not in (".yaml", ".xbsl"):
+            continue
+        if family.match(path.name.split(".", 1)[0]):
+            result.deletes.append(path)
+
+    deleted = {p.resolve() for p in result.deletes}
+    ident = re.compile(rf"(?<![{_WORD}.@]){escaped}(?![{_WORD}])")
+
+    def rel(path: Path) -> str:
+        try:
+            return path.resolve().relative_to(root.resolve()).as_posix()
+        except ValueError:
+            return str(path)
+
+    references: list[str] = []
+    for path in engine.find_sources(root, "*.yaml") + engine.find_sources(root, "*.xbsl"):
+        if path.resolve() in deleted:
+            continue
+        text = (reader or _read)(path)
+        if hit.name not in text:
+            continue
+        for number, line in enumerate(text.split("\n"), start=1):
+            if ident.search(line):
+                references.append(f"{rel(path)}:{number}: {line.strip()[:160]}")
+
+    result.notes.append(
+        f"Удаляется файлов: {len(result.deletes)} (объект {hit.kind} '{hit.name}', "
+        f"формы и компонент строки списка)"
+    )
+    shown = references[:200]
+    if references:
+        result.notes.append(
+            f"Оставшихся упоминаний '{hit.name}' по проекту: {len(references)} – "
+            "инструмент их НЕ правит, разберите каждое (мёртвый код, роутер, сидинг, "
+            "локализация):"
+        )
+        result.notes.extend(shown)
+        if len(references) > len(shown):
+            result.notes.append(f"... и ещё {len(references) - len(shown)}")
+    else:
+        result.notes.append(f"Упоминаний '{hit.name}' вне удаляемых файлов не осталось")
     return result

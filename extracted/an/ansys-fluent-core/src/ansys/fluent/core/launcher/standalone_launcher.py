@@ -1,5 +1,6 @@
-# Copyright (C) 2021 - 2026 ANSYS, Inc. and/or its affiliates.
+# Copyright (C) 2021 - 2026 Synopsys, Inc. and ANSYS, Inc. All rights reserved.
 # SPDX-License-Identifier: MIT
+#
 #
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -284,12 +285,7 @@ class StandaloneLauncher:
             # This exception is raised only while running codegen locally before the preferences root is available.
             default_idle_timeout = 0
         try:
-            if session.get_fluent_version() >= FluentVersion.v271:
-                session._app_utilities.set_idle_timeout(default_idle_timeout * 60)
-            else:
-                session.scheme_eval.eval(
-                    f"(set-session-idle-timeout {default_idle_timeout})"
-                )
+            session.application_runtime.set_idle_timeout(default_idle_timeout * 60)
         except Exception as ex:
             raise RuntimeError("Could not reset Idle Timeout") from ex
 
@@ -382,6 +378,5 @@ class StandaloneLauncher:
             logger.error(f"Exception caught - {type(ex).__name__}: {ex}")
             raise LaunchFluentError(self._launch_cmd) from ex
         finally:
-            server_info_file = Path(self._server_info_file_name)
-            if server_info_file.exists():
-                server_info_file.unlink()
+            if self.argvals.get("cleanup_on_exit", True):
+                Path(self._server_info_file_name).unlink(missing_ok=True)

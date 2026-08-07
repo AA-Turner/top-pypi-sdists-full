@@ -3,7 +3,7 @@
 #
 # pylint: disable=line-too-long
 
-from ansys.fluent.core.services.datamodel_se import (
+from ansys.fluent.core.services.object_model import (
     PyMenu,
     PyParameter,
     PyTextual,
@@ -429,10 +429,15 @@ class Root(PyMenu):
 
                                 def __init__(self, parent, attr, service, rules, path):
                                     super().__init__(parent, attr, service, rules, path)
+                                    self.End = self._End(self, "End", service, rules, path)
                                     self.Increment = self._Increment(self, "Increment", service, rules, path)
                                     self.Begin = self._Begin(self, "Begin", service, rules, path)
                                     self.Option = self._Option(self, "Option", service, rules, path)
-                                    self.End = self._End(self, "End", service, rules, path)
+
+                                class _End(PyArgumentsNumericalSubItem):
+                                    """
+                                    Argument End.
+                                    """
 
                                 class _Increment(PyArgumentsNumericalSubItem):
                                     """
@@ -447,11 +452,6 @@ class Root(PyMenu):
                                 class _Option(PyArgumentsTextualSubItem):
                                     """
                                     Argument Option.
-                                    """
-
-                                class _End(PyArgumentsNumericalSubItem):
-                                    """
-                                    Argument End.
                                     """
 
                         def create_instance(self) -> _GetReportArguments:
@@ -492,19 +492,19 @@ class Root(PyMenu):
 
                                 def __init__(self, parent, attr, service, rules, path):
                                     super().__init__(parent, attr, service, rules, path)
-                                    self.Increment = self._Increment(self, "Increment", service, rules, path)
-                                    self.Option = self._Option(self, "Option", service, rules, path)
-                                    self.Begin = self._Begin(self, "Begin", service, rules, path)
                                     self.End = self._End(self, "End", service, rules, path)
+                                    self.Increment = self._Increment(self, "Increment", service, rules, path)
+                                    self.Begin = self._Begin(self, "Begin", service, rules, path)
+                                    self.Option = self._Option(self, "Option", service, rules, path)
+
+                                class _End(PyArgumentsNumericalSubItem):
+                                    """
+                                    Argument End.
+                                    """
 
                                 class _Increment(PyArgumentsNumericalSubItem):
                                     """
                                     Argument Increment.
-                                    """
-
-                                class _Option(PyArgumentsTextualSubItem):
-                                    """
-                                    Argument Option.
                                     """
 
                                 class _Begin(PyArgumentsNumericalSubItem):
@@ -512,9 +512,9 @@ class Root(PyMenu):
                                     Argument Begin.
                                     """
 
-                                class _End(PyArgumentsNumericalSubItem):
+                                class _Option(PyArgumentsTextualSubItem):
                                     """
-                                    Argument End.
+                                    Argument Option.
                                     """
 
                             class _Title(PyArgumentsTextualSubItem):
@@ -567,19 +567,19 @@ class Root(PyMenu):
 
                                 def __init__(self, parent, attr, service, rules, path):
                                     super().__init__(parent, attr, service, rules, path)
-                                    self.Increment = self._Increment(self, "Increment", service, rules, path)
-                                    self.Option = self._Option(self, "Option", service, rules, path)
-                                    self.Begin = self._Begin(self, "Begin", service, rules, path)
                                     self.End = self._End(self, "End", service, rules, path)
+                                    self.Increment = self._Increment(self, "Increment", service, rules, path)
+                                    self.Begin = self._Begin(self, "Begin", service, rules, path)
+                                    self.Option = self._Option(self, "Option", service, rules, path)
+
+                                class _End(PyArgumentsNumericalSubItem):
+                                    """
+                                    Argument End.
+                                    """
 
                                 class _Increment(PyArgumentsNumericalSubItem):
                                     """
                                     Argument Increment.
-                                    """
-
-                                class _Option(PyArgumentsTextualSubItem):
-                                    """
-                                    Argument Option.
                                     """
 
                                 class _Begin(PyArgumentsNumericalSubItem):
@@ -587,9 +587,9 @@ class Root(PyMenu):
                                     Argument Begin.
                                     """
 
-                                class _End(PyArgumentsNumericalSubItem):
+                                class _Option(PyArgumentsTextualSubItem):
                                     """
-                                    Argument End.
+                                    Argument Option.
                                     """
 
                         def create_instance(self) -> _PrintReportArguments:
@@ -629,19 +629,19 @@ class Root(PyMenu):
 
                                 def __init__(self, parent, attr, service, rules, path):
                                     super().__init__(parent, attr, service, rules, path)
-                                    self.Increment = self._Increment(self, "Increment", service, rules, path)
-                                    self.Option = self._Option(self, "Option", service, rules, path)
-                                    self.Begin = self._Begin(self, "Begin", service, rules, path)
                                     self.End = self._End(self, "End", service, rules, path)
+                                    self.Increment = self._Increment(self, "Increment", service, rules, path)
+                                    self.Begin = self._Begin(self, "Begin", service, rules, path)
+                                    self.Option = self._Option(self, "Option", service, rules, path)
+
+                                class _End(PyArgumentsNumericalSubItem):
+                                    """
+                                    Argument End.
+                                    """
 
                                 class _Increment(PyArgumentsNumericalSubItem):
                                     """
                                     Argument Increment.
-                                    """
-
-                                class _Option(PyArgumentsTextualSubItem):
-                                    """
-                                    Argument Option.
                                     """
 
                                 class _Begin(PyArgumentsNumericalSubItem):
@@ -649,9 +649,9 @@ class Root(PyMenu):
                                     Argument Begin.
                                     """
 
-                                class _End(PyArgumentsNumericalSubItem):
+                                class _Option(PyArgumentsTextualSubItem):
                                     """
-                                    Argument End.
+                                    Argument Option.
                                     """
 
                         def create_instance(self) -> _SaveReportArguments:
@@ -1412,24 +1412,14 @@ class Root(PyMenu):
                                 def __init__(self, parent, attr, service, rules, path):
                                     super().__init__(parent, attr, service, rules, path)
                                     self.Height = self._Height(self, "Height", service, rules, path)
-                                    self.DPI = self._DPI(self, "DPI", service, rules, path)
-                                    self.Option = self._Option(self, "Option", service, rules, path)
                                     self.Width = self._Width(self, "Width", service, rules, path)
+                                    self.DPI = self._DPI(self, "DPI", service, rules, path)
                                     self.UseWindowResolution = self._UseWindowResolution(self, "UseWindowResolution", service, rules, path)
+                                    self.Option = self._Option(self, "Option", service, rules, path)
 
                                 class _Height(PyArgumentsNumericalSubItem):
                                     """
                                     Argument Height.
-                                    """
-
-                                class _DPI(PyArgumentsNumericalSubItem):
-                                    """
-                                    Argument DPI.
-                                    """
-
-                                class _Option(PyArgumentsTextualSubItem):
-                                    """
-                                    Argument Option.
                                     """
 
                                 class _Width(PyArgumentsNumericalSubItem):
@@ -1437,9 +1427,19 @@ class Root(PyMenu):
                                     Argument Width.
                                     """
 
+                                class _DPI(PyArgumentsNumericalSubItem):
+                                    """
+                                    Argument DPI.
+                                    """
+
                                 class _UseWindowResolution(PyArgumentsParameterSubItem):
                                     """
                                     Argument UseWindowResolution.
+                                    """
+
+                                class _Option(PyArgumentsTextualSubItem):
+                                    """
+                                    Argument Option.
                                     """
 
                         def create_instance(self) -> _SaveImageArguments:
@@ -2253,25 +2253,15 @@ class Root(PyMenu):
 
                                     def __init__(self, parent, attr, service, rules, path):
                                         super().__init__(parent, attr, service, rules, path)
-                                        self.DPI = self._DPI(self, "DPI", service, rules, path)
                                         self.Height = self._Height(self, "Height", service, rules, path)
-                                        self.Option = self._Option(self, "Option", service, rules, path)
                                         self.Width = self._Width(self, "Width", service, rules, path)
+                                        self.DPI = self._DPI(self, "DPI", service, rules, path)
                                         self.UseWindowResolution = self._UseWindowResolution(self, "UseWindowResolution", service, rules, path)
-
-                                    class _DPI(PyArgumentsNumericalSubItem):
-                                        """
-                                        Argument DPI.
-                                        """
+                                        self.Option = self._Option(self, "Option", service, rules, path)
 
                                     class _Height(PyArgumentsNumericalSubItem):
                                         """
                                         Argument Height.
-                                        """
-
-                                    class _Option(PyArgumentsTextualSubItem):
-                                        """
-                                        Argument Option.
                                         """
 
                                     class _Width(PyArgumentsNumericalSubItem):
@@ -2279,9 +2269,19 @@ class Root(PyMenu):
                                         Argument Width.
                                         """
 
+                                    class _DPI(PyArgumentsNumericalSubItem):
+                                        """
+                                        Argument DPI.
+                                        """
+
                                     class _UseWindowResolution(PyArgumentsParameterSubItem):
                                         """
                                         Argument UseWindowResolution.
+                                        """
+
+                                    class _Option(PyArgumentsTextualSubItem):
+                                        """
+                                        Argument Option.
                                         """
 
                             def create_instance(self) -> _SaveAnimationArguments:
@@ -2357,24 +2357,14 @@ class Root(PyMenu):
                                     def __init__(self, parent, attr, service, rules, path):
                                         super().__init__(parent, attr, service, rules, path)
                                         self.Height = self._Height(self, "Height", service, rules, path)
-                                        self.DPI = self._DPI(self, "DPI", service, rules, path)
-                                        self.Option = self._Option(self, "Option", service, rules, path)
                                         self.Width = self._Width(self, "Width", service, rules, path)
+                                        self.DPI = self._DPI(self, "DPI", service, rules, path)
                                         self.UseWindowResolution = self._UseWindowResolution(self, "UseWindowResolution", service, rules, path)
+                                        self.Option = self._Option(self, "Option", service, rules, path)
 
                                     class _Height(PyArgumentsNumericalSubItem):
                                         """
                                         Argument Height.
-                                        """
-
-                                    class _DPI(PyArgumentsNumericalSubItem):
-                                        """
-                                        Argument DPI.
-                                        """
-
-                                    class _Option(PyArgumentsTextualSubItem):
-                                        """
-                                        Argument Option.
                                         """
 
                                     class _Width(PyArgumentsNumericalSubItem):
@@ -2382,9 +2372,19 @@ class Root(PyMenu):
                                         Argument Width.
                                         """
 
+                                    class _DPI(PyArgumentsNumericalSubItem):
+                                        """
+                                        Argument DPI.
+                                        """
+
                                     class _UseWindowResolution(PyArgumentsParameterSubItem):
                                         """
                                         Argument UseWindowResolution.
+                                        """
+
+                                    class _Option(PyArgumentsTextualSubItem):
+                                        """
+                                        Argument Option.
                                         """
 
                             def create_instance(self) -> _SaveImageArguments:
@@ -2919,24 +2919,14 @@ class Root(PyMenu):
                                     def __init__(self, parent, attr, service, rules, path):
                                         super().__init__(parent, attr, service, rules, path)
                                         self.Height = self._Height(self, "Height", service, rules, path)
-                                        self.DPI = self._DPI(self, "DPI", service, rules, path)
-                                        self.Option = self._Option(self, "Option", service, rules, path)
                                         self.Width = self._Width(self, "Width", service, rules, path)
+                                        self.DPI = self._DPI(self, "DPI", service, rules, path)
                                         self.UseWindowResolution = self._UseWindowResolution(self, "UseWindowResolution", service, rules, path)
+                                        self.Option = self._Option(self, "Option", service, rules, path)
 
                                     class _Height(PyArgumentsNumericalSubItem):
                                         """
                                         Argument Height.
-                                        """
-
-                                    class _DPI(PyArgumentsNumericalSubItem):
-                                        """
-                                        Argument DPI.
-                                        """
-
-                                    class _Option(PyArgumentsTextualSubItem):
-                                        """
-                                        Argument Option.
                                         """
 
                                     class _Width(PyArgumentsNumericalSubItem):
@@ -2944,9 +2934,19 @@ class Root(PyMenu):
                                         Argument Width.
                                         """
 
+                                    class _DPI(PyArgumentsNumericalSubItem):
+                                        """
+                                        Argument DPI.
+                                        """
+
                                     class _UseWindowResolution(PyArgumentsParameterSubItem):
                                         """
                                         Argument UseWindowResolution.
+                                        """
+
+                                    class _Option(PyArgumentsTextualSubItem):
+                                        """
+                                        Argument Option.
                                         """
 
                             def create_instance(self) -> _SaveAnimationArguments:
@@ -3021,25 +3021,15 @@ class Root(PyMenu):
 
                                     def __init__(self, parent, attr, service, rules, path):
                                         super().__init__(parent, attr, service, rules, path)
-                                        self.DPI = self._DPI(self, "DPI", service, rules, path)
                                         self.Height = self._Height(self, "Height", service, rules, path)
-                                        self.Option = self._Option(self, "Option", service, rules, path)
                                         self.Width = self._Width(self, "Width", service, rules, path)
+                                        self.DPI = self._DPI(self, "DPI", service, rules, path)
                                         self.UseWindowResolution = self._UseWindowResolution(self, "UseWindowResolution", service, rules, path)
-
-                                    class _DPI(PyArgumentsNumericalSubItem):
-                                        """
-                                        Argument DPI.
-                                        """
+                                        self.Option = self._Option(self, "Option", service, rules, path)
 
                                     class _Height(PyArgumentsNumericalSubItem):
                                         """
                                         Argument Height.
-                                        """
-
-                                    class _Option(PyArgumentsTextualSubItem):
-                                        """
-                                        Argument Option.
                                         """
 
                                     class _Width(PyArgumentsNumericalSubItem):
@@ -3047,9 +3037,19 @@ class Root(PyMenu):
                                         Argument Width.
                                         """
 
+                                    class _DPI(PyArgumentsNumericalSubItem):
+                                        """
+                                        Argument DPI.
+                                        """
+
                                     class _UseWindowResolution(PyArgumentsParameterSubItem):
                                         """
                                         Argument UseWindowResolution.
+                                        """
+
+                                    class _Option(PyArgumentsTextualSubItem):
+                                        """
+                                        Argument Option.
                                         """
 
                             def create_instance(self) -> _SaveImageArguments:
@@ -3593,25 +3593,15 @@ class Root(PyMenu):
 
                                     def __init__(self, parent, attr, service, rules, path):
                                         super().__init__(parent, attr, service, rules, path)
-                                        self.DPI = self._DPI(self, "DPI", service, rules, path)
                                         self.Height = self._Height(self, "Height", service, rules, path)
-                                        self.Option = self._Option(self, "Option", service, rules, path)
                                         self.Width = self._Width(self, "Width", service, rules, path)
+                                        self.DPI = self._DPI(self, "DPI", service, rules, path)
                                         self.UseWindowResolution = self._UseWindowResolution(self, "UseWindowResolution", service, rules, path)
-
-                                    class _DPI(PyArgumentsNumericalSubItem):
-                                        """
-                                        Argument DPI.
-                                        """
+                                        self.Option = self._Option(self, "Option", service, rules, path)
 
                                     class _Height(PyArgumentsNumericalSubItem):
                                         """
                                         Argument Height.
-                                        """
-
-                                    class _Option(PyArgumentsTextualSubItem):
-                                        """
-                                        Argument Option.
                                         """
 
                                     class _Width(PyArgumentsNumericalSubItem):
@@ -3619,9 +3609,19 @@ class Root(PyMenu):
                                         Argument Width.
                                         """
 
+                                    class _DPI(PyArgumentsNumericalSubItem):
+                                        """
+                                        Argument DPI.
+                                        """
+
                                     class _UseWindowResolution(PyArgumentsParameterSubItem):
                                         """
                                         Argument UseWindowResolution.
+                                        """
+
+                                    class _Option(PyArgumentsTextualSubItem):
+                                        """
+                                        Argument Option.
                                         """
 
                             def create_instance(self) -> _SaveAnimationArguments:
@@ -3697,24 +3697,14 @@ class Root(PyMenu):
                                     def __init__(self, parent, attr, service, rules, path):
                                         super().__init__(parent, attr, service, rules, path)
                                         self.Height = self._Height(self, "Height", service, rules, path)
-                                        self.DPI = self._DPI(self, "DPI", service, rules, path)
-                                        self.Option = self._Option(self, "Option", service, rules, path)
                                         self.Width = self._Width(self, "Width", service, rules, path)
+                                        self.DPI = self._DPI(self, "DPI", service, rules, path)
                                         self.UseWindowResolution = self._UseWindowResolution(self, "UseWindowResolution", service, rules, path)
+                                        self.Option = self._Option(self, "Option", service, rules, path)
 
                                     class _Height(PyArgumentsNumericalSubItem):
                                         """
                                         Argument Height.
-                                        """
-
-                                    class _DPI(PyArgumentsNumericalSubItem):
-                                        """
-                                        Argument DPI.
-                                        """
-
-                                    class _Option(PyArgumentsTextualSubItem):
-                                        """
-                                        Argument Option.
                                         """
 
                                     class _Width(PyArgumentsNumericalSubItem):
@@ -3722,9 +3712,19 @@ class Root(PyMenu):
                                         Argument Width.
                                         """
 
+                                    class _DPI(PyArgumentsNumericalSubItem):
+                                        """
+                                        Argument DPI.
+                                        """
+
                                     class _UseWindowResolution(PyArgumentsParameterSubItem):
                                         """
                                         Argument UseWindowResolution.
+                                        """
+
+                                    class _Option(PyArgumentsTextualSubItem):
+                                        """
+                                        Argument Option.
                                         """
 
                             def create_instance(self) -> _SaveImageArguments:
@@ -4481,25 +4481,15 @@ class Root(PyMenu):
 
                                     def __init__(self, parent, attr, service, rules, path):
                                         super().__init__(parent, attr, service, rules, path)
-                                        self.DPI = self._DPI(self, "DPI", service, rules, path)
                                         self.Height = self._Height(self, "Height", service, rules, path)
-                                        self.Option = self._Option(self, "Option", service, rules, path)
                                         self.Width = self._Width(self, "Width", service, rules, path)
+                                        self.DPI = self._DPI(self, "DPI", service, rules, path)
                                         self.UseWindowResolution = self._UseWindowResolution(self, "UseWindowResolution", service, rules, path)
-
-                                    class _DPI(PyArgumentsNumericalSubItem):
-                                        """
-                                        Argument DPI.
-                                        """
+                                        self.Option = self._Option(self, "Option", service, rules, path)
 
                                     class _Height(PyArgumentsNumericalSubItem):
                                         """
                                         Argument Height.
-                                        """
-
-                                    class _Option(PyArgumentsTextualSubItem):
-                                        """
-                                        Argument Option.
                                         """
 
                                     class _Width(PyArgumentsNumericalSubItem):
@@ -4507,9 +4497,19 @@ class Root(PyMenu):
                                         Argument Width.
                                         """
 
+                                    class _DPI(PyArgumentsNumericalSubItem):
+                                        """
+                                        Argument DPI.
+                                        """
+
                                     class _UseWindowResolution(PyArgumentsParameterSubItem):
                                         """
                                         Argument UseWindowResolution.
+                                        """
+
+                                    class _Option(PyArgumentsTextualSubItem):
+                                        """
+                                        Argument Option.
                                         """
 
                             def create_instance(self) -> _SaveAnimationArguments:
@@ -4584,25 +4584,15 @@ class Root(PyMenu):
 
                                     def __init__(self, parent, attr, service, rules, path):
                                         super().__init__(parent, attr, service, rules, path)
-                                        self.DPI = self._DPI(self, "DPI", service, rules, path)
                                         self.Height = self._Height(self, "Height", service, rules, path)
-                                        self.Option = self._Option(self, "Option", service, rules, path)
                                         self.Width = self._Width(self, "Width", service, rules, path)
+                                        self.DPI = self._DPI(self, "DPI", service, rules, path)
                                         self.UseWindowResolution = self._UseWindowResolution(self, "UseWindowResolution", service, rules, path)
-
-                                    class _DPI(PyArgumentsNumericalSubItem):
-                                        """
-                                        Argument DPI.
-                                        """
+                                        self.Option = self._Option(self, "Option", service, rules, path)
 
                                     class _Height(PyArgumentsNumericalSubItem):
                                         """
                                         Argument Height.
-                                        """
-
-                                    class _Option(PyArgumentsTextualSubItem):
-                                        """
-                                        Argument Option.
                                         """
 
                                     class _Width(PyArgumentsNumericalSubItem):
@@ -4610,9 +4600,19 @@ class Root(PyMenu):
                                         Argument Width.
                                         """
 
+                                    class _DPI(PyArgumentsNumericalSubItem):
+                                        """
+                                        Argument DPI.
+                                        """
+
                                     class _UseWindowResolution(PyArgumentsParameterSubItem):
                                         """
                                         Argument UseWindowResolution.
+                                        """
+
+                                    class _Option(PyArgumentsTextualSubItem):
+                                        """
+                                        Argument Option.
                                         """
 
                             def create_instance(self) -> _SaveImageArguments:
@@ -5291,24 +5291,14 @@ class Root(PyMenu):
                                     def __init__(self, parent, attr, service, rules, path):
                                         super().__init__(parent, attr, service, rules, path)
                                         self.Height = self._Height(self, "Height", service, rules, path)
-                                        self.DPI = self._DPI(self, "DPI", service, rules, path)
-                                        self.Option = self._Option(self, "Option", service, rules, path)
                                         self.Width = self._Width(self, "Width", service, rules, path)
+                                        self.DPI = self._DPI(self, "DPI", service, rules, path)
                                         self.UseWindowResolution = self._UseWindowResolution(self, "UseWindowResolution", service, rules, path)
+                                        self.Option = self._Option(self, "Option", service, rules, path)
 
                                     class _Height(PyArgumentsNumericalSubItem):
                                         """
                                         Argument Height.
-                                        """
-
-                                    class _DPI(PyArgumentsNumericalSubItem):
-                                        """
-                                        Argument DPI.
-                                        """
-
-                                    class _Option(PyArgumentsTextualSubItem):
-                                        """
-                                        Argument Option.
                                         """
 
                                     class _Width(PyArgumentsNumericalSubItem):
@@ -5316,9 +5306,19 @@ class Root(PyMenu):
                                         Argument Width.
                                         """
 
+                                    class _DPI(PyArgumentsNumericalSubItem):
+                                        """
+                                        Argument DPI.
+                                        """
+
                                     class _UseWindowResolution(PyArgumentsParameterSubItem):
                                         """
                                         Argument UseWindowResolution.
+                                        """
+
+                                    class _Option(PyArgumentsTextualSubItem):
+                                        """
+                                        Argument Option.
                                         """
 
                             def create_instance(self) -> _SaveImageArguments:
@@ -5701,24 +5701,14 @@ class Root(PyMenu):
                                     def __init__(self, parent, attr, service, rules, path):
                                         super().__init__(parent, attr, service, rules, path)
                                         self.Height = self._Height(self, "Height", service, rules, path)
-                                        self.DPI = self._DPI(self, "DPI", service, rules, path)
-                                        self.Option = self._Option(self, "Option", service, rules, path)
                                         self.Width = self._Width(self, "Width", service, rules, path)
+                                        self.DPI = self._DPI(self, "DPI", service, rules, path)
                                         self.UseWindowResolution = self._UseWindowResolution(self, "UseWindowResolution", service, rules, path)
+                                        self.Option = self._Option(self, "Option", service, rules, path)
 
                                     class _Height(PyArgumentsNumericalSubItem):
                                         """
                                         Argument Height.
-                                        """
-
-                                    class _DPI(PyArgumentsNumericalSubItem):
-                                        """
-                                        Argument DPI.
-                                        """
-
-                                    class _Option(PyArgumentsTextualSubItem):
-                                        """
-                                        Argument Option.
                                         """
 
                                     class _Width(PyArgumentsNumericalSubItem):
@@ -5726,9 +5716,19 @@ class Root(PyMenu):
                                         Argument Width.
                                         """
 
+                                    class _DPI(PyArgumentsNumericalSubItem):
+                                        """
+                                        Argument DPI.
+                                        """
+
                                     class _UseWindowResolution(PyArgumentsParameterSubItem):
                                         """
                                         Argument UseWindowResolution.
+                                        """
+
+                                    class _Option(PyArgumentsTextualSubItem):
+                                        """
+                                        Argument Option.
                                         """
 
                             def create_instance(self) -> _SaveAnimationArguments:
@@ -5804,24 +5804,14 @@ class Root(PyMenu):
                                     def __init__(self, parent, attr, service, rules, path):
                                         super().__init__(parent, attr, service, rules, path)
                                         self.Height = self._Height(self, "Height", service, rules, path)
-                                        self.DPI = self._DPI(self, "DPI", service, rules, path)
-                                        self.Option = self._Option(self, "Option", service, rules, path)
                                         self.Width = self._Width(self, "Width", service, rules, path)
+                                        self.DPI = self._DPI(self, "DPI", service, rules, path)
                                         self.UseWindowResolution = self._UseWindowResolution(self, "UseWindowResolution", service, rules, path)
+                                        self.Option = self._Option(self, "Option", service, rules, path)
 
                                     class _Height(PyArgumentsNumericalSubItem):
                                         """
                                         Argument Height.
-                                        """
-
-                                    class _DPI(PyArgumentsNumericalSubItem):
-                                        """
-                                        Argument DPI.
-                                        """
-
-                                    class _Option(PyArgumentsTextualSubItem):
-                                        """
-                                        Argument Option.
                                         """
 
                                     class _Width(PyArgumentsNumericalSubItem):
@@ -5829,9 +5819,19 @@ class Root(PyMenu):
                                         Argument Width.
                                         """
 
+                                    class _DPI(PyArgumentsNumericalSubItem):
+                                        """
+                                        Argument DPI.
+                                        """
+
                                     class _UseWindowResolution(PyArgumentsParameterSubItem):
                                         """
                                         Argument UseWindowResolution.
+                                        """
+
+                                    class _Option(PyArgumentsTextualSubItem):
+                                        """
+                                        Argument Option.
                                         """
 
                             def create_instance(self) -> _SaveImageArguments:
@@ -6528,25 +6528,15 @@ class Root(PyMenu):
 
                                     def __init__(self, parent, attr, service, rules, path):
                                         super().__init__(parent, attr, service, rules, path)
-                                        self.DPI = self._DPI(self, "DPI", service, rules, path)
                                         self.Height = self._Height(self, "Height", service, rules, path)
-                                        self.Option = self._Option(self, "Option", service, rules, path)
                                         self.Width = self._Width(self, "Width", service, rules, path)
+                                        self.DPI = self._DPI(self, "DPI", service, rules, path)
                                         self.UseWindowResolution = self._UseWindowResolution(self, "UseWindowResolution", service, rules, path)
-
-                                    class _DPI(PyArgumentsNumericalSubItem):
-                                        """
-                                        Argument DPI.
-                                        """
+                                        self.Option = self._Option(self, "Option", service, rules, path)
 
                                     class _Height(PyArgumentsNumericalSubItem):
                                         """
                                         Argument Height.
-                                        """
-
-                                    class _Option(PyArgumentsTextualSubItem):
-                                        """
-                                        Argument Option.
                                         """
 
                                     class _Width(PyArgumentsNumericalSubItem):
@@ -6554,9 +6544,19 @@ class Root(PyMenu):
                                         Argument Width.
                                         """
 
+                                    class _DPI(PyArgumentsNumericalSubItem):
+                                        """
+                                        Argument DPI.
+                                        """
+
                                     class _UseWindowResolution(PyArgumentsParameterSubItem):
                                         """
                                         Argument UseWindowResolution.
+                                        """
+
+                                    class _Option(PyArgumentsTextualSubItem):
+                                        """
+                                        Argument Option.
                                         """
 
                             def create_instance(self) -> _SaveAnimationArguments:
@@ -6631,25 +6631,15 @@ class Root(PyMenu):
 
                                     def __init__(self, parent, attr, service, rules, path):
                                         super().__init__(parent, attr, service, rules, path)
-                                        self.DPI = self._DPI(self, "DPI", service, rules, path)
                                         self.Height = self._Height(self, "Height", service, rules, path)
-                                        self.Option = self._Option(self, "Option", service, rules, path)
                                         self.Width = self._Width(self, "Width", service, rules, path)
+                                        self.DPI = self._DPI(self, "DPI", service, rules, path)
                                         self.UseWindowResolution = self._UseWindowResolution(self, "UseWindowResolution", service, rules, path)
-
-                                    class _DPI(PyArgumentsNumericalSubItem):
-                                        """
-                                        Argument DPI.
-                                        """
+                                        self.Option = self._Option(self, "Option", service, rules, path)
 
                                     class _Height(PyArgumentsNumericalSubItem):
                                         """
                                         Argument Height.
-                                        """
-
-                                    class _Option(PyArgumentsTextualSubItem):
-                                        """
-                                        Argument Option.
                                         """
 
                                     class _Width(PyArgumentsNumericalSubItem):
@@ -6657,9 +6647,19 @@ class Root(PyMenu):
                                         Argument Width.
                                         """
 
+                                    class _DPI(PyArgumentsNumericalSubItem):
+                                        """
+                                        Argument DPI.
+                                        """
+
                                     class _UseWindowResolution(PyArgumentsParameterSubItem):
                                         """
                                         Argument UseWindowResolution.
+                                        """
+
+                                    class _Option(PyArgumentsTextualSubItem):
+                                        """
+                                        Argument Option.
                                         """
 
                             def create_instance(self) -> _SaveImageArguments:
@@ -7531,24 +7531,14 @@ class Root(PyMenu):
                                     def __init__(self, parent, attr, service, rules, path):
                                         super().__init__(parent, attr, service, rules, path)
                                         self.Height = self._Height(self, "Height", service, rules, path)
-                                        self.DPI = self._DPI(self, "DPI", service, rules, path)
-                                        self.Option = self._Option(self, "Option", service, rules, path)
                                         self.Width = self._Width(self, "Width", service, rules, path)
+                                        self.DPI = self._DPI(self, "DPI", service, rules, path)
                                         self.UseWindowResolution = self._UseWindowResolution(self, "UseWindowResolution", service, rules, path)
+                                        self.Option = self._Option(self, "Option", service, rules, path)
 
                                     class _Height(PyArgumentsNumericalSubItem):
                                         """
                                         Argument Height.
-                                        """
-
-                                    class _DPI(PyArgumentsNumericalSubItem):
-                                        """
-                                        Argument DPI.
-                                        """
-
-                                    class _Option(PyArgumentsTextualSubItem):
-                                        """
-                                        Argument Option.
                                         """
 
                                     class _Width(PyArgumentsNumericalSubItem):
@@ -7556,9 +7546,19 @@ class Root(PyMenu):
                                         Argument Width.
                                         """
 
+                                    class _DPI(PyArgumentsNumericalSubItem):
+                                        """
+                                        Argument DPI.
+                                        """
+
                                     class _UseWindowResolution(PyArgumentsParameterSubItem):
                                         """
                                         Argument UseWindowResolution.
+                                        """
+
+                                    class _Option(PyArgumentsTextualSubItem):
+                                        """
+                                        Argument Option.
                                         """
 
                             def create_instance(self) -> _SaveImageArguments:
@@ -7820,24 +7820,14 @@ class Root(PyMenu):
                             def __init__(self, parent, attr, service, rules, path):
                                 super().__init__(parent, attr, service, rules, path)
                                 self.Height = self._Height(self, "Height", service, rules, path)
-                                self.DPI = self._DPI(self, "DPI", service, rules, path)
-                                self.Option = self._Option(self, "Option", service, rules, path)
                                 self.Width = self._Width(self, "Width", service, rules, path)
+                                self.DPI = self._DPI(self, "DPI", service, rules, path)
                                 self.UseWindowResolution = self._UseWindowResolution(self, "UseWindowResolution", service, rules, path)
+                                self.Option = self._Option(self, "Option", service, rules, path)
 
                             class _Height(PyArgumentsNumericalSubItem):
                                 """
                                 Argument Height.
-                                """
-
-                            class _DPI(PyArgumentsNumericalSubItem):
-                                """
-                                Argument DPI.
-                                """
-
-                            class _Option(PyArgumentsTextualSubItem):
-                                """
-                                Argument Option.
                                 """
 
                             class _Width(PyArgumentsNumericalSubItem):
@@ -7845,9 +7835,19 @@ class Root(PyMenu):
                                 Argument Width.
                                 """
 
+                            class _DPI(PyArgumentsNumericalSubItem):
+                                """
+                                Argument DPI.
+                                """
+
                             class _UseWindowResolution(PyArgumentsParameterSubItem):
                                 """
                                 Argument UseWindowResolution.
+                                """
+
+                            class _Option(PyArgumentsTextualSubItem):
+                                """
+                                Argument Option.
                                 """
 
                     def create_instance(self) -> _SaveImageArguments:
@@ -8458,18 +8458,18 @@ class Root(PyMenu):
 
                         def __init__(self, parent, attr, service, rules, path):
                             super().__init__(parent, attr, service, rules, path)
-                            self.Z = self._Z(self, "Z", service, rules, path)
                             self.Y = self._Y(self, "Y", service, rules, path)
+                            self.Z = self._Z(self, "Z", service, rules, path)
                             self.X = self._X(self, "X", service, rules, path)
-
-                        class _Z(PyArgumentsNumericalSubItem):
-                            """
-                            Argument Z.
-                            """
 
                         class _Y(PyArgumentsNumericalSubItem):
                             """
                             Argument Y.
+                            """
+
+                        class _Z(PyArgumentsNumericalSubItem):
+                            """
+                            Argument Z.
                             """
 
                         class _X(PyArgumentsNumericalSubItem):
@@ -8484,13 +8484,13 @@ class Root(PyMenu):
 
                         def __init__(self, parent, attr, service, rules, path):
                             super().__init__(parent, attr, service, rules, path)
-                            self.Y = self._Y(self, "Y", service, rules, path)
-                            self.Z = self._Z(self, "Z", service, rules, path)
                             self.X = self._X(self, "X", service, rules, path)
+                            self.Z = self._Z(self, "Z", service, rules, path)
+                            self.Y = self._Y(self, "Y", service, rules, path)
 
-                        class _Y(PyArgumentsNumericalSubItem):
+                        class _X(PyArgumentsNumericalSubItem):
                             """
-                            Argument Y.
+                            Argument X.
                             """
 
                         class _Z(PyArgumentsNumericalSubItem):
@@ -8498,9 +8498,9 @@ class Root(PyMenu):
                             Argument Z.
                             """
 
-                        class _X(PyArgumentsNumericalSubItem):
+                        class _Y(PyArgumentsNumericalSubItem):
                             """
-                            Argument X.
+                            Argument Y.
                             """
 
                     class _Spacing(PyArgumentsNumericalSubItem):

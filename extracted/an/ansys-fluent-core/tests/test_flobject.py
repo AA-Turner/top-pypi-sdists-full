@@ -1,5 +1,6 @@
-# Copyright (C) 2021 - 2026 ANSYS, Inc. and/or its affiliates.
+# Copyright (C) 2021 - 2026 Synopsys, Inc. and ANSYS, Inc. All rights reserved.
 # SPDX-License-Identifier: MIT
+#
 #
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -215,7 +216,7 @@ class NamedObject(Setting, MutableMapping):
         ret = {"type": cls.objtype}
         if cls.__doc__:
             ret["help"] = cls.__doc__
-        ret["object-type"] = cls.child_object_type.get_static_info()
+        ret["object_type"] = cls.child_object_type.get_static_info()
         if cls.commands:
             ret["commands"] = {c: v.get_static_info() for c, v in cls.commands.items()}
         try:
@@ -279,7 +280,7 @@ class ListObject(Setting):
         ret = {"type": cls.objtype}
         if cls.__doc__:
             ret["help"] = cls.__doc__
-        ret["object-type"] = cls.child_object_type.get_static_info()
+        ret["object_type"] = cls.child_object_type.get_static_info()
         if cls.commands:
             ret["commands"] = {c: v.get_static_info() for c, v in cls.commands.items()}
         return ret
@@ -695,7 +696,7 @@ def test_exposure_level_filtering_named_object_commands(monkeypatch):
                     "n-1": {
                         "type": "named-object",
                         "user_creatable": True,
-                        "object-type": {"type": "group"},
+                        "object_type": {"type": "group"},
                         "commands": {
                             "stable-cmd": {"type": "command", "arguments": {}},
                             "beta-cmd": {
@@ -712,7 +713,7 @@ def test_exposure_level_filtering_named_object_commands(monkeypatch):
                     },
                     "l-1": {
                         "type": "list-object",
-                        "object-type": {"type": "group"},
+                        "object_type": {"type": "group"},
                         "commands": {
                             "stable-cmd": {"type": "command", "arguments": {}},
                             "beta-cmd": {
@@ -809,7 +810,7 @@ def test_exposure_level_filtering_complete_hierarchy(monkeypatch):
                     "named-obj": {
                         "type": "named-object",
                         "user_creatable": True,
-                        "object-type": {"type": "group"},
+                        "object_type": {"type": "group"},
                         "commands": {
                             "stable-cmd": {"type": "command", "arguments": {}},
                             "beta-cmd": {

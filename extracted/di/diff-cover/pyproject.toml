@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "diff_cover"
-version = "10.4.1"
+version = "10.4.2"
 description = "Run coverage and linting reports on diffs"
 authors = ["See Contributors"]
 homepage = "https://github.com/Bachmann1234/diff-cover"
@@ -61,7 +61,7 @@ pydocstyle = "^6.1.1"
 black = "^26.1.0"
 isort = ">=6.0.1,<9.0.0"
 doc8 = "2.0.0"
-ruff = ">=0.11.10,<0.16.0"
+ruff = ">=0.11.10,<0.17.0"
 
 [tool.poetry.extras]
 toml = ["tomli"]

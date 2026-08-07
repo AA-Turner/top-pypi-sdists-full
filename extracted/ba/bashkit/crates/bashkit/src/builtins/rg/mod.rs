@@ -4006,7 +4006,11 @@ const RG_COLOR_MATCH_EXTRA_BYTES_LIMIT: usize = 64 * 1024;
 
 fn rg_output_limit(ctx: &Context<'_>) -> usize {
     ctx.execution_extension::<ExecutionLimits>()
-        .map(|limits| limits.max_stdout_bytes.saturating_add(1))
+        .and_then(|limits| {
+            limits
+                .try_with(|limits| limits.max_stdout_bytes.saturating_add(1))
+                .ok()
+        })
         .unwrap_or_else(|| {
             ExecutionLimits::default()
                 .max_stdout_bytes
@@ -4987,8 +4991,8 @@ fn rg_quiet_result(
         *any_match = true;
         if !opts.stats {
             return Some(ExecResult {
-                stdout: String::new(),
-                stderr: stderr.to_string(),
+                stdout: crate::StreamData::new(),
+                stderr: stderr.to_string().into(),
                 exit_code: 0,
                 ..Default::default()
             });
@@ -5256,6 +5260,7 @@ impl Builtin for Rg {
         }
         if opts.list_files {
             let files = collect_rg_file_list(&*ctx.fs, &opts, ctx.cwd).await;
+            ctx.consume_budget_work(u64::try_from(files.len()).unwrap_or(u64::MAX))?;
             let found_files = !files.is_empty();
             let files: Vec<String> = files
                 .into_iter()
@@ -5284,12 +5289,19 @@ impl Builtin for Rg {
                 output
             };
             return Ok(ExecResult {
-                stdout: output,
+                stdout: output.into(),
                 exit_code: if found_files { 0 } else { 1 },
                 ..Default::default()
             });
         }
-        if let Err(result) = load_rg_pattern_files(&*ctx.fs, ctx.cwd, ctx.stdin, &mut opts).await {
+        if let Err(result) = load_rg_pattern_files(
+            &*ctx.fs,
+            ctx.cwd,
+            ctx.stdin.map(|stdin| &**stdin),
+            &mut opts,
+        )
+        .await
+        {
             return Ok(result);
         }
         if opts.patterns.is_empty() {
@@ -5302,10 +5314,23 @@ impl Builtin for Rg {
             && (opts.paths.is_empty()
                 || has_directory_path(&*ctx.fs, ctx.cwd, &opts.paths, opts.follow_symlinks).await);
 
+        let execution_budget = ctx
+            .execution_budget()
+            .and_then(|budget| budget.try_with(Clone::clone).ok());
         let collected_inputs = match collect_rg_inputs(ctx, &opts).await {
             Ok(inputs) => inputs,
             Err(result) => return Ok(result),
         };
+        if let Some(budget) = execution_budget {
+            let input_bytes = collected_inputs.inputs.iter().fold(0usize, |total, input| {
+                total.saturating_add(input.content.len())
+            });
+            budget.consume_input(input_bytes)?;
+            budget.consume_work(
+                u64::try_from(input_bytes.div_ceil(64)).unwrap_or(u64::MAX)
+                    + u64::try_from(collected_inputs.inputs.len()).unwrap_or(u64::MAX),
+            )?;
+        }
         let inputs = collected_inputs.inputs;
 
         let show_filename = if opts.no_filename {
@@ -6879,8 +6904,8 @@ impl Builtin for Rg {
             1
         };
         Ok(ExecResult {
-            stdout: output,
-            stderr: collected_inputs.stderr,
+            stdout: output.into(),
+            stderr: collected_inputs.stderr.into(),
             exit_code,
             ..Default::default()
         })
@@ -7191,7 +7216,7 @@ mod tests {
             variables: &mut variables,
             cwd: &mut cwd,
             fs: fs_dyn,
-            stdin,
+            stdin: crate::builtins::test_stream_opt(stdin),
             #[cfg(feature = "http_client")]
             http_client: None,
             #[cfg(feature = "git")]

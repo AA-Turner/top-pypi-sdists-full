@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fastspec
-Version: 0.1.4
+Version: 0.1.6
 Summary: Dynamic OpenAPI and discovery spec client for Python — turn any API spec into a fully-typed async client with attribute chaining, streaming, and file uploads
 Author-email: Kerem Turgutlu <keremturgutlu@gmail.com>
 License-Expression: Apache-2.0
@@ -12,7 +12,7 @@ Classifier: Programming Language :: Python :: 3 :: Only
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: fastcore>=2.1.16
+Requires-Dist: fastcore>=2.2.1
 Requires-Dist: httpx
 Provides-Extra: dev
 Requires-Dist: safepyrun>=0.2.3; extra == "dev"

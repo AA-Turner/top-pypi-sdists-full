@@ -9,6 +9,10 @@ _resolve_lint_paths normalizes CLI input in a single pass:
   - Order of first appearance is preserved
 """
 
+from types import SimpleNamespace
+
+import pytest
+
 from skillsaw.cli._helpers import _resolve_lint_paths
 
 # ── Pass 1: _resolve_lint_paths ────────────────────────────────
@@ -36,6 +40,55 @@ class TestResolveSinglePaths:
         f.touch()
         result = _resolve_lint_paths([f])
         assert result == [nested]
+
+
+class TestManifestFilesAreNotWidened:
+    """Manifest files resolve to their owning directory like any other
+    file — never outward to a plugin or repository root.
+
+    An earlier revision widened Codex manifest paths toward the owning
+    root, which expanded what ``lint`` read — and what ``fix`` wrote —
+    beyond the path the caller named. These tests pin the removal."""
+
+    def test_codex_plugin_manifest_resolves_to_marker_directory(self, tmp_path):
+        marker = tmp_path / "plug" / ".codex-plugin"
+        marker.mkdir(parents=True)
+        manifest = marker / "plugin.json"
+        manifest.touch()
+        assert _resolve_lint_paths([manifest]) == [marker]
+
+    def test_codex_catalog_resolves_to_its_own_directory(self, tmp_path):
+        catalog_dir = tmp_path / "repo" / ".agents" / "plugins"
+        catalog_dir.mkdir(parents=True)
+        catalog = catalog_dir / "marketplace.json"
+        catalog.touch()
+        assert _resolve_lint_paths([catalog]) == [catalog_dir]
+
+    def test_any_file_under_agents_plugins_resolves_to_parent(self, tmp_path):
+        catalog_dir = tmp_path / "repo" / ".agents" / "plugins"
+        catalog_dir.mkdir(parents=True)
+        stray = catalog_dir / "curated.json"
+        stray.touch()
+        assert _resolve_lint_paths([stray]) == [catalog_dir]
+
+    def test_user_level_catalog_resolves_to_its_directory_not_home(self, tmp_path, monkeypatch):
+        from pathlib import Path
+
+        fake_home = tmp_path / "home"
+        catalog_dir = fake_home / ".agents" / "plugins"
+        catalog_dir.mkdir(parents=True)
+        catalog = catalog_dir / "marketplace.json"
+        catalog.touch()
+        monkeypatch.setenv("HOME", str(fake_home))
+        monkeypatch.setattr(Path, "home", classmethod(lambda cls: fake_home))
+        assert _resolve_lint_paths([catalog]) == [catalog_dir]
+
+    def test_claude_plugin_manifest_resolves_to_marker_directory(self, tmp_path):
+        marker = tmp_path / "plug" / ".claude-plugin"
+        marker.mkdir(parents=True)
+        manifest = marker / "plugin.json"
+        manifest.touch()
+        assert _resolve_lint_paths([manifest]) == [marker]
 
 
 class TestDeduplicateExactPaths:
@@ -240,6 +293,25 @@ class TestEmptyAndSingleInput:
         f.touch()
         result = _resolve_lint_paths([f])
         assert result == [tmp_path]
+
+
+def test_unresolvable_output_path_is_rejected(monkeypatch, capsys):
+    """An unsafe report path must produce a controlled CLI error."""
+    from skillsaw.cli import _lint
+
+    monkeypatch.setattr(_lint, "safe_resolve", lambda path: None)
+    args = SimpleNamespace(
+        verbose=False,
+        strict=False,
+        fail_on=None,
+        outputs=["json:report.json"],
+    )
+
+    with pytest.raises(SystemExit) as exc_info:
+        _lint._run_lint(args)
+
+    assert exc_info.value.code == 1
+    assert "--output path could not be resolved: report.json" in capsys.readouterr().err
 
 
 # ── _is_subpath ────────────────────────────────────────────────

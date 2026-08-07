@@ -268,6 +268,10 @@ _CORE_MESSAGES = {
         "ru": "показать версию и выйти",
         "en": "show the version and exit",
     },
+    "cli.version.plugins": {
+        "ru": "надстройки: {list}",
+        "en": "plugins: {list}",
+    },
     "cli.help.commands.header": {
         "ru": "команды:",
         "en": "commands:",
@@ -419,6 +423,12 @@ _CORE_MESSAGES = {
               "переносимое, разбор исходников станет заметно медленнее",
         "en": "note: the installation is native, but there is no wheel for this platform – "
               "the portable one is used and parsing gets noticeably slower",
+    },
+    "selfupdate.native-restored": {
+        "ru": "установка была переносимой, а под эту платформу есть нативное колесо – "
+              "ставится оно, разбор исходников ускорится",
+        "en": "the installation was portable, but a native wheel exists for this platform – "
+              "it is used and parsing gets faster",
     },
     "selfupdate.downloading": {
         "ru": "скачиваю xbsl {version} с PyPI ({kind} колесо)...",
@@ -787,6 +797,17 @@ _CORE_MESSAGES = {
     "cli.help.scaf.rename-path": {
         "ru": "yaml объекта (при нескольких объектах с одним именем)",
         "en": "the object's yaml (when several objects share one name)",
+    },
+    "cli.help.scaf.delete-object": {
+        "ru": "удалить объект целиком (пара yaml+xbsl, формы, строка списка) и перечислить "
+              "оставшиеся упоминания; без --apply – только план",
+        "en": "delete an object whole (the yaml+xbsl pair, forms, the list row) and list the "
+              "remaining mentions; without --apply - the plan only",
+    },
+    "cli.help.scaf.delete-apply": {
+        "ru": "выполнить удаление (без флага печатается план: удаление необратимо)",
+        "en": "perform the deletion (without the flag the plan is printed: deletion is "
+              "irreversible)",
     },
     "cli.help.scaf.set-access": {
         "ru": "задать КонтрольДоступа.Разрешения объекта",

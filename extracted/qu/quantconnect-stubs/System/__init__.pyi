@@ -15538,14 +15538,6 @@ class String(System.Object, System.IComparable[str], System.IConvertible, System
         ...
 
     @overload
-    def __init__(self, value: typing.List[str]) -> None:
-        ...
-
-    @overload
-    def __init__(self, value: typing.List[str], start_index: int, length: int) -> None:
-        ...
-
-    @overload
     def __init__(self, value: typing.Any) -> None:
         ...
 
@@ -15555,14 +15547,6 @@ class String(System.Object, System.IComparable[str], System.IConvertible, System
 
     @overload
     def __init__(self, value: typing.Any, start_index: int, length: int, enc: System.Text.Encoding) -> None:
-        ...
-
-    @overload
-    def __init__(self, c: str, count: int) -> None:
-        ...
-
-    @overload
-    def __init__(self, value: System.ReadOnlySpan[str]) -> None:
         ...
 
     def __iter__(self) -> typing.Iterator[str]:

@@ -16,6 +16,7 @@ import QuantConnect.Orders
 import QuantConnect.Packets
 import QuantConnect.Securities
 import QuantConnect.Statistics
+import QuantConnect.Util
 import System
 import System.Collections.Concurrent
 import System.Collections.Generic
@@ -102,7 +103,19 @@ class ResultHandlerInitializeParameters(System.Object):
     def map_file_provider(self, value: QuantConnect.Interfaces.IMapFileProvider) -> None:
         ...
 
-    def __init__(self, job: QuantConnect.Packets.AlgorithmNodePacket, messaging_handler: QuantConnect.Interfaces.IMessagingHandler, api: QuantConnect.Interfaces.IApi, transaction_handler: QuantConnect.Lean.Engine.TransactionHandlers.ITransactionHandler, map_file_provider: QuantConnect.Interfaces.IMapFileProvider) -> None:
+    @property
+    def performance_tracking_tool(self) -> QuantConnect.Util.PerformanceTrackingTool:
+        """
+        The tool tracking the engine's performance counters, used by the in-run
+        algorithm speed analysis. Optional: may be null when the host doesn't track performance.
+        """
+        ...
+
+    @performance_tracking_tool.setter
+    def performance_tracking_tool(self, value: QuantConnect.Util.PerformanceTrackingTool) -> None:
+        ...
+
+    def __init__(self, job: QuantConnect.Packets.AlgorithmNodePacket, messaging_handler: QuantConnect.Interfaces.IMessagingHandler, api: QuantConnect.Interfaces.IApi, transaction_handler: QuantConnect.Lean.Engine.TransactionHandlers.ITransactionHandler, map_file_provider: QuantConnect.Interfaces.IMapFileProvider, performance_tracking_tool: QuantConnect.Util.PerformanceTrackingTool = None) -> None:
         """Creates a new instance"""
         ...
 
@@ -195,6 +208,13 @@ class IResultHandler(QuantConnect.Statistics.IStatisticsService, metaclass=abc.A
 
     def on_securities_changed(self, changes: QuantConnect.Data.UniverseSelection.SecurityChanges) -> None:
         """Event fired each time that we add/remove securities from the data feed"""
+        ...
+
+    def on_warmup_finished(self) -> None:
+        """
+        Event fired when the algorithm's warm-up period finishes, right before the algorithm's
+        IAlgorithm.on_warmup_finished callback is triggered
+        """
         ...
 
     def order_event(self, new_event: QuantConnect.Orders.OrderEvent) -> None:
@@ -721,6 +741,21 @@ class BaseResultsHandler(System.Object, metaclass=abc.ABCMeta):
     def map_file_provider(self, value: QuantConnect.Interfaces.IMapFileProvider) -> None:
         ...
 
+    @property
+    def performance_tracking_tool(self) -> QuantConnect.Util.PerformanceTrackingTool:
+        """
+        The tool tracking the engine's performance counters, used by the in-run
+        algorithm speed analysis. May be null when the host doesn't track performance.
+        
+        
+        This Property is protected.
+        """
+        ...
+
+    @performance_tracking_tool.setter
+    def performance_tracking_tool(self, value: QuantConnect.Util.PerformanceTrackingTool) -> None:
+        ...
+
     def __init__(self) -> None:
         """
         Creates a new instance
@@ -899,6 +934,15 @@ class BaseResultsHandler(System.Object, metaclass=abc.ABCMeta):
         """Event fired each time that we add/remove securities from the data feed"""
         ...
 
+    def on_warmup_finished(self) -> None:
+        """
+        Event fired when the algorithm's warm-up period finishes, right before the algorithm's
+        IAlgorithm.on_warmup_finished callback is triggered.
+        Re-captures the starting portfolio value and dependent baselines, since the value captured
+        at setup time used currency conversion rates seeded at the warm-up start
+        """
+        ...
+
     def order_event(self, new_event: QuantConnect.Orders.OrderEvent) -> None:
         """
         New order event for the algorithm
@@ -1055,12 +1099,24 @@ class BaseResultsHandler(System.Object, metaclass=abc.ABCMeta):
         """
         ...
 
+    @overload
     def save_logs(self, id: str, logs: typing.List[QuantConnect.Logging.LogEntry]) -> str:
         """
         Returns the location of the logs
         
         :param id: Id that will be incorporated into the algorithm log name
         :param logs: The logs to save
+        :returns: The path to the logs.
+        """
+        ...
+
+    @overload
+    def save_logs(self, id: str, log_lines: typing.List[str]) -> str:
+        """
+        Returns the location of the logs
+        
+        :param id: Id that will be incorporated into the algorithm log name
+        :param log_lines: The log lines to save
         :returns: The path to the logs.
         """
         ...
@@ -1277,6 +1333,23 @@ class BacktestingResultHandler(QuantConnect.Lean.Engine.Results.BaseResultsHandl
         
         
         This Class is protected.
+        """
+        ...
+
+    def run_in_run_results_analysis(self, complete_result: QuantConnect.Packets.BacktestResult, total_performance: QuantConnect.Statistics.AlgorithmPerformance) -> typing.Sequence[QuantConnect.Analysis]:
+        """
+        Runs the in-run results analyzer against the current intermediate backtest result and
+        the accumulated logs. Invoked periodically while the backtest is still running, unlike
+        the full analysis performed by send_final_result when the backtest ends.
+        
+        
+        This Class is protected.
+        
+        :param complete_result: The current intermediate backtest result. Its orders and order
+        events are truncated to the most recent ones, so the in-run analyses can miss data between
+        runs; the final analysis re-scans the complete streams.
+        :param total_performance: The current total algorithm performance, for analyses that read portfolio statistics
+        :returns: The failed analyses with solutions, or null if the analysis could not run.
         """
         ...
 

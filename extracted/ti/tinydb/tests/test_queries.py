@@ -222,6 +222,55 @@ def test_custom_with_params():
     assert hash(query)
 
 
+def test_custom_with_unhashable_params():
+    """Test that Query.test works when extra args contain lists or dicts."""
+
+    def in_allowed(value, allowed):
+        return value in allowed
+
+    # list argument must not raise TypeError when hashing the query
+    query = Query().val.test(in_allowed, [1, 2, 3])
+    assert query({'val': 1})
+    assert not query({'val': 4})
+    assert hash(query)
+
+    # dict argument must not raise TypeError when hashing the query
+    def has_key(value, mapping):
+        return value in mapping
+
+    query2 = Query().val.test(has_key, {'a': 1, 'b': 2})
+    assert query2({'val': 'a'})
+    assert not query2({'val': 'c'})
+    assert hash(query2)
+
+    # identical args produce the same hash (cache key correctness)
+    q_a = Query().val.test(in_allowed, [1, 2, 3])
+    q_b = Query().val.test(in_allowed, [1, 2, 3])
+    assert hash(q_a) == hash(q_b)
+
+    # different args produce different hashes
+    q_c = Query().val.test(in_allowed, [1, 2, 4])
+    assert hash(q_a) != hash(q_c)
+
+    # a dict nested inside an already-tuple arg must be frozen too
+    def second_item_has_flag(value, pair):
+        return pair[1].get('flag') == value
+
+    query3 = Query().val.test(second_item_has_flag, (1, {'flag': 'x'}))
+    assert query3({'val': 'x'})
+    assert not query3({'val': 'y'})
+    assert hash(query3)
+
+    # args that stay unhashable even after freeze() (e.g. numpy arrays)
+    # degrade to an uncacheable query instead of raising
+    class Unhashable:
+        __hash__ = None
+
+    query4 = Query().val.test(lambda value, x: True, Unhashable())
+    assert query4({'val': 1})
+    assert not query4.is_cacheable()
+
+
 def test_any():
     query = Query().followers.any(Query().name == 'don')
 

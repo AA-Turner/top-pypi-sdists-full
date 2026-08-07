@@ -38,17 +38,15 @@ from lintro.ai.review.github_constants import (
 from lintro.ai.review.github_errors import format_error_comment
 from lintro.ai.review.github_lifecycle import (
     finding_marker,
+    inline_comment_url,
     parse_finding_marker,
     regression_provenance,
     sync_addressed_lifecycle,
 )
 from lintro.ai.review.github_render import (
-    _format_findings_section as _format_findings_section,
-)
-from lintro.ai.review.github_render import (
+    REGRESSED_TITLE_SUFFIX,
     _partition_findings,
     format_finding_comment,
-    format_review_summary,
     format_run_mechanics,
     sanitize_comment_text,
 )
@@ -83,7 +81,6 @@ __all__ = [
     "build_sticky_comment",
     "format_error_comment",
     "format_finding_comment",
-    "format_review_summary",
     "format_run_mechanics",
     "parse_review_state",
     "parse_review_state_v2",
@@ -159,6 +156,8 @@ def post_review_to_github(
             auth_mode=auth_mode,
             inline_failure=inline_failure,
             inline_comment_ids=comment_ids,
+            repo=gh_reporter.repo or "",
+            pr_number=gh_reporter.pr_number,
         )
 
     inline_findings, fallback = _partition_findings(
@@ -193,21 +192,14 @@ def post_review_to_github(
     )
 
     if inline_findings:
-        # Built after the sticky upsert so the dedup pointer can resolve the
-        # sticky's real id — including on round 1, where it did not exist a
-        # moment ago and the pointer would otherwise render unlinked (#1910).
+        # The body is self-contained — it carries its own fix prompt inline
+        # (#1956) — so it needs nothing from the sticky upsert above and the
+        # ordering here is driven only by the inline-failure fallback.
         review_body = build_review_body(
             result=result,
             prior_state=prior_state,
             match=match,
             head_sha=head_sha,
-            sticky_url=_sticky_url(
-                reporter=gh_reporter,
-                comment_id=_sticky_comment_id(
-                    reporter=gh_reporter,
-                    known=comment_id,
-                ),
-            ),
             transport=transport,
             auth_mode=auth_mode,
             config_source=config_source,
@@ -416,11 +408,10 @@ def _comment_url(*, reporter: GitHubPRReporter, comment_id: int | None) -> str:
         The comment's anchor URL, or an empty string — a pointer renders
         unlinked rather than as a dead link.
     """
-    if comment_id is None:
-        return ""
-    return (
-        f"https://github.com/{reporter.repo}/pull/{reporter.pr_number}"
-        f"#discussion_r{comment_id}"
+    return inline_comment_url(
+        repo=reporter.repo or "",
+        pr_number=reporter.pr_number,
+        comment_id=comment_id,
     )
 
 
@@ -618,30 +609,6 @@ def _sticky_comment_id(
         return known
     found = reporter.find_issue_comment(marker=STICKY_MARKER)
     return None if found is None else found[0]
-
-
-def _sticky_url(
-    *,
-    reporter: GitHubPRReporter,
-    comment_id: int | None,
-) -> str:
-    """Build the browser URL of the sticky comment, when its id is known.
-
-    Args:
-        reporter: GitHub reporter carrying repo and PR context.
-        comment_id: Sticky comment id as resolved after the upsert, or ``None``
-            when it could not be located at all.
-
-    Returns:
-        The comment's anchor URL, or an empty string when the id is unknown —
-        the pointer then renders unlinked rather than as a dead link.
-    """
-    if comment_id is None:
-        return ""
-    return (
-        f"https://github.com/{reporter.repo}/pull/{reporter.pr_number}"
-        f"#issuecomment-{comment_id}"
-    )
 
 
 def _count_new_commits(
@@ -854,6 +821,10 @@ def _post_inline_findings(
                     checklist_display=checklist_display,
                     question_map=question_map,
                     inline_fix=plan,
+                    # A regression's fresh thread must say so in its title:
+                    # the provenance note explains the history, but the title
+                    # is what a reader scanning the PR's comments sees.
+                    title_suffix=REGRESSED_TITLE_SUFFIX if key in notes else "",
                 ),
                 key=key,
                 note=notes.get(key, ""),

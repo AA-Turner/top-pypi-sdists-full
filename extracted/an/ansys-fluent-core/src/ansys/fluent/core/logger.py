@@ -1,5 +1,6 @@
-# Copyright (C) 2021 - 2026 ANSYS, Inc. and/or its affiliates.
+# Copyright (C) 2021 - 2026 Synopsys, Inc. and ANSYS, Inc. All rights reserved.
 # SPDX-License-Identifier: MIT
+#
 #
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -87,6 +88,8 @@ def get_default_config() -> dict:
                                     'maxBytes': 10485760}},
      'loggers': {'pyfluent.datamodel': {'handlers': ['pyfluent_file'],
                                         'level': 'DEBUG'},
+                 'pyfluent.expressions': {'handlers': ['pyfluent_file'],
+                                           'level': 'DEBUG'},
                  'pyfluent.field_data': {'handlers': ['pyfluent_file'],
                                          'level': 'DEBUG'},
                  'pyfluent.general': {'handlers': ['pyfluent_file'],

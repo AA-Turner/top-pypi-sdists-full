@@ -10,7 +10,7 @@ from typing import List
 from skillsaw.rule import Rule, RuleViolation, Severity, AutofixResult, AutofixConfidence
 from skillsaw.context import RepositoryContext
 from skillsaw.rules.builtin.content_analysis import AgentBlock
-from skillsaw.rules.builtin.utils import frontmatter_text, insert_frontmatter_fields, read_text
+from skillsaw.rules.builtin.utils import insert_frontmatter_fields, read_text
 
 
 class AgentFrontmatterRule(Rule):
@@ -18,11 +18,15 @@ class AgentFrontmatterRule(Rule):
 
     default_enabled = True
 
+    provenance_scope = "claude"
+
     autofix_confidence = AutofixConfidence.SAFE
+
+    aliases = ("agent-frontmatter",)
 
     @property
     def rule_id(self) -> str:
-        return "agent-frontmatter"
+        return "claude-agent-frontmatter"
 
     @property
     def description(self) -> str:
@@ -34,7 +38,7 @@ class AgentFrontmatterRule(Rule):
     def check(self, context: RepositoryContext) -> List[RuleViolation]:
         violations = []
 
-        for block in context.lint_tree.find(AgentBlock):
+        for block in self.scoped_find(context, AgentBlock):
             if block.frontmatter_error:
                 # fix() only adds missing frontmatter/fields — malformed YAML
                 # needs a human.
@@ -115,24 +119,25 @@ class AgentFrontmatterRule(Rule):
             missing_name = any("Missing 'name'" in m for m in messages)
             missing_desc = any("Missing 'description'" in m for m in messages)
             if (missing_name or missing_desc) and original.startswith("---"):
-                fm_text = frontmatter_text(original)
-                if fm_text is not None:
-                    additions = []
-                    if missing_name and "name:" not in fm_text:
-                        additions.append(f"name: {file_path.stem}")
-                    if missing_desc and "description:" not in fm_text:
-                        additions.append("description: ")
-                    if additions:
-                        fixed = insert_frontmatter_fields(original, additions)
-                        results.append(
-                            AutofixResult(
-                                rule_id=self.rule_id,
-                                file_path=file_path,
-                                confidence=AutofixConfidence.SAFE,
-                                original_content=original,
-                                fixed_content=fixed,
-                                description="Added missing fields to agent frontmatter",
-                                violations_fixed=file_violations,
-                            )
+                # check() derived these flags from parsed top-level fields;
+                # do not second-guess them with raw substring searches that
+                # confuse nested keys, values, or ``displayname`` for a key.
+                additions = []
+                if missing_name:
+                    additions.append(f"name: {file_path.stem}")
+                if missing_desc:
+                    additions.append("description: ")
+                if additions:
+                    fixed = insert_frontmatter_fields(original, additions)
+                    results.append(
+                        AutofixResult(
+                            rule_id=self.rule_id,
+                            file_path=file_path,
+                            confidence=AutofixConfidence.SAFE,
+                            original_content=original,
+                            fixed_content=fixed,
+                            description="Added missing fields to agent frontmatter",
+                            violations_fixed=file_violations,
                         )
+                    )
         return results

@@ -43,6 +43,7 @@ use ciris_persist::verify::canonical::ceg_produce_canonicalize;
 use ciris_persist::wa_cert::{TokenType, WaCert, WaRole};
 
 use ciris_server::auth::store;
+use ciris_server::ingest_http::IngestRefusals;
 use ciris_server::operator_surface;
 
 const NODE_KEY_ALIAS: &str = "ciris-server";
@@ -224,8 +225,44 @@ async fn serve(
     engine: Arc<Engine>,
     metrics: Option<EdgeMetrics>,
 ) -> (String, tokio::task::JoinHandle<()>) {
+    serve_with(engine, metrics, None).await
+}
+
+/// [`serve`] plus an explicit ingest refusal ledger (CIRISServer#370). `None`
+/// is a node with no HTTP ingest route — the `unreadable` arm.
+async fn serve_with(
+    engine: Arc<Engine>,
+    metrics: Option<EdgeMetrics>,
+    refusals: Option<IngestRefusals>,
+) -> (String, tokio::task::JoinHandle<()>) {
     let key_id = node_key_id(&engine).await;
-    let app = operator_surface::router(engine, key_id, metrics);
+    let app = operator_surface::router(engine, key_id, metrics, refusals);
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+        .await
+        .expect("bind ephemeral port");
+    let addr = listener.local_addr().expect("local addr");
+    let handle = tokio::spawn(async move {
+        let _ = axum::serve(listener, app).await;
+    });
+    (format!("http://{addr}"), handle)
+}
+
+/// Serve the trace plane the way [`ciris_server::compose`] mounts it — the
+/// route that ADMITS and the route that READS, over the ledger
+/// [`operator_surface::trace_plane_router`] mints for them. No handle is passed
+/// in, which is the point: the composition has no opportunity to hand them
+/// different ones.
+async fn serve_trace_plane(
+    engine: Arc<Engine>,
+    metrics: Option<EdgeMetrics>,
+) -> (String, tokio::task::JoinHandle<()>) {
+    let key_id = node_key_id(&engine).await;
+    let app = operator_surface::trace_plane_router(
+        engine,
+        key_id,
+        metrics,
+        ciris_server::mesh_config_effect::MeshConfigEffect::unwired(),
+    );
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
         .await
         .expect("bind ephemeral port");
@@ -277,18 +314,33 @@ async fn one_read_carries_both_sources_and_re_derives_neither() {
     register_self(&engine).await;
     bind_owner(&engine).await;
     let owner = mint_session(&engine, "wa-owner", WaRole::Root).await;
-    let (base, _h) = serve(Arc::clone(&engine), Some(withholding_metrics())).await;
+    let (base, _h) = serve_with(
+        Arc::clone(&engine),
+        Some(withholding_metrics()),
+        Some(IngestRefusals::new()),
+    )
+    .await;
 
     let data = read_state(&base, &owner).await;
 
-    // (1) BOTH sources are present and named.
+    // (1) EVERY source is present and named. The list grew with #369/#370: the
+    // trace corpus and the ingest ledger are sources in exactly the same sense
+    // the first two are — each present-or-unavailable-with-a-reason, never an
+    // absent key and never a healthy default.
     assert_eq!(
         data["composed_from"],
-        serde_json::json!(["node_state", "edge_metrics"]),
-        "the surface must compose BOTH sources, not one of them: {data}"
+        serde_json::json!([
+            "node_state",
+            "edge_metrics",
+            "trace_corpus",
+            "ingest_refusals"
+        ]),
+        "the surface must compose EVERY source, not a subset of them: {data}"
     );
     assert_eq!(data["sources"]["node_state"]["present"], true);
     assert_eq!(data["sources"]["edge_metrics"]["present"], true);
+    assert_eq!(data["sources"]["trace_corpus"]["present"], true);
+    assert_eq!(data["sources"]["ingest_refusals"]["present"], true);
     assert!(
         data["sources"]["node_state"]["produced_by"]
             .as_str()
@@ -361,8 +413,23 @@ async fn one_read_carries_both_sources_and_re_derives_neither() {
     assert!(data["volatility"]["process_local"]["note"]["id"].is_string());
     assert_eq!(
         data["volatility"]["process_local"]["fields"],
-        serde_json::json!(["carriage", "receive"])
+        serde_json::json!(["carriage", "receive", "ingest"]),
+        "the #370 refusal ledger resets on restart exactly as the carriage counters do, and a \
+         process-local counter that does not declare itself is the field an operator reads as \
+         durable node state"
     );
+    // ...and a THIRD kind, added with #369: a band computed HERE that moves on
+    // elapsed time alone. It must NOT have been folded into persist's list —
+    // that list is persist's, carried verbatim, and a second author on it is
+    // exactly the two-lists-that-disagree shape.
+    assert_eq!(
+        data["volatility"]["clock_dependent_local"]["fields"],
+        serde_json::json!(["trace_plane"])
+    );
+    assert!(!data["volatility"]["clock_dependent"]
+        .as_array()
+        .expect("clock_dependent")
+        .contains(&serde_json::json!("trace_plane")));
 
     // (5) The persist signals are EXPLAINED, with the token persist minted and
     //     the band persist computed — never a band of ours.
@@ -468,12 +535,28 @@ async fn every_zero_carriage_reading_names_its_own_cause() {
                 assert_eq!(carriage["withholds_total"], serde_json::json!(0));
                 assert_eq!(carriage["rounds_total"], serde_json::json!(1));
                 assert_eq!(carriage["band"], serde_json::json!("green"));
-                assert_eq!(data["receive"]["standing"], serde_json::json!("clean"));
-                // ...and the clean receive reading admits what it cannot know.
-                assert!(data["receive"]["note"]["text"]
-                    .as_str()
-                    .expect("note")
-                    .contains("cannot"));
+                // CIRISEdge#457 — `clean` until edge shipped an accepted-applies
+                // counter, and `clean` meant three things. Rounds ran and NOTHING
+                // was offered to the apply path is `idle`, the receive mirror of
+                // the carriage token beside it.
+                assert_eq!(data["receive"]["standing"], serde_json::json!("idle"));
+                assert_eq!(data["receive"]["applied_total"], serde_json::json!(0));
+                assert_eq!(data["receive"]["duplicate_total"], serde_json::json!(0));
+                assert_eq!(data["receive"]["decided_total"], serde_json::json!(0));
+                assert_eq!(data["receive"]["rounds_total"], serde_json::json!(1));
+                // ...and the reading states what its denominator does NOT count,
+                // rather than the old caveat about a counter that now exists.
+                let note = data["receive"]["note"]["text"].as_str().expect("note");
+                assert!(
+                    note.contains("decided_total") && note.contains("decode"),
+                    "the note must define the denominator and name the class it \
+                     excludes: {note}"
+                );
+                assert!(
+                    !note.contains("not accepted applies"),
+                    "the CIRISEdge#457 caveat must be GONE, not softened — it tells \
+                     a reader not to trust a number that is now trustworthy: {note}"
+                );
             }
             // The node chose not to serve. Same zero rows delivered; an
             // entirely different thing to do about it.
@@ -606,6 +689,85 @@ async fn polling_the_surface_writes_nothing() {
     }
 }
 
+/// CIRISServer#369/#370 — **the two new readings over the REAL route, and their
+/// zeroes.**
+///
+/// A fresh node has admitted no trace and mounted no ingest gate. Both facts are
+/// zeroes, and the failure mode this whole surface exists to prevent is that
+/// they render as health. Neither may read green, neither may read as the other,
+/// and both must be NAMED in the `unknown` list — a red headline outranks an
+/// unknown and would otherwise hide one behind it.
+#[tokio::test]
+async fn a_fresh_nodes_trace_and_ingest_zeroes_name_their_own_causes() {
+    let engine = node().await;
+    register_self(&engine).await;
+    bind_owner(&engine).await;
+    let owner = mint_session(&engine, "wa-owner", WaRole::Root).await;
+
+    // No ingest ledger: this process mounted no HTTP ingest gate, so there is no
+    // gate to have refused anything.
+    let (base, _h) = serve_with(Arc::clone(&engine), Some(idle_metrics()), None).await;
+    let data = read_state(&base, &owner).await;
+
+    // The corpus was READ, and it is empty. That is not "we could not ask", and
+    // it is emphatically not green.
+    assert_eq!(
+        data["trace_plane"]["standing"], "never_admitted",
+        "{}",
+        data["trace_plane"]
+    );
+    assert_eq!(data["trace_plane"]["band"], "unknown");
+    assert_eq!(data["trace_plane"]["rows"], 0);
+    assert_eq!(data["trace_plane"]["last_admitted_at"], Value::Null);
+    assert_eq!(data["sources"]["trace_corpus"]["present"], true);
+
+    // The ledger could NOT be read. Same absence of refusals, different fact.
+    assert_eq!(
+        data["ingest"]["standing"], "unreadable",
+        "{}",
+        data["ingest"]
+    );
+    assert_eq!(data["ingest"]["band"], "unknown");
+    assert!(
+        data["ingest"].get("refusals_in_window").is_none(),
+        "an unread ledger must render NO counts — a zero there is a manufactured clean reading: {}",
+        data["ingest"]
+    );
+    assert_eq!(data["sources"]["ingest_refusals"]["present"], false);
+
+    // Both are named individually, so neither can hide behind the roll-up.
+    let unknown = data["unknown"].as_array().expect("unknown");
+    assert!(unknown.contains(&Value::from("trace_plane")), "{data}");
+    assert!(unknown.contains(&Value::from("ingest")), "{data}");
+
+    // Now the same node WITH a gate that has never been offered anything: the
+    // ingest zero changes token, because "we could not ask" and "nothing was
+    // ever offered" are different answers.
+    let (base, _h) = serve_with(
+        Arc::clone(&engine),
+        Some(idle_metrics()),
+        Some(IngestRefusals::new()),
+    )
+    .await;
+    let data2 = read_state(&base, &owner).await;
+    assert_eq!(data2["ingest"]["standing"], "not_exercised");
+    assert_eq!(data2["ingest"]["refusals_in_window"], 0);
+    assert_eq!(data2["ingest"]["accepted_total"], 0);
+    assert_ne!(
+        data2["ingest"]["standing"], data["ingest"]["standing"],
+        "an unread ledger and an unexercised one are two facts and must not share a token"
+    );
+    // ...and a gate that HAS admitted something reads clean, which the zero
+    // refusal count alone could never have said.
+    let fed = IngestRefusals::new();
+    fed.observe_accept();
+    let (base, _h) = serve_with(Arc::clone(&engine), Some(idle_metrics()), Some(fed)).await;
+    let data3 = read_state(&base, &owner).await;
+    assert_eq!(data3["ingest"]["standing"], "clean");
+    assert_eq!(data3["ingest"]["band"], "green");
+    assert_ne!(data3["ingest"]["standing"], data2["ingest"]["standing"]);
+}
+
 /// Every operator-facing string is a `{id, text}` pair, and the payload declares
 /// which locale the `text` fields fall back TO.
 #[tokio::test]
@@ -623,7 +785,12 @@ async fn every_string_on_the_wire_is_localizable() {
         &data["carriage"]["explains"],
         &data["receive"]["explains"],
         &data["receive"]["note"],
+        &data["trace_plane"]["explains"],
+        &data["trace_plane"]["note"],
+        &data["ingest"]["explains"],
+        &data["ingest"]["note"],
         &data["volatility"]["process_local"]["note"],
+        &data["volatility"]["clock_dependent_local"]["note"],
     ] {
         assert!(pair["id"].is_string(), "not a localizable pair: {pair}");
         assert!(pair["text"].is_string(), "not a localizable pair: {pair}");
@@ -642,4 +809,122 @@ async fn every_string_on_the_wire_is_localizable() {
     {
         assert!(c["message"]["id"].is_string(), "{c}");
     }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  THE COMPOSITION GATE — one ledger, both routes (CIRISServer#370)
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[path = "support/accord_batch.rs"]
+mod accord_batch;
+
+/// **The join nobody owned.**
+///
+/// #370's entire reading rests on one sentence that used to live only as a
+/// comment at the composition root: *pass the SAME ledger to the route that
+/// admits and the route that reads.* A composition that minted a second one
+/// compiled, served, and passed every test in this repo — the ingest route would
+/// count into a ledger with no reader while the operator surface reported a
+/// permanently `not_exercised` gate on a node being flooded. Individually
+/// correct components, a silently dead composite: the 2026-08-05 failure with
+/// the subject changed.
+///
+/// So this drives BOTH routes on ONE served application, built the way
+/// `compose::serve` builds it, and asserts that a refusal delivered to the first
+/// is visible on the second. There is no ledger handle in the test at all —
+/// [`operator_surface::trace_plane_router`] mints it, which is what makes the
+/// two-ledger composition unrepresentable rather than merely discouraged.
+///
+/// MUTATION EVIDENCE: give `trace_plane_router` a second
+/// `IngestRefusals::new()` for the operator half; the surface reads
+/// `not_exercised` with `refused_total: 0` while the gate returns 401, and this
+/// goes RED. Every other test in this repo stays green.
+#[tokio::test]
+async fn the_route_that_admits_and_the_route_that_reads_share_one_ledger() {
+    // The RCA's own producer: a real Ed25519 key, correctly signed, naming
+    // itself with its agent-credits identity.
+    const CREDITS: &str = "agent-55fe8d181727";
+
+    let engine = node().await;
+    register_self(&engine).await;
+    bind_owner(&engine).await;
+    let owner = mint_session(&engine, "wa-owner", WaRole::Root).await;
+    let (base, _h) = serve_trace_plane(Arc::clone(&engine), Some(idle_metrics())).await;
+
+    // Before anything is offered, the gate is honestly UNTESTED — not clean.
+    // Without this the assertion below could be passing on a stale default.
+    let before = read_state(&base, &owner).await;
+    assert_eq!(
+        before["ingest"]["standing"],
+        serde_json::json!("not_exercised"),
+        "nothing has been offered yet, and that is an untested zero: {}",
+        before["ingest"]
+    );
+
+    // Offer a batch to the INGEST route on the SAME application.
+    let resp = reqwest::Client::new()
+        .post(format!(
+            "{base}{}",
+            ciris_server::ingest_http::LEGACY_INGEST_PATH
+        ))
+        .header("content-type", "application/json")
+        .header("user-agent", "CIRIS-AccordMetrics/1.0")
+        .body(accord_batch::build_batch_bytes(
+            &SigningKey::from_bytes(&[0x11; 32]),
+            CREDITS,
+            "trace-compose-0001",
+        ))
+        .send()
+        .await
+        .expect("POST the ingest route");
+    assert_eq!(
+        resp.status(),
+        401,
+        "the admission gate must refuse an unregistered signer — it was always right"
+    );
+    let refusal: Value = resp.json().await.expect("refusal body");
+    assert_eq!(refusal["error"], serde_json::json!("verify_unknown_key"));
+    assert_eq!(
+        refusal["key_id_namespace"],
+        serde_json::json!("agent_credits"),
+        "and it must tell the producer which of its identities it signed with: {refusal}"
+    );
+
+    // ...and the OPERATOR route on that same application must have seen it.
+    let after = read_state(&base, &owner).await;
+    assert_eq!(
+        after["ingest"]["refused_total"],
+        serde_json::json!(1),
+        "the refusal reached the gate and not the reader — two ledgers, one question, and the \
+         operator surface would report a quiet node through any flood: {}",
+        after["ingest"]
+    );
+    assert_eq!(
+        after["ingest"]["by_kind"]["verify_unknown_key"],
+        serde_json::json!(1),
+        "{}",
+        after["ingest"]
+    );
+    assert_eq!(
+        after["ingest"]["top_signers"][0]["signer_id"],
+        serde_json::json!(CREDITS),
+        "the operator's copy names WHO to go fix: {}",
+        after["ingest"]
+    );
+    assert_ne!(
+        after["ingest"]["standing"], before["ingest"]["standing"],
+        "an offered batch must change the reading; if it does not, the two routes are not looking \
+         at the same ledger"
+    );
+
+    // The ingest route also publishes the ledger to the process static the
+    // in-process (python fold) accessor reads — a second way to hold the same
+    // handle, and it must agree with the HTTP surface rather than be a third
+    // answer.
+    let held = ciris_server::ingest_http::held().expect("the mounted route published its ledger");
+    assert_eq!(
+        held.snapshot().refused_total,
+        1,
+        "the fold accessor and the HTTP surface must read ONE ledger"
+    );
 }

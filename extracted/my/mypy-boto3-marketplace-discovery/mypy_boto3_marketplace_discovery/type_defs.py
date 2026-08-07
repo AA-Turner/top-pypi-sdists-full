@@ -99,6 +99,7 @@ __all__ = (
     "ListingFacetTypeDef",
     "ListingSummaryAssociatedEntityTypeDef",
     "ListingSummaryTypeDef",
+    "NetPaymentTermTypeDef",
     "OfferAssociatedEntityTypeDef",
     "OfferInformationTypeDef",
     "OfferSetAssociatedEntityTypeDef",
@@ -353,6 +354,14 @@ class ListingFacetTypeDef(TypedDict):
     parent: NotRequired[str]
 
 
+NetPaymentTermTypeDef = TypedDict(
+    "NetPaymentTermTypeDef",
+    {
+        "id": str,
+        "type": TermTypeType,
+        "paymentDuePeriod": str,
+    },
+)
 RecurringPaymentTermTypeDef = TypedDict(
     "RecurringPaymentTermTypeDef",
     {
@@ -732,10 +741,10 @@ class GetProductOutputTypeDef(TypedDict):
     productId: str
     catalog: str
     productName: str
+    manufacturer: SellerInformationTypeDef
     deployedOnAws: DeployedOnAwsStatusType
     shortDescription: str
     longDescription: str
-    manufacturer: SellerInformationTypeDef
     logoThumbnailUrl: str
     fulfillmentOptionSummaries: list[FulfillmentOptionSummaryTypeDef]
     categories: list[CategoryTypeDef]
@@ -811,11 +820,11 @@ class ListingSummaryTypeDef(TypedDict):
     listingId: str
     listingName: str
     publisher: SellerInformationTypeDef
+    fulfillmentOptionSummaries: list[FulfillmentOptionSummaryTypeDef]
     catalog: str
     shortDescription: str
     logoThumbnailUrl: str
     categories: list[CategoryTypeDef]
-    fulfillmentOptionSummaries: list[FulfillmentOptionSummaryTypeDef]
     badges: list[ListingBadgeTypeDef]
     reviewSummary: ReviewSummaryTypeDef
     pricingModels: list[PricingModelTypeDef]
@@ -827,14 +836,14 @@ class GetOfferOutputTypeDef(TypedDict):
     offerId: str
     catalog: str
     offerName: str
-    agreementProposalId: str
     expirationTime: datetime
     availableFromTime: datetime
     sellerOfRecord: SellerInformationTypeDef
+    associatedEntities: list[OfferAssociatedEntityTypeDef]
+    agreementProposalId: str
     replacementAgreementId: str
     pricingModel: PricingModelTypeDef
     badges: list[PurchaseOptionBadgeTypeDef]
-    associatedEntities: list[OfferAssociatedEntityTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -882,6 +891,7 @@ class OfferTermTypeDef(TypedDict):
     usageBasedPricingTerm: NotRequired[UsageBasedPricingTermTypeDef]
     validityTerm: NotRequired[ValidityTermTypeDef]
     variablePaymentTerm: NotRequired[VariablePaymentTermTypeDef]
+    netPaymentTerm: NotRequired[NetPaymentTermTypeDef]
 
 
 class SearchListingsOutputTypeDef(TypedDict):

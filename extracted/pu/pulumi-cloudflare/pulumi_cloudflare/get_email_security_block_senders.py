@@ -27,16 +27,13 @@ class GetEmailSecurityBlockSendersResult:
     """
     A collection of values returned by getEmailSecurityBlockSenders.
     """
-    def __init__(__self__, account_id=None, direction=None, id=None, max_items=None, order=None, pattern=None, pattern_type=None, results=None, search=None):
+    def __init__(__self__, account_id=None, direction=None, max_items=None, order=None, pattern=None, pattern_type=None, results=None, search=None):
         if account_id and not isinstance(account_id, str):
             raise TypeError("Expected argument 'account_id' to be a str")
         pulumi.set(__self__, "account_id", account_id)
         if direction and not isinstance(direction, str):
             raise TypeError("Expected argument 'direction' to be a str")
         pulumi.set(__self__, "direction", direction)
-        if id and not isinstance(id, str):
-            raise TypeError("Expected argument 'id' to be a str")
-        pulumi.set(__self__, "id", id)
         if max_items and not isinstance(max_items, int):
             raise TypeError("Expected argument 'max_items' to be a int")
         pulumi.set(__self__, "max_items", max_items)
@@ -59,76 +56,41 @@ class GetEmailSecurityBlockSendersResult:
     @_builtins.property
     @pulumi.getter(name="accountId")
     def account_id(self) -> Optional[_builtins.str]:
-        """
-        Identifier.
-        """
         return pulumi.get(self, "account_id")
 
     @_builtins.property
     @pulumi.getter
     def direction(self) -> Optional[_builtins.str]:
-        """
-        The sorting direction.
-        Available values: "asc", "desc".
-        """
         return pulumi.get(self, "direction")
-
-    @_builtins.property
-    @pulumi.getter
-    def id(self) -> _builtins.str:
-        """
-        The provider-assigned unique ID for this managed resource.
-        """
-        return pulumi.get(self, "id")
 
     @_builtins.property
     @pulumi.getter(name="maxItems")
     def max_items(self) -> Optional[_builtins.int]:
-        """
-        Max items to fetch, default: 1000
-        """
         return pulumi.get(self, "max_items")
 
     @_builtins.property
     @pulumi.getter
     def order(self) -> Optional[_builtins.str]:
-        """
-        Field to sort by.
-        Available values: "pattern", "created_at".
-        """
         return pulumi.get(self, "order")
 
     @_builtins.property
     @pulumi.getter
     def pattern(self) -> Optional[_builtins.str]:
-        """
-        Filter by pattern value.
-        """
         return pulumi.get(self, "pattern")
 
     @_builtins.property
     @pulumi.getter(name="patternType")
     def pattern_type(self) -> Optional[_builtins.str]:
-        """
-        Filter by pattern type.
-        Available values: "EMAIL", "DOMAIN", "IP", "UNKNOWN".
-        """
         return pulumi.get(self, "pattern_type")
 
     @_builtins.property
     @pulumi.getter
     def results(self) -> Sequence['outputs.GetEmailSecurityBlockSendersResultResult']:
-        """
-        The items returned by the data source
-        """
         return pulumi.get(self, "results")
 
     @_builtins.property
     @pulumi.getter
     def search(self) -> Optional[_builtins.str]:
-        """
-        Search term for filtering records. Behavior may change.
-        """
         return pulumi.get(self, "search")
 
 
@@ -140,7 +102,6 @@ class AwaitableGetEmailSecurityBlockSendersResult(GetEmailSecurityBlockSendersRe
         return GetEmailSecurityBlockSendersResult(
             account_id=self.account_id,
             direction=self.direction,
-            id=self.id,
             max_items=self.max_items,
             order=self.order,
             pattern=self.pattern,
@@ -176,18 +137,6 @@ def get_email_security_block_senders(account_id: Optional[_builtins.str] = None,
         pattern_type="EMAIL",
         search="search")
     ```
-
-
-    :param _builtins.str account_id: Identifier.
-    :param _builtins.str direction: The sorting direction.
-           Available values: "asc", "desc".
-    :param _builtins.int max_items: Max items to fetch, default: 1000
-    :param _builtins.str order: Field to sort by.
-           Available values: "pattern", "created_at".
-    :param _builtins.str pattern: Filter by pattern value.
-    :param _builtins.str pattern_type: Filter by pattern type.
-           Available values: "EMAIL", "DOMAIN", "IP", "UNKNOWN".
-    :param _builtins.str search: Search term for filtering records. Behavior may change.
     """
     __args__ = dict()
     __args__['accountId'] = account_id
@@ -203,7 +152,6 @@ def get_email_security_block_senders(account_id: Optional[_builtins.str] = None,
     return AwaitableGetEmailSecurityBlockSendersResult(
         account_id=pulumi.get(__ret__, 'account_id'),
         direction=pulumi.get(__ret__, 'direction'),
-        id=pulumi.get(__ret__, 'id'),
         max_items=pulumi.get(__ret__, 'max_items'),
         order=pulumi.get(__ret__, 'order'),
         pattern=pulumi.get(__ret__, 'pattern'),
@@ -237,18 +185,6 @@ def get_email_security_block_senders_output(account_id: pulumi.Input[Optional[Op
         pattern_type="EMAIL",
         search="search")
     ```
-
-
-    :param _builtins.str account_id: Identifier.
-    :param _builtins.str direction: The sorting direction.
-           Available values: "asc", "desc".
-    :param _builtins.int max_items: Max items to fetch, default: 1000
-    :param _builtins.str order: Field to sort by.
-           Available values: "pattern", "created_at".
-    :param _builtins.str pattern: Filter by pattern value.
-    :param _builtins.str pattern_type: Filter by pattern type.
-           Available values: "EMAIL", "DOMAIN", "IP", "UNKNOWN".
-    :param _builtins.str search: Search term for filtering records. Behavior may change.
     """
     __args__ = dict()
     __args__['accountId'] = account_id
@@ -263,7 +199,6 @@ def get_email_security_block_senders_output(account_id: pulumi.Input[Optional[Op
     return __ret__.apply(lambda __response__: GetEmailSecurityBlockSendersResult(
         account_id=pulumi.get(__response__, 'account_id'),
         direction=pulumi.get(__response__, 'direction'),
-        id=pulumi.get(__response__, 'id'),
         max_items=pulumi.get(__response__, 'max_items'),
         order=pulumi.get(__response__, 'order'),
         pattern=pulumi.get(__response__, 'pattern'),

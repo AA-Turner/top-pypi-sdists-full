@@ -5012,10 +5012,7 @@ class CTable(_CTableIndexingMixin, Generic[RowT]):
     @staticmethod
     def _cell_text(value, float_precision: int | None = None) -> str:
         if isinstance(value, np.datetime64):
-            s = str(value).replace("T", " ")
-            if s.endswith(".000"):
-                s = s[:-4]
-            return s
+            return str(value).replace("T", " ").removesuffix(".000")
         if isinstance(value, np.ndarray):
             if value.ndim == 1 and value.size <= 6:
                 return np.array2string(value, separator=", ", max_line_width=10_000)
@@ -13442,10 +13439,21 @@ class CTable(_CTableIndexingMixin, Generic[RowT]):
 
         filter_len = len(filter)
         if filter_len != target_len:
-            if filter_len == self.nrows:
-                physical = blosc2.zeros(target_len, dtype=np.bool_)
-                physical[self._valid_rows] = filter[:]
-                filter = physical
+            n_live = self.nrows
+            if filter_len <= n_live:
+                # A mask no longer than the live-row count is logical: entry i
+                # selects the i-th live row of this view.  A short one simply
+                # leaves the trailing live rows unselected.  Padding it out to
+                # the physical length instead would align it with the
+                # underlying column, so it would pick up rows outside the view.
+                if filter_len < n_live:
+                    logical = blosc2.zeros(n_live, dtype=np.bool_)
+                    logical[:filter_len] = filter[:]
+                    filter = logical
+                if n_live != target_len:
+                    physical = blosc2.zeros(target_len, dtype=np.bool_)
+                    physical[self._valid_rows] = filter[:]
+                    filter = physical
                 filter_intersected = True
             elif filter_len > target_len:
                 filter = filter[:target_len]

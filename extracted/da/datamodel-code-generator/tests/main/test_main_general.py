@@ -96,6 +96,7 @@ assert_file_content = create_assert_file_content(EXPECTED_MAIN_PATH)
 BLACK_VERSION = version.parse(black.__version__)
 BLACK_LT_233 = version.parse("23.3.0") > BLACK_VERSION
 BLACK_LT_24 = version.parse("24.0.0") > BLACK_VERSION
+CLI_OPTION_SUGGESTIONS_PATH = EXPECTED_MAIN_PATH / "cli_option_suggestions"
 
 
 class _GenerateParseAbort(BaseException):
@@ -455,6 +456,43 @@ def test_show_help(no_color: bool, capsys: pytest.CaptureFixture[str]) -> None:
     )
 
 
+@pytest.mark.parametrize(
+    ("args", "expected_stderr_name"),
+    [
+        (["--output-model-tipe"], "output_model_type.txt"),
+        (["--output-model-tipe=pydantic_v2.BaseModel"], "output_model_type_with_value.txt"),
+        (["--output-model-tipe", "--input-file-tipe"], "multiple_options.txt"),
+        (["--output-model-tipe", "--output-model-tipe"], "deduplicated_option.txt"),
+        (["--not-a-valid-option"], "unknown_option.txt"),
+        (["not-an-option"], "positional_argument.txt"),
+        (["--", "--output-model-tipe"], "option_terminator.txt"),
+        (["--output-model-type"], "missing_option_value.txt"),
+    ],
+    ids=[
+        "close-match",
+        "close-match-with-value",
+        "multiple-options",
+        "deduplicated-option",
+        "no-match",
+        "positional",
+        "option-terminator",
+        "missing-value",
+    ],
+)
+def test_invalid_cli_option_suggestions(
+    args: list[str], expected_stderr_name: str, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """Suggest close option names without changing unrelated parser errors."""
+    run_main_with_system_exit(args, expected_code=Exit.ERROR)
+    assert_output(
+        capsys
+        .readouterr()
+        .err.replace("usage: \n", "usage:\n")
+        .replace(f"{arg_parser.prog}: error:", "pytest: error:"),
+        CLI_OPTION_SUGGESTIONS_PATH / expected_stderr_name,
+    )
+
+
 def test_show_help_when_no_input(mocker: MockerFixture) -> None:
     """Test help display when no input is provided."""
     print_help_mock = mocker.patch("datamodel_code_generator.__main__.arg_parser.print_help")
@@ -753,6 +791,20 @@ def test_practical_preset_pydantic_v2(output_file: Path) -> None:
         extra_args=["--preset", "practical-py310-20260619"],
         assert_func=assert_file_content,
         expected_file="practical_preset_pydantic_v2.py",
+    )
+
+
+@freeze_time(TIMESTAMP)
+def test_practical_preset_keeps_homogeneous_fixed_length_arrays_as_lists(output_file: Path) -> None:
+    """Keep existing practical presets independent from the new tuple option."""
+    run_main_and_assert(
+        input_path=OPEN_API_DATA_PATH / "fixed_length_array_tuples.yaml",
+        output_path=output_file,
+        input_file_type="openapi",
+        extra_args=["--preset", "practical-py310-20260619"],
+        assert_func=assert_file_content,
+        expected_file="openapi/fixed_length_array_tuples_practical_preset.py",
+        force_exec_validation=True,
     )
 
 

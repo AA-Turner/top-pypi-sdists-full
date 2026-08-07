@@ -2,11 +2,17 @@
 
 from __future__ import annotations
 
+import sys
 from types import MappingProxyType
-from typing import TYPE_CHECKING, NamedTuple
+from typing import TYPE_CHECKING
 
 import regex as re
 from click import echo, style
+
+if sys.version_info >= (3, 13):
+    from typing import NamedTuple
+else:
+    from typing_extensions import NamedTuple
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -66,12 +72,10 @@ def _exclude_match(config: Config, filepath: Path, root: Path) -> bool:
     return False
 
 
-def _included(config: Config, filepath: Path, root: Path) -> bool:
-    """Check whether a file survives the exclude, gitignore and pragma filters."""
-    return (
-        not _exclude_match(config, filepath, root)
-        and no_pragma(config, filepath)
-        and (not config.use_gitignore or not _gitignore_match(config, filepath))
+def _included(config: Config, filepath: Path) -> bool:
+    """Check a file against the filters that need it to exist on disk."""
+    return no_pragma(config, filepath) and (
+        not config.use_gitignore or not _gitignore_match(config, filepath)
     )
 
 
@@ -85,21 +89,28 @@ def get_src(src: Iterable[Path], config: Config) -> SrcFiles:
         normalized_item = item.resolve()
 
         if normalized_item.is_file():
-            if _included(config, normalized_item, config.project_root):
-                paths.append(normalized_item)
-            else:
+            if _exclude_match(
+                config, normalized_item, config.project_root
+            ) or not _included(config, normalized_item):
                 excluded = True
+            else:
+                paths.append(normalized_item)
             continue
 
         # remove leading . from extension
         extension = config.extension.removeprefix(".")
 
         for candidate in normalized_item.glob(f"**/*.{extension}"):
+            if _exclude_match(config, candidate, normalized_item):
+                excluded = True
+                continue
             # a directory can match the extension glob too, and it is not a
-            # candidate at all - opening one raises rather than excluding it
+            # candidate at all - opening one raises rather than excluding it.
+            # The exclude pattern above is pure string work, so testing it
+            # first spares this syscall for everything the pattern drops.
             if not candidate.is_file():
                 continue
-            if _included(config, candidate, normalized_item):
+            if _included(config, candidate):
                 paths.append(candidate)
             else:
                 excluded = True

@@ -6,6 +6,7 @@ from pydantic import UUID4, BaseModel, parse_obj_as
 
 from taktile_auth._logging import get_logger
 from taktile_auth._metrics import emit_metric
+from taktile_auth.constants import normalize_resource_arg
 from taktile_auth.entities import Permission, Role
 from taktile_auth.entities.role import RoleDefinition
 from taktile_auth.exceptions import InsufficientRightsException
@@ -59,6 +60,8 @@ class TaktileIdToken(BaseModel):
 
         # Then, update with any explicit arguments from the permission string
         resource_vals.update(permission.get("args", {}))
+
+        resource_vals = {key: normalize_resource_arg(val) for key, val in resource_vals.items()}
 
         return Permission(
             actions=set(permission["actions"]),

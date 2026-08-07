@@ -2169,8 +2169,27 @@ class MongoGraphStorage(BaseGraphStorage):
 
         Returns:
             list[tuple[str, str]]: List of (source_label, target_label) tuples representing edges
-            None: If no edges found
+            None: If the node does not exist
+
+        An existing node with no relations returns ``[]``, NOT ``None`` — the
+        BaseGraphStorage contract, as implemented by NetworkXStorage. No in-tree
+        caller reads the distinction today (they all guard with ``if edges:``),
+        so this restores the declared contract rather than fixing a live caller;
+        collapsing the two here is what makes the information unrecoverable for
+        a caller that needs it. A backend error is neither value: it propagates.
         """
+        # Existence is decided by the node collection, before the edge scan —
+        # never inferred from the edges. upsert_edge / upsert_edges_batch now
+        # materialize both endpoints, so a dangling target should not arise from
+        # new writes, but rows written before that change still can carry one,
+        # and a read contract must not rest on a write-path invariant anyway.
+        # Inferring existence from the edge scan would make this method
+        # contradict has_node() on the same id, and delete_entity 404s on
+        # has_node(). Checking first also means an absent node costs one indexed
+        # point lookup instead of a full edge scan.
+        if not await self.has_node(source_node_id):
+            return None
+
         cursor = self.edge_collection.find(
             {
                 "$or": [
@@ -2295,8 +2314,24 @@ class MongoGraphStorage(BaseGraphStorage):
         writers race the first insert, the loser hits a ``DuplicateKeyError``; we
         retry once, which now matches the just-inserted doc and updates it.
         """
-        # Ensure source node exists
-        await self.upsert_node(source_node_id, {})
+        # Materialize BOTH endpoints, not just the source. A target-only
+        # endpoint would otherwise carry edges with no node document, and that
+        # dangling state is externally visible: has_node() says absent while the
+        # edge scan says connected, get_popular_labels ranks an id get_node
+        # returns nothing for, and delete_entity 404s on an entity whose edges
+        # are right there. NetworkXStorage.add_edge and PGOpsGraphStorage both
+        # create both ends; this makes the document backends agree.
+        #
+        # One bulk_write instead of two round trips, and $setOnInsert (the form
+        # upsert_edges_batch already uses) so an endpoint that already carries
+        # real properties is never touched. dict.fromkeys collapses a self-loop.
+        await self.collection.bulk_write(
+            [
+                UpdateOne({"_id": nid}, {"$setOnInsert": {"_id": nid}}, upsert=True)
+                for nid in dict.fromkeys((source_node_id, target_node_id))
+            ],
+            ordered=False,
+        )
 
         edge_lo, edge_hi = _canonical_edge_endpoints(source_node_id, target_node_id)
 
@@ -2374,9 +2409,9 @@ class MongoGraphStorage(BaseGraphStorage):
     ) -> None:
         """Batch insert/update multiple edges using a single bulk_write() call.
 
-        Also ensures source nodes exist (matching upsert_edge() behaviour) via a
-        separate bulk_write on the node collection for any source nodes that need
-        to be created as empty placeholders.
+        Also ensures BOTH endpoints of every edge exist (matching upsert_edge()
+        behaviour) via a separate bulk_write on the node collection for any
+        endpoint that needs to be created as an empty placeholder.
 
         Args:
             edges: List of (source_node_id, target_node_id, edge_data) tuples.
@@ -2384,15 +2419,20 @@ class MongoGraphStorage(BaseGraphStorage):
         if not edges:
             return
 
-        # Ensure all source nodes exist (mirrors upsert_edge's upsert_node call)
-        source_node_ids = list(dict.fromkeys(src for src, _tgt, _data in edges))
+        # Both endpoints, not just the source — see upsert_edge for why a
+        # target-only endpoint is externally visible as an inconsistency.
+        endpoint_ids = list(
+            dict.fromkeys(
+                node_id for src, tgt, _data in edges for node_id in (src, tgt)
+            )
+        )
         node_ops: list[tuple[Any, int, str]] = [
             (
-                UpdateOne({"_id": src}, {"$setOnInsert": {"_id": src}}, upsert=True),
-                _estimate_doc_bytes({"_id": src}),
-                src,
+                UpdateOne({"_id": nid}, {"$setOnInsert": {"_id": nid}}, upsert=True),
+                _estimate_doc_bytes({"_id": nid}),
+                nid,
             )
-            for src in source_node_ids
+            for nid in endpoint_ids
         ]
         await _run_batched_bulk_write(
             self.collection,
@@ -2401,7 +2441,7 @@ class MongoGraphStorage(BaseGraphStorage):
             max_records_per_batch=self._max_upsert_records_per_batch,
             ordered=False,
             log_prefix=f"[{self.workspace}] {self.namespace} edges:",
-            what="source-node placeholder upsert",
+            what="edge endpoint placeholder upsert",
         )
 
         # Key every edge by its canonical (edge_lo, edge_hi) pair and dedupe
@@ -2664,18 +2704,20 @@ class MongoGraphStorage(BaseGraphStorage):
         max_depth: int,
         max_nodes: int,
     ) -> KnowledgeGraph:
-        if depth > max_depth or len(result.nodes) > max_nodes:
+        if depth > max_depth:
             return result
 
         cursor = self.collection.find({"_id": {"$in": node_labels}})
 
         async for node in cursor:
             node_id = node["_id"]
-            if node_id not in seen_nodes:
-                seen_nodes.add(node_id)
-                result.nodes.append(self._construct_graph_node(node_id, node))
-                if len(result.nodes) > max_nodes:
-                    return result
+            if node_id in seen_nodes:
+                continue
+            if len(result.nodes) >= max_nodes:
+                result.is_truncated = True
+                return result
+            seen_nodes.add(node_id)
+            result.nodes.append(self._construct_graph_node(node_id, node))
 
         # Collect neighbors
         # Get both inbound and outbound one hop nodes
@@ -2817,19 +2859,42 @@ class MongoGraphStorage(BaseGraphStorage):
             key=lambda x: (x["depth"], -x["weight"]),
         )
 
-        # As order matters, we need to use another list to store the node_id
-        # And only take the first max_nodes ones
-        node_ids = []
+        # Dedupe edge endpoints (excluding the start node) preserving the
+        # existing depth/weight priority order.
+        ordered_candidates = []
+        seen_candidates = set()
         for edge in node_edges:
-            if len(node_ids) < max_nodes and edge["source_node_id"] not in seen_nodes:
-                node_ids.append(edge["source_node_id"])
-                seen_nodes.add(edge["source_node_id"])
+            for candidate in (edge["source_node_id"], edge["target_node_id"]):
+                if candidate != node_label and candidate not in seen_candidates:
+                    seen_candidates.add(candidate)
+                    ordered_candidates.append(candidate)
 
-            if len(node_ids) < max_nodes and edge["target_node_id"] not in seen_nodes:
-                node_ids.append(edge["target_node_id"])
-                seen_nodes.add(edge["target_node_id"])
+        # Candidates are raw edge endpoints: upsert_edge only guarantees the
+        # source node exists, not the target, so some candidates may be
+        # dangling (no node document). Resolve real existence in priority
+        # order, in bounded batches, stopping once max_nodes real candidates
+        # are confirmed -- the start node already occupies one of the
+        # max_nodes slots, so only the first max_nodes - 1 real ids end up in
+        # the result, and finding a max_nodes-th real candidate proves
+        # truncation without having to probe the entire reachable set.
+        real_ids = []
+        batch_size = max(max_nodes, 1)
+        for i in range(0, len(ordered_candidates), batch_size):
+            if len(real_ids) >= max_nodes:
+                break
+            batch = ordered_candidates[i : i + batch_size]
+            found_cursor = self.collection.find({"_id": {"$in": batch}}, {"_id": 1})
+            found_ids = {doc["_id"] async for doc in found_cursor}
+            for candidate in batch:
+                if candidate in found_ids:
+                    real_ids.append(candidate)
+                    if len(real_ids) >= max_nodes:
+                        break
 
-        # Filter out all the node whose id is same as node_label so that we do not check existence next step
+        result.is_truncated = len(real_ids) >= max_nodes
+        node_ids = real_ids[: max_nodes - 1]
+        seen_nodes.update(node_ids)
+
         cursor = self.collection.find({"_id": {"$in": node_ids}})
 
         async for doc in cursor:
@@ -3047,9 +3112,22 @@ class MongoGraphStorage(BaseGraphStorage):
 
         Returns:
             List of labels(entity names) sorted by degree (highest first)
+
+        Two phases, and the second one usually does not run. Phase 1 ranks the
+        entities that HAVE edges, straight off the edge collection — the cheap
+        aggregation, and on any graph with more than ``limit`` connected
+        entities it fills every slot on its own. Only when it comes up short
+        does phase 2 top the result up from the isolated (degree-0) entities,
+        which is exactly the case the edge-only ranking got wrong by returning
+        nothing at all for a graph whose entities carry no relations.
+
+        Giving every node a degree-0 baseline row inside the aggregation instead
+        would be simpler, but it forces a full pass over the node collection on
+        every call — on a large graph, to produce a result phase 1 already had.
         """
         try:
-            # Use aggregation pipeline to count edges per node and sort by degree
+            # Self-loops count twice (the source and target groups each see the
+            # document), matching the other backends.
             pipeline = [
                 # Count outbound edges
                 {"$group": {"_id": "$source_node_id", "out_degree": {"$sum": 1}}},
@@ -3095,13 +3173,35 @@ class MongoGraphStorage(BaseGraphStorage):
                 if doc.get("_id"):
                     labels.append(doc["_id"])
 
+            if len(labels) < limit:
+                # Phase 1 returned fewer than `limit`, and its aggregation is
+                # exact, so the connected set is now known in full: every node
+                # outside it has no edge at all. Top up in label order, bounded
+                # by the shortfall — the sort rides the _id index, so this stops
+                # as soon as it has enough rather than scanning the collection.
+                # list(labels), not labels: the cursor is consumed below while
+                # appending to the same list, and handing the driver a live
+                # reference makes the filter depend on when it serializes.
+                isolated_cursor = (
+                    self.collection.find({"_id": {"$nin": list(labels)}}, {"_id": 1})
+                    .sort("_id", 1)
+                    .limit(limit - len(labels))
+                )
+                async for doc in isolated_cursor:
+                    if doc.get("_id"):
+                        labels.append(doc["_id"])
+
             logger.debug(
                 f"[{self.workspace}] Retrieved {len(labels)} popular labels (limit: {limit})"
             )
             return labels
         except Exception as e:
+            # Raise, never return []: an empty list here is indistinguishable
+            # from "the graph has no entities". /graph/label/popular already
+            # turns an exception into a 500, so swallowing it handed the WebUI a
+            # 200 with an empty entity picker while the database was down.
             logger.error(f"[{self.workspace}] Error getting popular labels: {str(e)}")
-            return []
+            raise
 
     async def _try_atlas_text_search(self, query_strip: str, limit: int) -> list[str]:
         """Try Atlas Search using simple text search."""
@@ -3253,11 +3353,15 @@ class MongoGraphStorage(BaseGraphStorage):
             return labels
 
         except Exception as e:
+            # Last resort in the progressive chain: the Atlas methods are allowed
+            # to fail (they may simply be unavailable) and fall through to here,
+            # but if the regex scan itself fails the search produced no answer at
+            # all. Returning [] would report that as "nothing matched".
             logger.error(f"[{self.workspace}] Regex fallback search failed: {e}")
             import traceback
 
             logger.error(f"[{self.workspace}] Traceback: {traceback.format_exc()}")
-            return []
+            raise
 
     async def search_labels(self, query: str, limit: int = 50) -> list[str]:
         """
@@ -3280,8 +3384,10 @@ class MongoGraphStorage(BaseGraphStorage):
                 )
                 return []
         except PyMongoError as e:
+            # A failed count is not "the graph is empty" — that shortcut would
+            # report a transport blip as "no labels match".
             logger.error(f"[{self.workspace}] Error counting nodes: {e}")
-            return []
+            raise
 
         # Progressive search strategy
         search_methods = [

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: skillsaw
-Version: 0.17.0
+Version: 0.18.0
 Summary: A configurable linter for agent skills, plugins, and AI coding assistant context
 Author-email: Stephen Benjamin <stephen@bitbin.de>
 License: Apache-2.0
@@ -27,6 +27,7 @@ License-File: LICENSE
 Requires-Dist: PyYAML>=6.0
 Requires-Dist: ruamel.yaml>=0.18
 Requires-Dist: markdown-it-py<5,>=3
+Requires-Dist: jsonschema<5,>=4.18
 Provides-Extra: docs
 Requires-Dist: mkdocs-material>=9.0; extra == "docs"
 Requires-Dist: mkdocs-redirects<1.2.4,>=1.2; extra == "docs"
@@ -66,7 +67,9 @@ problems that make agents less reliable: vague language, contradictions,
 buried priorities, repeated directives, hidden content, broken references,
 unsafe configuration, and more.
 
-It understands Agent Skills, Claude Code plugins, CLAUDE.md, AGENTS.md,
+It understands Agent Skills,
+[Agent Plugins v1](https://agent-plugins.org/specification), Claude Code
+plugins, OpenAI Codex plugins and marketplaces, CLAUDE.md, AGENTS.md,
 GEMINI.md, Cursor, Copilot, Kiro, hooks, agent configuration, and evals. Safe
 structural fixes can be applied automatically; everything else comes with
 precise, agent-friendly guidance.
@@ -113,6 +116,10 @@ uvx skillsaw baseline  # Accept existing findings and fail only on new ones
 - **Repository drift:** broken references, unreferenced files, inconsistent
   terminology, stale baselines, and context-budget regressions.
 
+The `description-routing` rule checks when-to-use phrasing and descriptions that
+only repeat a skill, agent, or command name. Both checks can be configured
+independently; see the [rule reference](https://skillsaw.org/rules/description-routing/).
+
 skillsaw detects the repository type automatically and can lint multiple types
 in the same project. See [supported repository
 types](https://skillsaw.org/repo-types/) and the [complete rule
@@ -131,6 +138,7 @@ add local rules or install rule plugins.
 | Install and run skillsaw | [Getting Started](https://skillsaw.org/getting-started/) |
 | Tune rules and exclusions | [Configuration](https://skillsaw.org/configuration/) |
 | Adopt it without fixing everything at once | [Baselines](https://skillsaw.org/baseline/) |
+| Convert plugins to Agent Plugins v1 with `skillsaw port` | [Porting to Agent Plugins](https://skillsaw.org/porting/) |
 | Add checks to pull requests | [CI Integration](https://skillsaw.org/ci/) |
 | Understand and apply fixes | [Autofixing](https://skillsaw.org/autofixing/) |
 | Create project-specific checks | [Custom Rules](https://skillsaw.org/custom-rules/) |

@@ -9,6 +9,7 @@ import google.protobuf.descriptor
 import google.protobuf.empty_pb2
 import google.protobuf.internal.containers
 import google.protobuf.message
+import sentry_protos.billing.v1.common.v1.soft_cap_type_pb2
 import sentry_protos.billing.v1.common.v1.sponsored_type_pb2
 import typing
 
@@ -81,6 +82,7 @@ class PendingUserConfig(google.protobuf.message.Message):
     RESERVATION_FIELD_NUMBER: builtins.int
     SPECIFIC_ITEMS_FIELD_NUMBER: builtins.int
     ALL_ITEMS_FIELD_NUMBER: builtins.int
+    SOFT_CAP_FIELD_NUMBER: builtins.int
     @property
     def payg_budget(self) -> global___PAYGBudget:
         """Pending PAYG budget for the covered line items. Unset means the PAYG
@@ -105,6 +107,10 @@ class PendingUserConfig(google.protobuf.message.Message):
         shared PAYG budgets.
         """
 
+    @property
+    def soft_cap(self) -> global___SoftCap:
+        """Pending soft-cap override."""
+
     def __init__(
         self,
         *,
@@ -112,13 +118,16 @@ class PendingUserConfig(google.protobuf.message.Message):
         reservation: global___Reservation | None = ...,
         specific_items: global___LineItemUids | None = ...,
         all_items: google.protobuf.empty_pb2.Empty | None = ...,
+        soft_cap: global___SoftCap | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["_payg_budget", b"_payg_budget", "_reservation", b"_reservation", "all_items", b"all_items", "line_items", b"line_items", "payg_budget", b"payg_budget", "reservation", b"reservation", "specific_items", b"specific_items"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["_payg_budget", b"_payg_budget", "_reservation", b"_reservation", "all_items", b"all_items", "line_items", b"line_items", "payg_budget", b"payg_budget", "reservation", b"reservation", "specific_items", b"specific_items"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["_payg_budget", b"_payg_budget", "_reservation", b"_reservation", "_soft_cap", b"_soft_cap", "all_items", b"all_items", "line_items", b"line_items", "payg_budget", b"payg_budget", "reservation", b"reservation", "soft_cap", b"soft_cap", "specific_items", b"specific_items"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["_payg_budget", b"_payg_budget", "_reservation", b"_reservation", "_soft_cap", b"_soft_cap", "all_items", b"all_items", "line_items", b"line_items", "payg_budget", b"payg_budget", "reservation", b"reservation", "soft_cap", b"soft_cap", "specific_items", b"specific_items"]) -> None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing.Literal["_payg_budget", b"_payg_budget"]) -> typing.Literal["payg_budget"] | None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing.Literal["_reservation", b"_reservation"]) -> typing.Literal["reservation"] | None: ...
+    @typing.overload
+    def WhichOneof(self, oneof_group: typing.Literal["_soft_cap", b"_soft_cap"]) -> typing.Literal["soft_cap"] | None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing.Literal["line_items", b"line_items"]) -> typing.Literal["specific_items", "all_items"] | None: ...
 
@@ -169,6 +178,26 @@ class Reservation(google.protobuf.message.Message):
     def WhichOneof(self, oneof_group: typing.Literal["reserved_units", b"reserved_units"]) -> typing.Literal["is_unlimited", "num_reserved_units"] | None: ...
 
 global___Reservation = Reservation
+
+@typing.final
+class SoftCap(google.protobuf.message.Message):
+    """A pending soft-cap override."""
+
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    TYPE_FIELD_NUMBER: builtins.int
+    CLEAR_USER_PARAMETER_FIELD_NUMBER: builtins.int
+    type: sentry_protos.billing.v1.common.v1.soft_cap_type_pb2.SoftCapType.ValueType
+    clear_user_parameter: builtins.bool
+    def __init__(
+        self,
+        *,
+        type: sentry_protos.billing.v1.common.v1.soft_cap_type_pb2.SoftCapType.ValueType = ...,
+        clear_user_parameter: builtins.bool = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing.Literal["clear_user_parameter", b"clear_user_parameter", "type", b"type"]) -> None: ...
+
+global___SoftCap = SoftCap
 
 @typing.final
 class LineItemUids(google.protobuf.message.Message):

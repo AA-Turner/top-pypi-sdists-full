@@ -29,6 +29,7 @@ class CreateImageRequest(DaraModel):
         resource_group_id: str = None,
         resource_owner_account: str = None,
         resource_owner_id: int = None,
+        secure_boot_options: main_models.CreateImageRequestSecureBootOptions = None,
         snapshot_id: str = None,
         tag: List[main_models.CreateImageRequestTag] = None,
     ):
@@ -118,6 +119,7 @@ class CreateImageRequest(DaraModel):
         self.resource_group_id = resource_group_id
         self.resource_owner_account = resource_owner_account
         self.resource_owner_id = resource_owner_id
+        self.secure_boot_options = secure_boot_options
         # The snapshot ID used to create the custom image.
         # 
         # > If you want to create a custom image from only the system disk snapshot of an instance, you can use this parameter or the `DiskDeviceMapping.N.SnapshotId` parameter. To include data disk snapshots, use only the `DiskDeviceMapping.N.SnapshotId` parameter.
@@ -132,6 +134,8 @@ class CreateImageRequest(DaraModel):
                     v1.validate()
         if self.features:
             self.features.validate()
+        if self.secure_boot_options:
+            self.secure_boot_options.validate()
         if self.tag:
             for v1 in self.tag:
                  if v1:
@@ -200,6 +204,9 @@ class CreateImageRequest(DaraModel):
 
         if self.resource_owner_id is not None:
             result['ResourceOwnerId'] = self.resource_owner_id
+
+        if self.secure_boot_options is not None:
+            result['SecureBootOptions'] = self.secure_boot_options.to_map()
 
         if self.snapshot_id is not None:
             result['SnapshotId'] = self.snapshot_id
@@ -274,6 +281,10 @@ class CreateImageRequest(DaraModel):
         if m.get('ResourceOwnerId') is not None:
             self.resource_owner_id = m.get('ResourceOwnerId')
 
+        if m.get('SecureBootOptions') is not None:
+            temp_model = main_models.CreateImageRequestSecureBootOptions()
+            self.secure_boot_options = temp_model.from_map(m.get('SecureBootOptions'))
+
         if m.get('SnapshotId') is not None:
             self.snapshot_id = m.get('SnapshotId')
 
@@ -319,6 +330,33 @@ class CreateImageRequestTag(DaraModel):
 
         if m.get('Value') is not None:
             self.value = m.get('Value')
+
+        return self
+
+class CreateImageRequestSecureBootOptions(DaraModel):
+    def __init__(
+        self,
+        secure_boot_support: str = None,
+    ):
+        self.secure_boot_support = secure_boot_support
+
+    def validate(self):
+        pass
+
+    def to_map(self):
+        result = dict()
+        _map = super().to_map()
+        if _map is not None:
+            result = _map
+        if self.secure_boot_support is not None:
+            result['SecureBootSupport'] = self.secure_boot_support
+
+        return result
+
+    def from_map(self, m: dict = None):
+        m = m or dict()
+        if m.get('SecureBootSupport') is not None:
+            self.secure_boot_support = m.get('SecureBootSupport')
 
         return self
 

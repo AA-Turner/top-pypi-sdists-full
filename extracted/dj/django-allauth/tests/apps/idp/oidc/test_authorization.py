@@ -1,9 +1,11 @@
+from datetime import timedelta
 from http import HTTPStatus
 from unittest.mock import ANY
 from urllib.parse import parse_qs, urlparse
 
 from django.test import Client
 from django.urls import reverse
+from django.utils import timezone
 from django.utils.http import urlencode
 
 import jwt
@@ -246,8 +248,63 @@ def test_authorization_code_flow_skip_consent(
     }
 
 
+@pytest.mark.parametrize("refresh_token_expires_in", [None, 3600])
+def test_authorization_code_flow_refresh_token_expiry(
+    auth_client,
+    oidc_client,
+    oidc_client_secret,
+    enable_cache,
+    settings,
+    refresh_token_expires_in,
+):
+    # The initially issued refresh token carries the configured expiry, and
+    # the lifetime is exposed in the token response as ``refresh_expires_in``.
+    settings.IDP_OIDC_REFRESH_TOKEN_EXPIRES_IN = refresh_token_expires_in
+    oidc_client.skip_consent = True
+    oidc_client.save()
+    redirect_uri = oidc_client.get_redirect_uris()[0]
+    resp = auth_client.get(
+        reverse("idp:oidc:authorization")
+        + "?"
+        + urlencode(
+            {
+                "client_id": oidc_client.id,
+                "response_type": "code",
+                "scope": "openid",
+                "nonce": "some-nonce",
+                "state": "some-state",
+                "redirect_uri": redirect_uri,
+            }
+        )
+    )
+    assert resp.status_code == HTTPStatus.FOUND
+    code = parse_qs(urlparse(resp["location"]).query)["code"][0]
+    resp = auth_client.post(
+        reverse("idp:oidc:token"),
+        {
+            "code": code,
+            "grant_type": "authorization_code",
+            "client_id": oidc_client.id,
+            "client_secret": oidc_client_secret,
+            "redirect_uri": redirect_uri,
+        },
+    )
+    assert resp.status_code == HTTPStatus.OK
+    data = resp.json()
+    refresh_token = Token.objects.lookup(
+        Token.Type.REFRESH_TOKEN, data["refresh_token"]
+    )
+    if refresh_token_expires_in:
+        assert abs(data["refresh_expires_in"] - refresh_token_expires_in) < 30
+        expected = timezone.now() + timedelta(seconds=refresh_token_expires_in)
+        assert abs((refresh_token.expires_at - expected).total_seconds()) < 30
+    else:
+        assert "refresh_expires_in" not in data
+        assert refresh_token.expires_at is None
+
+
 def test_authorization_id_token_hint_match(
-    user, id_token_generator, oidc_client, auth_client, user_factory
+    user, id_token_factory, oidc_client, auth_client, user_factory
 ):
     redirect_uri = oidc_client.get_redirect_uris()[0]
     # Pass along ID token as hint
@@ -257,7 +314,7 @@ def test_authorization_id_token_hint_match(
         + urlencode(
             {
                 "client_id": oidc_client.id,
-                "id_token_hint": id_token_generator(oidc_client, user),
+                "id_token_hint": id_token_factory(oidc_client, user),
                 "response_type": "code",
                 "scope": "openid",
                 "nonce": "some-nonce",
@@ -270,7 +327,7 @@ def test_authorization_id_token_hint_match(
 
 
 def test_authorization_id_token_hint_mismatch(
-    user, id_token_generator, oidc_client, auth_client, user_factory
+    user, id_token_factory, oidc_client, auth_client, user_factory
 ):
     redirect_uri = oidc_client.get_redirect_uris()[0]
     # Pass along ID token as hint
@@ -280,7 +337,7 @@ def test_authorization_id_token_hint_mismatch(
         + urlencode(
             {
                 "client_id": oidc_client.id,
-                "id_token_hint": id_token_generator(oidc_client, user_factory()),
+                "id_token_hint": id_token_factory(oidc_client, user_factory()),
                 "response_type": "code",
                 "redirect_uri": redirect_uri,
                 "scope": "openid",
@@ -469,9 +526,9 @@ def test_prompt_none(
     error,
     oidc_client,
     user,
-    access_token_generator,
+    access_token_factory,
 ):
-    access_token_generator(oidc_client, user, scopes=["openid"])
+    access_token_factory(oidc_client, user, scopes=["openid"])
     client = request.getfixturevalue(client_fixture)
     redirect_uri = oidc_client.get_redirect_uris()[0]
     resp = client.get(
@@ -611,3 +668,55 @@ def test_authorization_code_requested_granted_resources(
             "error": "invalid_target",
             "error_description": "The requested resource is invalid, missing, unknown, or malformed.",
         }
+
+
+@pytest.mark.parametrize("skip_consent", [False, True])
+@pytest.mark.parametrize("action", ["grant", "deny"])
+def test_authorization_code_app_redirect_uri(
+    auth_client,
+    user,
+    oidc_client,
+    oidc_client_secret,
+    enable_cache,
+    skip_consent,
+    action,
+):
+    redirect_uri = "org.allauth.app://callback"
+    oidc_client.set_redirect_uris([redirect_uri])
+    oidc_client.skip_consent = skip_consent
+    oidc_client.save()
+    resp = auth_client.get(
+        reverse("idp:oidc:authorization")
+        + "?"
+        + urlencode(
+            {
+                "client_id": oidc_client.id,
+                "response_type": "code",
+                "scope": "openid profile email",
+                "nonce": "some-nonce",
+                "state": "some-state",
+                "redirect_uri": redirect_uri,
+            }
+        )
+    )
+    if not skip_consent:
+        assert resp.status_code == HTTPStatus.OK
+        post_data = {
+            "scopes": ["openid"],
+            "action": action,
+            "request": resp.context["form"]["request"].value(),
+        }
+        resp = auth_client.post(
+            reverse("idp:oidc:authorization"),
+            post_data,
+        )
+        if action == "deny":
+            assert (
+                resp["location"]
+                == f"{redirect_uri}?error=access_denied&state=some-state"
+            )
+            return
+
+    assert resp.status_code == HTTPStatus.FOUND
+    redirected_uri = resp["location"]
+    assert redirected_uri.startswith(redirect_uri)

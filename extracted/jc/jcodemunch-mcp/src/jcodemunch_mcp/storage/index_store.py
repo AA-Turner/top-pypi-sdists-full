@@ -414,6 +414,16 @@ class IndexStore:
         """
         return self._sqlite.cleanup_orphan_indexes()
 
+    def heal_pack_index_paths(self) -> int:
+        """Blank the pack builder's clone paths on installed pack indexes.
+
+        Delegates to SQLiteIndexStore.heal_pack_index_paths(). ⚠ This facade is
+        what every caller actually holds — `server.py` and the CLI construct
+        `IndexStore`, not `SQLiteIndexStore` — so a method added only to the
+        implementation is invisible in production (#419).
+        """
+        return self._sqlite.heal_pack_index_paths()
+
     def _safe_repo_component(self, value: str, field_name: str) -> str:
         """Validate and sanitize owner/name components used in on-disk cache paths.
 
@@ -988,7 +998,19 @@ class IndexStore:
 
         for index_file in self.base_path.glob("*.json"):
             slug = index_file.name.removesuffix(".json")
-            if slug in seen_slugs or slug.endswith(".meta"):
+            # ⚠ `pathlib.glob` matches DOTFILES, unlike a shell glob. The storage
+            # root holds internal state files alongside indexes — `.pack-<id>.json`
+            # is the starter-pack install marker — and treating one as a repo index
+            # is not a cosmetic mistake (#417, @MotoMato85). The slug splits into
+            # owner `.pack`, the schema guard rejects it, and every command routing
+            # through list_repos() prints "stale or corrupt JSON index; remove it
+            # with `delete-index .pack/<id>`". Following that advice DELETES the
+            # marker: `_repo_slug(".pack", "<id>")` round-trips to the marker's own
+            # filename, so `delete-index` unlinks it and the pack's "already
+            # installed" check goes blind while its indexes stay on disk.
+            # A repo index is never dot-prefixed: GitHub owners cannot start with a
+            # dot, and local indexes are `local/<name>-<hash>`.
+            if slug.startswith(".") or slug in seen_slugs or slug.endswith(".meta"):
                 continue
             json_files_to_migrate.append(index_file)
             try:

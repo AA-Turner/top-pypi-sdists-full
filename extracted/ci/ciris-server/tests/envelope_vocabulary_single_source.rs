@@ -43,19 +43,28 @@ const FULL_FILE_ALLOW: &[(&str, &str)] = &[
         "field_conformance.rs",
         "conformance-manifest field_processor_matrix identifiers, not envelope keys",
     ),
-    (
-        // The entire module is `#[cfg(all(test, feature = \"test-anchor\"))]`
-        // (see src/lib.rs) — test-only QA fixtures, never a production emit
-        // path, and not compiled by the standard verification suite.
-        "trust_root_qa.rs",
-        "test-only module (#[cfg(all(test, feature = \"test-anchor\"))]) — QA fixtures",
-    ),
+    // (`trust_root_qa.rs` was listed here while it was a `src/` module. It moved
+    // to `tests/` in CIRISServer#362 — this gate only walks `src/`, so the entry
+    // was dead config, and dead config is a claim about the tree that stops
+    // being true without anything failing.)
 ];
 
 /// Specific production lines where the literal is deliberately NOT the persist
 /// key. Matched by (file suffix, distinctive substring) so a line-number shift
 /// does not silence the gate.
 const LINE_ALLOW: &[(&str, &str, &str)] = &[
+    (
+        "admin_ops.rs",
+        "\"dimension\": r.attestation_envelope.get(paths::DIMENSION)",
+        // The tier-R reader-fold projection. The same line READS the envelope
+        // through `paths::DIMENSION` — the rule is honoured where it applies.
+        // The flagged literal is the OUTPUT field name in this surface's HTTP
+        // response, which is a contract with clients, not envelope vocabulary:
+        // if persist renamed DIMENSION tomorrow the wire key it reads must
+        // follow, and the JSON field name clients parse must NOT. Same
+        // reasoning as the `memory_api.rs` entry below.
+        "response-body field name, decoupled from the envelope key on purpose",
+    ),
     (
         "memory_api.rs",
         "\"dimension\": dim",

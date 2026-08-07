@@ -918,6 +918,7 @@ class WorkspacesApi:
 
         _response_types_map: Dict[str, Optional[str]] = {
             '204': None,
+            '202': None,
             '404': "ProblemDetails",
             '409': "ProblemDetails",
         }
@@ -986,6 +987,7 @@ class WorkspacesApi:
 
         _response_types_map: Dict[str, Optional[str]] = {
             '204': None,
+            '202': None,
             '404': "ProblemDetails",
             '409': "ProblemDetails",
         }
@@ -1054,6 +1056,7 @@ class WorkspacesApi:
 
         _response_types_map: Dict[str, Optional[str]] = {
             '204': None,
+            '202': None,
             '404': "ProblemDetails",
             '409': "ProblemDetails",
         }

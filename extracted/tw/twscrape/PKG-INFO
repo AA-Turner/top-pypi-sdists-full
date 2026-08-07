@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: twscrape
-Version: 0.19.2
+Version: 0.20.0
 Summary: Twitter GraphQL and Search API implementation with SNScrape data models
 Project-URL: repository, https://github.com/vladkens/twscrape
 Author-email: vladkens <v.pronsky@gmail.com>
@@ -41,7 +41,7 @@ Description-Content-Type: text/markdown
 twscrape is an async Python library and CLI for X/Twitter Search and GraphQL endpoints. It runs on your own account pool, keeps sessions in SQLite, rotates accounts when an endpoint is rate-limited, and returns either parsed SNScrape-style models or raw API responses.
 
 <div align="center">
-  <img src="https://raw.githubusercontent.com/vladkens/twscrape/v0.19.2/.github/example.png" alt="example of cli usage" height="400px">
+  <img src="https://raw.githubusercontent.com/vladkens/twscrape/v0.20.0/.github/example.png" alt="example of cli usage" height="400px">
 </div>
 
 ## Install
@@ -71,37 +71,36 @@ TWS_HTTP_BACKEND=curl twscrape user_by_login xdevelopers
 ## Sponsor
 
 <p align="center">
-  <a href="https://www.swiftproxy.net/?ref=twscrape">
-    <img src="https://raw.githubusercontent.com/vladkens/twscrape/v0.19.2/.github/swiftproxy.png" alt="Swiftproxy residential proxies" width="460">
+  <a href="https://www.rapidproxy.io/?ref=twscrape">
+    <img src="https://raw.githubusercontent.com/vladkens/twscrape/v0.20.0/.github/rapidproxy.jpg" alt="RapidProxy logo" width="460">
   </a>
 </p>
 
 <p align="center">
-  <a href="https://www.swiftproxy.net/?ref=twscrape"><strong>Swiftproxy</strong></a>
-  provides 90M+ residential IPs across 220+ locations for web scraping,
-  automation, and data collection. Non-expiring traffic, city-level targeting,
-  and a free trial. Use code <code>PROXY90</code> for 10% off.
+  <a href="https://www.rapidproxy.io/?ref=twscrape"><strong>RapidProxy</strong></a> is a residential proxy platform with 90M+ real IPs across 200+ countries. It supports rotation, geo-targeting, and high concurrency to improve scraping success and reduce bans. Start your free trial today!
 </p>
+
+<p align="center">Discount Code: <code>RAPID10</code> to get 10% off.</p>
 
 ## Start With Cookies
 
-twscrape requires authorized X/Twitter accounts. The most stable setup is to add an account from browser cookies containing `auth_token` and `ct0`.
+twscrape requires authorized X/Twitter accounts. The most stable setup is to add an account from browser cookies containing `auth_token` and `ct0`. The recommended way to export them from your current browser profile is [unjar](https://github.com/vladkens/unjar):
 
 ```bash
-twscrape add_cookie my_account "auth_token=xxx; ct0=yyy"
+unjar x.com -f header | twscrape add_cookie my_account
 twscrape accounts
 twscrape search "from:xdevelopers lang:en" --limit=20
 ```
 
-Or let the CLI prompt for the cookie value:
+`my_account` is a local identifier; twscrape does not verify that it matches the X username stored in the cookies. Run the same command again to replace its saved session while preserving credentials, statistics, locks, and proxy settings.
+
+Alternatively, let the CLI prompt securely for cookies copied from x.com -> DevTools (F12) -> Application -> Cookies:
 
 ```bash
 twscrape add_cookie my_account
 ```
 
-Cookie accounts that include `ct0` are activated immediately; no `login_accounts` step is needed.
-
-To get cookies: open x.com -> DevTools (F12) -> Application -> Cookies -> copy `auth_token` and `ct0` values.
+Cookie accounts that include `auth_token` and `ct0` are activated immediately; no `login_accounts` step is needed.
 
 Ready-to-use cookie accounts are available from [this provider](https://kutt.to/ueeM5f). Proxy users can bring their own proxies or use [this provider](https://kutt.to/eb3rXk). These are referral links.
 

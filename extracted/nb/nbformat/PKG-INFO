@@ -1,6 +1,6 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: nbformat
-Version: 5.10.4
+Version: 5.11.0
 Summary: The Jupyter Notebook format
 Project-URL: Homepage, https://jupyter.org
 Project-URL: Changelog, https://github.com/jupyter/nbformat/blob/main/CHANGELOG.md
@@ -46,24 +46,25 @@ Classifier: Intended Audience :: System Administrators
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Requires-Python: >=3.8
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.10
 Requires-Dist: fastjsonschema>=2.15
 Requires-Dist: jsonschema>=2.6
 Requires-Dist: jupyter-core!=5.0.*,>=4.12
 Requires-Dist: traitlets>=5.1
 Provides-Extra: docs
+Requires-Dist: intersphinx-registry; extra == 'docs'
 Requires-Dist: myst-parser; extra == 'docs'
 Requires-Dist: pydata-sphinx-theme; extra == 'docs'
 Requires-Dist: sphinx; extra == 'docs'
 Requires-Dist: sphinxcontrib-github-alt; extra == 'docs'
 Requires-Dist: sphinxcontrib-spelling; extra == 'docs'
 Provides-Extra: test
-Requires-Dist: pep440; extra == 'test'
+Requires-Dist: packaging; extra == 'test'
 Requires-Dist: pre-commit; extra == 'test'
 Requires-Dist: pytest; extra == 'test'
 Requires-Dist: testpath; extra == 'test'

@@ -4,7 +4,7 @@ requires = ["setuptools>=82.0.1"]
 
 [project]
 name = "types-antlr4-python3-runtime"
-version = "4.13.0.20260518"
+version = "4.13.0.20260807"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for antlr4-python3-runtime"
@@ -25,11 +25,12 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://github.com/python/mypy/) 2.1.0
-* [pyright](https://github.com/microsoft/pyright) 1.1.409
+* [mypy](https://github.com/python/mypy/) 2.3.0
+* [pyright](https://github.com/microsoft/pyright) 1.1.411
+* [ty](https://docs.astral.sh/ty/) 0.0.59
 
 It was generated from typeshed commit
-[`3402466d17144ed7edfc92940c6973167ba285af`](https://github.com/python/typeshed/commit/3402466d17144ed7edfc92940c6973167ba285af).
+[`e0efbeef901e9b6998d016e1ab9352678f09ae77`](https://github.com/python/typeshed/commit/e0efbeef901e9b6998d016e1ab9352678f09ae77).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",
@@ -37,6 +38,8 @@ classifiers = [
 ]
 requires-python = ">=3.10"
 dependencies = []
+
+
 
 [project.urls]
 "Homepage" = "https://github.com/python/typeshed"

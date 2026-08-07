@@ -137,19 +137,21 @@ async def call_gpus_api(
     user_token: str,
     run_spec: RunSpec,
     group_by: Optional[List[str]] = None,
-    client_version: Optional[str] = None,
+    full_offers: Optional[bool] = None,
+    unallocated_resources: Optional[bool] = None,
 ):
     """Helper to call the GPUs API with standard parameters."""
-    json_data = {"run_spec": run_spec.dict()}
+    json_data = {"run_spec": run_spec.model_dump()}
     if group_by is not None:
         json_data["group_by"] = group_by
-    headers = get_auth_headers(user_token)
-    if client_version is not None:
-        headers["X-API-Version"] = client_version
+    if full_offers is not None:
+        json_data["full_offers"] = full_offers
+    if unallocated_resources is not None:
+        json_data["unallocated_resources"] = unallocated_resources
 
     return await client.post(
         f"/api/project/{project_name}/gpus/list",
-        headers=headers,
+        headers=get_auth_headers(user_token),
         json=json_data,
     )
 
@@ -189,6 +191,84 @@ class TestListGpus:
         assert "gpus" in response_data
         assert isinstance(response_data["gpus"], list)
         assert len(response_data["gpus"]) >= 1
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("test_db", ["sqlite", "postgres"], indirect=True)
+    @pytest.mark.parametrize(
+        ("body_full_offers", "expected_full_offers"),
+        [
+            pytest.param(None, False, id="omitted-defaults-to-false"),
+            pytest.param(True, True, id="true"),
+            pytest.param(False, False, id="false"),
+        ],
+    )
+    async def test_forwards_full_offers_to_compute_get_offers(
+        self,
+        test_db,
+        session: AsyncSession,
+        client: AsyncClient,
+        body_full_offers: Optional[bool],
+        expected_full_offers: bool,
+    ):
+        user, project, repo, run_spec = await gpu_test_setup(session)
+        offer = create_gpu_offer(BackendType.AWS, "T4", 16384, 0.50)
+        mocked_backends = create_mock_backends_with_offers({BackendType.AWS: [offer]})
+
+        with patch("dstack._internal.server.services.backends.get_project_backends") as m:
+            m.return_value = mocked_backends
+            response = await call_gpus_api(
+                client, project.name, user.token, run_spec, full_offers=body_full_offers
+            )
+
+        assert response.status_code == 200, response.json()
+        get_offers_mock = mocked_backends[0].compute.return_value.get_offers
+        get_offers_mock.assert_called()
+        # get_offers is called as get_offers(requirements, full_offers)
+        assert all(
+            call_args.args[1] is expected_full_offers
+            for call_args in get_offers_mock.call_args_list
+        )
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("test_db", ["sqlite", "postgres"], indirect=True)
+    @pytest.mark.parametrize(
+        ("body_unallocated_resources", "expected_unallocated_resources"),
+        [
+            pytest.param(None, False, id="omitted-defaults-to-false"),
+            pytest.param(True, True, id="true"),
+            pytest.param(False, False, id="false"),
+        ],
+    )
+    async def test_forwards_unallocated_resources_to_compute_get_offers(
+        self,
+        test_db,
+        session: AsyncSession,
+        client: AsyncClient,
+        body_unallocated_resources: Optional[bool],
+        expected_unallocated_resources: bool,
+    ):
+        user, project, repo, run_spec = await gpu_test_setup(session)
+        offer = create_gpu_offer(BackendType.AWS, "T4", 16384, 0.50)
+        mocked_backends = create_mock_backends_with_offers({BackendType.AWS: [offer]})
+
+        with patch("dstack._internal.server.services.backends.get_project_backends") as m:
+            m.return_value = mocked_backends
+            response = await call_gpus_api(
+                client,
+                project.name,
+                user.token,
+                run_spec,
+                unallocated_resources=body_unallocated_resources,
+            )
+
+        assert response.status_code == 200, response.json()
+        get_offers_mock = mocked_backends[0].compute.return_value.get_offers
+        get_offers_mock.assert_called()
+        # get_offers is called as get_offers(requirements, full_offers, unallocated_resources)
+        assert all(
+            call_args.args[2] is expected_unallocated_resources
+            for call_args in get_offers_mock.call_args_list
+        )
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize("test_db", ["sqlite", "postgres"], indirect=True)
@@ -355,7 +435,7 @@ class TestListGpus:
             response = await client.post(
                 f"/api/project/{project.name}/gpus/list",
                 headers=get_auth_headers(user.token),
-                json={"run_spec": run_spec.dict()},
+                json={"run_spec": run_spec.model_dump()},
             )
 
         assert response.status_code == 200
@@ -381,7 +461,7 @@ class TestListGpus:
         response = await client.post(
             f"/api/project/{project.name}/gpus/list",
             headers=get_auth_headers(user.token),
-            json={"run_spec": run_spec.dict(), "group_by": ["invalid_field"]},
+            json={"run_spec": run_spec.model_dump(), "group_by": ["invalid_field"]},
         )
         assert response.status_code == 422
         assert "validation error" in response.text.lower() or "invalid" in response.text.lower()
@@ -518,7 +598,7 @@ class TestListGpus:
             response = await client.post(
                 f"/api/project/{project.name}/gpus/list",
                 headers=get_auth_headers(user.token),
-                json={"run_spec": run_spec.dict()},
+                json={"run_spec": run_spec.model_dump()},
             )
             assert response.status_code == 200
             data = response.json()
@@ -542,7 +622,7 @@ class TestListGpus:
             response_count_grouped = await client.post(
                 f"/api/project/{project.name}/gpus/list",
                 headers=get_auth_headers(user.token),
-                json={"run_spec": run_spec.dict(), "group_by": ["count"]},
+                json={"run_spec": run_spec.model_dump(), "group_by": ["count"]},
             )
             assert response_count_grouped.status_code == 200
             count_grouped_data = response_count_grouped.json()
@@ -582,7 +662,7 @@ class TestListGpus:
             response_backend = await client.post(
                 f"/api/project/{project.name}/gpus/list",
                 headers=get_auth_headers(user.token),
-                json={"run_spec": run_spec.dict(), "group_by": ["backend"]},
+                json={"run_spec": run_spec.model_dump(), "group_by": ["backend"]},
             )
             assert response_backend.status_code == 200
             backend_data = response_backend.json()
@@ -626,7 +706,7 @@ class TestListGpus:
             response_region = await client.post(
                 f"/api/project/{project.name}/gpus/list",
                 headers=get_auth_headers(user.token),
-                json={"run_spec": run_spec.dict(), "group_by": ["backend", "region"]},
+                json={"run_spec": run_spec.model_dump(), "group_by": ["backend", "region"]},
             )
             assert response_region.status_code == 200
             region_data = response_region.json()
@@ -699,44 +779,3 @@ class TestListGpus:
             assert rtx_runpod_euwest1["region"] == "eu-west-1"
             assert rtx_runpod_euwest1["price"]["min"] == 0.65
             assert rtx_runpod_euwest1["price"]["max"] == 0.65
-
-    @pytest.mark.asyncio
-    @pytest.mark.parametrize("test_db", ["sqlite", "postgres"], indirect=True)
-    @pytest.mark.parametrize(
-        ("client_version", "expected_availability"),
-        [
-            ("0.20.3", InstanceAvailability.NOT_AVAILABLE),
-            ("0.20.4", InstanceAvailability.NO_BALANCE),
-            (None, InstanceAvailability.NO_BALANCE),
-        ],
-    )
-    async def test_replaces_no_balance_with_not_available_for_old_clients(
-        self,
-        test_db,
-        session: AsyncSession,
-        client: AsyncClient,
-        client_version: Optional[str],
-        expected_availability: InstanceAvailability,
-    ):
-        user, project, repo, run_spec = await gpu_test_setup(session)
-
-        available_offer = create_gpu_offer(
-            BackendType.AWS, "T4", 16384, 0.50, availability=InstanceAvailability.AVAILABLE
-        )
-        no_balance_offer = create_gpu_offer(
-            BackendType.AWS, "L4", 24 * 1024, 1.0, availability=InstanceAvailability.NO_BALANCE
-        )
-        offers_by_backend = {BackendType.AWS: [available_offer, no_balance_offer]}
-        mocked_backends = create_mock_backends_with_offers(offers_by_backend)
-
-        with patch("dstack._internal.server.services.backends.get_project_backends") as m:
-            m.return_value = mocked_backends
-            response = await call_gpus_api(
-                client, project.name, user.token, run_spec, client_version=client_version
-            )
-
-        assert response.status_code == 200
-        response_data = response.json()
-        assert len(response_data["gpus"]) == 2
-        assert response_data["gpus"][0]["availability"] == [InstanceAvailability.AVAILABLE.value]
-        assert response_data["gpus"][1]["availability"] == [expected_availability.value]

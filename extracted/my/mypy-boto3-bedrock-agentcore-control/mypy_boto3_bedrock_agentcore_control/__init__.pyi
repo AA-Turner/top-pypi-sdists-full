@@ -13,11 +13,13 @@ Usage::
         BedrockAgentCoreControlClient,
         Client,
         ListAgentRuntimeEndpointsPaginator,
+        ListAgentRuntimeVersionsByCapacityProviderPaginator,
         ListAgentRuntimeVersionsPaginator,
         ListAgentRuntimesPaginator,
         ListApiKeyCredentialProvidersPaginator,
         ListBrowserProfilesPaginator,
         ListBrowsersPaginator,
+        ListCapacityProvidersPaginator,
         ListCodeInterpretersPaginator,
         ListConfigurationBundleVersionsPaginator,
         ListConfigurationBundlesPaginator,
@@ -25,6 +27,7 @@ Usage::
         ListDatasetVersionsPaginator,
         ListDatasetsPaginator,
         ListEvaluatorsPaginator,
+        ListGatewayRateLimitsPaginator,
         ListGatewayRulesPaginator,
         ListGatewayTargetsPaginator,
         ListGatewaysPaginator,
@@ -66,11 +69,13 @@ Usage::
     policy_generation_completed_waiter: PolicyGenerationCompletedWaiter = client.get_waiter("policy_generation_completed")
 
     list_agent_runtime_endpoints_paginator: ListAgentRuntimeEndpointsPaginator = client.get_paginator("list_agent_runtime_endpoints")
+    list_agent_runtime_versions_by_capacity_provider_paginator: ListAgentRuntimeVersionsByCapacityProviderPaginator = client.get_paginator("list_agent_runtime_versions_by_capacity_provider")
     list_agent_runtime_versions_paginator: ListAgentRuntimeVersionsPaginator = client.get_paginator("list_agent_runtime_versions")
     list_agent_runtimes_paginator: ListAgentRuntimesPaginator = client.get_paginator("list_agent_runtimes")
     list_api_key_credential_providers_paginator: ListApiKeyCredentialProvidersPaginator = client.get_paginator("list_api_key_credential_providers")
     list_browser_profiles_paginator: ListBrowserProfilesPaginator = client.get_paginator("list_browser_profiles")
     list_browsers_paginator: ListBrowsersPaginator = client.get_paginator("list_browsers")
+    list_capacity_providers_paginator: ListCapacityProvidersPaginator = client.get_paginator("list_capacity_providers")
     list_code_interpreters_paginator: ListCodeInterpretersPaginator = client.get_paginator("list_code_interpreters")
     list_configuration_bundle_versions_paginator: ListConfigurationBundleVersionsPaginator = client.get_paginator("list_configuration_bundle_versions")
     list_configuration_bundles_paginator: ListConfigurationBundlesPaginator = client.get_paginator("list_configuration_bundles")
@@ -78,6 +83,7 @@ Usage::
     list_dataset_versions_paginator: ListDatasetVersionsPaginator = client.get_paginator("list_dataset_versions")
     list_datasets_paginator: ListDatasetsPaginator = client.get_paginator("list_datasets")
     list_evaluators_paginator: ListEvaluatorsPaginator = client.get_paginator("list_evaluators")
+    list_gateway_rate_limits_paginator: ListGatewayRateLimitsPaginator = client.get_paginator("list_gateway_rate_limits")
     list_gateway_rules_paginator: ListGatewayRulesPaginator = client.get_paginator("list_gateway_rules")
     list_gateway_targets_paginator: ListGatewayTargetsPaginator = client.get_paginator("list_gateway_targets")
     list_gateways_paginator: ListGatewaysPaginator = client.get_paginator("list_gateways")
@@ -107,10 +113,12 @@ from .client import BedrockAgentCoreControlClient
 from .paginator import (
     ListAgentRuntimeEndpointsPaginator,
     ListAgentRuntimesPaginator,
+    ListAgentRuntimeVersionsByCapacityProviderPaginator,
     ListAgentRuntimeVersionsPaginator,
     ListApiKeyCredentialProvidersPaginator,
     ListBrowserProfilesPaginator,
     ListBrowsersPaginator,
+    ListCapacityProvidersPaginator,
     ListCodeInterpretersPaginator,
     ListConfigurationBundlesPaginator,
     ListConfigurationBundleVersionsPaginator,
@@ -118,6 +126,7 @@ from .paginator import (
     ListDatasetsPaginator,
     ListDatasetVersionsPaginator,
     ListEvaluatorsPaginator,
+    ListGatewayRateLimitsPaginator,
     ListGatewayRulesPaginator,
     ListGatewaysPaginator,
     ListGatewayTargetsPaginator,
@@ -156,11 +165,13 @@ __all__ = (
     "BedrockAgentCoreControlClient",
     "Client",
     "ListAgentRuntimeEndpointsPaginator",
+    "ListAgentRuntimeVersionsByCapacityProviderPaginator",
     "ListAgentRuntimeVersionsPaginator",
     "ListAgentRuntimesPaginator",
     "ListApiKeyCredentialProvidersPaginator",
     "ListBrowserProfilesPaginator",
     "ListBrowsersPaginator",
+    "ListCapacityProvidersPaginator",
     "ListCodeInterpretersPaginator",
     "ListConfigurationBundleVersionsPaginator",
     "ListConfigurationBundlesPaginator",
@@ -168,6 +179,7 @@ __all__ = (
     "ListDatasetVersionsPaginator",
     "ListDatasetsPaginator",
     "ListEvaluatorsPaginator",
+    "ListGatewayRateLimitsPaginator",
     "ListGatewayRulesPaginator",
     "ListGatewayTargetsPaginator",
     "ListGatewaysPaginator",

@@ -2,6 +2,8 @@
 #
 # Triggers:
 # - push tags v* - When a main-package version tag is pushed (downloads pre-built assets)
+# - workflow_dispatch - Manual re-run for an existing release tag, for when the
+#   tag-push event never reaches a runner (e.g. a GitHub Actions outage)
 #
 # Authentication: This workflow expects GitHub OIDC for passwordless PyPI publishing.
 # For more info: https://docs.pypi.org/trusted-publishers/
@@ -12,6 +14,12 @@ on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
+    inputs:
+      release-tag:
+        description: 'Existing release tag to publish, e.g. v1.2.3. Assets are downloaded from that release.'
+        required: true
+        type: string
 
 jobs:
   publish_to_pypi:
@@ -24,17 +32,33 @@ jobs:
       name: PyPI
       url: https://pypi.org/project/airbyte-internal-ops/
     steps:
-      - name: Download wheel and sdist from release
+      - name: Resolve Variables
+        id: resolve-vars
+        env:
+          INPUT_RELEASE_TAG: ${{ inputs.release-tag }}
+          PUSH_TAG: ${{ github.ref_name }}
+        run: |
+          set -e
+          release_tag="${INPUT_RELEASE_TAG:-$PUSH_TAG}"
+          [[ -z "$release_tag" ]] \
+            && echo "::error::No release tag resolved; pass release-tag when dispatching manually." \
+            && exit 1
+          [[ ! "$release_tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+ ]] \
+            && echo "::error::release-tag must be a version tag like v1.2.3, got '$release_tag'." \
+            && exit 1
+          echo "release_tag=$release_tag" | tee -a "$GITHUB_OUTPUT"
+
+      - name: Download wheel from release
         uses: robinraju/release-downloader@v1.12
         with:
-          tag: ${{ github.ref_name }}
+          tag: ${{ steps.resolve-vars.outputs.release_tag }}
           fileName: "airbyte_internal_ops-*.whl"
           out-file-path: dist
 
       - name: Download sdist from release
         uses: robinraju/release-downloader@v1.12
         with:
-          tag: ${{ github.ref_name }}
+          tag: ${{ steps.resolve-vars.outputs.release_tag }}
           fileName: "airbyte_internal_ops-*.tar.gz"
           out-file-path: dist
 

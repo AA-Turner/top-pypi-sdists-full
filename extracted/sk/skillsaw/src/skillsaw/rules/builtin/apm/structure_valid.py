@@ -8,6 +8,23 @@ from skillsaw.rule import Rule, RuleViolation, Severity
 from skillsaw.context import RepositoryContext
 from skillsaw.lint_target import ApmNode
 
+# Primitive subdirectories APM recognizes under `.apm/` (microsoft/apm
+# package-types / targets-matrix). A package may provide any subset;
+# requiring only skills/ or instructions/ produced false positives on
+# packages built purely from prompts/, agents/, context/, hooks/, or
+# extensions/. `extensions/` is the experimental "canvas" primitive
+# (gated by the canvas flag); it is a real source dir, so a package
+# built purely from it must not be flagged.
+APM_PRIMITIVE_DIRS = (
+    "skills",
+    "instructions",
+    "prompts",
+    "agents",
+    "context",
+    "hooks",
+    "extensions",
+)
+
 
 class ApmStructureValidRule(Rule):
     """Validate .apm/ directory structure"""
@@ -22,7 +39,9 @@ class ApmStructureValidRule(Rule):
 
     @property
     def description(self) -> str:
-        return ".apm/ directory must contain skills/ or instructions/ with valid structure"
+        return (
+            ".apm/ directory must contain a recognized primitive subdirectory with valid structure"
+        )
 
     def default_severity(self) -> Severity:
         return Severity.WARNING
@@ -31,6 +50,11 @@ class ApmStructureValidRule(Rule):
         if not context.has_apm:
             return []
 
+        # No ApmNode means there is no `.apm/` source directory to validate.
+        # A root `apm.yml` alone is a consumer manifest: it declares
+        # dependencies to install into the configured targets and authors no
+        # package content of its own, so requiring a primitive subdirectory
+        # there was a false positive (issue #472).
         apm_nodes = context.lint_tree.find(ApmNode)
         if not apm_nodes:
             return []
@@ -39,12 +63,14 @@ class ApmStructureValidRule(Rule):
         apm_dir = apm_nodes[0].path
 
         has_skills = (apm_dir / "skills").is_dir()
-        has_instructions = (apm_dir / "instructions").is_dir()
+        has_primitive = any((apm_dir / name).is_dir() for name in APM_PRIMITIVE_DIRS)
 
-        if not has_skills and not has_instructions:
+        if not has_primitive:
+            expected = ", ".join(f"'{name}/'" for name in APM_PRIMITIVE_DIRS)
             violations.append(
                 self.violation(
-                    ".apm/ directory should contain a 'skills/' or 'instructions/' subdirectory",
+                    f".apm/ directory should contain a recognized primitive subdirectory "
+                    f"({expected})",
                     file_path=apm_dir,
                 )
             )

@@ -541,6 +541,7 @@ impl Builtin for Awk {
                         Ok(t) => t,
                         Err(e) => return Ok(e),
                     };
+                    ctx.consume_budget_input(program_str.len())?;
                 }
             } else if arg.starts_with('-') {
                 // Unknown option - ignore
@@ -561,9 +562,12 @@ impl Builtin for Awk {
         let program = parser.parse()?;
 
         let mut interp = AwkInterpreter::new();
+        interp.execution_budget = ctx
+            .execution_budget()
+            .and_then(|budget| budget.try_with(Clone::clone).ok());
         interp.max_loop_iterations = ctx
             .execution_extension::<ExecutionLimits>()
-            .map(|limits| limits.max_loop_iterations)
+            .and_then(|limits| limits.try_with(|limits| limits.max_loop_iterations).ok())
             .unwrap_or_else(|| ExecutionLimits::default().max_loop_iterations);
         interp.functions = program.functions.clone();
         interp.state.fs = Self::process_escape_sequences(&field_sep);
@@ -597,14 +601,14 @@ impl Builtin for Awk {
                 }
                 Self::flush_file_outputs(&interp, &ctx).await?;
                 let mut result = ExecResult::with_code(interp.output, exit_code.unwrap_or(0));
-                result.stderr = interp.stderr_output;
+                result.stderr = interp.stderr_output.into();
                 return Ok(result);
             }
         }
 
         // Process input
         let inputs: Vec<String> = if files.is_empty() {
-            vec![ctx.stdin.unwrap_or("").to_string()]
+            vec![ctx.stdin.map(ToString::to_string).unwrap_or_default()]
         } else {
             let mut inputs = Vec::new();
             for file in &files {
@@ -618,6 +622,7 @@ impl Builtin for Awk {
                     Ok(t) => t,
                     Err(e) => return Ok(e),
                 };
+                ctx.consume_budget_input(text.len())?;
                 inputs.push(text);
             }
             inputs
@@ -642,6 +647,7 @@ impl Builtin for Awk {
             interp.line_index = 0;
 
             while interp.line_index < interp.input_lines.len() {
+                ctx.consume_budget_work(1)?;
                 let line = interp.input_lines[interp.line_index].clone();
                 interp.state.set_line(&line);
 
@@ -689,7 +695,7 @@ impl Builtin for Awk {
 
         Self::flush_file_outputs(&interp, &ctx).await?;
         let mut result = ExecResult::with_code(interp.output, exit_code.unwrap_or(0));
-        result.stderr = interp.stderr_output;
+        result.stderr = interp.stderr_output.into();
         Ok(result)
     }
 }

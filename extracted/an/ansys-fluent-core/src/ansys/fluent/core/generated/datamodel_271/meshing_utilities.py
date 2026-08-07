@@ -3,7 +3,7 @@
 #
 # pylint: disable=line-too-long
 
-from ansys.fluent.core.services.datamodel_se import (
+from ansys.fluent.core.services.object_model import (
     PyMenu,
     PyParameter,
     PyTextual,
@@ -6421,13 +6421,13 @@ class Root(PyMenu):
 
                 def __init__(self, parent, attr, service, rules, path):
                     super().__init__(parent, attr, service, rules, path)
-                    self.p3 = self._p3(self, "p3", service, rules, path)
-                    self.p1 = self._p1(self, "p1", service, rules, path)
                     self.p2 = self._p2(self, "p2", service, rules, path)
+                    self.p1 = self._p1(self, "p1", service, rules, path)
+                    self.p3 = self._p3(self, "p3", service, rules, path)
 
-                class _p3(PyArgumentsNumericalSubItem):
+                class _p2(PyArgumentsNumericalSubItem):
                     """
-                    Argument p3.
+                    Argument p2.
                     """
 
                 class _p1(PyArgumentsNumericalSubItem):
@@ -6435,9 +6435,9 @@ class Root(PyMenu):
                     Argument p1.
                     """
 
-                class _p2(PyArgumentsNumericalSubItem):
+                class _p3(PyArgumentsNumericalSubItem):
                     """
-                    Argument p2.
+                    Argument p3.
                     """
 
         def create_instance(self) -> _project_zone_on_planeArguments:

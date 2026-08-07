@@ -380,10 +380,13 @@
 //! 1. **Root directory exists**: `exists("/")` must return `true`
 //! 2. **Path normalization**: Paths like `/.`, `/tmp/..`, etc. must resolve correctly
 //! 3. **Root is listable**: `read_dir("/")` must return the root's contents
+//! 4. **Failed mutations are atomic**: `write_file`, `copy`, and `rename` errors
+//!    must preserve entry contents, types, and reported usage
 //!
 //! Without these, commands like `cd /` and `ls /` will fail with "No such file or directory".
 //!
-//! Use [`verify_filesystem_requirements`] to test your implementation:
+//! Use [`verify_filesystem_requirements`] for the structural requirements in
+//! items 1–3. Test mutation atomicity and other security invariants separately:
 //!
 //! ```rust
 //! use bashkit::{verify_filesystem_requirements, InMemoryFs};
@@ -510,6 +513,9 @@ impl FileSystem for DisabledFs {
 /// `/../..`), returns `/`.
 pub fn normalize_path(path: &Path) -> PathBuf {
     use std::path::Component;
+    // THREAT[TM-ESC-033]: Discard host namespace prefixes before any backend
+    // join. On Windows this contains drive-relative, drive-absolute, UNC, and
+    // device paths inside the POSIX VFS root instead of preserving host syntax.
     // Build path as String with forward slashes to ensure Unix-style paths
     // on all platforms (the VFS is always Unix-style, even on Windows).
     let mut segments: Vec<&str> = Vec::new();
@@ -536,6 +542,35 @@ pub fn normalize_path(path: &Path) -> PathBuf {
     }
 }
 
+#[cfg(all(test, windows))]
+mod windows_containment_tests {
+    use super::*;
+
+    #[test]
+    fn windows_containment_normalizes_host_path_syntax_into_vfs_root() {
+        assert_eq!(
+            normalize_path(Path::new(r"\tmp\..\safe")),
+            Path::new("/safe")
+        );
+        assert_eq!(
+            normalize_path(Path::new(r"C:relative\file.txt")),
+            Path::new("/relative/file.txt")
+        );
+        assert_eq!(
+            normalize_path(Path::new(r"C:\absolute\file.txt")),
+            Path::new("/absolute/file.txt")
+        );
+        assert_eq!(
+            normalize_path(Path::new(r"\\server\share\file.txt")),
+            Path::new("/file.txt")
+        );
+        assert_eq!(
+            normalize_path(Path::new(r"\\?\C:\device\file.txt")),
+            Path::new("/device/file.txt")
+        );
+    }
+}
+
 /// Verify that a filesystem implementation meets minimum requirements for Bashkit.
 ///
 /// This function checks that your custom [`FileSystem`] implementation:
@@ -543,6 +578,13 @@ pub fn normalize_path(path: &Path) -> PathBuf {
 /// - Can stat the root directory
 /// - Can list the root directory contents
 /// - Handles path normalization (e.g., `/.` resolves to `/`)
+///
+/// # Scope
+///
+/// This is a non-mutating structural smoke check, not a filesystem security
+/// certification. It does not validate failure atomicity, symlink behavior,
+/// quota accounting, or normalized error kinds. Custom implementations must
+/// test those parts of the [`FileSystem`] contract separately.
 ///
 /// # Errors
 ///

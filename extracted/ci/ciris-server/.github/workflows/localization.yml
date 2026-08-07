@@ -1,8 +1,26 @@
 name: Localization
 
 on:
-  # PR-only — the squash-merge is identical to the passed PR; no main-only side effect.
   pull_request:
+  # ALSO on main. The PR-only comment this replaces said "the squash-merge is
+  # identical to the passed PR; no main-only side effect." That is true for a
+  # squash-merge of ONE branch, and false for a merge commit with two parents:
+  #
+  #   a54bb96  parent db9c698  ->  repaired 65 values in the CANONICAL bundle
+  #   b773c1f  parent db9c698  ->  synced the THREE MIRRORS to the pre-repair text
+  #   09ce708  = merge         ->  a state NEITHER branch was ever in
+  #
+  # Disjoint files, no conflict, both branches green alone. Byte-identity across
+  # four bundles is a CROSS-FILE invariant and git merges PER FILE, so two green
+  # branches touching different bundle files merge into a violation every time.
+  # The guard detects it perfectly and names all three files — it was simply
+  # never RUN on the tree where the breakage existed.
+  #
+  # Not a check that could not fail, and not a failing check nobody read: a check
+  # never run on the broken tree, because the breakage is created by an event the
+  # trigger did not cover.
+  push:
+    branches: [main]
 
 jobs:
   localization:
@@ -19,13 +37,42 @@ jobs:
         with:
           python-version: '3.12'
 
+      # A green step here means nothing unless this gate can go red, so it
+      # proves it first: --self-test builds a synthetic bundle, breaks it 20
+      # ways (flat-vs-nested key, desynced mirror, corrupted placeholder,
+      # invalid JSON, …) and asserts every check fires with a true message.
+      # It is a required step: if the guard has lost the ability to fail, the
+      # job is red BEFORE the real bundle is ever looked at. See CIRISServer#366.
+      - name: Prove the guard can fail (mutation self-test)
+        run: python3 client/tools/check_localization_sync.py --self-test
+
       # Stdlib-only guard, no deps required. ERROR-level checks block:
-      #   - every *.json in both localization dirs parses,
-      #   - the two dirs (shared/ + desktopApp/) stay byte-identical (the
-      #     desktopApp copy has historically gone stale and shadowed shared),
-      #   - every localizedString/getString key in commonMain Kotlin resolves
-      #     in en.json (an undefined key renders RAW on every platform).
-      # Cross-language translation drift is a WARNING (graceful English
-      # fallback) and is fixed by the `localize-ui` Claude workflow.
-      - name: Localization guard (mirror parity + reference coverage)
-        run: python3 client/tools/check_localization_sync.py
+      #   - every *.json in all FOUR runtime bundles parses,
+      #   - all four bundles (shared/ + desktopApp/ + androidApp/ + iosApp/)
+      #     stay byte-identical — any that goes stale ships raw keys,
+      #   - the manifest language list and the shipped locale files agree,
+      #   - every localizedString/getString key in commonMain Kotlin RESOLVES
+      #     in en.json under LocalizationManager.resolveKey semantics,
+      #   - every key in every locale is REACHABLE by that same resolver — a
+      #     flat dotted key ("a.b.c": …) is dead in every language including
+      #     English, which is how 53 ids shipped dead in 0c728b1 (#366),
+      #   - a server-emitted {id, text} id that en.json DEFINES is reachable,
+      #   - a translated value carries exactly en.json's placeholders.
+      # `--strict` promotes both WARNING checks to blocking:
+      #   - translation drift (missing/empty keys per locale),
+      #   - server-emitted ids with no en.json entry at all.
+      #
+      # Both are "falls back to English by design, but should not stay that
+      # way". #366 recommended leaving them warnings, on the sound reasoning
+      # that a lagging locale degrades gracefully. That rested on translation
+      # being slow and manual. It is not: 53 ids reached 28 languages in ~14
+      # minutes of `localize-ui` agent time, then 56 more, then 39, then 3.
+      #
+      # What the warning actually bought was 24 locales sitting 53 keys short
+      # for two days with nobody noticing — the RCA shape
+      # (FSD/RCA_INGEST_REJECTION_2026-08-05.md) one layer up.
+      #
+      # The flag goes in only when the tree passes it. If it ever blocks
+      # inconveniently, dropping it is one word.
+      - name: Localization guard (mirror, resolvability, placeholders, drift, coverage)
+        run: python3 client/tools/check_localization_sync.py --strict

@@ -77,6 +77,7 @@ class Release:
         os.chdir(self.cfg.config_path)
         if repo and '/' in repo: owner,repo = repo.split('/', 1)
         owner,repo = owner or self.cfg.user, repo or self.cfg.repo
+        if not owner or not repo: raise Exception("Could not infer `user`/`repo` from config: add a `Repository` key under `[project.urls]` in pyproject.toml, or pass `repo='owner/repo'`")
         token = ifnone(token, os.getenv('NBDEV_TOKEN',None))
         if not token and Path('token').exists(): token = Path('token').read_text().strip()
         token = ifnone(token, os.getenv('GITHUB_TOKEN',None))
@@ -98,7 +99,7 @@ async def changelog(self:Release,
     try: self.commit_date = (lr:=await self.gh.repos.get_latest_release()).published_at
     except APIError as e:
         if e.status_code != 404: raise
-        lr,self.commit_date = None,'2000-01-01T00:00:004Z'
+        lr,self.commit_date = None,'2000-01-01T00:00:00Z'
     if lr:
         run('git fetch --tags --quiet')
         _check_changelog_base(lr.tag_name)
@@ -355,14 +356,16 @@ def chk_conda_rel(
 @call_parse
 def release_pypi(
     repository:str="pypi", # Respository to upload to (defined in ~/.pypirc)
-    quiet:bool=False # Reduce output verbosity
+    quiet:bool=False, # Reduce output verbosity
+    verbose:bool=False # Pass --verbose to twine upload
 ):
     "Create and upload Python package to PyPI"
     _dir = get_config().lib_path.parent
     q = ' --quiet' if quiet else ''
     p = ' --disable-progress-bar' if quiet else ''
     system(f'cd {_dir}  && rm -rf dist build && python -m build{q}')
-    system(f'twine upload --repository {repository}{p} {_dir}/dist/*')
+    v = ' --verbose' if verbose else ''
+    system(f'twine upload{v} --repository {repository}{p} {_dir}/dist/*')
 
 # %% ../nbs/api/18_release.ipynb #06edfcb0
 @call_parse

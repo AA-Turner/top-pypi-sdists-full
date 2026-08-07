@@ -113,7 +113,8 @@ class StateMachine:
         if not actions:
             print("No changes detected")
             return
-        self._display_diff(actions)
+        diff_format = "shacl" if filename.endswith(".ttl") else "yaml"
+        self._display_diff(actions, diff_format)
         print(f"Total changes count: {len(actions)}")
         if dryrun:
             return
@@ -144,10 +145,13 @@ class StateMachine:
         print("Cancelled")
         sys.exit(0)
 
-    def _display_diff(self, actions: List[Action]) -> None:
+    def _display_diff(self, actions: List[Action], format: str = "yaml") -> None:
         for action in actions:
+            diff_output = action.diff(format)
+            if diff_output is None:
+                continue
             print(action)
-            print(action.diff())
+            print(diff_output)
             print("")
 
     def _compute_actions(
@@ -225,7 +229,11 @@ class StateMachine:
                         )
                     )
 
-                if to_check and to_check.labels is not None and to_check.labels != []:
+                if (
+                    to_check
+                    and to_check.labels is not None
+                    and to_check.labels != (from_check.labels if from_check else None)
+                ):
                     actions.append(
                         LabelAction(
                             prev=from_check.labels if from_check else None,
@@ -238,7 +246,8 @@ class StateMachine:
                 if (
                     to_check
                     and to_check.notification_channels is not None
-                    and to_check.notification_channels != []
+                    and to_check.notification_channels
+                    != (from_check.notification_channels if from_check else None)
                 ):
                     actions.append(
                         NotificationChannelAction(

@@ -84,8 +84,8 @@ impl Builtin for Shuf {
         } else {
             // Reading lines: positional file path, "-", or absent (stdin).
             let raw = match positionals.first() {
-                None => ctx.stdin.unwrap_or("").to_string(),
-                Some(s) if s == "-" => ctx.stdin.unwrap_or("").to_string(),
+                None => ctx.stdin.map(ToString::to_string).unwrap_or_default(),
+                Some(s) if s == "-" => ctx.stdin.map(ToString::to_string).unwrap_or_default(),
                 Some(file) => {
                     let path = if Path::new(file).is_absolute() {
                         file.clone()
@@ -154,7 +154,7 @@ enum ShufInput {
 fn shuf_output_limit(ctx: &Context<'_>, output_to_file: bool) -> usize {
     let exec_limit = ctx
         .execution_extension::<ExecutionLimits>()
-        .map(|limits| limits.max_stdout_bytes)
+        .and_then(|limits| limits.try_with(|limits| limits.max_stdout_bytes).ok())
         .unwrap_or_else(|| ExecutionLimits::default().max_stdout_bytes);
 
     if !output_to_file {

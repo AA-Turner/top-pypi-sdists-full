@@ -1160,11 +1160,11 @@ def get_user_agent_header() -> str:
 
 def _get_expiration_datetime_from_headers(headers: dict) -> datetime | None:
     try:
-        from ibm_watsonx_ai.utils.auth.base_auth import _get_token_info
+        from ibm_watsonx_ai.utils.auth import get_token_payload
 
         token = headers.get("Authorization", " ").split(" ")[-1]
 
-        token_info = _get_token_info(token)
+        token_info = get_token_payload(token)
 
         token_expire = token_info.get("exp")
 

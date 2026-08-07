@@ -5180,6 +5180,180 @@ def test_jsonschema_pattern_properties(output_file: Path) -> None:
     )
 
 
+def test_jsonschema_pattern_properties_array_type_union(output_file: Path) -> None:
+    """Keep constrained array and string branches distinct in heterogeneous type unions."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "pattern_properties_array_type_union.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file="pattern_properties_array_type_union.py",
+        extra_args=[
+            "--output-model-type",
+            "pydantic_v2.BaseModel",
+            "--target-python-version",
+            "3.10",
+            "--use-standard-collections",
+            "--use-union-operator",
+            "--disable-timestamp",
+        ],
+        force_exec_validation=True,
+    )
+    for valid_json in (
+        (
+            '{"direct":"","textOrList":[],"nullablePattern":{"name":null},'
+            '"options":[{"name":""}],"unconstrainedPattern":{"name":[]}}'
+        ),
+        (
+            '{"direct":["value"],"textOrList":"valid","nullablePattern":{"name":["value"]},'
+            '"options":[{"name":["value"]}],"unconstrainedPattern":{"name":""}}'
+        ),
+    ):
+        assert_generated_model_json_validation(
+            output_file,
+            module_name="pattern_properties_array_type_union",
+            model_name="PatternPropertiesArrayTypeUnion",
+            valid_json=valid_json,
+            invalid_json=('{"direct":[],"textOrList":[],"nullablePattern":{"name":null},"options":[{"name":""}]}'),
+            expected_error_type="string_type",
+        )
+    for invalid_json, expected_error_type in (
+        (
+            ('{"direct":["a","b","c"],"textOrList":[],"nullablePattern":{"name":null},"options":[{"name":""}]}'),
+            "string_type",
+        ),
+        (
+            '{"direct":"","textOrList":[],"nullablePattern":{"name":null},"options":[{"name":[]}]}',
+            "string_type",
+        ),
+        (
+            '{"direct":"","textOrList":[],"nullablePattern":{"name":null},"options":[{"name":1}]}',
+            "string_type",
+        ),
+        (
+            '{"direct":"","textOrList":"x","nullablePattern":{"name":null},"options":[{"name":""}]}',
+            "string_too_short",
+        ),
+        (
+            '{"direct":"","textOrList":[],"nullablePattern":{"name":null},"options":[]}',
+            "too_short",
+        ),
+    ):
+        assert_generated_model_json_invalid(
+            output_file,
+            module_name="pattern_properties_array_type_union",
+            model_name="PatternPropertiesArrayTypeUnion",
+            invalid_json=invalid_json,
+            expected_error_type=expected_error_type,
+        )
+
+
+@pytest.mark.parametrize(
+    ("output_model_type", "expected_name"),
+    [
+        pytest.param(
+            DataModelType.PydanticV2Dataclass.value,
+            "pydantic_v2_dataclass",
+            id="pydantic-v2-dataclass",
+        ),
+        pytest.param(
+            DataModelType.DataclassesDataclass.value,
+            "dataclasses_dataclass",
+            id="dataclass",
+        ),
+        pytest.param(DataModelType.TypingTypedDict.value, "typing_TypedDict", id="typed-dict"),
+        pytest.param(
+            DataModelType.MsgspecStruct.value,
+            "msgspec_Struct",
+            id="msgspec",
+            marks=MSGSPEC_LEGACY_BLACK_SKIP,
+        ),
+    ],
+)
+def test_jsonschema_pattern_properties_array_type_union_backends(
+    output_file: Path,
+    output_model_type: str,
+    expected_name: str,
+) -> None:
+    """Keep mixed array union output importable across every supported backend."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "pattern_properties_array_type_union.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file=f"pattern_properties_array_type_union/{expected_name}.py",
+        extra_args=[
+            *BACKEND_GOLDEN_TARGET_ARGS,
+            "--output-model-type",
+            output_model_type,
+            "--use-standard-collections",
+            "--use-union-operator",
+            "--disable-timestamp",
+        ],
+        force_exec_validation=True,
+    )
+    if output_model_type == DataModelType.PydanticV2Dataclass.value:
+        assert_generated_model_json_validation(
+            output_file,
+            module_name="pattern_properties_array_type_union_dataclass",
+            model_name="PatternPropertiesArrayTypeUnion",
+            valid_json=(
+                '{"direct":["value"],"textOrList":"valid","nullablePattern":{"name":["value"]},'
+                '"options":[{"name":["value"]}]}'
+            ),
+            invalid_json=('{"direct":[],"textOrList":[],"nullablePattern":{"name":null},"options":[{"name":""}]}'),
+            expected_error_type="string_type",
+        )
+
+
+def test_jsonschema_array_type_union_self_ref(output_file: Path) -> None:
+    """Keep recursive array branches and non-array union branches in root aliases."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "array_type_union_self_ref.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file="array_type_union_self_ref.py",
+        extra_args=[
+            "--output-model-type",
+            "pydantic_v2.BaseModel",
+            "--target-python-version",
+            "3.10",
+            "--use-standard-collections",
+            "--use-union-operator",
+            "--disable-timestamp",
+        ],
+        force_exec_validation=True,
+    )
+    for valid_json in ('"leaf"', '["leaf"]', '[["leaf"]]'):
+        assert_generated_model_json_validation(
+            output_file,
+            module_name="array_type_union_self_ref",
+            model_name="ArrayTypeUnionSelfRef",
+            valid_json=valid_json,
+            invalid_json="[]",
+            expected_error_type="string_type",
+        )
+    for valid_json in ('"leaf"', "[]", '["leaf"]', '[["leaf"]]'):
+        assert_generated_model_json_validation(
+            output_file,
+            module_name="array_type_union_self_ref",
+            model_name="UnconstrainedArrayTypeUnionSelfRef",
+            valid_json=valid_json,
+            invalid_json="{}",
+            expected_error_type="string_type",
+        )
+    for valid_json in ("{}", "[]", "[{}]", "[[{}]]"):
+        assert_generated_model_json_validation(
+            output_file,
+            module_name="array_type_union_self_ref",
+            model_name="UnconstrainedObjectArraySelfRef",
+            valid_json=valid_json,
+            invalid_json='"invalid"',
+            expected_error_type="dict_type",
+        )
+
+
 def test_jsonschema_pattern_properties_field_constraints(output_file: Path) -> None:
     """Test pattern properties with field constraints."""
     run_main_and_assert(
@@ -8960,6 +9134,34 @@ def test_main_jsonschema_items_array_tuple(min_version: str, output_file: Path) 
     )
 
 
+@freeze_time("2019-07-26")
+def test_main_jsonschema_recursive_fixed_length_array_keeps_tuple_shape(output_file: Path) -> None:
+    """Keep positional tuple shape when a recursive root item falls back to Any."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "recursive_fixed_length_array.json",
+        output_path=output_file,
+        input_file_type=None,
+        assert_func=assert_file_content,
+        expected_file="recursive_fixed_length_array.py",
+        extra_args=["--use-tuple-for-fixed-length-arrays"],
+        force_exec_validation=True,
+    )
+
+
+@freeze_time("2019-07-26")
+def test_main_jsonschema_items_array_tuple_allof_keeps_legacy_list(output_file: Path) -> None:
+    """Keep the lightweight allOf path unchanged for the existing tuple-items option."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "items_array_tuple_allof.json",
+        output_path=output_file,
+        input_file_type=None,
+        assert_func=assert_file_content,
+        expected_file="items_array_tuple_allof.py",
+        extra_args=["--use-tuple-for-fixed-items"],
+        force_exec_validation=True,
+    )
+
+
 @pytest.mark.skipif(
     int(black.__version__.split(".")[0]) < 24,
     reason="Installed black doesn't support the new style",
@@ -9561,6 +9763,24 @@ def test_main_jsonschema_field_type_collision_rename_type_double(output_file: Pa
             "pydantic_v2.BaseModel",
             "--field-type-collision-strategy",
             "rename-type",
+        ],
+    )
+
+
+def test_main_jsonschema_read_only_write_only_compositions(output_file: Path) -> None:
+    """Resolve composed readOnly/writeOnly fields without changing generated models."""
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "read_only_write_only_compositions.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        assert_func=assert_file_content,
+        expected_file="read_only_write_only_compositions.py",
+        extra_args=[
+            "--disable-timestamp",
+            "--output-model-type",
+            "pydantic_v2.BaseModel",
+            "--read-only-write-only-model-type",
+            "all",
         ],
     )
 

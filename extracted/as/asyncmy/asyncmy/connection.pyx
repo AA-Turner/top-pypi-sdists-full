@@ -8,7 +8,6 @@ import os
 import socket
 import sys
 import warnings
-from asyncio import StreamReader, StreamWriter
 from typing import Optional, Type
 
 from cpython.bytearray cimport PyByteArray_AS_STRING
@@ -20,21 +19,26 @@ from asyncmy.cursors import Cursor
 from asyncmy.optionfile import Parser
 from asyncmy.protocol import (EOFPacketWrapper, FieldDescriptorPacket,
                               LoadLocalPacketWrapper, MysqlPacket,
-                              OKPacketWrapper, parse_rows_from_buffer)
+                              OKPacketWrapper, pack_binary_params,
+                              pack_bulk_rows, parse_binary_rows_from_buffer,
+                              parse_rows_from_buffer, skip_packets_from_buffer)
 
 from .constants.CLIENT import (CAPABILITIES, CONNECT_ATTRS, CONNECT_WITH_DB,
-                               LOCAL_FILES, MULTI_RESULTS, MULTI_STATEMENTS,
-                               PLUGIN_AUTH, PLUGIN_AUTH_LENENC_CLIENT_DATA,
+                               DEPRECATE_EOF, LOCAL_FILES, MULTI_RESULTS,
+                               MULTI_STATEMENTS, PLUGIN_AUTH,
+                               PLUGIN_AUTH_LENENC_CLIENT_DATA,
                                SECURE_CONNECTION, SSL)
 from .constants.COMMAND import (COM_INIT_DB, COM_PING, COM_PROCESS_KILL,
-                                COM_QUERY, COM_QUIT)
+                                COM_QUERY, COM_QUIT, COM_STMT_CLOSE,
+                                COM_STMT_EXECUTE, COM_STMT_PREPARE)
 from .constants.CR import (CR_COMMANDS_OUT_OF_SYNC, CR_CONN_HOST_ERROR,
                            CR_SERVER_LOST)
 from .constants.ER import FILE_NOT_FOUND
 from .constants.FIELD_TYPE import (BIT, BLOB, GEOMETRY, JSON, LONG_BLOB,
                                    MEDIUM_BLOB, STRING, TINY_BLOB, VAR_STRING,
                                    VARCHAR)
-from .constants.SERVER_STATUS import (SERVER_STATUS_AUTOCOMMIT,
+from .constants.SERVER_STATUS import (SERVER_MORE_RESULTS_EXISTS,
+                                      SERVER_STATUS_AUTOCOMMIT,
                                       SERVER_STATUS_IN_TRANS,
                                       SERVER_STATUS_NO_BACKSLASH_ESCAPES)
 from .contexts import _ConnectionContextManager
@@ -76,9 +80,13 @@ cdef str DEFAULT_CHARSET = "utf8mb4"
 
 cdef int MAX_PACKET_LEN = 2 ** 24 - 1
 
-# Size of socket reads and of the StreamReader flow-control limit.
+# Initial size of the protocol receive buffer.
 cdef int READ_CHUNK_SIZE = 2 ** 18
-STREAM_LIMIT = 2 ** 18
+
+# MariaDB-specific protocol extensions
+cdef int COM_STMT_BULK_EXECUTE = 0xFA
+cdef unsigned int MARIADB_CLIENT_STMT_BULK_OPERATIONS = 1 << 2  # extended-caps dword
+cdef unsigned int CLIENT_MYSQL = 1  # bit 0: cleared to signal MariaDB awareness
 
 # Decoders that accept raw bytes input, allowing us to skip the ascii decode
 # step entirely for their columns.
@@ -94,6 +102,36 @@ cdef set _BYTES_SAFE_DECODERS = {
 cdef inline bytes _take_bytes(bytearray buf, Py_ssize_t pos, Py_ssize_t n):
     """Copy buf[pos:pos+n] into a fresh bytes object with a single allocation."""
     return PyBytes_FromStringAndSize(PyByteArray_AS_STRING(buf) + pos, n)
+
+cdef _pyformat_to_qmark(str query):
+    """Convert pyformat ``%s`` placeholders to native ``?`` markers.
+
+    Returns ``(converted_sql, param_count)`` or None when the query uses
+    constructs the binary path does not support (named ``%(name)s``
+    placeholders or a stray ``%``).
+    """
+    cdef:
+        list out = []
+        Py_ssize_t i = 0, j
+        int nparams = 0
+        str nxt
+    while True:
+        j = query.find("%", i)
+        if j == -1:
+            out.append(query[i:])
+            break
+        out.append(query[i:j])
+        nxt = query[j + 1: j + 2]
+        if nxt == "s":
+            out.append("?")
+            nparams += 1
+            i = j + 2
+        elif nxt == "%":
+            out.append("%")
+            i = j + 2
+        else:
+            return None
+    return "".join(out), nparams
 
 # https://dev.mysql.com/doc/internals/en/integer.html#packet-Protocol::LengthEncodedInteger
 cdef _lenenc_int(int i):
@@ -114,6 +152,119 @@ cdef _lenenc_int(int i):
             "Encoding %x is larger than %x - no representation in LengthEncodedInteger"
             % (i, (1 << 64))
         )
+
+
+class _MySQLProtocol(asyncio.BufferedProtocol):
+    """Receive-side transport protocol.
+
+    Incoming bytes land directly in ``buffer`` (the parse buffer) via the
+    zero-copy BufferedProtocol interface — no StreamReader, no intermediate
+    chunk objects, no second copy. ``buffer[pos:length]`` is the unconsumed
+    region; consumers advance ``pos`` and re-read all three attributes after
+    every await (the buffer may be compacted or reallocated while waiting).
+    """
+
+    def __init__(self, loop):
+        self._loop = loop
+        self.transport = None
+        self.buffer = bytearray(READ_CHUNK_SIZE)
+        self.length = 0  # valid bytes in buffer
+        self.pos = 0  # consumed bytes
+        self.eof = False
+        self.exc = None
+        self._read_waiter = None
+        self._drain_waiter = None
+        self._write_paused = False
+        self._closed_waiter = loop.create_future()
+
+    # -- BufferedProtocol interface --
+
+    def connection_made(self, transport):
+        self.transport = transport
+
+    def get_buffer(self, sizehint):
+        buffer = self.buffer
+        length = self.length
+        pos = self.pos
+        if pos:
+            # compact the consumed prefix
+            if length > pos:
+                buffer[0: length - pos] = buffer[pos:length]
+            length -= pos
+            self.length = length
+            self.pos = 0
+        if length == 0 and len(buffer) > (READ_CHUNK_SIZE << 2):
+            # shrink an oversized buffer left over from a huge result set
+            self.buffer = buffer = bytearray(READ_CHUNK_SIZE)
+        elif len(buffer) - length < 4096:
+            # grow geometrically so huge packets stay O(n)
+            grow = len(buffer)
+            if sizehint > 0 and sizehint > grow:
+                grow = sizehint
+            buffer.extend(bytes(grow))
+        return memoryview(buffer)[length:]
+
+    def buffer_updated(self, nbytes):
+        self.length += nbytes
+        waiter = self._read_waiter
+        if waiter is not None:
+            self._read_waiter = None
+            if not waiter.done():
+                waiter.set_result(None)
+
+    def eof_received(self):
+        self.eof = True
+        waiter = self._read_waiter
+        if waiter is not None:
+            self._read_waiter = None
+            if not waiter.done():
+                waiter.set_result(None)
+        return False
+
+    def connection_lost(self, exc):
+        self.eof = True
+        if exc is not None:
+            self.exc = exc
+        self.transport = None
+        for waiter in (self._read_waiter, self._drain_waiter):
+            if waiter is not None and not waiter.done():
+                waiter.set_result(None)
+        self._read_waiter = None
+        self._drain_waiter = None
+        if not self._closed_waiter.done():
+            self._closed_waiter.set_result(None)
+
+    def pause_writing(self):
+        self._write_paused = True
+
+    def resume_writing(self):
+        self._write_paused = False
+        waiter = self._drain_waiter
+        if waiter is not None:
+            self._drain_waiter = None
+            if not waiter.done():
+                waiter.set_result(None)
+
+    # -- consumer helpers --
+
+    async def wait_for_data(self):
+        """Suspend until more bytes arrive (or EOF / connection loss)."""
+        waiter = self._loop.create_future()
+        self._read_waiter = waiter
+        try:
+            await waiter
+        finally:
+            if self._read_waiter is waiter:
+                self._read_waiter = None
+
+    async def drain(self):
+        if self._write_paused and self.transport is not None:
+            waiter = self._loop.create_future()
+            self._drain_waiter = waiter
+            await waiter
+
+    async def wait_closed(self):
+        await self._closed_waiter
 
 
 class Connection:
@@ -197,6 +348,7 @@ class Connection:
             server_public_key=None,
             echo=False,
             ssl=None,
+            stmt_cache_size=0,
             db=None,  # deprecated
     ):
         self._loop = asyncio.get_event_loop()
@@ -315,14 +467,18 @@ class Connection:
             self._connect_attrs["program_name"] = program_name
 
         self._connected = False
-        self._reader: Optional[StreamReader] = None
-        self._writer: Optional[StreamWriter] = None
-
-        # Incoming data buffer: packets are parsed out of it in bulk so that a
-        # single socket read serves many packets.
-        self._buffer = bytearray()
-        self._buf_pos = 0
+        self._proto: Optional[_MySQLProtocol] = None
+        self._transport = None
         self._close_reason = None
+        self._deprecate_eof = False  # negotiated during the handshake
+        self._mariadb_ext_caps = 0  # MariaDB extended capabilities
+        self._bulk_supported = False  # MariaDB COM_STMT_BULK_EXECUTE
+
+        # Transparent server-side prepared statement cache (binary protocol).
+        # 0 disables it; cursor.execute() then always uses the text protocol.
+        self._stmt_cache_size = int(stmt_cache_size)
+        self._stmt_cache = {}  # insertion-ordered; LRU via re-insertion
+        self._unpreparable = set()
 
         self._auth_plugin_name = ""
 
@@ -363,10 +519,15 @@ class Connection:
 
     def close(self):
         """Close socket connection"""
-        if self._writer:
-            self._writer.transport.close()
-        self._writer = None
-        self._reader = None
+        if self._transport is not None:
+            self._transport.close()
+        self._transport = None
+
+    @property
+    def _stream_broken(self):
+        """True when the underlying stream can no longer be used."""
+        proto = self._proto
+        return proto is None or proto.eof or proto.exc is not None
 
     def _close_on_cancel(self):
         """Close the connection after a cancelled read left it desynced."""
@@ -390,12 +551,12 @@ class Connection:
 
     async def ensure_closed(self):
         """Send QUIT message and close connection."""
-        if self._connected:
+        if self._connected and self._transport is not None:
             send_data = i.pack(1) + B.pack(COM_QUIT)
             self._write_bytes(send_data)
-            await self._writer.drain()
-            self._writer.close()
-            await self._writer.wait_closed()
+            await self._proto.drain()
+            self._transport.close()
+            await self._proto.wait_closed()
         self.close()
         self._connected = False
 
@@ -465,23 +626,17 @@ class Connection:
         await self._read_ok_packet()
 
     def _set_keep_alive(self):
-        transport = self._writer.transport
-        transport.pause_reading()
-        raw_sock = transport.get_extra_info('socket', default=None)
+        raw_sock = self._transport.get_extra_info('socket', default=None)
         if raw_sock is None:
             raise RuntimeError("Transport does not expose socket instance")
         raw_sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
-        transport.resume_reading()
 
     def _set_nodelay(self, value):
         flag = int(bool(value))
-        transport = self._writer.transport
-        transport.pause_reading()
-        raw_sock = transport.get_extra_info('socket', default=None)
+        raw_sock = self._transport.get_extra_info('socket', default=None)
         if raw_sock is None:
             raise RuntimeError("Transport does not expose socket instance")
         raw_sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, flag)
-        transport.resume_reading()
 
     def escape(self, obj, mapping=None):
         """Escape whatever value is passed.
@@ -535,6 +690,77 @@ class Connection:
         await self._read_query_result(unbuffered=unbuffered)
         return self._affected_rows
 
+    async def prepare(self, query):
+        """Create a server-side prepared statement (binary protocol).
+
+        Returns a :class:`PreparedStatement`. Executing it skips client-side
+        escaping entirely and reads results in the binary protocol, which is
+        significantly faster for repeated (point) queries.
+
+        :param query: SQL with ``?`` placeholders (native MySQL syntax).
+        """
+        if isinstance(query, str):
+            query = query.encode(self._encoding)
+        await self._execute_command(COM_STMT_PREPARE, query)
+        # COM_STMT_PREPARE response:
+        # https://dev.mysql.com/doc/dev/mysql-server/latest/page_protocol_com_stmt_prepare.html
+        pkt = await self.read_packet()
+        pkt.read_uint8()  # status: 0x00
+        statement_id = pkt.read_uint32()
+        num_columns = pkt.read_uint16()
+        num_params = pkt.read_uint16()
+        for _ in range(num_params):
+            await self.read_packet()  # parameter definitions (unused)
+        if num_params and not self._deprecate_eof:
+            await self.read_packet()  # EOF
+        for _ in range(num_columns):
+            await self.read_packet()  # column definitions (re-read on execute)
+        if num_columns and not self._deprecate_eof:
+            await self.read_packet()  # EOF
+        return PreparedStatement(self, statement_id, num_params)
+
+    async def _acquire_cached_statement(self, query, nargs):
+        """Return a cached PreparedStatement for a pyformat query, or None.
+
+        None means: fall back to the text protocol (unsupported placeholder
+        style, parameter count mismatch, or the server refused to prepare).
+        """
+        cache = self._stmt_cache
+        stmt = cache.get(query)
+        if stmt is not None:
+            # LRU: move to the most-recently-used end
+            del cache[query]
+            cache[query] = stmt
+            if stmt.parameter_count != nargs:
+                return None
+            return stmt
+        if query in self._unpreparable:
+            return None
+        converted = _pyformat_to_qmark(query)
+        if converted is None or converted[1] != nargs:
+            return None
+        try:
+            stmt = await self.prepare(converted[0])
+        except errors.Error:
+            # Not preparable (multi-statement, some SHOW variants, ...) or a
+            # genuine SQL error: let the text protocol produce the canonical
+            # behavior, and stop re-trying known-bad statements.
+            if len(self._unpreparable) < 128:
+                self._unpreparable.add(query)
+            return None
+        if stmt.parameter_count != nargs:
+            await stmt.close()
+            return None
+        cache[query] = stmt
+        if len(cache) > self._stmt_cache_size:
+            oldest_query = next(iter(cache))
+            oldest = cache.pop(oldest_query)
+            try:
+                await oldest.close()
+            except Exception:
+                pass
+        return stmt
+
     def affected_rows(self):
         return self._affected_rows
 
@@ -579,26 +805,34 @@ class Connection:
 
     async def connect(self):
         if self._connected:
-            return self._reader, self._writer
+            return self._proto, self._transport
         try:
-            self._buffer = bytearray()
-            self._buf_pos = 0
             self._close_reason = None
+            # statement ids do not survive reconnects
+            self._stmt_cache.clear()
+            self._deprecate_eof = False
+            self._mariadb_ext_caps = 0
+            self._bulk_supported = False
+            loop = self._loop
 
             if self._unix_socket:
-                self._reader, self._writer = await asyncio.wait_for(
-                    asyncio.open_unix_connection(self._unix_socket, limit=STREAM_LIMIT),
+                proto = _MySQLProtocol(loop)
+                self._transport, _ = await asyncio.wait_for(
+                    loop.create_unix_connection(lambda: proto, self._unix_socket),
                     timeout=self._connect_timeout, )
+                self._proto = proto
                 self.host_info = "Localhost via UNIX socket"
                 self._secure = True
             else:
                 while True:
                     try:
-                        self._reader, self._writer = await asyncio.wait_for(asyncio.open_connection(
+                        proto = _MySQLProtocol(loop)
+                        self._transport, _ = await asyncio.wait_for(loop.create_connection(
+                            lambda: proto,
                             self._host,
                             self._port,
-                            limit=STREAM_LIMIT,
                         ), timeout=self._connect_timeout)
+                        self._proto = proto
                         self._set_keep_alive()
                         break
                     except (OSError, IOError) as e:
@@ -655,20 +889,23 @@ class Connection:
         self._next_seq_id = (self._next_seq_id + 1) & 0xFF
 
     async def _fill_buffer(self, need):
-        """Ensure at least `need` bytes are available at self._buf_pos."""
-        buffer = self._buffer
-        pos = self._buf_pos
-        if pos:
-            # compact consumed prefix before growing the buffer
-            del buffer[:pos]
-            self._buf_pos = 0
-        reader = self._reader
+        """Suspend until at least `need` unconsumed bytes are buffered."""
+        proto = self._proto
         read_timeout = self._read_timeout
-        while len(buffer) < need:
+        while proto.length - proto.pos < need:
+            if proto.exc is not None:
+                raise errors.OperationalError(
+                    CR_SERVER_LOST,
+                    "Lost connection to MySQL server during query (%s)" % (proto.exc,),
+                )
+            if proto.eof:
+                raise errors.OperationalError(
+                    CR_SERVER_LOST, "Lost connection to MySQL server during query"
+                )
             try:
                 if read_timeout:
                     try:
-                        chunk = await asyncio.wait_for(reader.read(READ_CHUNK_SIZE), read_timeout)
+                        await asyncio.wait_for(proto.wait_for_data(), read_timeout)
                     except asyncio.TimeoutError:
                         await self.ensure_closed()
                         raise errors.OperationalError(
@@ -676,7 +913,7 @@ class Connection:
                             "Lost connection to MySQL server during query (read timeout)",
                         )
                 else:
-                    chunk = await reader.read(READ_CHUNK_SIZE)
+                    await proto.wait_for_data()
             except asyncio.CancelledError:
                 # Cancelled mid-read: the protocol stream is now desynced, so
                 # the connection must not be reused (e.g. returned to a pool).
@@ -687,11 +924,6 @@ class Connection:
                     CR_SERVER_LOST,
                     "Lost connection to MySQL server during query (%s)" % (e,),
                 )
-            if not chunk:
-                raise errors.OperationalError(
-                    CR_SERVER_LOST, "Lost connection to MySQL server during query"
-                )
-            buffer += chunk
 
     async def read_packet(self, packet_type=MysqlPacket):
         """
@@ -701,17 +933,17 @@ class Connection:
         :raise OperationalError: If the connection to the MySQL server is lost.
         :raise InternalError: If the packet sequence number is wrong.
         """
+        proto = self._proto
         buff = None
         while True:
-            buffer = self._buffer
-            pos = self._buf_pos
-            if len(buffer) - pos < 4:
+            if proto.length - proto.pos < 4:
                 await self._fill_buffer(4)
-                pos = self._buf_pos
+            buffer = proto.buffer
+            pos = proto.pos
             bytes_to_read = buffer[pos] | (buffer[pos + 1] << 8) | (buffer[pos + 2] << 16)
             packet_number = buffer[pos + 3]
             pos += 4
-            self._buf_pos = pos
+            proto.pos = pos
             if packet_number != self._next_seq_id:
                 if packet_number == 0:
                     # MariaDB sends error packet with seqno==0 when shutdown
@@ -724,11 +956,13 @@ class Connection:
                     % (packet_number, self._next_seq_id)
                 )
             self._next_seq_id = (self._next_seq_id + 1) & 0xFF
-            if len(buffer) - pos < bytes_to_read:
+            if proto.length - pos < bytes_to_read:
                 await self._fill_buffer(bytes_to_read)
-                pos = self._buf_pos
+                # the buffer may have been compacted or reallocated while waiting
+                buffer = proto.buffer
+                pos = proto.pos
             recv_data = _take_bytes(buffer, pos, bytes_to_read)
-            self._buf_pos = pos + bytes_to_read
+            proto.pos = pos + bytes_to_read
             # Fast path: single packet (most common case ~99%)
             if bytes_to_read < MAX_PACKET_LEN and buff is None:
                 break
@@ -749,17 +983,17 @@ class Connection:
 
     async def _read_bytes(self, num_bytes: int):
         # Kept for backwards compatibility; packet reads go through the
-        # internal buffer (see _fill_buffer/read_packet).
-        buffer = self._buffer
-        if len(buffer) - self._buf_pos < num_bytes:
+        # protocol's receive buffer (see _fill_buffer/read_packet).
+        proto = self._proto
+        if proto.length - proto.pos < num_bytes:
             await self._fill_buffer(num_bytes)
-        pos = self._buf_pos
-        data = _take_bytes(buffer, pos, num_bytes)
-        self._buf_pos = pos + num_bytes
+        pos = proto.pos
+        data = _take_bytes(proto.buffer, pos, num_bytes)
+        proto.pos = pos + num_bytes
         return data
 
     def _write_bytes(self, bytes data):
-        self._writer.write(data)
+        self._transport.write(data)
 
     async def _read_query_result(self, unbuffered=False):
         self._result = None
@@ -845,6 +1079,12 @@ class Connection:
         if int(self.server_version.split(".", 1)[0]) >= 5:
             self._client_flag |= MULTI_RESULTS
 
+        if self.server_capabilities & DEPRECATE_EOF:
+            # Result sets then omit the EOF between metadata and rows and end
+            # with an OK packet (0xFE header) instead of an EOF packet.
+            self._client_flag |= DEPRECATE_EOF
+            self._deprecate_eof = True
+
         if self._user is None:
             raise ValueError("Did not specify a username")
 
@@ -856,31 +1096,43 @@ class Connection:
 
             self.write_packet(data)
 
-            # Stop sending events to data_received
-            self._writer.transport.pause_reading()
+            # Stop sending events to the protocol
+            self._transport.pause_reading()
 
             # Get the raw socket from the transport
-            raw_sock = self._writer.transport.get_extra_info('socket',
-                                                             default=None)
+            raw_sock = self._transport.get_extra_info('socket', default=None)
             if raw_sock is None:
                 raise RuntimeError("Transport does not expose socket instance")
 
             raw_sock = raw_sock.dup()
-            self._writer.transport.close()
+            self._transport.close()
             # MySQL expects TLS negotiation to happen in the middle of a
             # TCP connection not at start. Passing in a socket to
-            # open_connection will cause it to negotiate TLS on an existing
+            # create_connection will cause it to negotiate TLS on an existing
             # connection not initiate a new one.
-            self._buffer = bytearray()
-            self._buf_pos = 0
-            self._reader, self._writer = await asyncio.open_connection(
-                sock=raw_sock, ssl=self._ssl_context,
-                server_hostname=self._host, limit=STREAM_LIMIT,
+            proto = _MySQLProtocol(self._loop)
+            self._transport, _ = await self._loop.create_connection(
+                lambda: proto, sock=raw_sock, ssl=self._ssl_context,
+                server_hostname=self._host,
             )
+            self._proto = proto
         if isinstance(self._user, str):
             self._user = self._user.encode(self._encoding)
 
-        data_init = iIB23s.pack(self._client_flag, MAX_PACKET_LEN, charset_id, b"")
+        if self._mariadb_ext_caps & MARIADB_CLIENT_STMT_BULK_OPERATIONS:
+            # MariaDB: clear CLIENT_MYSQL and advertise extended capabilities
+            # in the last 4 bytes of the 23-byte filler.
+            self._client_flag &= ~CLIENT_MYSQL
+            self._bulk_supported = True
+            data_init = (
+                i.pack(self._client_flag)
+                + I.pack(MAX_PACKET_LEN)
+                + B_.pack(charset_id)
+                + b"\x00" * 19
+                + I.pack(MARIADB_CLIENT_STMT_BULK_OPERATIONS)
+            )
+        else:
+            data_init = iIB23s.pack(self._client_flag, MAX_PACKET_LEN, charset_id, b"")
         data = data_init + self._user + b"\0"
 
         authresp = b""
@@ -1102,7 +1354,10 @@ class Connection:
             self.server_capabilities |= cap_h << 16
             salt_len = max(12, salt_len - 9)
 
-        # reserved
+        # reserved: 6 filler bytes, then 4 bytes of MariaDB extended
+        # capabilities (zero on MySQL servers)
+        if "MariaDB" in self.server_version and len(data) >= i + 10:
+            self._mariadb_ext_caps = I.unpack(data[i + 6: i + 10])[0]
         i += 10
 
         if len(data) >= i + salt_len:
@@ -1140,6 +1395,113 @@ class Connection:
     NotSupportedError = errors.NotSupportedError
 
 
+class PreparedStatement:
+    """A server-side prepared statement (binary protocol).
+
+    Created via :meth:`Connection.prepare`. Parameters are sent in binary form
+    (no client-side escaping) and result rows are parsed from the binary
+    protocol (no text parsing for numeric/temporal columns).
+
+    Notes:
+    - placeholders use native MySQL ``?`` syntax, not ``%s``;
+    - custom ``conv`` decoders apply only to string-typed columns; numeric and
+      temporal columns decode natively;
+    - only the first result set is returned (extra sets are drained).
+    """
+
+    def __init__(self, connection, statement_id, parameter_count):
+        self._connection = connection
+        self._statement_id = statement_id
+        self._parameter_count = parameter_count
+        self._closed = False
+        # Column metadata cached from the first execute; later executes skip
+        # re-parsing the (identical) column definition packets.
+        self._meta = None
+
+    @property
+    def parameter_count(self):
+        return self._parameter_count
+
+    async def execute(self, args=()):
+        """Execute with ``args`` bound to the statement's ``?`` placeholders.
+
+        Returns the result object: ``result.rows`` (tuple of row tuples, None
+        for non-SELECT), ``result.affected_rows``, ``result.insert_id``,
+        ``result.description``.
+        """
+        conn = self._connection
+        if self._closed or conn is None:
+            raise errors.ProgrammingError("Prepared statement is closed")
+        if not isinstance(args, (tuple, list)):
+            args = (args,)
+        if len(args) != self._parameter_count:
+            raise errors.ProgrammingError(
+                "Expected %d parameters, got %d" % (self._parameter_count, len(args))
+            )
+        payload = I.pack(self._statement_id) + b"\x00" + I.pack(1)
+        if self._parameter_count:
+            payload += pack_binary_params(tuple(args), conn._encoding)
+        await conn._execute_command(COM_STMT_EXECUTE, payload)
+        result = MySQLResult(conn)
+        await result.read_binary(self)
+        has_next = result.has_next
+        while has_next:  # drain extra result sets (e.g. from stored procedures)
+            extra = MySQLResult(conn)
+            await extra.read_binary()
+            has_next = extra.has_next
+        result.has_next = False
+        conn._result = result
+        conn._affected_rows = result.affected_rows
+        if result.server_status != 0:
+            conn.server_status = result.server_status
+        return result
+
+    async def execute_bulk(self, rows):
+        """MariaDB COM_STMT_BULK_EXECUTE: bind many rows in one round-trip.
+
+        ``rows`` is a sequence of parameter tuples. Returns the result object
+        (``affected_rows``, ``insert_id``). Only usable when the server
+        advertises MARIADB_CLIENT_STMT_BULK_OPERATIONS.
+        """
+        conn = self._connection
+        if self._closed or conn is None:
+            raise errors.ProgrammingError("Prepared statement is closed")
+        if not conn._bulk_supported:
+            raise errors.NotSupportedError("Server does not support COM_STMT_BULK_EXECUTE")
+        packed = pack_bulk_rows(rows, self._parameter_count, conn._encoding)
+        if packed is None:
+            # Raised before any I/O, so callers may safely fall back.
+            raise ValueError(
+                "Rows are not bulk-compatible (mixed types or all-NULL column)"
+            )
+        # stmt_id(4) + flags(2): 128 = SEND_TYPES_TO_SERVER
+        payload = I.pack(self._statement_id) + b"\x80\x00" + packed[0] + packed[1]
+        await conn._execute_command(COM_STMT_BULK_EXECUTE, payload)
+        result = MySQLResult(conn)
+        await result.read()  # single OK (or error) packet
+        conn._result = result
+        conn._affected_rows = result.affected_rows
+        if result.server_status != 0:
+            conn.server_status = result.server_status
+        return result
+
+    async def close(self):
+        """Deallocate the statement on the server (no server response)."""
+        if self._closed:
+            return
+        self._closed = True
+        conn = self._connection
+        self._connection = None
+        if conn is not None and conn.connected:
+            await conn._execute_command(COM_STMT_CLOSE, I.pack(self._statement_id))
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        await self.close()
+
+
 cdef class MySQLResult:
     cdef:
         public connection
@@ -1150,9 +1512,14 @@ cdef class MySQLResult:
         public unsigned long long insert_id
         public tuple rows, description
         tuple _row_converters
+        tuple _binary_colspecs
+        list _pending_rows
+        Py_ssize_t _pending_idx
+        bint _deprecate_eof
 
     def __init__(self, connection: Connection):
         self.connection = connection
+        self._deprecate_eof = connection._deprecate_eof
         self.affected_rows = 0
         self.insert_id = 0
         self.server_status = 0
@@ -1180,6 +1547,76 @@ cdef class MySQLResult:
                 await self._read_result_packet(first_packet)
         finally:
             self.connection = None
+
+    async def read_binary(self, stmt=None):
+        """Read a COM_STMT_EXECUTE response (binary protocol result set)."""
+        try:
+            first_packet = await self.connection.read_packet()
+            if first_packet.is_ok_packet():
+                self._read_ok_packet(first_packet)
+            else:
+                self.field_count = first_packet.read_length_encoded_integer()
+                meta = stmt._meta if stmt is not None else None
+                if meta is not None and meta[0] == self.field_count:
+                    await self._consume_descriptions(meta)
+                else:
+                    await self._get_descriptions()
+                    if stmt is not None:
+                        stmt._meta = (
+                            self.field_count,
+                            self.fields,
+                            self.converters,
+                            self._row_converters,
+                            self._binary_colspecs,
+                            self.description,
+                        )
+                await self._read_binary_rowdata_packet()
+        finally:
+            self.connection = None
+
+    async def _consume_descriptions(self, tuple meta):
+        """Skip the column definition packets, reusing cached metadata."""
+        # column definitions, plus a trailing EOF unless DEPRECATE_EOF is on
+        cdef Py_ssize_t remaining = self.field_count + (0 if self._deprecate_eof else 1)
+        conn = self.connection
+        proto = conn._proto
+        while remaining:
+            new_pos, new_seq, skipped = skip_packets_from_buffer(
+                proto.buffer, proto.pos, proto.length, conn._next_seq_id, remaining
+            )
+            proto.pos = new_pos
+            conn._next_seq_id = new_seq
+            remaining -= skipped
+            if remaining:
+                # incomplete or error packet: take the generic path for one
+                await conn.read_packet()
+                remaining -= 1
+        self.fields = meta[1]
+        self.converters = meta[2]
+        self._row_converters = meta[3]
+        self._binary_colspecs = meta[4]
+        self.description = meta[5]
+
+    async def _read_binary_rowdata_packet(self):
+        cdef list rows = []
+        cdef tuple specs = self._binary_colspecs
+        conn = self.connection
+        proto = conn._proto
+        while True:
+            new_pos, new_seq = parse_binary_rows_from_buffer(
+                proto.buffer, proto.pos, proto.length, specs, conn._next_seq_id, rows,
+                self._deprecate_eof,
+            )
+            proto.pos = new_pos
+            conn._next_seq_id = new_seq
+            packet = await conn.read_packet()
+            if self._check_packet_is_eof(packet):
+                self.connection = None
+                break
+            rows.append(packet.read_binary_row(specs))
+
+        self.affected_rows = len(rows)
+        self.rows = tuple(rows)
 
     async def init_unbuffered_query(self):
         """
@@ -1234,12 +1671,23 @@ cdef class MySQLResult:
         self._read_ok_packet(ok_packet)
 
     def _check_packet_is_eof(self, packet):
+        if self._deprecate_eof:
+            # Result sets end with an OK packet carrying a 0xFE header.
+            # A row packet can never start with 0xFE at payload < 16MB (that
+            # first byte would be an 8-byte length-encoded integer marker,
+            # implying a >=16MB packet).
+            if not packet.is_auth_switch_request():  # first byte != 0xFE
+                return False
+            packet.advance(1)
+            packet.read_length_encoded_integer()  # affected rows
+            packet.read_length_encoded_integer()  # insert id
+            server_status = packet.read_uint16()
+            self.warning_count = packet.read_uint16()
+            self.server_status = server_status
+            self.has_next = server_status & SERVER_MORE_RESULTS_EXISTS
+            return True
         if not packet.is_eof_packet():
             return False
-        # TODO: Support DEPRECATE_EOF
-        # 1) Add DEPRECATE_EOF to CAPABILITIES
-        # 2) Mask CAPABILITIES with server_capabilities
-        # 3) if server_capabilities & DEPRECATE_EOF: use OKPacketWrapper instead of EOFPacketWrapper
         wp = EOFPacketWrapper(packet)
         self.warning_count = wp.warning_count
         self.has_next = wp.has_next
@@ -1254,9 +1702,37 @@ cdef class MySQLResult:
         # Check if in an active query
         if not self.unbuffered_active:
             return
+        cdef list pending = self._pending_rows
 
-        # EOF
-        packet = await self.connection.read_packet()
+        # Serve rows already bulk-parsed from the receive buffer
+        if pending is not None and self._pending_idx < len(pending):
+            row = pending[self._pending_idx]
+            self._pending_idx += 1
+            self.affected_rows = 1
+            self.rows = (row,)
+            return row
+
+        # Bulk-parse whatever complete row packets are sitting in the buffer
+        conn = self.connection
+        proto = conn._proto
+        cdef list rows = []
+        new_pos, new_seq = parse_rows_from_buffer(
+            proto.buffer, proto.pos, proto.length, self._row_converters,
+            conn._next_seq_id, rows, self._deprecate_eof,
+        )
+        proto.pos = new_pos
+        conn._next_seq_id = new_seq
+        if rows:
+            self._pending_rows = rows
+            self._pending_idx = 1
+            row = rows[0]
+            self.affected_rows = 1
+            self.rows = (row,)
+            return row
+        self._pending_rows = None
+
+        # Slow path: await the next packet (row, EOF, or error)
+        packet = await conn.read_packet()
         if self._check_packet_is_eof(packet):
             self.unbuffered_active = False
             self.connection = None
@@ -1283,13 +1759,15 @@ cdef class MySQLResult:
         cdef list rows = []
         cdef tuple convs = self._row_converters
         conn = self.connection
+        proto = conn._proto
         while True:
             # Bulk-parse every complete row packet already sitting in the
-            # connection's receive buffer without touching the event loop.
+            # receive buffer without touching the event loop.
             new_pos, new_seq = parse_rows_from_buffer(
-                conn._buffer, conn._buf_pos, convs, conn._next_seq_id, rows
+                proto.buffer, proto.pos, proto.length, convs, conn._next_seq_id, rows,
+                self._deprecate_eof,
             )
-            conn._buf_pos = new_pos
+            proto.pos = new_pos
             conn._next_seq_id = new_seq
             # Whatever stopped the bulk parser (incomplete data, EOF, error,
             # jumbo packet) goes through the generic packet reader.
@@ -1309,6 +1787,7 @@ cdef class MySQLResult:
         """Read a column descriptor packet for each column in the result."""
         self.fields = []
         self.converters = []
+        cdef list binary_specs = []
         use_unicode = self.connection._use_unicode
         conn_encoding = self.connection._encoding
         description = []
@@ -1353,10 +1832,15 @@ cdef class MySQLResult:
             else:
                 code = 3
             self.converters.append((code, encoding, converter))
+            binary_specs.append(
+                (field_type, bool(field.flags & 32), code, encoding, converter)  # 32: UNSIGNED
+            )
 
         self._row_converters = tuple(self.converters)
-        eof_packet = await self.connection.read_packet()
-        assert eof_packet.is_eof_packet(), "Protocol error, expecting EOF"
+        self._binary_colspecs = tuple(binary_specs)
+        if not self._deprecate_eof:
+            eof_packet = await self.connection.read_packet()
+            assert eof_packet.is_eof_packet(), "Protocol error, expecting EOF"
         self.description = tuple(description)
 
 
@@ -1381,12 +1865,14 @@ class LoadLocalFile:
                     chunk = open_file.read(packet_size)
                     if not chunk:
                         break
-                    await conn.write_packet(chunk)
+                    conn.write_packet(chunk)
+                    await conn._proto.drain()
         except IOError:
             raise errors.OperationalError(FILE_NOT_FOUND, f"Can't find file '{self.filename}'")
         finally:
             # send the empty packet to signify we are done sending data
-            await conn.write_packet(b"")
+            conn.write_packet(b"")
+            await conn._proto.drain()
 
 
 def connect(user=None,
@@ -1415,6 +1901,7 @@ def connect(user=None,
             echo=False,
             server_public_key=None,
             ssl=None,
+            stmt_cache_size=0,
             db=None,  # deprecated
             ):
     coro = _connect(
@@ -1444,6 +1931,7 @@ def connect(user=None,
         server_public_key=server_public_key,
         echo=echo,
         ssl=ssl,
+        stmt_cache_size=stmt_cache_size,
         db=db,  # deprecated
     )
     return _ConnectionContextManager(coro)

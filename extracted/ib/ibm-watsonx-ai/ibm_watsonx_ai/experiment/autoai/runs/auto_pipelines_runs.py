@@ -26,6 +26,7 @@ from ibm_watsonx_ai.wml_client_error import (
     UnsupportedOperation,
     WMLClientError,
 )
+from ibm_watsonx_ai.workspace.workspace import WorkSpace
 
 from .base_auto_pipelines_runs import BaseAutoPipelinesRuns
 
@@ -44,11 +45,14 @@ class AutoPipelinesRuns(BaseAutoPipelinesRuns):
     """
 
     def __init__(
-        self, engine: Union["WMLEngine", "ServiceEngine"], filter: str = None
+        self,
+        engine: Union["WMLEngine", "ServiceEngine"],
+        filter: str | None = None,
+        workspace: WorkSpace | None = None,
     ) -> None:
         self._engine: Union["WMLEngine", "ServiceEngine"] = engine
         self.auto_pipeline_optimizer_name = filter
-        self._workspace = None
+        self._workspace = workspace
 
     @property
     def _wml_engine(self):
@@ -552,9 +556,8 @@ class AutoPipelinesRuns(BaseAutoPipelinesRuns):
     def get_optimizer(
         self,
         run_id: Optional[str] = None,
-        metadata: Dict[
-            str, Union[List["DataConnection"], "DataConnection", str, int]
-        ] = None,
+        metadata: Dict[str, Union[List["DataConnection"], "DataConnection", str, int]]
+        | None = None,
     ) -> "RemoteAutoPipelines":
         """Create instance of AutoPipelinesRuns with all computed pipelines computed by AutoAI.
 
@@ -584,11 +587,10 @@ class AutoPipelinesRuns(BaseAutoPipelinesRuns):
             optimizer_parameters = self.get_params(run_id=run_id)
 
             remote_pipeline_optimizer = RemoteAutoPipelines(
-                **optimizer_parameters, engine=self._engine
+                **optimizer_parameters, engine=self._engine, workspace=self._workspace
             )
 
             remote_pipeline_optimizer._engine._current_run_id = run_id
-            remote_pipeline_optimizer._workspace = self._workspace
 
             return remote_pipeline_optimizer
         # --- end note

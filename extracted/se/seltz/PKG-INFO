@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: seltz
-Version: 1.6.0
+Version: 1.7.0
 Summary: Seltz Python SDK for AI-powered search
 Author-email: Seltz <support@seltz.ai>
 Project-URL: Homepage, https://seltz.ai
@@ -88,10 +88,33 @@ for citation in response.citations:
     print(f"Source: {citation.url}")
 ```
 
-Pass `model` to pick an answer tier. It defaults to `seltz-base`; `seltz-pro` runs agentic search for harder, multi-hop questions:
+Pass `model` to pick an answer tier. It defaults to `seltz-base`; `seltz-pro` runs agentic RAG over a single grounding search:
 
 ```python
 response = client.answer("Who is Apple's next CEO?", model="seltz-pro")
+```
+
+Pass `response_format` (an OpenAI-style object) to get structured output. `response.answer` then carries a JSON string matching your schema instead of Markdown; `response.citations` are still returned:
+
+```python
+response = client.answer(
+    "Who is Apple's next CEO?",
+    response_format={
+        "type": "json_schema",
+        "json_schema": {
+            "name": "news_summary",
+            "schema": {
+                "type": "object",
+                "properties": {"summary": {"type": "string"}},
+                "required": ["summary"],
+                "additionalProperties": False,
+            },
+        },
+    },
+)
+
+import json
+print(json.loads(response.answer)["summary"])
 ```
 
 ### Answer (streaming)

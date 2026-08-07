@@ -1,3 +1,4 @@
+import json
 from typing import Any, AsyncIterator, Dict, Iterator, Optional, Union
 
 import grpc
@@ -23,8 +24,9 @@ def _build_answer_request(
     include_content: bool,
     scope: Union[str, Omit],
     model: Union[str, Omit],
+    response_format: Union[Dict[str, Any], Omit],
 ) -> AnswerRequest:
-    """Build an AnswerRequest, leaving scope and model unset when passed as OMIT.
+    """Build an AnswerRequest, leaving scope, model, and response_format unset when passed as OMIT.
 
     Args:
         query (str):
@@ -45,6 +47,11 @@ def _build_answer_request(
             Select the answer tier (e.g. "seltz-pro").
             Pass OMIT to leave the field unset on the request.
 
+        response_format (dict, optional):
+            An OpenAI-style ``response_format`` object (e.g.
+            ``{"type": "json_schema", "json_schema": {...}}``). JSON-encoded
+            into the request's string field. Pass OMIT to leave it unset.
+
     Returns:
         AnswerRequest: The request message with any OMIT field left unset.
     """
@@ -61,6 +68,9 @@ def _build_answer_request(
     if not isinstance(model, Omit):
         fields["model"] = model
 
+    if not isinstance(response_format, Omit) and response_format is not None:
+        fields["response_format"] = json.dumps(response_format)
+
     return AnswerRequest(**fields)
 
 
@@ -71,8 +81,9 @@ def _build_answer_stream_request(
     include_content: bool,
     scope: Union[str, Omit],
     model: Union[str, Omit],
+    response_format: Union[Dict[str, Any], Omit],
 ) -> AnswerStreamRequest:
-    """Build an AnswerStreamRequest, leaving scope and model unset when passed as OMIT.
+    """Build an AnswerStreamRequest, leaving scope, model, and response_format unset when passed as OMIT.
 
     Mirrors :func:`_build_answer_request`; the streaming RPC takes a distinct
     request message with the same fields (the public gRPC API keeps one message
@@ -97,6 +108,11 @@ def _build_answer_stream_request(
             Select the answer tier (e.g. "seltz-pro").
             Pass OMIT to leave the field unset on the request.
 
+        response_format (dict, optional):
+            An OpenAI-style ``response_format`` object (e.g.
+            ``{"type": "json_schema", "json_schema": {...}}``). JSON-encoded
+            into the request's string field. Pass OMIT to leave it unset.
+
     Returns:
         AnswerStreamRequest: The request message with any OMIT field left unset.
     """
@@ -112,6 +128,9 @@ def _build_answer_stream_request(
 
     if not isinstance(model, Omit):
         fields["model"] = model
+
+    if not isinstance(response_format, Omit) and response_format is not None:
+        fields["response_format"] = json.dumps(response_format)
 
     return AnswerStreamRequest(**fields)
 
@@ -139,6 +158,7 @@ class AnswerService:
         include_content: bool = False,
         scope: Union[str, Omit] = OMIT,
         model: Union[str, Omit] = OMIT,
+        response_format: Union[Dict[str, Any], Omit] = OMIT,
     ) -> AnswerResponse:
         """Generate a natural-language answer for a query.
 
@@ -158,6 +178,14 @@ class AnswerService:
                 Select the answer tier (e.g. "seltz-pro").
                 Defaults to "seltz-base" when not provided.
 
+            response_format (dict, optional):
+                An OpenAI-style ``response_format`` object requesting structured
+                output (e.g. ``{"type": "json_schema", "json_schema": {...}}``).
+                When provided, the ``answer`` field carries the JSON payload
+                matching the requested schema instead of Markdown prose;
+                ``citations`` are still returned. Omitted from the request when
+                not provided (the answer stays Markdown).
+
         Raises:
             SeltzAuthenticationError: If the API key is invalid.
             SeltzConnectionError: If the connection to the API fails.
@@ -175,6 +203,7 @@ class AnswerService:
             include_content=include_content,
             scope=scope,
             model=model,
+            response_format=response_format,
         )
 
         try:
@@ -194,6 +223,7 @@ class AnswerService:
         include_content: bool = False,
         scope: Union[str, Omit] = OMIT,
         model: Union[str, Omit] = OMIT,
+        response_format: Union[Dict[str, Any], Omit] = OMIT,
     ) -> Iterator[AnswerStreamResponse]:
         """Stream a natural-language answer for a query as it is generated.
 
@@ -220,6 +250,14 @@ class AnswerService:
                 Select the answer tier (e.g. "seltz-pro").
                 Defaults to "seltz-base" when not provided.
 
+            response_format (dict, optional):
+                An OpenAI-style ``response_format`` object requesting structured
+                output (e.g. ``{"type": "json_schema", "json_schema": {...}}``).
+                When provided, the ``answer`` field carries the JSON payload
+                matching the requested schema instead of Markdown prose;
+                ``citations`` are still returned. Omitted from the request when
+                not provided (the answer stays Markdown).
+
         Raises:
             SeltzAuthenticationError: If the API key is invalid.
             SeltzConnectionError: If the connection to the API fails.
@@ -238,6 +276,7 @@ class AnswerService:
             include_content=include_content,
             scope=scope,
             model=model,
+            response_format=response_format,
         )
 
         try:
@@ -274,6 +313,7 @@ class AsyncAnswerService:
         include_content: bool = False,
         scope: Union[str, Omit] = OMIT,
         model: Union[str, Omit] = OMIT,
+        response_format: Union[Dict[str, Any], Omit] = OMIT,
     ) -> AnswerResponse:
         """Generate a natural-language answer for a query.
 
@@ -293,6 +333,14 @@ class AsyncAnswerService:
                 Select the answer tier (e.g. "seltz-pro").
                 Defaults to "seltz-base" when not provided.
 
+            response_format (dict, optional):
+                An OpenAI-style ``response_format`` object requesting structured
+                output (e.g. ``{"type": "json_schema", "json_schema": {...}}``).
+                When provided, the ``answer`` field carries the JSON payload
+                matching the requested schema instead of Markdown prose;
+                ``citations`` are still returned. Omitted from the request when
+                not provided (the answer stays Markdown).
+
         Raises:
             SeltzAuthenticationError: If the API key is invalid.
             SeltzConnectionError: If the connection to the API fails.
@@ -310,6 +358,7 @@ class AsyncAnswerService:
             include_content=include_content,
             scope=scope,
             model=model,
+            response_format=response_format,
         )
 
         try:
@@ -329,6 +378,7 @@ class AsyncAnswerService:
         include_content: bool = False,
         scope: Union[str, Omit] = OMIT,
         model: Union[str, Omit] = OMIT,
+        response_format: Union[Dict[str, Any], Omit] = OMIT,
     ) -> AsyncIterator[AnswerStreamResponse]:
         """Stream a natural-language answer for a query as it is generated.
 
@@ -355,6 +405,14 @@ class AsyncAnswerService:
                 Select the answer tier (e.g. "seltz-pro").
                 Defaults to "seltz-base" when not provided.
 
+            response_format (dict, optional):
+                An OpenAI-style ``response_format`` object requesting structured
+                output (e.g. ``{"type": "json_schema", "json_schema": {...}}``).
+                When provided, the ``answer`` field carries the JSON payload
+                matching the requested schema instead of Markdown prose;
+                ``citations`` are still returned. Omitted from the request when
+                not provided (the answer stays Markdown).
+
         Raises:
             SeltzAuthenticationError: If the API key is invalid.
             SeltzConnectionError: If the connection to the API fails.
@@ -373,6 +431,7 @@ class AsyncAnswerService:
             include_content=include_content,
             scope=scope,
             model=model,
+            response_format=response_format,
         )
 
         try:

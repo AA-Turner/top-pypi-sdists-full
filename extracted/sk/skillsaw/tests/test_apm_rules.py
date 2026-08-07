@@ -4,6 +4,8 @@ Tests for APM (Agent Package Manager) detection, discovery, and rules
 
 from pathlib import Path
 
+import pytest
+
 from skillsaw.context import RepositoryContext, RepositoryType
 from skillsaw.rule import Severity
 from skillsaw.rules.builtin.apm import (
@@ -251,8 +253,8 @@ def test_apm_yaml_missing_version_fails(temp_dir):
     assert any("version" in v.message for v in violations)
 
 
-def test_apm_yaml_missing_description_fails(temp_dir):
-    """Missing description field in apm.yml should fail"""
+def test_apm_yaml_missing_description_passes(temp_dir):
+    """Missing description is allowed — the APM schema requires only name + version"""
     repo = temp_dir / "apm-repo"
     repo.mkdir()
     _make_apm_repo(
@@ -263,7 +265,23 @@ def test_apm_yaml_missing_description_fails(temp_dir):
 
     context = RepositoryContext(repo)
     violations = ApmYamlValidRule().check(context)
-    assert any("description" in v.message for v in violations)
+    assert len(violations) == 0
+
+
+def test_apm_yaml_non_string_description_fails(temp_dir):
+    """description is optional but must be a string when present"""
+    repo = temp_dir / "apm-repo"
+    repo.mkdir()
+    _make_apm_repo(
+        repo,
+        skills=["my-skill"],
+        apm_yml="name: test\nversion: 1.0.0\ndescription: [not, a, string]\n",
+    )
+
+    context = RepositoryContext(repo)
+    violations = ApmYamlValidRule().check(context)
+    assert len(violations) == 1
+    assert "description" in violations[0].message and "string" in violations[0].message
 
 
 def test_apm_yaml_non_string_version_fails(temp_dir):
@@ -378,7 +396,20 @@ def test_apm_structure_empty_apm_dir_warns(temp_dir):
     context = RepositoryContext(repo)
     violations = ApmStructureValidRule().check(context)
     assert len(violations) == 1
-    assert "skills/" in violations[0].message or "instructions/" in violations[0].message
+    assert "primitive subdirectory" in violations[0].message
+
+
+@pytest.mark.parametrize("primitive", ["prompts", "agents", "context", "hooks", "extensions"])
+def test_apm_structure_other_primitive_dirs_pass(temp_dir, primitive):
+    """A package built from any recognized primitive dir (not just skills/instructions) passes"""
+    repo = temp_dir / "apm-repo"
+    repo.mkdir()
+    (repo / ".apm" / primitive).mkdir(parents=True)
+    (repo / "apm.yml").write_text("name: test\nversion: 1.0.0\ndescription: Test\n")
+
+    context = RepositoryContext(repo)
+    violations = ApmStructureValidRule().check(context)
+    assert len(violations) == 0
 
 
 def test_apm_structure_skill_missing_skill_md_warns(temp_dir):
@@ -391,6 +422,40 @@ def test_apm_structure_skill_missing_skill_md_warns(temp_dir):
     context = RepositoryContext(repo)
     violations = ApmStructureValidRule().check(context)
     assert any("missing SKILL.md" in v.message for v in violations)
+
+
+def test_apm_structure_consumer_manifest_passes(temp_dir):
+    """A consumer-only apm.yml (dependencies, no .apm/ dir) should not warn"""
+    repo = temp_dir / "consumer-repo"
+    repo.mkdir()
+    (repo / "apm.yml").write_text(
+        "name: consumer\n"
+        "version: 1.0.0\n"
+        "description: Installs shared packages\n"
+        "targets:\n"
+        "  - claude\n"
+        "dependencies:\n"
+        "  apm:\n"
+        "    - openshift-eng/ai-helpers/plugins/ci\n"
+    )
+
+    context = RepositoryContext(repo)
+    assert context.has_apm
+    violations = ApmStructureValidRule().check(context)
+    assert violations == []
+
+
+def test_apm_consumer_manifest_produces_no_apm_node(temp_dir):
+    """No .apm/ directory means no ApmNode in the tree"""
+    from skillsaw.lint_target import ApmConfigNode, ApmNode
+
+    repo = temp_dir / "consumer-repo"
+    repo.mkdir()
+    (repo / "apm.yml").write_text("name: consumer\nversion: 1.0.0\ndependencies:\n  apm: []\n")
+
+    tree = RepositoryContext(repo).lint_tree
+    assert len(tree.find(ApmConfigNode)) == 1
+    assert tree.find(ApmNode) == []
 
 
 def test_apm_structure_skipped_without_apm(temp_dir):

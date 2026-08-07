@@ -29,10 +29,12 @@ from botocore.exceptions import ClientError as BotocoreClientError
 from .paginator import (
     ListAgentRuntimeEndpointsPaginator,
     ListAgentRuntimesPaginator,
+    ListAgentRuntimeVersionsByCapacityProviderPaginator,
     ListAgentRuntimeVersionsPaginator,
     ListApiKeyCredentialProvidersPaginator,
     ListBrowserProfilesPaginator,
     ListBrowsersPaginator,
+    ListCapacityProvidersPaginator,
     ListCodeInterpretersPaginator,
     ListConfigurationBundlesPaginator,
     ListConfigurationBundleVersionsPaginator,
@@ -40,6 +42,7 @@ from .paginator import (
     ListDatasetsPaginator,
     ListDatasetVersionsPaginator,
     ListEvaluatorsPaginator,
+    ListGatewayRateLimitsPaginator,
     ListGatewayRulesPaginator,
     ListGatewaysPaginator,
     ListGatewayTargetsPaginator,
@@ -66,6 +69,8 @@ from .paginator import (
 from .type_defs import (
     AddDatasetExamplesRequestTypeDef,
     AddDatasetExamplesResponseTypeDef,
+    BatchPutGatewayRateLimitsRequestTypeDef,
+    BatchPutGatewayRateLimitsResponseTypeDef,
     CreateAgentRuntimeEndpointRequestTypeDef,
     CreateAgentRuntimeEndpointResponseTypeDef,
     CreateAgentRuntimeRequestTypeDef,
@@ -76,6 +81,8 @@ from .type_defs import (
     CreateBrowserProfileResponseTypeDef,
     CreateBrowserRequestTypeDef,
     CreateBrowserResponseTypeDef,
+    CreateCapacityProviderInputTypeDef,
+    CreateCapacityProviderOutputTypeDef,
     CreateCodeInterpreterRequestTypeDef,
     CreateCodeInterpreterResponseTypeDef,
     CreateConfigurationBundleRequestTypeDef,
@@ -86,6 +93,8 @@ from .type_defs import (
     CreateDatasetVersionResponseTypeDef,
     CreateEvaluatorRequestTypeDef,
     CreateEvaluatorResponseTypeDef,
+    CreateGatewayRateLimitRequestTypeDef,
+    CreateGatewayRateLimitResponseTypeDef,
     CreateGatewayRequestTypeDef,
     CreateGatewayResponseTypeDef,
     CreateGatewayRuleRequestTypeDef,
@@ -127,6 +136,8 @@ from .type_defs import (
     DeleteBrowserProfileResponseTypeDef,
     DeleteBrowserRequestTypeDef,
     DeleteBrowserResponseTypeDef,
+    DeleteCapacityProviderInputTypeDef,
+    DeleteCapacityProviderOutputTypeDef,
     DeleteCodeInterpreterRequestTypeDef,
     DeleteCodeInterpreterResponseTypeDef,
     DeleteConfigurationBundleRequestTypeDef,
@@ -137,6 +148,8 @@ from .type_defs import (
     DeleteDatasetResponseTypeDef,
     DeleteEvaluatorRequestTypeDef,
     DeleteEvaluatorResponseTypeDef,
+    DeleteGatewayRateLimitRequestTypeDef,
+    DeleteGatewayRateLimitResponseTypeDef,
     DeleteGatewayRequestTypeDef,
     DeleteGatewayResponseTypeDef,
     DeleteGatewayRuleRequestTypeDef,
@@ -176,6 +189,8 @@ from .type_defs import (
     GetBrowserProfileResponseTypeDef,
     GetBrowserRequestTypeDef,
     GetBrowserResponseTypeDef,
+    GetCapacityProviderInputTypeDef,
+    GetCapacityProviderOutputTypeDef,
     GetCodeInterpreterRequestTypeDef,
     GetCodeInterpreterResponseTypeDef,
     GetConfigurationBundleRequestTypeDef,
@@ -186,6 +201,8 @@ from .type_defs import (
     GetDatasetResponseTypeDef,
     GetEvaluatorRequestTypeDef,
     GetEvaluatorResponseTypeDef,
+    GetGatewayRateLimitRequestTypeDef,
+    GetGatewayRateLimitResponseTypeDef,
     GetGatewayRequestTypeDef,
     GetGatewayResponseTypeDef,
     GetGatewayRuleRequestTypeDef,
@@ -234,6 +251,8 @@ from .type_defs import (
     ListAgentRuntimeEndpointsResponseTypeDef,
     ListAgentRuntimesRequestTypeDef,
     ListAgentRuntimesResponseTypeDef,
+    ListAgentRuntimeVersionsByCapacityProviderInputTypeDef,
+    ListAgentRuntimeVersionsByCapacityProviderOutputTypeDef,
     ListAgentRuntimeVersionsRequestTypeDef,
     ListAgentRuntimeVersionsResponseTypeDef,
     ListApiKeyCredentialProvidersRequestTypeDef,
@@ -242,6 +261,8 @@ from .type_defs import (
     ListBrowserProfilesResponseTypeDef,
     ListBrowsersRequestTypeDef,
     ListBrowsersResponseTypeDef,
+    ListCapacityProvidersInputTypeDef,
+    ListCapacityProvidersOutputTypeDef,
     ListCodeInterpretersRequestTypeDef,
     ListCodeInterpretersResponseTypeDef,
     ListConfigurationBundlesRequestTypeDef,
@@ -256,6 +277,8 @@ from .type_defs import (
     ListDatasetVersionsResponseTypeDef,
     ListEvaluatorsRequestTypeDef,
     ListEvaluatorsResponseTypeDef,
+    ListGatewayRateLimitsRequestTypeDef,
+    ListGatewayRateLimitsResponseTypeDef,
     ListGatewayRulesRequestTypeDef,
     ListGatewayRulesResponseTypeDef,
     ListGatewaysRequestTypeDef,
@@ -320,6 +343,8 @@ from .type_defs import (
     UpdateAgentRuntimeResponseTypeDef,
     UpdateApiKeyCredentialProviderRequestTypeDef,
     UpdateApiKeyCredentialProviderResponseTypeDef,
+    UpdateCapacityProviderInputTypeDef,
+    UpdateCapacityProviderOutputTypeDef,
     UpdateConfigurationBundleRequestTypeDef,
     UpdateConfigurationBundleResponseTypeDef,
     UpdateDatasetExamplesRequestTypeDef,
@@ -328,6 +353,8 @@ from .type_defs import (
     UpdateDatasetResponseTypeDef,
     UpdateEvaluatorRequestTypeDef,
     UpdateEvaluatorResponseTypeDef,
+    UpdateGatewayRateLimitRequestTypeDef,
+    UpdateGatewayRateLimitResponseTypeDef,
     UpdateGatewayRequestTypeDef,
     UpdateGatewayResponseTypeDef,
     UpdateGatewayRuleRequestTypeDef,
@@ -389,6 +416,7 @@ class Exceptions(BaseClientExceptions):
     InternalServerException: type[BotocoreClientError]
     ResourceLimitExceededException: type[BotocoreClientError]
     ResourceNotFoundException: type[BotocoreClientError]
+    RetryableConflictException: type[BotocoreClientError]
     ServiceException: type[BotocoreClientError]
     ServiceQuotaExceededException: type[BotocoreClientError]
     ThrottledException: type[BotocoreClientError]
@@ -441,6 +469,16 @@ class BedrockAgentCoreControlClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#add_dataset_examples)
         """
 
+    def batch_put_gateway_rate_limits(
+        self, **kwargs: Unpack[BatchPutGatewayRateLimitsRequestTypeDef]
+    ) -> BatchPutGatewayRateLimitsResponseTypeDef:
+        """
+        Atomically creates or updates multiple rate limits for a gateway.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/batch_put_gateway_rate_limits.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#batch_put_gateway_rate_limits)
+        """
+
     def create_agent_runtime(
         self, **kwargs: Unpack[CreateAgentRuntimeRequestTypeDef]
     ) -> CreateAgentRuntimeResponseTypeDef:
@@ -489,6 +527,16 @@ class BedrockAgentCoreControlClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/create_browser_profile.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#create_browser_profile)
+        """
+
+    def create_capacity_provider(
+        self, **kwargs: Unpack[CreateCapacityProviderInputTypeDef]
+    ) -> CreateCapacityProviderOutputTypeDef:
+        """
+        Creates a capacity provider.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/create_capacity_provider.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#create_capacity_provider)
         """
 
     def create_code_interpreter(
@@ -549,6 +597,16 @@ class BedrockAgentCoreControlClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/create_gateway.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#create_gateway)
+        """
+
+    def create_gateway_rate_limit(
+        self, **kwargs: Unpack[CreateGatewayRateLimitRequestTypeDef]
+    ) -> CreateGatewayRateLimitResponseTypeDef:
+        """
+        Creates a rate limit for a gateway.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/create_gateway_rate_limit.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#create_gateway_rate_limit)
         """
 
     def create_gateway_rule(
@@ -708,7 +766,8 @@ class BedrockAgentCoreControlClient(BaseClient):
         self, **kwargs: Unpack[DeleteAgentRuntimeRequestTypeDef]
     ) -> DeleteAgentRuntimeResponseTypeDef:
         """
-        Deletes an Amazon Bedrock AgentCore Runtime.
+        Deletes an Amazon Bedrock AgentCore Runtime, or a single version of an
+        AgentCore Runtime when you provide the version qualifier.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/delete_agent_runtime.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#delete_agent_runtime)
@@ -718,7 +777,7 @@ class BedrockAgentCoreControlClient(BaseClient):
         self, **kwargs: Unpack[DeleteAgentRuntimeEndpointRequestTypeDef]
     ) -> DeleteAgentRuntimeEndpointResponseTypeDef:
         """
-        Deletes an AAgentCore Runtime endpoint.
+        Deletes an AgentCore Runtime endpoint.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/delete_agent_runtime_endpoint.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#delete_agent_runtime_endpoint)
@@ -752,6 +811,16 @@ class BedrockAgentCoreControlClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/delete_browser_profile.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#delete_browser_profile)
+        """
+
+    def delete_capacity_provider(
+        self, **kwargs: Unpack[DeleteCapacityProviderInputTypeDef]
+    ) -> DeleteCapacityProviderOutputTypeDef:
+        """
+        Deletes a capacity provider.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/delete_capacity_provider.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#delete_capacity_provider)
         """
 
     def delete_code_interpreter(
@@ -812,6 +881,16 @@ class BedrockAgentCoreControlClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/delete_gateway.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#delete_gateway)
+        """
+
+    def delete_gateway_rate_limit(
+        self, **kwargs: Unpack[DeleteGatewayRateLimitRequestTypeDef]
+    ) -> DeleteGatewayRateLimitResponseTypeDef:
+        """
+        Deletes a gateway rate limit.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/delete_gateway_rate_limit.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#delete_gateway_rate_limit)
         """
 
     def delete_gateway_rule(
@@ -1023,6 +1102,17 @@ class BedrockAgentCoreControlClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#get_browser_profile)
         """
 
+    def get_capacity_provider(
+        self, **kwargs: Unpack[GetCapacityProviderInputTypeDef]
+    ) -> GetCapacityProviderOutputTypeDef:
+        """
+        Retrieves information about a capacity provider, including its status,
+        permissions configuration, and compute configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_capacity_provider.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#get_capacity_provider)
+        """
+
     def get_code_interpreter(
         self, **kwargs: Unpack[GetCodeInterpreterRequestTypeDef]
     ) -> GetCodeInterpreterResponseTypeDef:
@@ -1078,6 +1168,16 @@ class BedrockAgentCoreControlClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_gateway.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#get_gateway)
+        """
+
+    def get_gateway_rate_limit(
+        self, **kwargs: Unpack[GetGatewayRateLimitRequestTypeDef]
+    ) -> GetGatewayRateLimitResponseTypeDef:
+        """
+        Retrieves information about a gateway rate limit.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_gateway_rate_limit.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#get_gateway_rate_limit)
         """
 
     def get_gateway_rule(
@@ -1311,6 +1411,16 @@ class BedrockAgentCoreControlClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#list_agent_runtime_versions)
         """
 
+    def list_agent_runtime_versions_by_capacity_provider(
+        self, **kwargs: Unpack[ListAgentRuntimeVersionsByCapacityProviderInputTypeDef]
+    ) -> ListAgentRuntimeVersionsByCapacityProviderOutputTypeDef:
+        """
+        Lists the agent runtime versions that are associated with a capacity provider.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/list_agent_runtime_versions_by_capacity_provider.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#list_agent_runtime_versions_by_capacity_provider)
+        """
+
     def list_agent_runtimes(
         self, **kwargs: Unpack[ListAgentRuntimesRequestTypeDef]
     ) -> ListAgentRuntimesResponseTypeDef:
@@ -1349,6 +1459,17 @@ class BedrockAgentCoreControlClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/list_browsers.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#list_browsers)
+        """
+
+    def list_capacity_providers(
+        self, **kwargs: Unpack[ListCapacityProvidersInputTypeDef]
+    ) -> ListCapacityProvidersOutputTypeDef:
+        """
+        Lists the capacity providers in your account and returns summary information
+        for each one.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/list_capacity_providers.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#list_capacity_providers)
         """
 
     def list_code_interpreters(
@@ -1422,6 +1543,16 @@ class BedrockAgentCoreControlClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/list_evaluators.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#list_evaluators)
+        """
+
+    def list_gateway_rate_limits(
+        self, **kwargs: Unpack[ListGatewayRateLimitsRequestTypeDef]
+    ) -> ListGatewayRateLimitsResponseTypeDef:
+        """
+        Lists all rate limits for a gateway.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/list_gateway_rate_limits.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#list_gateway_rate_limits)
         """
 
     def list_gateway_rules(
@@ -1760,6 +1891,16 @@ class BedrockAgentCoreControlClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#update_api_key_credential_provider)
         """
 
+    def update_capacity_provider(
+        self, **kwargs: Unpack[UpdateCapacityProviderInputTypeDef]
+    ) -> UpdateCapacityProviderOutputTypeDef:
+        """
+        Updates a capacity provider.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/update_capacity_provider.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#update_capacity_provider)
+        """
+
     def update_configuration_bundle(
         self, **kwargs: Unpack[UpdateConfigurationBundleRequestTypeDef]
     ) -> UpdateConfigurationBundleResponseTypeDef:
@@ -1809,6 +1950,16 @@ class BedrockAgentCoreControlClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/update_gateway.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#update_gateway)
+        """
+
+    def update_gateway_rate_limit(
+        self, **kwargs: Unpack[UpdateGatewayRateLimitRequestTypeDef]
+    ) -> UpdateGatewayRateLimitResponseTypeDef:
+        """
+        Updates the entries of a gateway rate limit.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/update_gateway_rate_limit.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#update_gateway_rate_limit)
         """
 
     def update_gateway_rule(
@@ -1986,6 +2137,17 @@ class BedrockAgentCoreControlClient(BaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_agent_runtime_versions_by_capacity_provider"]
+    ) -> ListAgentRuntimeVersionsByCapacityProviderPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_agent_runtime_versions"]
     ) -> ListAgentRuntimeVersionsPaginator:
         """
@@ -2032,6 +2194,17 @@ class BedrockAgentCoreControlClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_browsers"]
     ) -> ListBrowsersPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_capacity_providers"]
+    ) -> ListCapacityProvidersPaginator:
         """
         Create a paginator for an operation.
 
@@ -2109,6 +2282,17 @@ class BedrockAgentCoreControlClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_evaluators"]
     ) -> ListEvaluatorsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_gateway_rate_limits"]
+    ) -> ListGatewayRateLimitsPaginator:
         """
         Create a paginator for an operation.
 

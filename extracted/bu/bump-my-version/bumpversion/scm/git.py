@@ -101,6 +101,8 @@ class Git:
             tag_name = self.config.tag_name.format(**context)
             tag_message = self.config.tag_message.format(**context)
             tag(tag_name, sign=self.config.sign_tags, message=tag_message)
+            if self.config.push_tag:
+                push_remote("origin", tag_name)
 
             for m_tag_name in self.config.moveable_tags:
                 moveable_tag(m_tag_name.format(**context))

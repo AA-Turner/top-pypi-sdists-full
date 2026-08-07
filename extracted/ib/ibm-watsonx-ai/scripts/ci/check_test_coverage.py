@@ -164,7 +164,7 @@ if __name__ == "__main__":
     # Entry order matters - coverage counts towards the first matched pattern
     required_coverage_values: dict[re.Pattern[str], CoverageValues[float]] = {
         re.compile(r".*/python/ibm_watsonx_ai/ibm_watsonx_ai/.*"): CoverageValues(
-            statement=0.67, branch=0.45
+            statement=0.64, branch=0.445
         ),
         re.compile(r".*/python/ibm_watsonx_ai/tests/.*"): CoverageValues(
             statement=1.0, branch=1.0

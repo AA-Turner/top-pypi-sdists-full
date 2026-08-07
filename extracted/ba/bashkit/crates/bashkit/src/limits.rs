@@ -16,6 +16,8 @@
 //! - **TM-DOS-024**: Parser hang → `parser_timeout`, `max_parser_operations`
 //! - **TM-DOS-027**: Builtin parser recursion → `MAX_AWK_PARSER_DEPTH`, `MAX_JQ_JSON_DEPTH` (in builtins)
 //! - **TM-DOS-063**: Persistent file descriptor exhaustion → `max_file_descriptors`
+//! - **TM-DOS-096**: Mixed/nested aggregate budget refresh → `ExecutionBudget`
+//! - **TM-DOS-103**: Post-allocation charging → budget-aware owning buffers
 //!
 //! # Fail Points (enabled with `failpoints` feature)
 //!
@@ -23,7 +25,11 @@
 //! - `limits::tick_loop` - Inject failures in loop iteration counting
 //! - `limits::push_function` - Inject failures in function depth tracking
 
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
+
+use crate::time_compat::Instant;
 
 #[cfg(feature = "failpoints")]
 use fail::fail_point;
@@ -31,6 +37,20 @@ use fail::fail_point;
 /// Resource limits for script execution
 #[derive(Debug, Clone)]
 pub struct ExecutionLimits {
+    /// Aggregate work units shared by the parser, interpreter, builtins, and
+    /// embedded runtimes for one host execution request.
+    /// Default: 100,000,000
+    pub max_work_units: u64,
+
+    /// Aggregate bytes accepted by request-scoped consumers. Unlike
+    /// `max_input_bytes`, repeated pipeline/runtime inputs accumulate.
+    /// Default: 100MB
+    pub max_aggregate_input_bytes: u64,
+
+    /// Maximum bytes held by explicitly leased intermediate buffers at once.
+    /// Default: 32MB
+    pub max_live_intermediate_bytes: u64,
+
     /// Maximum number of commands that can be executed (fuel model)
     /// Default: 10,000
     pub max_commands: usize,
@@ -134,6 +154,9 @@ pub struct ExecutionLimits {
 impl Default for ExecutionLimits {
     fn default() -> Self {
         Self {
+            max_work_units: 100_000_000,
+            max_aggregate_input_bytes: 100_000_000,
+            max_live_intermediate_bytes: 32_000_000,
             max_commands: 10_000,
             max_loop_iterations: 10_000,
             max_total_loop_iterations: 1_000_000,
@@ -162,6 +185,24 @@ impl ExecutionLimits {
     /// Create new limits with defaults
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Set aggregate request work units.
+    pub fn max_work_units(mut self, units: u64) -> Self {
+        self.max_work_units = units;
+        self
+    }
+
+    /// Set aggregate request input bytes.
+    pub fn max_aggregate_input_bytes(mut self, bytes: u64) -> Self {
+        self.max_aggregate_input_bytes = bytes;
+        self
+    }
+
+    /// Set maximum simultaneously leased intermediate bytes.
+    pub fn max_live_intermediate_bytes(mut self, bytes: u64) -> Self {
+        self.max_live_intermediate_bytes = bytes;
+        self
     }
 
     /// Relaxed limits for CLI / interactive use.
@@ -628,6 +669,9 @@ impl ExecutionCounters {
 /// Error returned when a resource limit is exceeded
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum LimitExceeded {
+    #[error("execution budget exhausted: {0}")]
+    ExecutionBudget(ExecutionBudgetExceeded),
+
     #[error("maximum command count exceeded ({0})")]
     MaxCommands(usize),
 
@@ -672,6 +716,564 @@ pub enum LimitExceeded {
 
     #[error("memory limit exceeded: {0}")]
     Memory(String),
+}
+
+/// The aggregate request resource that exhausted the shared budget.
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+pub enum ExecutionBudgetExceeded {
+    #[error("work units ({used} used, max {limit})")]
+    WorkUnits { used: u64, limit: u64 },
+    #[error("aggregate input bytes ({used} used, max {limit})")]
+    InputBytes { used: u64, limit: u64 },
+    #[error("live intermediate bytes ({used} requested, max {limit})")]
+    LiveBytes { used: u64, limit: u64 },
+    #[error("deadline exceeded ({limit:?})")]
+    Deadline { limit: Duration },
+    #[error("cancelled")]
+    Cancelled,
+    #[error("request closed")]
+    RequestClosed,
+}
+
+#[derive(Debug)]
+struct ExecutionBudgetInner {
+    max_work_units: u64,
+    max_input_bytes: u64,
+    max_live_bytes: u64,
+    timeout: Duration,
+    work_units: AtomicU64,
+    input_bytes: AtomicU64,
+    live_bytes: AtomicU64,
+    deadline: Option<Instant>,
+    cancelled: Arc<AtomicBool>,
+    poisoned: Mutex<Option<ExecutionBudgetExceeded>>,
+    closed: AtomicBool,
+}
+
+// THREAT[TM-DOS-096]: Nested and mixed subsystems must not receive fresh fuel.
+// Mitigation: clones share monotonic counters and the first failure poisons all.
+/// Non-resettable aggregate budget shared by every descendant of one request.
+///
+/// Cloning this value shares counters. Exceeding any ceiling poisons the whole
+/// request so later pipeline stages, substitutions, and callbacks fail closed.
+#[derive(Debug, Clone)]
+pub struct ExecutionBudget {
+    inner: Arc<ExecutionBudgetInner>,
+}
+
+impl ExecutionBudget {
+    // Let established subsystem/top-level timers report their public error
+    // first; this shared deadline is the fail-closed fallback for synchronous
+    // work that cannot be pre-empted by Tokio.
+    const DEADLINE_GRACE: Duration = Duration::from_millis(100);
+
+    /// Create a request budget from configured limits and the interpreter's
+    /// shared cancellation token.
+    pub fn new(limits: &ExecutionLimits, cancelled: Arc<AtomicBool>) -> Self {
+        Self {
+            inner: Arc::new(ExecutionBudgetInner {
+                max_work_units: limits.max_work_units,
+                max_input_bytes: limits.max_aggregate_input_bytes,
+                max_live_bytes: limits.max_live_intermediate_bytes,
+                timeout: limits.timeout,
+                work_units: AtomicU64::new(0),
+                input_bytes: AtomicU64::new(0),
+                live_bytes: AtomicU64::new(0),
+                deadline: Instant::now()
+                    .checked_add(limits.timeout)
+                    .and_then(|deadline| deadline.checked_add(Self::DEADLINE_GRACE)),
+                cancelled,
+                poisoned: Mutex::new(None),
+                closed: AtomicBool::new(false),
+            }),
+        }
+    }
+
+    fn failure(&self) -> Option<LimitExceeded> {
+        self.inner
+            .poisoned
+            .lock()
+            .expect("execution budget poison lock")
+            .clone()
+            .map(LimitExceeded::ExecutionBudget)
+    }
+
+    fn poison(&self, reason: ExecutionBudgetExceeded) -> LimitExceeded {
+        let mut poisoned = self
+            .inner
+            .poisoned
+            .lock()
+            .expect("execution budget poison lock");
+        let reason = poisoned.get_or_insert(reason).clone();
+        LimitExceeded::ExecutionBudget(reason)
+    }
+
+    /// Fail if cancellation, deadline, or an earlier ceiling exhausted the request.
+    pub fn check(&self) -> Result<(), LimitExceeded> {
+        if self.inner.closed.load(Ordering::Acquire) {
+            return Err(LimitExceeded::ExecutionBudget(
+                ExecutionBudgetExceeded::RequestClosed,
+            ));
+        }
+        if let Some(err) = self.failure() {
+            return Err(err);
+        }
+        if self.inner.cancelled.load(Ordering::Relaxed) {
+            return Err(self.poison(ExecutionBudgetExceeded::Cancelled));
+        }
+        if self
+            .inner
+            .deadline
+            .is_some_and(|deadline| Instant::now() >= deadline)
+        {
+            return Err(self.poison(ExecutionBudgetExceeded::Deadline {
+                limit: self.inner.timeout,
+            }));
+        }
+        Ok(())
+    }
+
+    /// Close this request on every return, cancellation, timeout, or unwind path.
+    pub(crate) fn completion_guard(&self) -> ExecutionBudgetCompletionGuard {
+        ExecutionBudgetCompletionGuard {
+            budget: self.clone(),
+        }
+    }
+
+    fn close(&self) {
+        self.inner.closed.store(true, Ordering::Release);
+    }
+
+    /// Await request-owned async work while polling cancellation and rejecting
+    /// results that arrive after the request boundary has closed.
+    #[cfg(all(
+        not(target_family = "wasm"),
+        any(
+            feature = "python",
+            feature = "typescript",
+            feature = "http_client",
+            feature = "scripted_tool"
+        )
+    ))]
+    pub(crate) async fn run<F>(&self, future: F) -> Result<F::Output, LimitExceeded>
+    where
+        F: std::future::Future,
+    {
+        self.check()?;
+        tokio::pin!(future);
+        let mut cancellation_poll = tokio::time::interval(Duration::from_millis(10));
+        cancellation_poll.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+        loop {
+            tokio::select! {
+                output = &mut future => {
+                    self.check()?;
+                    return Ok(output);
+                }
+                _ = cancellation_poll.tick() => self.check()?,
+            }
+        }
+    }
+
+    /// wasm has no reliable timer driver; synchronous checkpoints still reject
+    /// closed/cancelled work before and after the awaited operation.
+    #[cfg(all(
+        target_family = "wasm",
+        any(
+            feature = "python",
+            feature = "typescript",
+            feature = "http_client",
+            feature = "scripted_tool"
+        )
+    ))]
+    pub(crate) async fn run<F>(&self, future: F) -> Result<F::Output, LimitExceeded>
+    where
+        F: std::future::Future,
+    {
+        self.check()?;
+        let output = future.await;
+        self.check()?;
+        Ok(output)
+    }
+
+    /// Consume aggregate work without wrapping or resetting.
+    pub fn consume_work(&self, units: u64) -> Result<(), LimitExceeded> {
+        self.check()?;
+        if let Err(used) = reserve_atomic(&self.inner.work_units, units, self.inner.max_work_units)
+        {
+            return Err(self.poison(ExecutionBudgetExceeded::WorkUnits {
+                used,
+                limit: self.inner.max_work_units,
+            }));
+        }
+        Ok(())
+    }
+
+    /// Monotonic work charged to this request so execution wrappers can report
+    /// deltas without exposing host process metrics.
+    pub(crate) fn work_units(&self) -> u64 {
+        self.inner.work_units.load(Ordering::Relaxed)
+    }
+
+    /// Consume bytes read or materialized by a request consumer.
+    pub fn consume_input(&self, bytes: usize) -> Result<(), LimitExceeded> {
+        self.check()?;
+        let bytes = u64::try_from(bytes).unwrap_or(u64::MAX);
+        if let Err(used) =
+            reserve_atomic(&self.inner.input_bytes, bytes, self.inner.max_input_bytes)
+        {
+            return Err(self.poison(ExecutionBudgetExceeded::InputBytes {
+                used,
+                limit: self.inner.max_input_bytes,
+            }));
+        }
+        Ok(())
+    }
+
+    /// Reserve live intermediate storage until the returned lease drops.
+    pub fn lease_bytes(&self, bytes: usize) -> Result<ExecutionBudgetLease, LimitExceeded> {
+        self.check()?;
+        let bytes = u64::try_from(bytes).unwrap_or(u64::MAX);
+        if let Err(used) = self.reserve_live_bytes(bytes) {
+            return Err(self.poison(ExecutionBudgetExceeded::LiveBytes {
+                used,
+                limit: self.inner.max_live_bytes,
+            }));
+        }
+        Ok(ExecutionBudgetLease {
+            budget: self.clone(),
+            bytes,
+        })
+    }
+
+    fn reserve_live_bytes(&self, bytes: u64) -> Result<(), u64> {
+        reserve_atomic(&self.inner.live_bytes, bytes, self.inner.max_live_bytes).map(|_| ())
+    }
+
+    #[cfg(test)]
+    fn live_bytes_for_test(&self) -> u64 {
+        self.inner.live_bytes.load(Ordering::Relaxed)
+    }
+}
+
+fn reserve_atomic(counter: &AtomicU64, amount: u64, limit: u64) -> Result<u64, u64> {
+    let mut current = counter.load(Ordering::Relaxed);
+    loop {
+        let Some(next) = current.checked_add(amount) else {
+            return Err(u64::MAX);
+        };
+        if next > limit {
+            return Err(next);
+        }
+        match counter.compare_exchange_weak(current, next, Ordering::Relaxed, Ordering::Relaxed) {
+            Ok(_) => return Ok(next),
+            Err(observed) => current = observed,
+        }
+    }
+}
+
+/// RAII lease for bytes held in a live/intermediate request buffer.
+#[derive(Debug)]
+pub struct ExecutionBudgetLease {
+    budget: ExecutionBudget,
+    bytes: u64,
+}
+
+impl ExecutionBudgetLease {
+    /// Increase this live-storage reservation before growing its buffer.
+    #[cfg(feature = "jq")]
+    pub(crate) fn grow(&mut self, additional: usize) -> Result<(), LimitExceeded> {
+        self.budget.check()?;
+        let additional = u64::try_from(additional).unwrap_or(u64::MAX);
+        let previous = self
+            .budget
+            .inner
+            .live_bytes
+            .fetch_add(additional, Ordering::Relaxed);
+        let used = previous.saturating_add(additional);
+        if used > self.budget.inner.max_live_bytes || previous.checked_add(additional).is_none() {
+            self.budget
+                .inner
+                .live_bytes
+                .fetch_sub(additional, Ordering::Relaxed);
+            return Err(self.budget.poison(ExecutionBudgetExceeded::LiveBytes {
+                used,
+                limit: self.budget.inner.max_live_bytes,
+            }));
+        }
+        self.bytes = self.bytes.saturating_add(additional);
+        Ok(())
+    }
+}
+
+/// RAII request terminator. Its drop path is intentionally infallible.
+pub(crate) struct ExecutionBudgetCompletionGuard {
+    budget: ExecutionBudget,
+}
+
+impl Drop for ExecutionBudgetCompletionGuard {
+    fn drop(&mut self) {
+        self.budget.close();
+    }
+}
+
+impl ExecutionBudgetLease {
+    fn try_grow_to(&mut self, bytes: u64) -> Result<(), LimitExceeded> {
+        self.budget.check()?;
+        if bytes <= self.bytes {
+            return Ok(());
+        }
+        let additional = bytes - self.bytes;
+        if let Err(used) = self.budget.reserve_live_bytes(additional) {
+            return Err(self.budget.poison(ExecutionBudgetExceeded::LiveBytes {
+                used,
+                limit: self.budget.inner.max_live_bytes,
+            }));
+        }
+        self.bytes = bytes;
+        Ok(())
+    }
+
+    fn shrink_to(&mut self, bytes: u64) {
+        debug_assert!(bytes <= self.bytes);
+        let released = self.bytes - bytes;
+        self.budget
+            .inner
+            .live_bytes
+            .fetch_sub(released, Ordering::Relaxed);
+        self.bytes = bytes;
+    }
+}
+
+impl Drop for ExecutionBudgetLease {
+    fn drop(&mut self) {
+        self.budget
+            .inner
+            .live_bytes
+            .fetch_sub(self.bytes, Ordering::Relaxed);
+    }
+}
+
+// THREAT[TM-DOS-103]: Untrusted lengths must be charged before heap growth.
+// Mitigation: these owning builders acquire a live-byte lease before reserve,
+// roll it back if allocation fails, and release it with the allocation owner.
+/// A `Vec` whose capacity growth is admitted by an execution budget first.
+#[derive(Debug)]
+pub(crate) struct BudgetedVec<T> {
+    inner: Vec<T>,
+    lease: Option<ExecutionBudgetLease>,
+}
+
+/// Budget-aware byte buffer used by archive and compression streams.
+pub(crate) type BudgetedBytes = BudgetedVec<u8>;
+
+impl<T> BudgetedVec<T> {
+    pub(crate) fn new(budget: Option<&ExecutionBudget>) -> Result<Self, LimitExceeded> {
+        Ok(Self {
+            inner: Vec::new(),
+            lease: budget.map(|budget| budget.lease_bytes(0)).transpose()?,
+        })
+    }
+
+    pub(crate) fn try_with_capacity(
+        budget: Option<&ExecutionBudget>,
+        capacity: usize,
+    ) -> Result<Self, LimitExceeded> {
+        let mut value = Self::new(budget)?;
+        value.try_reserve_capacity(capacity)?;
+        Ok(value)
+    }
+
+    fn capacity_bytes(capacity: usize) -> Result<u64, LimitExceeded> {
+        capacity
+            .checked_mul(std::mem::size_of::<T>())
+            .and_then(|bytes| u64::try_from(bytes).ok())
+            .ok_or_else(|| LimitExceeded::Memory("intermediate buffer size overflow".into()))
+    }
+
+    fn growth_capacity(&self, required: usize) -> Result<usize, LimitExceeded> {
+        if required <= self.inner.capacity() {
+            return Ok(self.inner.capacity());
+        }
+        self.inner
+            .capacity()
+            .checked_mul(2)
+            .map(|grown| grown.max(required))
+            .ok_or_else(|| LimitExceeded::Memory("intermediate buffer size overflow".into()))
+    }
+
+    fn try_reserve_capacity(&mut self, capacity: usize) -> Result<(), LimitExceeded> {
+        if capacity <= self.inner.capacity() {
+            if let Some(lease) = &self.lease {
+                lease.budget.check()?;
+            }
+            return Ok(());
+        }
+
+        let previous_bytes = self.lease.as_ref().map_or(0, |lease| lease.bytes);
+        let capacity_bytes = Self::capacity_bytes(capacity)?;
+        if let Some(lease) = &mut self.lease {
+            lease.try_grow_to(capacity_bytes)?;
+        }
+
+        let additional = capacity - self.inner.len();
+        if self.inner.try_reserve_exact(additional).is_err() {
+            if let Some(lease) = &mut self.lease {
+                lease.shrink_to(previous_bytes);
+            }
+            return Err(LimitExceeded::Memory(
+                "intermediate buffer allocation failed".into(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub(crate) fn try_push(&mut self, value: T) -> Result<(), LimitExceeded> {
+        let required = self
+            .inner
+            .len()
+            .checked_add(1)
+            .ok_or_else(|| LimitExceeded::Memory("intermediate buffer size overflow".into()))?;
+        let capacity = self.growth_capacity(required)?;
+        self.try_reserve_capacity(capacity)?;
+        self.inner.push(value);
+        Ok(())
+    }
+
+    pub(crate) fn into_parts(self) -> (Vec<T>, Option<ExecutionBudgetLease>) {
+        (self.inner, self.lease)
+    }
+}
+
+impl<T: Clone> BudgetedVec<T> {
+    pub(crate) fn try_extend_from_slice(&mut self, values: &[T]) -> Result<(), LimitExceeded> {
+        let required = self
+            .inner
+            .len()
+            .checked_add(values.len())
+            .ok_or_else(|| LimitExceeded::Memory("intermediate buffer size overflow".into()))?;
+        let capacity = self.growth_capacity(required)?;
+        self.try_reserve_capacity(capacity)?;
+        self.inner.extend_from_slice(values);
+        Ok(())
+    }
+}
+
+impl<T> std::ops::Deref for BudgetedVec<T> {
+    type Target = [T];
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+
+impl<T> std::ops::DerefMut for BudgetedVec<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.inner
+    }
+}
+
+impl std::io::Write for BudgetedVec<u8> {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        self.try_extend_from_slice(buf)
+            .map_err(std::io::Error::other)?;
+        Ok(buf.len())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
+/// A `String` whose capacity growth is admitted by an execution budget first.
+#[derive(Debug)]
+pub(crate) struct BudgetedString {
+    inner: String,
+    lease: Option<ExecutionBudgetLease>,
+}
+
+impl BudgetedString {
+    pub(crate) fn new(budget: Option<&ExecutionBudget>) -> Result<Self, LimitExceeded> {
+        Ok(Self {
+            inner: String::new(),
+            lease: budget.map(|budget| budget.lease_bytes(0)).transpose()?,
+        })
+    }
+
+    fn growth_capacity(&self, required: usize) -> Result<usize, LimitExceeded> {
+        if required <= self.inner.capacity() {
+            return Ok(self.inner.capacity());
+        }
+        self.inner
+            .capacity()
+            .checked_mul(2)
+            .map(|grown| grown.max(required))
+            .ok_or_else(|| LimitExceeded::Memory("intermediate string size overflow".into()))
+    }
+
+    fn try_reserve_capacity(&mut self, capacity: usize) -> Result<(), LimitExceeded> {
+        if capacity <= self.inner.capacity() {
+            if let Some(lease) = &self.lease {
+                lease.budget.check()?;
+            }
+            return Ok(());
+        }
+        let capacity_bytes = u64::try_from(capacity)
+            .map_err(|_| LimitExceeded::Memory("intermediate string size overflow".into()))?;
+        let previous_bytes = self.lease.as_ref().map_or(0, |lease| lease.bytes);
+        if let Some(lease) = &mut self.lease {
+            lease.try_grow_to(capacity_bytes)?;
+        }
+        let additional = capacity - self.inner.len();
+        if self.inner.try_reserve_exact(additional).is_err() {
+            if let Some(lease) = &mut self.lease {
+                lease.shrink_to(previous_bytes);
+            }
+            return Err(LimitExceeded::Memory(
+                "intermediate string allocation failed".into(),
+            ));
+        }
+        Ok(())
+    }
+
+    pub(crate) fn try_push_str(&mut self, value: &str) -> Result<(), LimitExceeded> {
+        let required = self
+            .inner
+            .len()
+            .checked_add(value.len())
+            .ok_or_else(|| LimitExceeded::Memory("intermediate string size overflow".into()))?;
+        let capacity = self.growth_capacity(required)?;
+        self.try_reserve_capacity(capacity)?;
+        self.inner.push_str(value);
+        Ok(())
+    }
+
+    pub(crate) fn try_push(&mut self, value: char) -> Result<(), LimitExceeded> {
+        let required = self
+            .inner
+            .len()
+            .checked_add(value.len_utf8())
+            .ok_or_else(|| LimitExceeded::Memory("intermediate string size overflow".into()))?;
+        let capacity = self.growth_capacity(required)?;
+        self.try_reserve_capacity(capacity)?;
+        self.inner.push(value);
+        Ok(())
+    }
+
+    pub(crate) fn into_parts(self) -> (String, Option<ExecutionBudgetLease>) {
+        (self.inner, self.lease)
+    }
+
+    pub(crate) fn into_inner(self) -> String {
+        self.inner
+    }
+}
+
+impl std::ops::Deref for BudgetedString {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
 }
 
 // THREAT[TM-DOS-060]: Per-instance memory budget.
@@ -952,6 +1554,9 @@ mod tests {
     #[test]
     fn test_default_limits() {
         let limits = ExecutionLimits::default();
+        assert_eq!(limits.max_work_units, 100_000_000);
+        assert_eq!(limits.max_aggregate_input_bytes, 100_000_000);
+        assert_eq!(limits.max_live_intermediate_bytes, 32_000_000);
         assert_eq!(limits.max_commands, 10_000);
         assert_eq!(limits.max_loop_iterations, 10_000);
         assert_eq!(limits.max_total_loop_iterations, 1_000_000);
@@ -1170,6 +1775,9 @@ mod tests {
     #[test]
     fn test_zero_limit_is_strict_policy() {
         let limits = ExecutionLimits::cli()
+            .max_work_units(0)
+            .max_aggregate_input_bytes(0)
+            .max_live_intermediate_bytes(0)
             .max_commands(0)
             .max_loop_iterations(0)
             .max_total_loop_iterations(0)
@@ -1186,6 +1794,9 @@ mod tests {
             .max_word_split_bytes(0);
 
         let defaults = ExecutionLimits::default();
+        assert_eq!(limits.max_work_units, 0);
+        assert_eq!(limits.max_aggregate_input_bytes, 0);
+        assert_eq!(limits.max_live_intermediate_bytes, 0);
         assert_eq!(limits.max_commands, 0);
         assert_eq!(limits.max_loop_iterations, 0);
         assert_eq!(limits.max_total_loop_iterations, 0);
@@ -1205,6 +1816,9 @@ mod tests {
     #[test]
     fn test_nonzero_limit_works() {
         let limits = ExecutionLimits::default()
+            .max_work_units(11)
+            .max_aggregate_input_bytes(12)
+            .max_live_intermediate_bytes(13)
             .max_commands(5)
             .max_loop_iterations(7)
             .max_total_loop_iterations(42)
@@ -1220,6 +1834,9 @@ mod tests {
             .max_word_split_fields(17)
             .max_word_split_bytes(18);
 
+        assert_eq!(limits.max_work_units, 11);
+        assert_eq!(limits.max_aggregate_input_bytes, 12);
+        assert_eq!(limits.max_live_intermediate_bytes, 13);
         assert_eq!(limits.max_commands, 5);
         assert_eq!(limits.max_loop_iterations, 7);
         assert_eq!(limits.max_total_loop_iterations, 42);
@@ -1260,5 +1877,206 @@ mod tests {
         assert_eq!(limits.max_array_entries, 0);
         assert_eq!(limits.max_function_count, 0);
         assert_eq!(limits.max_function_body_bytes, 0);
+    }
+
+    #[test]
+    fn execution_budget_poison_is_shared_and_non_resettable() {
+        let limits = ExecutionLimits::new()
+            .max_work_units(2)
+            .max_aggregate_input_bytes(4);
+        let budget = ExecutionBudget::new(&limits, Arc::new(AtomicBool::new(false)));
+        let descendant = budget.clone();
+
+        budget.consume_work(2).unwrap();
+        let first = descendant.consume_work(1).unwrap_err();
+        assert!(matches!(
+            first,
+            LimitExceeded::ExecutionBudget(ExecutionBudgetExceeded::WorkUnits { .. })
+        ));
+        assert_eq!(
+            budget.consume_input(1).unwrap_err().to_string(),
+            first.to_string()
+        );
+    }
+
+    #[test]
+    fn execution_budget_live_leases_release_but_exhaustion_poisons() {
+        let limits = ExecutionLimits::new().max_live_intermediate_bytes(4);
+        let budget = ExecutionBudget::new(&limits, Arc::new(AtomicBool::new(false)));
+
+        let lease = budget.lease_bytes(4).unwrap();
+        let err = budget.lease_bytes(1).unwrap_err();
+        assert!(matches!(
+            err,
+            LimitExceeded::ExecutionBudget(ExecutionBudgetExceeded::LiveBytes { .. })
+        ));
+        drop(lease);
+        assert!(
+            budget.lease_bytes(1).is_err(),
+            "poison must survive lease release"
+        );
+    }
+
+    #[test]
+    fn execution_budget_observes_shared_cancellation() {
+        let cancelled = Arc::new(AtomicBool::new(false));
+        let budget = ExecutionBudget::new(&ExecutionLimits::new(), cancelled.clone());
+        cancelled.store(true, Ordering::Relaxed);
+
+        assert!(matches!(
+            budget.check(),
+            Err(LimitExceeded::ExecutionBudget(
+                ExecutionBudgetExceeded::Cancelled
+            ))
+        ));
+    }
+
+    #[test]
+    fn request_completion_guard_closes_during_unwind() {
+        let budget =
+            ExecutionBudget::new(&ExecutionLimits::new(), Arc::new(AtomicBool::new(false)));
+        let unwind = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let _completion = budget.completion_guard();
+            panic!("adversarial teardown");
+        }));
+
+        assert!(unwind.is_err());
+        assert!(matches!(
+            budget.check(),
+            Err(LimitExceeded::ExecutionBudget(
+                ExecutionBudgetExceeded::RequestClosed
+            ))
+        ));
+    }
+
+    #[test]
+    fn execution_budget_counter_overflow_fails_without_wrapping() {
+        let limits = ExecutionLimits::new().max_work_units(u64::MAX);
+        let budget = ExecutionBudget::new(&limits, Arc::new(AtomicBool::new(false)));
+
+        budget.consume_work(u64::MAX).unwrap();
+        assert!(matches!(
+            budget.consume_work(1),
+            Err(LimitExceeded::ExecutionBudget(
+                ExecutionBudgetExceeded::WorkUnits {
+                    used: u64::MAX,
+                    limit: u64::MAX
+                }
+            ))
+        ));
+    }
+
+    #[test]
+    fn request_lease_releases_charge_on_drop() {
+        let limits = ExecutionLimits::new().max_live_intermediate_bytes(4);
+        let budget = ExecutionBudget::new(&limits, Arc::new(AtomicBool::new(false)));
+
+        drop(budget.lease_bytes(4).unwrap());
+        let replacement = budget.lease_bytes(4);
+        assert!(replacement.is_ok(), "released charge must be reusable");
+    }
+
+    #[test]
+    fn budgeted_vec_charges_before_growth_at_exact_boundary() {
+        let limits = ExecutionLimits::new().max_live_intermediate_bytes(4);
+        let budget = ExecutionBudget::new(&limits, Arc::new(AtomicBool::new(false)));
+        let mut bytes = BudgetedVec::new(Some(&budget)).unwrap();
+
+        bytes.try_extend_from_slice(b"1234").unwrap();
+        assert_eq!(&*bytes, b"1234");
+        assert!(matches!(
+            bytes.try_push(b'5'),
+            Err(LimitExceeded::ExecutionBudget(
+                ExecutionBudgetExceeded::LiveBytes { used: 8, limit: 4 }
+            ))
+        ));
+        assert_eq!(&*bytes, b"1234", "failed growth must not mutate");
+    }
+
+    #[test]
+    fn budgeted_vec_rejects_element_size_overflow_without_allocating() {
+        let limits = ExecutionLimits::new().max_live_intermediate_bytes(u64::MAX);
+        let budget = ExecutionBudget::new(&limits, Arc::new(AtomicBool::new(false)));
+
+        let result = BudgetedVec::<u64>::try_with_capacity(Some(&budget), usize::MAX);
+        assert!(matches!(result, Err(LimitExceeded::Memory(_))));
+        assert_eq!(budget.live_bytes_for_test(), 0);
+    }
+
+    #[test]
+    fn budgeted_vec_rolls_back_charge_when_allocator_rejects_reserve() {
+        let limits = ExecutionLimits::new().max_live_intermediate_bytes(u64::MAX);
+        let budget = ExecutionBudget::new(&limits, Arc::new(AtomicBool::new(false)));
+
+        let result = BudgetedVec::<u8>::try_with_capacity(Some(&budget), usize::MAX);
+        assert!(matches!(result, Err(LimitExceeded::Memory(_))));
+        assert_eq!(budget.live_bytes_for_test(), 0);
+        assert!(
+            budget.lease_bytes(1).is_ok(),
+            "allocation failure must not poison"
+        );
+    }
+
+    #[test]
+    fn budgeted_builders_release_on_drop_and_cancelled_growth() {
+        let cancelled = Arc::new(AtomicBool::new(false));
+        let limits = ExecutionLimits::new().max_live_intermediate_bytes(8);
+        let budget = ExecutionBudget::new(&limits, cancelled.clone());
+        let mut text = BudgetedString::new(Some(&budget)).unwrap();
+        text.try_push_str("1234").unwrap();
+        assert_eq!(budget.live_bytes_for_test(), 4);
+
+        cancelled.store(true, Ordering::Relaxed);
+        assert!(matches!(
+            text.try_push_str("5"),
+            Err(LimitExceeded::ExecutionBudget(
+                ExecutionBudgetExceeded::Cancelled
+            ))
+        ));
+        assert_eq!(budget.live_bytes_for_test(), 4);
+        drop(text);
+        assert_eq!(budget.live_bytes_for_test(), 0);
+    }
+
+    #[test]
+    fn nested_budgeted_builders_share_aggregate_live_bytes() {
+        let limits = ExecutionLimits::new().max_live_intermediate_bytes(8);
+        let budget = ExecutionBudget::new(&limits, Arc::new(AtomicBool::new(false)));
+        let mut outer = BudgetedVec::new(Some(&budget)).unwrap();
+        let mut inner = BudgetedString::new(Some(&budget)).unwrap();
+
+        outer.try_extend_from_slice(b"1234").unwrap();
+        inner.try_push_str("5678").unwrap();
+        assert_eq!(budget.live_bytes_for_test(), 8);
+        assert!(inner.try_push('9').is_err());
+        assert_eq!(budget.live_bytes_for_test(), 8);
+        drop((outer, inner));
+        assert_eq!(budget.live_bytes_for_test(), 0);
+    }
+
+    #[test]
+    fn concurrent_leases_cannot_overcommit_live_budget() {
+        let limits = ExecutionLimits::new().max_live_intermediate_bytes(8);
+        let budget = ExecutionBudget::new(&limits, Arc::new(AtomicBool::new(false)));
+        let barrier = Arc::new(std::sync::Barrier::new(3));
+        let mut handles = Vec::new();
+
+        for _ in 0..2 {
+            let budget = budget.clone();
+            let barrier = barrier.clone();
+            handles.push(std::thread::spawn(move || {
+                barrier.wait();
+                let lease = budget.lease_bytes(8);
+                barrier.wait();
+                lease
+            }));
+        }
+        barrier.wait();
+        barrier.wait();
+
+        let results: Vec<_> = handles.into_iter().map(|h| h.join().unwrap()).collect();
+        assert_eq!(results.iter().filter(|result| result.is_ok()).count(), 1);
+        drop(results);
+        assert_eq!(budget.live_bytes_for_test(), 0);
     }
 }

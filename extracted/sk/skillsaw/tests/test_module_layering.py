@@ -116,32 +116,72 @@ def test_utils_shim_reexports_core_utils():
         assert getattr(shim, name) is getattr(core, name), name
 
 
+def test_context_reexports_canonical_plugin_provenance():
+    """The pre-extraction context import path remains compatible."""
+    from skillsaw.context import PluginProvenance as legacy
+    from skillsaw.repository_provenance import PluginProvenance
+
+    assert legacy is PluginProvenance
+
+
 # ---------------------------------------------------------------------------
 # Architectural invariant: core blocks/formats must not depend on the rules pkg
 # ---------------------------------------------------------------------------
 
 
 def _core_module_files():
-    """Every core blocks/* submodule plus the promptfoo format helper."""
-    files = sorted(str(p.relative_to(SRC)) for p in (SRC / "blocks").glob("*.py"))
-    files.append("formats/promptfoo.py")
+    """Every top-level core module, blocks/*, and the promptfoo format helper."""
+    files = sorted(str(p.relative_to(SRC)) for p in SRC.glob("*.py"))
+    files.extend(sorted(str(p.relative_to(SRC)) for p in (SRC / "blocks").glob("*.py")))
+    files.extend(sorted(str(p.relative_to(SRC)) for p in (SRC / "formats").glob("*.py")))
     return files
 
 
 @pytest.mark.parametrize("rel_path", _core_module_files())
 def test_core_module_does_not_import_rules_package(rel_path):
-    """The blocks package / formats.promptfoo must never import from rules.builtin.
+    """Core modules must not import rules.builtin at module load time.
 
-    That edge is exactly the inverted layer this refactor removed; re-adding it
-    would resurrect the import cycle.
+    Function-local imports are deliberate lazy dependencies. A top-level edge
+    is the inverted layer that creates an import cycle.
     """
     tree = ast.parse((SRC / rel_path).read_text())
     offenders = []
-    for node in ast.walk(tree):
+    # Module-level includes imports nested in top-level `try:`/`if` blocks —
+    # those still execute at load time — but not function/class bodies.
+    # Class bodies execute at import time, so only function scopes are
+    # deliberate lazy-import territory.
+    scopes = (ast.FunctionDef, ast.AsyncFunctionDef)
+    stack = list(tree.body)
+    while stack:
+        node = stack.pop()
+        if isinstance(node, scopes):
+            continue
         # `from skillsaw.rules.builtin... import x`
         if isinstance(node, ast.ImportFrom) and node.module and "rules.builtin" in node.module:
             offenders.append(node.module)
         # `import skillsaw.rules.builtin...`
         elif isinstance(node, ast.Import):
             offenders.extend(a.name for a in node.names if "rules.builtin" in a.name)
+        stack.extend(ast.iter_child_nodes(node))
     assert not offenders, f"{rel_path} imports from the rules package: {offenders}"
+
+
+@pytest.mark.parametrize("path", sorted((SRC / "discovery").glob("*.py")))
+def test_discovery_modules_are_state_free(path):
+    """Discovery may take callbacks from context, but must never import it."""
+    tree = ast.parse(path.read_text())
+    imports = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            imports.extend(alias.name for alias in node.names)
+        elif isinstance(node, ast.ImportFrom):
+            module = node.module or ""
+            imports.append(module)
+            imports.extend(f"{module}.{alias.name}" for alias in node.names)
+    offenders = [name for name in imports if "context" in name.split(".")]
+    assert not offenders, f"{path.relative_to(SRC)} imports context: {offenders}"
+
+
+def test_context_stays_below_repository_model_budget():
+    """Keep filesystem walks from accreting back into the orchestrator."""
+    assert len((SRC / "context.py").read_text().splitlines()) < 900

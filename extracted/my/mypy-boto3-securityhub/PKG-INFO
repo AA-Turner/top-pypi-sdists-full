@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: mypy-boto3-securityhub
-Version: 1.43.48
-Summary: Type annotations for boto3 SecurityHub 1.43.48 service generated with mypy-boto3-builder 8.12.0
+Version: 1.43.66
+Summary: Type annotations for boto3 SecurityHub 1.43.66 service generated with mypy-boto3-builder 8.12.0
 Author-email: Vlad Emelianov <vlad.emelianov.nz@gmail.com>
 License-Expression: MIT
 Project-URL: Homepage, https://github.com/youtype/mypy_boto3_builder
@@ -43,7 +43,7 @@ Dynamic: license-file
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
 Type annotations for
-[boto3 SecurityHub 1.43.48](https://pypi.org/project/boto3/) compatible with
+[boto3 SecurityHub 1.43.66](https://pypi.org/project/boto3/) compatible with
 [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -105,7 +105,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.43.48' mypy-boto3-builder`
+   `uvx --with 'boto3==1.43.66' mypy-boto3-builder`
 2. Select `boto3-stubs` AWS SDK.
 3. Add `SecurityHub` service.
 4. Use provided commands to install generated packages.
@@ -358,6 +358,7 @@ from mypy_boto3_securityhub.paginator import (
     ListConfigurationPolicyAssociationsPaginator,
     ListEnabledProductsForImportPaginator,
     ListFindingAggregatorsPaginator,
+    ListFreeTrialStatusesV2Paginator,
     ListInvitationsPaginator,
     ListMembersPaginator,
     ListOrganizationAdminAccountsPaginator,
@@ -415,6 +416,9 @@ list_enabled_products_for_import_paginator: ListEnabledProductsForImportPaginato
 )
 list_finding_aggregators_paginator: ListFindingAggregatorsPaginator = client.get_paginator(
     "list_finding_aggregators"
+)
+list_free_trial_statuses_v2_paginator: ListFreeTrialStatusesV2Paginator = client.get_paginator(
+    "list_free_trial_statuses_v2"
 )
 list_invitations_paginator: ListInvitationsPaginator = client.get_paginator("list_invitations")
 list_members_paginator: ListMembersPaginator = client.get_paginator("list_members")

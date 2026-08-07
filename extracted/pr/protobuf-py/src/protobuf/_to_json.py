@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import json
 import math
+import sys
 from base64 import b64encode
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
@@ -33,7 +34,6 @@ from ._descriptors import (
 )
 from ._oneof import Oneof
 from ._typing import JsonPrimitive, JsonValue, assert_never
-from ._validate import validate
 from ._wkt_registry import is_null_value_enum, match_wkt
 
 if TYPE_CHECKING:
@@ -208,9 +208,17 @@ def _message_to_json_value(message: Message, opts: ToJsonOptions) -> JsonValue:
     return result
 
 
+# PyPy's json.dumps with ensure_ascii=False has a bug that sometimes
+# returns corrupted UTF-8 strings.
+# https://github.com/pypy/pypy/issues/5547
+_ENSURE_ASCII = sys.implementation.name == "pypy"
+
+
 def to_json(message: Message, opts: ToJsonOptions) -> str:
     return json.dumps(
-        _message_to_json_value(message, opts), separators=(",", ":"), ensure_ascii=False
+        _message_to_json_value(message, opts),
+        separators=(",", ":"),
+        ensure_ascii=_ENSURE_ASCII,
     )
 
 
@@ -244,11 +252,9 @@ def message_to_json_value(
         )
         ```
     """
-    validate(message)
-    opts = ToJsonOptions(
+    return message._to_json_value(
+        registry=registry,
         always_emit_implicit=always_emit_implicit,
         print_enums_as_ints=print_enums_as_ints,
         use_proto_field_name=use_proto_field_name,
-        registry=registry,
     )
-    return _message_to_json_value(message, opts)

@@ -37,7 +37,7 @@ ws_editor/org_id,ws_id:
     - w:workspace/org_id,ws_id
     - w:workspace_data/org_id,ws_id
     - w:workspace_routing_sandbox/org_id,ws_id
-    # env=* kept: the dh viewer roles cover only sandbox+live
+    # env=* kept as the catch-all; the dh_viewer_* sub-roles above cover today's envs (sandbox+test, live)
     - r:decision_history/org_id,ws_id,{env=*}
     - r:workspace_endpoint/org_id,ws_id
     - r+w:workspace_sandbox_endpoint/org_id,ws_id
@@ -117,7 +117,9 @@ connection_editor/org_id,ws_id:
 
 # P141c decision-history roles, carved verbatim from ws_editor (capability-neutral)
 dh_viewer_sandbox/org_id,ws_id:
+    # we enforce live vs non-live only, so test rides along with sandbox
     - r:decision_history/org_id,ws_id,{env=sandbox}
+    - r:decision_history/org_id,ws_id,{env=test}
 dh_viewer_live/org_id,ws_id:
     # legacy env-unaware string: old call sites grant all envs, so live-only
     - r:workspace_decision_history/org_id,ws_id

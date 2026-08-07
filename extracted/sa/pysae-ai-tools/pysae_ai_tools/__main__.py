@@ -105,14 +105,18 @@ app = LazyGroup(
 @app.result_callback()
 @click.pass_context
 def _after_command(ctx: click.Context, /, _result: Any, **_kwargs: Any) -> None:
-    """Runs after any successful subcommand — handles the auto-update check."""
+    """Runs after any successful subcommand — the auto-update and token-rotation ticks."""
     # Skip when the invoked subcommand has just removed or replaced the package
-    # files on disk: the lazy import below would fail with ModuleNotFoundError.
+    # files on disk: the lazy imports below would fail with ModuleNotFoundError.
     if ctx.invoked_subcommand in {"uninstall", "self-update"}:
         return
 
+    from pysae_ai_tools.token_rotation import maybe_rotate_tokens
     from pysae_ai_tools.version_check import maybe_check_version
 
+    # Rotation first, and unconditionally: it has its own switch and its own
+    # skip rules, which are looser than the version check's (see its docstring).
+    maybe_rotate_tokens()
     maybe_check_version()
 
 

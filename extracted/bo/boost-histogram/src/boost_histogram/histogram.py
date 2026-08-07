@@ -4,7 +4,6 @@ import collections.abc
 import copy
 import enum
 import logging
-import sys
 import threading
 import typing
 import warnings
@@ -47,22 +46,6 @@ if TYPE_CHECKING:
         WeightedSum,
     )
 
-try:
-    from . import _core
-except ImportError as err:
-    if "_core" not in str(err):
-        raise
-
-    new_msg = "Did you forget to compile boost-histogram? Use CMake or scikit-build-core to build, see the readme."
-
-    if sys.version_info >= (3, 11):
-        err.add_note(new_msg)
-        raise
-
-    total_msg = f"{err}\n{new_msg}"
-    new_exception = type(err)(new_msg, name=err.name, path=err.path)
-    raise new_exception from err
-
 
 # This is a StrEnum as defined in Python 3.11
 class Kind(str, enum.Enum):
@@ -97,12 +80,28 @@ _histograms: set[type[CppHistogram]] = {
     _core.hist.any_multi_cell,
 }
 
+# Tuple form of ``_histograms`` for fast isinstance checks. The set above is
+# fixed at import time (only ``@register`` reads it), so this never goes stale.
+_histogram_types: tuple[type[CppHistogram], ...] = tuple(_histograms)
+
 logger = logging.getLogger(__name__)
+
+# User-facing operator symbols for the in-place dunders dispatched in
+# _compute_inplace_op, used to build clear errors when a storage's underlying
+# C++ histogram does not support an operation between two histograms.
+_INPLACE_OP_SYMBOLS: dict[str, str] = {
+    "__iadd__": "+",
+    "__isub__": "-",
+    "__imul__": "*",
+    "__itruediv__": "/",
+}
 
 
 CppAxis = NewType("CppAxis", object)
 
-SimpleIndexing: TypeAlias = "SupportsIndex | slice | RebinProtocol"
+SimpleIndexing: TypeAlias = (
+    "SupportsIndex | slice | RebinProtocol | np.typing.NDArray[Any]"
+)
 InnerIndexing: TypeAlias = "SimpleIndexing | Callable[[Axis], int]"
 FullInnerIndexing: TypeAlias = "InnerIndexing | list[InnerIndexing]"
 IndexingWithMapping: TypeAlias = "FullInnerIndexing | Mapping[int, FullInnerIndexing]"
@@ -157,13 +156,12 @@ def _fill_cast(
 def mean_storage_sample_check(sample: ArrayLike | None) -> None:
     if sample is None:
         raise TypeError("Sample key-argument (sample=) needs to be provided.")
-    seqs = (collections.abc.Sequence, np.ndarray)
-    msg1 = f"Sample key-argument needs to be a sequence, {sample.__class__.__name__} given."
-    if isinstance(sample, str) and not isinstance(sample, seqs):
-        raise ValueError(msg1)
-    sample_dim = np.array(sample).ndim
-    msg2 = f"Sample key-argument needs to be 1 dimensional, {sample_dim} given."
-    if sample_dim != 1:
+    msg1 = f"Sample key-argument needs to be a number or a sequence, {sample.__class__.__name__} given."
+    if isinstance(sample, str):
+        raise TypeError(msg1)
+    sample_dim = np.ndim(sample)
+    msg2 = f"Sample key-argument needs to be a scalar or 1 dimensional, {sample_dim} given."
+    if sample_dim > 1:
         raise ValueError(msg2)
 
 
@@ -179,13 +177,65 @@ def _arg_shortcut(item: tuple[int, float, float] | Axis | CppAxis) -> CppAxis:
     raise TypeError("Only axes supported in histogram constructor")
 
 
+# Discrete C++ axes that ``axis::edges`` represents as 0..size (the category
+# axes); everything else gets its true (continuous-like) edge values.
+_category_cpp_axes = (
+    _core.axis.category_int,
+    _core.axis.category_int_growth,
+    _core.axis.category_int_none,
+    _core.axis.category_str,
+    _core.axis.category_str_growth,
+    _core.axis.category_str_none,
+)
+
+# Axes that the C++ ``axis::edges`` helper does not nudge when producing
+# NumPy-convention (upper-edge inclusive) edges.
+_no_nudge_cpp_axes = (
+    _core.axis.regular_none,
+    _core.axis.regular_uflow,
+    _core.axis.regular_numpy,
+)
+
+
+def _numpy_compatible_edges(cpp_ax: Any, flow: bool) -> np.typing.NDArray[np.float64]:
+    """
+    Edges for one C++ axis following the NumPy convention (upper edge
+    inclusive); this replicates exactly what the C++ ``axis::edges(ax, flow,
+    true)`` helper produces, without requiring a copy of the bin contents.
+    """
+    if isinstance(cpp_ax, _category_cpp_axes):
+        overflow = int(flow and cpp_ax.traits_overflow)
+        return np.arange(cpp_ax.size + 1 + overflow, dtype=np.float64)
+
+    underflow = int(flow and cpp_ax.traits_underflow)
+    overflow = int(flow and cpp_ax.traits_overflow)
+
+    edges: np.typing.NDArray[np.float64] = cpp_ax.edges
+    if underflow or overflow:
+        full = np.empty(len(edges) + underflow + overflow, dtype=np.float64)
+        full[underflow : underflow + len(edges)] = edges
+        if underflow:
+            full[0] = cpp_ax.value(-1)
+        if overflow:
+            full[-1] = cpp_ax.value(cpp_ax.size + 1)
+        edges = full
+
+    if not isinstance(cpp_ax, _no_nudge_cpp_axes):
+        last = cpp_ax.size + underflow
+        edges[last] = np.nextafter(edges[last], -np.inf)
+
+    return edges
+
+
 def _expand_ellipsis(indexes: Iterable[Any], rank: int) -> list[Any]:
     indexes = list(indexes)
-    number_ellipses = indexes.count(Ellipsis)
+    # Compare by identity: ``==`` is ambiguous when indexes contain NumPy arrays.
+    ellipsis_positions = [i for i, ind in enumerate(indexes) if ind is Ellipsis]
+    number_ellipses = len(ellipsis_positions)
     if number_ellipses == 0:
         return indexes
     if number_ellipses == 1:
-        index = indexes.index(Ellipsis)
+        index = ellipsis_positions[0]
         additional = rank + 1 - len(indexes)
         if additional < 0:
             raise IndexError("too many indices for histogram")
@@ -204,7 +254,8 @@ def _combine_group_contents(
     jj: int,
 ) -> None:
     """
-    Combine two views into one, in-place. This is used for threaded filling.
+    Add bin ``j`` (along view dimension ``i``) of ``reduced_view`` into bin
+    ``jj`` of ``new_view``, in-place. Used for rebinning with groups.
     """
     pos = [slice(None)] * (i)
     if new_view.dtype.names:
@@ -323,10 +374,10 @@ class Histogram(typing.Generic[S]):
             __dict__ = {}
 
         # Allow construction from a raw histogram object (internal)
-        if len(axes) == 1 and isinstance(axes[0], tuple(_histograms)):
+        if len(axes) == 1 and isinstance(axes[0], _histogram_types):
             if storage is not None:
                 raise TypeError(storage_err_msg)
-            cpp_hist: CppHistogram = axes[0]  # type: ignore[assignment]
+            cpp_hist: CppHistogram = axes[0]
             self._from_histogram_cpp(cpp_hist, __dict__=__dict__)
             return
 
@@ -362,13 +413,13 @@ class Histogram(typing.Generic[S]):
 
         # Check for missed parenthesis or incorrect types
         if not isinstance(resolved_storage, Storage):
-            msg_storage = (  # type: ignore[unreachable]
-                "Passing in an initialized storage has been removed. Please add ()."
-            )
-            msg_unknown = "Only storages allowed in storage argument"
-            raise KeyError(
-                msg_storage if issubclass(resolved_storage, Storage) else msg_unknown
-            )
+            if isinstance(resolved_storage, type) and issubclass(  # type: ignore[unreachable]
+                resolved_storage, Storage
+            ):
+                msg = f"Storages need to be initialized; use {resolved_storage.__name__}() instead. Please add ()."
+                raise TypeError(msg)
+            msg = f"Only storages allowed in storage argument, got {resolved_storage!r}"
+            raise TypeError(msg)
 
         # Allow a tuple to represent a regular axis
         axes = tuple(_arg_shortcut(arg) for arg in axes)  # type: ignore[arg-type]
@@ -400,8 +451,8 @@ class Histogram(typing.Generic[S]):
         """
 
         self = cls.__new__(cls)
-        if isinstance(_hist, tuple(_histograms)):
-            self._from_histogram_cpp(_hist, __dict__={})  # type: ignore[arg-type]
+        if isinstance(_hist, _histogram_types):
+            self._from_histogram_cpp(_hist, __dict__={})
             if other is not None:
                 return cls._clone(self, other=other, memo=memo)
             return self
@@ -455,7 +506,6 @@ class Histogram(typing.Generic[S]):
         self.axes = self._generate_axes_()
         for ax in self.axes:
             ax.__dict__.update(ax._ax.raw_metadata)
-        self.__dict__.update(other.__dict__)
         self.__dict__.update(__dict__)
 
         # Allow custom behavior on either "from" or "to"
@@ -578,6 +628,106 @@ class Histogram(typing.Generic[S]):
 
     __hash__ = None  # type: ignore[assignment]
 
+    def allclose(
+        self,
+        other: object,
+        *,
+        rtol: float = 1e-05,
+        atol: float = 1e-08,
+        equal_nan: bool = False,
+        flow: bool = True,
+        metadata: bool = False,
+    ) -> bool:
+        """
+        Check whether two histograms are close to each other.
+
+        Parameters
+        ----------
+        other : Histogram
+            The histogram to compare against.
+        rtol : float = 1e-05
+            Relative tolerance for comparing edges and bins.
+        atol : float = 1e-08
+            Absolute tolerance for comparing edges and bins.
+        equal_nan : bool = False
+            Whether to compare NaNs as equal.
+        flow : bool = True
+            Whether to include underflow and overflow bins in the comparison.
+        metadata : bool = False
+            Whether to compare histogram and axis metadata.
+
+        Returns
+        -------
+        bool
+            True if the histograms are close, False otherwise.
+        """
+        if not isinstance(other, Histogram):
+            return False
+
+        if self.ndim != other.ndim:
+            return False
+
+        if self.storage_type != other.storage_type:
+            return False
+
+        if metadata and self.__dict__ != other.__dict__:
+            return False
+
+        for i in range(self.ndim):
+            ax1 = self.axes[i]
+            ax2 = other.axes[i]
+
+            if ax1.size != ax2.size:
+                return False
+
+            if metadata and ax1.__dict__ != ax2.__dict__:
+                return False
+
+            if ax1.traits.continuous != ax2.traits.continuous:
+                return False
+
+            if ax1.traits.continuous:
+                if not np.allclose(
+                    ax1.edges,
+                    ax2.edges,
+                    rtol=rtol,
+                    atol=atol,
+                    equal_nan=equal_nan,
+                ):
+                    return False
+            else:
+                if ax1.traits.ordered != ax2.traits.ordered:
+                    return False
+                if list(ax1) != list(ax2):
+                    return False
+
+        v1 = self.view(flow=flow)
+        v2 = other.view(flow=flow)
+
+        if v1.shape != v2.shape:
+            return False
+
+        if v1.dtype.names:
+            for name in v1.dtype.names:
+                if not np.allclose(
+                    v1[name],  # type: ignore[index]
+                    v2[name],  # type: ignore[index]
+                    rtol=rtol,
+                    atol=atol,
+                    equal_nan=equal_nan,
+                ):
+                    return False
+        elif not np.allclose(
+            v1,
+            v2,
+            rtol=rtol,
+            atol=atol,
+            equal_nan=equal_nan,
+        ):
+            return False
+
+        return True
+
     def __eq__(self, other: object) -> bool:
         return hasattr(other, "_hist") and self._hist == other._hist
 
@@ -614,6 +764,11 @@ class Histogram(typing.Generic[S]):
 
         return self
 
+    def __rsub__(self, other: np.typing.NDArray[Any] | float) -> Self:
+        # Subtraction is not commutative, so unlike __radd__ this cannot defer
+        # to the forward operator: other - self == -(self - other).
+        return (self - other) * -1
+
     # If these fail, the underlying object throws the correct error
     def __mul__(self, other: Histogram[S] | np.typing.NDArray[Any] | float) -> Self:
         result = self.copy(deep=False)
@@ -624,31 +779,96 @@ class Histogram(typing.Generic[S]):
 
     def __truediv__(self, other: Histogram[S] | np.typing.NDArray[Any] | float) -> Self:
         result = self.copy(deep=False)
-        return result._compute_inplace_op("__itruediv__", other)
-
-    def __div__(self, other: Histogram[S] | np.typing.NDArray[Any] | float) -> Self:
-        result = self.copy(deep=False)
-        return result._compute_inplace_op("__idiv__", other)
-
-    def __idiv__(self, other: Histogram[S] | np.typing.NDArray[Any] | float) -> Self:
-        return self._compute_inplace_op("__idiv__", other)
+        return result.__itruediv__(other)
 
     def __itruediv__(
         self, other: Histogram[S] | np.typing.NDArray[Any] | float
     ) -> Self:
+        # Division should produce floating-point results, so promote integer
+        # storages to Double. Histogram/histogram division in C++ requires both
+        # operands to share a storage, so the divisor is promoted to match.
+        self._convert_int_storage_to_double()
+        if isinstance(other, Histogram):
+            other = self._as_double_cpp(other._hist)  # type: ignore[assignment]
+        elif isinstance(other, _histogram_types):
+            other = self._as_double_cpp(other)  # type: ignore[assignment]
         return self._compute_inplace_op("__itruediv__", other)
+
+    def __rtruediv__(self, other: np.typing.NDArray[Any] | float) -> Self:
+        # Division is not commutative, so unlike __rmul__ this cannot defer to
+        # the forward operator: divide other by each cell. Promote integer
+        # storages to Double first, matching __itruediv__.
+        result = self.copy(deep=False)
+        result._convert_int_storage_to_double()
+        view = result.view(flow=True)
+        # Empty bins divide to inf/nan; suppress the warnings as elsewhere.
+        with np.errstate(divide="ignore", invalid="ignore"):
+            np.true_divide(other, view, out=view)
+        result._variance_known = False
+        return result
 
     def __imul__(self, other: Histogram[S] | np.typing.NDArray[Any] | float) -> Self:
         return self._compute_inplace_op("__imul__", other)
+
+    @staticmethod
+    def _as_double_cpp(cpp_hist: CppHistogram) -> CppHistogram:
+        """
+        Return a Double-storage copy of an integer-storage (Int64/AtomicInt64)
+        C++ histogram, so that division produces floating-point results instead
+        of truncating. Returns the input unchanged for storages that are already
+        floating point or richer.
+        """
+        if cpp_hist._storage_type not in {
+            _core.storage.int64,
+            _core.storage.atomic_int64,
+        }:
+            return cpp_hist
+
+        cpp_axes = [cpp_hist.axis(i) for i in range(cpp_hist.rank())]
+        new_hist = _core.hist.any_double(cpp_axes, _core.storage.double())
+        new_hist.view(flow=True)[...] = cpp_hist.view(flow=True)
+        return new_hist
+
+    def _convert_int_storage_to_double(self) -> None:
+        """
+        Convert an integer storage to Double in place (see _as_double_cpp).
+        """
+        self._hist = self._as_double_cpp(self._hist)
+
+    def _hist_inplace_op(self, name: str, other: CppHistogram) -> None:
+        if self._hist._storage_type is not other._storage_type:
+            symbol = _INPLACE_OP_SYMBOLS.get(name, name)
+            other_storage = typing.cast(
+                type[Storage], cast(self, other._storage_type, Storage)
+            )
+            msg = (
+                f"Cannot {symbol} histograms with different storage types: "
+                f"{self.storage_type.__name__} and {other_storage.__name__}"
+            )
+            raise TypeError(msg)
+
+        # The underlying C++ histogram only exposes the in-place dunders its
+        # storage supports (e.g. weight/mean/multi_cell storages have no
+        # __isub__). Calling a missing one raises a confusing AttributeError
+        # leaking the dunder name, so surface a clear error instead.
+        op = getattr(self._hist, name, None)
+        if op is None:
+            symbol = _INPLACE_OP_SYMBOLS.get(name, name)
+            msg = (
+                f"The {self.storage_type.__name__} storage does not support the "
+                f"{symbol!r} operation between two histograms"
+            )
+            raise TypeError(msg)
+        op(other)
 
     def _compute_inplace_op(
         self, name: str, other: Histogram[S] | np.typing.NDArray[Any] | float
     ) -> Self:
         # Also takes CppHistogram, but that confuses mypy because it's hard to pick out
         if isinstance(other, Histogram):
-            getattr(self._hist, name)(other._hist)
-        elif isinstance(other, tuple(_histograms)):
-            getattr(self._hist, name)(other)
+            self._hist_inplace_op(name, other._hist)
+        elif isinstance(other, _histogram_types):
+            self._hist_inplace_op(name, other)
         elif hasattr(other, "shape") and other.shape:
             assert not isinstance(other, float)
 
@@ -748,22 +968,33 @@ class Histogram(typing.Generic[S]):
         }:
             raise RuntimeError("Mean histograms do not support threaded filling")
 
-        data: list[list[np.typing.NDArray[Any]] | list[str]] = []
+        # If everything is scalar, there is only a single fill; threading would
+        # incorrectly repeat it, so fill directly instead.
+        if (
+            all(isinstance(a, str) or np.ndim(a) == 0 for a in args_ars)
+            and (weight_ars is None or np.ndim(weight_ars) == 0)
+            and (sample_ars is None or np.ndim(sample_ars) == 0)
+        ):
+            self._hist.fill(*args_ars, weight=weight_ars, sample=sample_ars)
+            return self
+
+        data: list[list[Any]] = []
         for a in args_ars:
-            if isinstance(a, str):
+            if isinstance(a, str) or np.ndim(a) == 0:
+                # Scalars broadcast against each thread's chunk
                 data.append([a] * threads)
             else:
-                data.append(np.array_split(np.asarray(a), threads))
+                data.append(list(np.array_split(np.asarray(a), threads)))
 
         weights: list[Any]
-        if weight is None or np.isscalar(weight):
+        if weight_ars is None or np.ndim(weight_ars) == 0:
             assert threads is not None
             weights = [weight_ars] * threads
         else:
             weights = np.array_split(np.asarray(weight_ars), threads)
 
         samples: list[Any]
-        if sample_ars is None or np.isscalar(sample_ars):
+        if sample_ars is None or np.ndim(sample_ars) == 0:
             assert threads is not None
             samples = [sample_ars] * threads
         else:
@@ -926,13 +1157,20 @@ class Histogram(typing.Generic[S]):
         if callable(index):
             return index(self.axes[axis])
 
+        # NumPy integer arrays pass through untouched; they trigger vectorized
+        # gather/scatter in __getitem__/__setitem__ rather than per-element access.
+        if isinstance(index, np.ndarray):
+            return index
+
         if isinstance(index, float):
             raise TypeError(f"Index {index} must be an integer, not float")
 
         if isinstance(index, SupportsIndex):
-            if abs(int(index)) >= self._hist.axis(axis).size:
+            idx = int(index)
+            size: int = self._hist.axis(axis).size
+            if not -size <= idx < size:
                 raise IndexError("histogram index is out of range")
-            return int(index) % self._hist.axis(axis).size
+            return idx % size
 
         return index
 
@@ -975,6 +1213,43 @@ class Histogram(typing.Generic[S]):
                 indexes[i] = self._compute_uhi_index(indexes[i], i)
 
         return indexes
+
+    def _compute_vectorized_index(self, indexes: list[Any]) -> tuple[Any, ...]:
+        """
+        Build a NumPy fancy-index tuple from already-normalized indexes for
+        vectorized cell access (gather/scatter). Each axis may be an integer
+        array, an integer, or a plain integer slice. Rebin/sum/locator slices
+        and categorical lists are rejected with a pointer to ``.view()``.
+        """
+        view_index: list[Any] = []
+        for i, ind in enumerate(indexes):
+            if isinstance(ind, np.ndarray):
+                view_index.append(ind)
+            elif isinstance(ind, slice):
+                if ind.step is not None or not all(
+                    s is None or isinstance(s, int) for s in (ind.start, ind.stop)
+                ):
+                    msg = (
+                        f"Vectorized (array) indexing on axis {i} only supports plain "
+                        "integer slices; use .view() for rebin, sum, or locator slices"
+                    )
+                    raise IndexError(msg)
+                view_index.append(ind)
+            elif isinstance(ind, SupportsIndex):
+                view_index.append(ind.__index__())
+            else:
+                msg = (
+                    "Vectorized (array) indexing only supports integer arrays, "
+                    f"integers, and integer slices; got {type(ind).__name__} on axis {i}"
+                )
+                raise IndexError(msg)
+
+        if isinstance(self._hist, _core.hist.any_multi_cell):
+            # The buffer of a MultiCell histogram has the cell index as its first
+            # dimension, which is not part of the user-facing axis indexing.
+            view_index.insert(0, slice(None, None, None))
+
+        return tuple(view_index)
 
     @typing.overload
     def to_numpy(
@@ -1026,8 +1301,12 @@ class Histogram(typing.Generic[S]):
             The edges for each dimension
         """
 
-        hist, *edges = self._hist.to_numpy(flow)
         hist = self.view(flow=flow) if view else self.values(flow=flow)
+        # Compute the edges directly; this avoids the deep copy of the bin
+        # contents that the C++ ``to_numpy`` helper would make.
+        edges = [
+            _numpy_compatible_edges(self._hist.axis(i), flow) for i in range(self.ndim)
+        ]
 
         return (hist, edges) if dd else (hist, *edges)  # type: ignore[return-value]
 
@@ -1129,13 +1408,17 @@ class Histogram(typing.Generic[S]):
 
     def __getitem__(
         self, index: IndexingExpr
-    ) -> Self | float | Accumulator | list[float] | int:
+    ) -> Self | float | Accumulator | list[float] | int | np.typing.NDArray[Any]:
         indexes = self._compute_commonindex(index)
 
+        # Vectorized (NumPy array) indexing gathers scattered cells through the
+        # buffer instead of building a new histogram. Only ndarray indices
+        # trigger this; lists keep their categorical pick semantics.
+        if any(isinstance(a, np.ndarray) for a in indexes):
+            return self.view()[self._compute_vectorized_index(indexes)]
+
         # Early return for all-integer case
-        if not hasattr(indexes, "items") and all(
-            isinstance(a, SupportsIndex) for a in indexes
-        ):
+        if all(isinstance(a, SupportsIndex) for a in indexes):
             return self._hist.at(*indexes)  # type: ignore[no-any-return, arg-type]
 
         integrations = set[int]()
@@ -1150,7 +1433,9 @@ class Histogram(typing.Generic[S]):
                     pick_each[i] = ind.__index__() + (
                         1 if self.axes[i].traits.underflow else 0
                     )
-                case collections.abc.Sequence():
+                # str/bytes are Sequences but not valid indices; they fall
+                # through to the IndexError below.
+                case collections.abc.Sequence() if not isinstance(ind, (str, bytes)):  # type: ignore[unreachable]
                     pick_set[i] = list(ind)
                 case slice(start=start, stop=stop, step=step):
                     reduced, new_slices, new_integrations = self._handle_slice(
@@ -1240,6 +1525,13 @@ class Histogram(typing.Generic[S]):
 
         return self._new_hist(reduced) if reduced.rank() > 0 else reduced.sum(flow=True)
 
+    @staticmethod
+    def _empty_slice_msg(i: int, start: Any, stop: Any) -> str:
+        return (
+            f"Slice [{start}:{stop}] on axis {i} selects no bins; boost-histogram "
+            "axes cannot have zero bins (NumPy would return an empty array here)"
+        )
+
     def _handle_slice(
         self,
         i: int,
@@ -1261,17 +1553,19 @@ class Histogram(typing.Generic[S]):
         slices = list[_core.algorithm.reduce_command]()
         integrations = set[int]()
 
-        start_int, stop_int = self.axes[i]._process_loc(start, stop)
-        groups = []
-        new_axis = None
         if start is None and stop is None and step is None:
             return reduced, slices, integrations
 
+        start_int, stop_int = self.axes[i]._process_loc(start, stop)
+        groups = []
+        new_axis = None
         merge = 1
         match step:
             case x if x is sum:  # https://github.com/oracle/graalpython/issues/620
                 integrations.add(i)
                 if start is not None or stop is not None:
+                    if start_int >= stop_int:
+                        raise IndexError(self._empty_slice_msg(i, start, stop))
                     slices.append(
                         _core.algorithm.slice(
                             i, start_int, stop_int, _core.algorithm.slice_mode.crop
@@ -1296,6 +1590,11 @@ class Histogram(typing.Generic[S]):
         assert isinstance(stop_int, int)
         # rebinning with factor
         if len(groups) == 0:
+            # NumPy returns an empty array for slices like [1:-15] or [5:2];
+            # a Boost.Histogram axis cannot have zero bins, so refuse with a
+            # clear message instead of the low-level "begin < end required".
+            if min(stop_int, self.axes[i].size) <= max(start_int, 0):
+                raise IndexError(self._empty_slice_msg(i, start, stop))
             slices.append(
                 _core.algorithm.slice_and_rebin(i, start_int, stop_int, merge)
             )
@@ -1333,31 +1632,55 @@ class Histogram(typing.Generic[S]):
 
         new_reduced: _core.hist._BaseHistogram | _core.hist.any_multi_cell
         new_reduced = reduced.__class__(axes)
+        if isinstance(reduced, _core.hist.any_multi_cell) and isinstance(
+            new_reduced, _core.hist.any_multi_cell
+        ):
+            # The constructor in reduced.__class__(axes) does not take care of the number of cells.
+            # If reduced is a multi cell histogram, we have to set the number of cells per bin manually for new_reduced
+            new_reduced.reset_nelem(reduced.nelem())
         new_view = new_reduced.view(flow=True)
+
+        # Views of multi cell histograms have the cell index as the first
+        # (index 0) dimension, so the axis position within the view is
+        # shifted by one.
+        view_i = i + 1 if isinstance(reduced, _core.hist.any_multi_cell) else i
+
+        groups = list(groups)  # do not modify the caller's list
         j = 0
         new_j_base = 0
 
         if old_axis.traits_underflow and axes[i].traits_underflow:
-            groups = [1, *groups]
+            groups.insert(0, 1)
         elif axes[i].traits_underflow:
             new_j_base = 1
+        elif old_axis.traits_underflow:
+            # The new axis has no underflow bin: skip the old underflow bin
+            # here. For unordered (categorical) axes its contents are folded
+            # into the new overflow bin below; otherwise they are dropped.
+            j = 1
 
         if old_axis.traits_overflow and axes[i].traits_overflow:
             groups.append(1)
+        # If the old axis has an overflow bin but the new one does not, the
+        # old overflow contents are dropped (the bin is simply not consumed).
 
         for new_j, group in enumerate(groups):
             for _ in range(group):
                 _combine_group_contents(
-                    new_view, reduced_view, i, j, new_j + new_j_base
+                    new_view, reduced_view, view_i, j, new_j + new_j_base
                 )
                 j += 1
 
-            if (
-                old_axis.traits_underflow
-                and not axes[i].traits_ordered
-                and axes[i].traits_overflow
-            ):
-                _combine_group_contents(new_view, reduced_view, i, 0, -1)
+        if (
+            old_axis.traits_underflow
+            and not axes[i].traits_underflow
+            and not axes[i].traits_ordered
+            and axes[i].traits_overflow
+        ):
+            # On an unordered (categorical) axis every out-of-range entry
+            # lands in the overflow bin, so the old underflow contents are
+            # added to the new overflow bin -- exactly once.
+            _combine_group_contents(new_view, reduced_view, view_i, 0, -1)
 
         return new_reduced
 
@@ -1384,7 +1707,17 @@ class Histogram(typing.Generic[S]):
         """
         indexes = self._compute_commonindex(index)
 
-        in_array = np.asarray(value)
+        # Vectorized (NumPy array) indexing scatters values through the buffer.
+        # The View handles accumulator (n+1 dim raw array) assignment itself.
+        if any(isinstance(a, np.ndarray) for a in indexes):
+            self.view()[self._compute_vectorized_index(indexes)] = np.asarray(value)
+            return
+
+        # A Histogram value must keep its flow bins; np.asarray() would call
+        # __array__, which drops them (returns view(flow=False)).
+        in_array = (
+            value.view(flow=True) if isinstance(value, Histogram) else np.asarray(value)
+        )
         view: Any = self.view(flow=True)
 
         value_shape: tuple[int, ...]
@@ -1474,7 +1807,7 @@ class Histogram(typing.Generic[S]):
 
                 else:
                     msg = f"Mismatched shapes {value_shape} in dimension {n}"
-                    msg += f", {value_shape[n]} != {request_len}"
+                    msg += f", {value_shape[value_n]} != {request_len}"
                     if use_underflow or use_overflow:
                         msg += f" or {request_len + use_underflow + use_overflow}"
                     raise ValueError(msg)
@@ -1499,11 +1832,12 @@ class Histogram(typing.Generic[S]):
             indexes.insert(0, slice(None, None, None))
         view[tuple(indexes)] = in_array
 
-    def project(self, *args: int) -> Self:
+    def project(self, *args: int, flow: bool = True) -> Self:
         """
         Project to a single axis or several axes on a multidimensional histogram.
         Provided a list of axis numbers, this will produce the histogram over
-        those axes only. Flow bins are used if available.
+        those axes only. Flow bins are used if available. If flow is False,
+        flow bins on the integrated-out axes are excluded.
         """
         for arg in args:
             if arg < 0 or arg >= self.ndim:
@@ -1511,7 +1845,21 @@ class Histogram(typing.Generic[S]):
                     f"Projection axis must be a valid axis number 0 to {self.ndim - 1}, not {arg}"
                 )
 
-        return self._new_hist(self._hist.project(*args))
+        if flow:
+            return self._new_hist(self._hist.project(*args))
+
+        keep_axes = set(args)
+        drop_axes = [i for i in range(self.ndim) if i not in keep_axes]
+
+        slices = [
+            _core.algorithm.slice(
+                i, 0, self.axes[i].size, _core.algorithm.slice_mode.crop
+            )
+            for i in drop_axes
+        ]
+
+        reduced_hist = self._hist.reduce(*slices) if slices else self._hist
+        return self._new_hist(reduced_hist.project(*args))
 
     # Implementation of PlottableHistogram
 

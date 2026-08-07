@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aiowebostv
-Version: 0.9.0
+Version: 0.9.1
 Summary: Library to control webOS based LG TV devices
 Author-email: Home Assistant Team <hello@home-assistant.io>
 License-Expression: Apache-2.0

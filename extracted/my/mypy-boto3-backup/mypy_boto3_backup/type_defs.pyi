@@ -22,6 +22,7 @@ from datetime import datetime
 from typing import Union
 
 from .literals import (
+    AccessPointStatusType,
     AggregationPeriodType,
     BackupJobStateType,
     BackupJobStatusType,
@@ -90,6 +91,8 @@ __all__ = (
     "CopyActionTypeDef",
     "CopyJobSummaryTypeDef",
     "CopyJobTypeDef",
+    "CreateBackupAccessPointRequestTypeDef",
+    "CreateBackupAccessPointResponseTypeDef",
     "CreateBackupPlanInputTypeDef",
     "CreateBackupPlanOutputTypeDef",
     "CreateBackupSelectionInputTypeDef",
@@ -114,6 +117,7 @@ __all__ = (
     "CreateTieringConfigurationOutputTypeDef",
     "DateRangeOutputTypeDef",
     "DateRangeTypeDef",
+    "DeleteBackupAccessPointInputTypeDef",
     "DeleteBackupPlanInputTypeDef",
     "DeleteBackupPlanOutputTypeDef",
     "DeleteBackupSelectionInputTypeDef",
@@ -127,6 +131,8 @@ __all__ = (
     "DeleteRestoreTestingPlanInputTypeDef",
     "DeleteRestoreTestingSelectionInputTypeDef",
     "DeleteTieringConfigurationInputTypeDef",
+    "DescribeBackupAccessPointInputTypeDef",
+    "DescribeBackupAccessPointResponseTypeDef",
     "DescribeBackupJobInputTypeDef",
     "DescribeBackupJobOutputTypeDef",
     "DescribeBackupVaultInputTypeDef",
@@ -199,6 +205,16 @@ __all__ = (
     "LatestRevokeRequestTypeDef",
     "LegalHoldTypeDef",
     "LifecycleTypeDef",
+    "ListAccessPointsMemberTypeDef",
+    "ListBackupAccessPointsByRecoveryPointRequestPaginateTypeDef",
+    "ListBackupAccessPointsByRecoveryPointRequestTypeDef",
+    "ListBackupAccessPointsByRecoveryPointResponseTypeDef",
+    "ListBackupAccessPointsByResourceRequestPaginateTypeDef",
+    "ListBackupAccessPointsByResourceRequestTypeDef",
+    "ListBackupAccessPointsByResourceResponseTypeDef",
+    "ListBackupAccessPointsRequestPaginateTypeDef",
+    "ListBackupAccessPointsRequestTypeDef",
+    "ListBackupAccessPointsResponseTypeDef",
     "ListBackupJobSummariesInputTypeDef",
     "ListBackupJobSummariesOutputTypeDef",
     "ListBackupJobsInputPaginateTypeDef",
@@ -497,6 +513,13 @@ class CopyJobSummaryTypeDef(TypedDict):
     StartTime: NotRequired[datetime]
     EndTime: NotRequired[datetime]
 
+class CreateBackupAccessPointRequestTypeDef(TypedDict):
+    Name: str
+    RecoveryPointArn: str
+    AccessPointMetadata: NotRequired[Mapping[str, str]]
+    AccessPointPolicy: NotRequired[str]
+    Tags: NotRequired[Mapping[str, str]]
+
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
@@ -530,6 +553,9 @@ class DateRangeOutputTypeDef(TypedDict):
     ToDate: datetime
 
 TimestampTypeDef = Union[datetime, str]
+
+class DeleteBackupAccessPointInputTypeDef(TypedDict):
+    AccessPointArn: str
 
 class DeleteBackupPlanInputTypeDef(TypedDict):
     BackupPlanId: str
@@ -569,6 +595,9 @@ class DeleteRestoreTestingSelectionInputTypeDef(TypedDict):
 
 class DeleteTieringConfigurationInputTypeDef(TypedDict):
     TieringConfigurationName: str
+
+class DescribeBackupAccessPointInputTypeDef(TypedDict):
+    AccessPointArn: str
 
 class DescribeBackupJobInputTypeDef(TypedDict):
     BackupJobId: str
@@ -741,6 +770,38 @@ class LegalHoldTypeDef(TypedDict):
     CreationDate: NotRequired[datetime]
     CancellationDate: NotRequired[datetime]
 
+class ListAccessPointsMemberTypeDef(TypedDict):
+    AccessPointArn: str
+    AccessPointMetadata: dict[str, str]
+    BackupVaultName: str
+    CreationTime: datetime
+    Name: str
+    RecoveryPointArn: str
+    ResourceArn: str
+    ResourceType: str
+    Status: AccessPointStatusType
+    BackupVaultArn: NotRequired[str]
+    StatusMessage: NotRequired[str]
+
+class PaginatorConfigTypeDef(TypedDict):
+    MaxItems: NotRequired[int]
+    PageSize: NotRequired[int]
+    StartingToken: NotRequired[str]
+
+class ListBackupAccessPointsByRecoveryPointRequestTypeDef(TypedDict):
+    RecoveryPointArn: str
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+
+class ListBackupAccessPointsByResourceRequestTypeDef(TypedDict):
+    ResourceArn: str
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+
+class ListBackupAccessPointsRequestTypeDef(TypedDict):
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+
 class ListBackupJobSummariesInputTypeDef(TypedDict):
     AccountId: NotRequired[str]
     State: NotRequired[BackupJobStatusType]
@@ -749,11 +810,6 @@ class ListBackupJobSummariesInputTypeDef(TypedDict):
     AggregationPeriod: NotRequired[AggregationPeriodType]
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
-
-class PaginatorConfigTypeDef(TypedDict):
-    MaxItems: NotRequired[int]
-    PageSize: NotRequired[int]
-    StartingToken: NotRequired[str]
 
 class ListBackupPlanTemplatesInputTypeDef(TypedDict):
     NextToken: NotRequired[str]
@@ -1214,6 +1270,11 @@ class FrameworkControlOutputTypeDef(TypedDict):
 
 ControlScopeUnionTypeDef = Union[ControlScopeTypeDef, ControlScopeOutputTypeDef]
 
+class CreateBackupAccessPointResponseTypeDef(TypedDict):
+    AccessPointArn: str
+    Status: AccessPointStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class CreateBackupPlanOutputTypeDef(TypedDict):
     BackupPlanId: str
     BackupPlanArn: str
@@ -1283,6 +1344,20 @@ class DeleteBackupPlanOutputTypeDef(TypedDict):
     BackupPlanArn: str
     DeletionDate: datetime
     VersionId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DescribeBackupAccessPointResponseTypeDef(TypedDict):
+    AccessPointArn: str
+    AccessPointMetadata: dict[str, str]
+    BackupVaultArn: str
+    BackupVaultName: str
+    CreationTime: datetime
+    Name: str
+    RecoveryPointArn: str
+    ResourceArn: str
+    ResourceType: str
+    Status: AccessPointStatusType
+    StatusMessage: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeBackupJobOutputTypeDef(TypedDict):
@@ -1821,6 +1896,32 @@ class ListLegalHoldsOutputTypeDef(TypedDict):
     LegalHolds: list[LegalHoldTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+class ListBackupAccessPointsByRecoveryPointResponseTypeDef(TypedDict):
+    BackupAccessPoints: list[ListAccessPointsMemberTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+class ListBackupAccessPointsByResourceResponseTypeDef(TypedDict):
+    BackupAccessPoints: list[ListAccessPointsMemberTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+class ListBackupAccessPointsResponseTypeDef(TypedDict):
+    BackupAccessPoints: list[ListAccessPointsMemberTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+class ListBackupAccessPointsByRecoveryPointRequestPaginateTypeDef(TypedDict):
+    RecoveryPointArn: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListBackupAccessPointsByResourceRequestPaginateTypeDef(TypedDict):
+    ResourceArn: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListBackupAccessPointsRequestPaginateTypeDef(TypedDict):
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListBackupJobsInputPaginateTypeDef(TypedDict):
     ByResourceArn: NotRequired[str]

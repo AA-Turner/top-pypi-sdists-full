@@ -17,7 +17,7 @@ def test_registry_discovers_rules():
     assert len(BUILTIN_RULES) >= 53
     ids = [cls().rule_id for cls in BUILTIN_RULES]
     assert "skill-frontmatter" in ids
-    assert "plugin-json-required" in ids
+    assert "claude-plugin-json-required" in ids
     assert "content-weak-language" in ids
 
 
@@ -51,8 +51,11 @@ def test_default_config_generated_from_registry():
     ``LinterConfig.default()`` silently overrode ``Rule.default_severity()``.
     """
     defaults = LinterConfig.default().rules
-    assert set(defaults) == set(BUILTIN_RULE_REGISTRY)
-    for rule_id, cls in BUILTIN_RULE_REGISTRY.items():
+    active = {rid for rid, cls in BUILTIN_RULE_REGISTRY.items() if cls.deprecated is None}
+    # Deprecated rules are deliberately left out of generated configs.
+    assert set(defaults) == active
+    for rule_id in active:
+        cls = BUILTIN_RULE_REGISTRY[rule_id]
         rule = cls()
         assert defaults[rule_id]["enabled"] == cls.default_enabled
         assert defaults[rule_id]["severity"] == rule.default_severity().value
@@ -138,3 +141,16 @@ def test_severity_enum_matches():
     # default_severity() must return a Severity for every rule
     for cls in BUILTIN_RULES:
         assert isinstance(cls().default_severity(), Severity)
+
+
+def test_every_rule_since_is_not_in_the_future():
+    """A rule whose ``since`` postdates the shipped version is silently dead
+    for every version-pinning user — unit tests call check() directly and
+    bypass config gating, so nothing else catches this class."""
+    from skillsaw import __version__
+    from skillsaw.config import _parse_version
+    from skillsaw.rules.builtin import BUILTIN_RULES
+
+    current = _parse_version(__version__)
+    future = [cls().rule_id for cls in BUILTIN_RULES if _parse_version(cls.since) > current]
+    assert not future, f"rules gated behind a future version: {future}"

@@ -15,6 +15,7 @@ class _Unspec:
 
 def solution_generator(spends: Sequence[tuple[Coin, bytes, bytes]]) -> bytes: ...
 def solution_generator_backrefs(spends: Sequence[tuple[Coin, bytes, bytes]]) -> bytes: ...
+def solution_generator_2026(spends: Sequence[tuple[Coin, bytes, bytes]]) -> bytes: ...
 
 def is_canonical_serialization(buf: bytes) -> bool: ...
 
@@ -133,6 +134,7 @@ COMPUTE_FINGERPRINT: int = ...
 COST_CONDITIONS: int = ...
 SIMPLE_GENERATOR: int = ...
 LIMIT_SPENDS: int = ...
+SERDE_2026_MAGIC_PREFIX: bytes = ...
 DISABLE_OP: int = ...
 CANONICAL_INTS: int = ...
 ENABLE_SHA256_TREE: int = ...
@@ -2041,7 +2043,7 @@ class FullBlock:
     transactions_info: Optional[TransactionsInfo]
     transactions_generator: Optional[Program]
     transactions_generator_ref_list: list[uint32]
-    transactions_generator_buffer: Optional[list[uint8]]
+    transactions_generator_buffer: Optional[bytes]
     version: uint8
     prev_header_hash: bytes32
     header_hash: bytes32
@@ -2065,7 +2067,7 @@ class FullBlock:
         transactions_info: Optional[TransactionsInfo],
         transactions_generator: Optional[Program],
         transactions_generator_ref_list: Sequence[uint32],
-        transactions_generator_buffer: Optional[Sequence[uint8]],
+        transactions_generator_buffer: Optional[bytes],
         version: uint8
     ) -> Self: ...
     def __hash__(self) -> int: ...
@@ -2097,7 +2099,7 @@ class FullBlock:
         transactions_info: Union[ Optional[TransactionsInfo], _Unspec] = _Unspec(),
         transactions_generator: Union[ Optional[Program], _Unspec] = _Unspec(),
         transactions_generator_ref_list: Union[ list[uint32], _Unspec] = _Unspec(),
-        transactions_generator_buffer: Union[ Optional[list[uint8]], _Unspec] = _Unspec(),
+        transactions_generator_buffer: Union[ Optional[bytes], _Unspec] = _Unspec(),
         version: Union[ uint8, _Unspec] = _Unspec()) -> FullBlock: ...
     def truncate(self, field: str, length: int) -> None: ...
 
@@ -2727,7 +2729,7 @@ class UnfinishedBlock:
     transactions_info: Optional[TransactionsInfo]
     transactions_generator: Optional[Program]
     transactions_generator_ref_list: list[uint32]
-    transactions_generator_buffer: Optional[list[uint8]]
+    transactions_generator_buffer: Optional[bytes]
     version: uint8
     prev_header_hash: bytes32
     partial_hash: bytes32
@@ -2744,7 +2746,7 @@ class UnfinishedBlock:
         transactions_info: Optional[TransactionsInfo],
         transactions_generator: Optional[Program],
         transactions_generator_ref_list: Sequence[uint32],
-        transactions_generator_buffer: Optional[Sequence[uint8]],
+        transactions_generator_buffer: Optional[bytes],
         version: uint8
     ) -> Self: ...
     def __hash__(self) -> int: ...
@@ -2773,7 +2775,7 @@ class UnfinishedBlock:
         transactions_info: Union[ Optional[TransactionsInfo], _Unspec] = _Unspec(),
         transactions_generator: Union[ Optional[Program], _Unspec] = _Unspec(),
         transactions_generator_ref_list: Union[ list[uint32], _Unspec] = _Unspec(),
-        transactions_generator_buffer: Union[ Optional[list[uint8]], _Unspec] = _Unspec(),
+        transactions_generator_buffer: Union[ Optional[bytes], _Unspec] = _Unspec(),
         version: Union[ uint8, _Unspec] = _Unspec()) -> UnfinishedBlock: ...
     def truncate(self, field: str, length: int) -> None: ...
 

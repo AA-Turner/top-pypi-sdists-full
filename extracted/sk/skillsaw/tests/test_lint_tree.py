@@ -4,17 +4,21 @@ Tests for the lint tree data structure and tree builder.
 
 from pathlib import Path
 
+from skillsaw.config import LinterConfig
 from skillsaw.lint_target import (
     LintTarget,
     ApmConfigNode,
     ApmNode,
     CodeRabbitNode,
+    CodexMarketplaceConfigNode,
+    CodexPluginNode,
     MarketplaceConfigNode,
     MarketplaceNode,
     PluginNode,
     SkillNode,
 )
 from skillsaw.context import RepositoryContext
+from skillsaw.linter import Linter
 
 # --- LintTarget.walk() ---
 
@@ -139,6 +143,11 @@ def test_tree_labels():
     assert MarketplaceConfigNode(path=Path("/m.json")).tree_label() == "marketplace.json"
     assert MarketplaceNode(path=Path("/plugins")).tree_label() == "plugins/ [marketplace]"
     assert PluginNode(path=Path("/my-plugin")).tree_label() == "my-plugin/ [plugin]"
+    assert CodexPluginNode(path=Path("/my-plugin")).tree_label() == "my-plugin/ [codex plugin]"
+    assert (
+        CodexMarketplaceConfigNode(path=Path("/api_marketplace.json")).tree_label()
+        == "api_marketplace.json [codex]"
+    )
     assert SkillNode(path=Path("/my-skill")).tree_label() == "my-skill/ [skill]"
     assert ApmConfigNode(path=Path("/apm.yml")).tree_label() == "apm.yml"
     assert ApmNode(path=Path("/.apm")).tree_label() == ".apm/"
@@ -216,6 +225,48 @@ def test_tree_contains_coderabbit_node(temp_dir):
     tree = context.lint_tree
 
     assert len(tree.find(CodeRabbitNode)) == 1
+
+
+def test_tree_rejects_instruction_symlink_outside_repo(tmp_path):
+    """Generic block discovery must not attach a symlinked external file."""
+    outside = tmp_path / "outside.md"
+    outside.write_text("external instructions\n")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    linked = repo / ".cursorrules"
+    linked.symlink_to(outside)
+
+    tree = RepositoryContext(repo).lint_tree
+
+    assert all(node.path != linked for node in tree.walk())
+
+
+def test_tree_rejects_coderabbit_symlink_outside_repo(tmp_path):
+    """CodeRabbit discovery must not parse a symlinked external config."""
+    outside = tmp_path / "outside.yaml"
+    outside.write_text("reviews:\n  instructions: external\n")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    (repo / ".coderabbit.yaml").symlink_to(outside)
+
+    tree = RepositoryContext(repo).lint_tree
+
+    assert tree.find(CodeRabbitNode) == []
+
+
+def test_unresolvable_repository_root_surfaces_lint_error(temp_dir, monkeypatch):
+    """A failed canonical-root lookup must not silently produce a partial tree."""
+    context = RepositoryContext(temp_dir)
+    monkeypatch.setattr("skillsaw.lint_tree.safe_resolve", lambda path: None)
+
+    linter = Linter(context, LinterConfig.default())
+    first_errors = [v for v in linter.run() if v.rule_id == "repository-path-error"]
+    second_errors = [v for v in linter.run() if v.rule_id == "repository-path-error"]
+
+    assert len(first_errors) == 1
+    assert len(second_errors) == 1
+    assert str(temp_dir) in first_errors[0].message
+    assert list(context.lint_tree.walk()) == [context.lint_tree]
 
 
 def test_content_blocks_returns_all_content(temp_dir):

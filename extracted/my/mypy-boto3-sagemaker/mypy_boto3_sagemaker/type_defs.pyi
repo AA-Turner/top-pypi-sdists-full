@@ -3275,6 +3275,7 @@ class ServerlessJobConfigTypeDef(TypedDict):
     Peft: NotRequired[Literal["LORA"]]
     EvaluationType: NotRequired[EvaluationTypeType]
     EvaluatorArn: NotRequired[str]
+    SequenceLength: NotRequired[str]
 
 class SessionChainingConfigTypeDef(TypedDict):
     EnableSessionTagChaining: NotRequired[bool]

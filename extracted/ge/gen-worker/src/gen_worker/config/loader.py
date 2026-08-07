@@ -50,7 +50,6 @@ _ENV_TO_FIELD: Dict[str, str] = {
     "TENSORHUB_CAS_DIR": "tensorhub_cas_dir",
     "TENSORHUB_FILL_SOURCE_DIR": "tensorhub_fill_source_dir",
     "CIVITAI_API_KEY": "civitai_api_key",
-    "GEN_WORKER_PREFER_AOT": "compile_prefer_aot",
     "GEN_WORKER_C2PA_CERT_PEM": "c2pa_cert_pem",
     "GEN_WORKER_C2PA_CERT_PATH": "c2pa_cert_path",
     # th#1307: GEN_WORKER_C2PA_KEY_PEM / _KEY_PATH are deliberately NOT
@@ -116,6 +115,12 @@ _OWNED_NON_SETTINGS: frozenset[str] = frozenset({
     "GEN_WORKER_SEAL_LIB_MEMO",
     "GEN_WORKER_SUPERVISED",
     "WORKER_EXECUTION_TOPOLOGY",
+    # pgw#980: the live-edit probe marking and its separate publish arming.
+    # Read by `procsplit.actions` — the PARENT's security boundary, which must
+    # be readable with no Settings in hand, and which tenant-adjacent code in
+    # the compute child must not be able to reach through the config surface.
+    "GEN_WORKER_PROBE",
+    "GEN_WORKER_PROBE_PUBLISH_ARMED",
     # pgw#929 library/standalone-tool knobs; see scripts/config_reads_allowlist.txt.
     "GEN_WORKER_LOG_LEVEL",
     "GEN_WORKER_LOCAL_CELLS_DIR",

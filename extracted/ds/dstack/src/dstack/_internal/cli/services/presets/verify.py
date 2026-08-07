@@ -52,7 +52,7 @@ def load_preset_agent_report(
     # check below still rejects unknown leaked tokens.
     report_data = redact_structure(report_data, redacted_values)
     try:
-        report = AgentFinalReport.parse_obj(report_data)
+        report = AgentFinalReport.model_validate(report_data)
     except ValidationError as e:
         raise CLIError(f"Claude returned an invalid final report: {e}") from e
     if not report.success:
@@ -92,21 +92,21 @@ def build_verified_preset(
     elif report.model != preset_configuration.model.exact_repo:
         raise CLIError("Claude changed an exact model request")
     if (
-        preset_configuration.context_length is not None
-        and report.context_length < preset_configuration.context_length
+        preset_configuration.min_context_length is not None
+        and report.context_length < preset_configuration.min_context_length
     ):
         raise CLIError("Claude final service does not meet the requested context length")
 
     target_type = (
         "gateway" if urlparse(run.service.url).scheme in {"http", "https"} else "server-proxy"
     )
-    benchmark = report.benchmark.copy(
+    benchmark = report.benchmark.model_copy(
         update={
             "target": PresetBenchmarkTarget(type=target_type),
             "client": PresetBenchmarkClient(type="local"),
         }
     )
-    portable_service = service.copy(deep=True)
+    portable_service = service.model_copy(deep=True)
     # The CLI resolved preset env references before submission; presets retain the references.
     for key, value in preset_configuration.env.items():
         if isinstance(value, EnvSentinel) and key in portable_service.env:

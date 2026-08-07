@@ -2,6 +2,7 @@
 Tests for output formatters
 """
 
+import hashlib
 import json
 from pathlib import Path
 
@@ -22,21 +23,21 @@ from skillsaw.linter import Linter
 def _make_violations():
     return [
         RuleViolation(
-            rule_id="plugin-json-required",
+            rule_id="claude-plugin-json-required",
             severity=Severity.ERROR,
             message="Missing plugin.json",
             file_path=Path("plugins/foo/.claude-plugin"),
             line=None,
         ),
         RuleViolation(
-            rule_id="command-naming",
+            rule_id="claude-command-naming",
             severity=Severity.WARNING,
             message="Command file should use kebab-case",
             file_path=Path("plugins/foo/commands/Bad_Name.md"),
             line=3,
         ),
         RuleViolation(
-            rule_id="plugin-json-valid",
+            rule_id="claude-plugin-json-valid",
             severity=Severity.INFO,
             message="Recommended field 'author' missing",
             file_path=Path("plugins/foo/.claude-plugin/plugin.json"),
@@ -169,6 +170,44 @@ def test_text_includes_stats(valid_plugin):
     assert "Rules run:" in output
 
 
+def test_text_counts_codex_plugins(tmp_path):
+    """A Codex-only catalog must not report ``Plugins: 0`` — openai/plugins
+    holds 180 plugins, all discovered through the Codex manifest path."""
+    import json as _json
+
+    (tmp_path / ".agents" / "plugins").mkdir(parents=True)
+    (tmp_path / ".agents" / "plugins" / "marketplace.json").write_text(
+        _json.dumps(
+            {
+                "name": "codex-cat",
+                "plugins": [
+                    {
+                        "name": "note-keeper",
+                        "source": {"source": "local", "path": "./plugins/note-keeper"},
+                        "policy": {"installation": "AVAILABLE", "authentication": "ON_INSTALL"},
+                        "category": "Productivity",
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    manifest_dir = tmp_path / "plugins" / "note-keeper" / ".codex-plugin"
+    manifest_dir.mkdir(parents=True)
+    (manifest_dir / "plugin.json").write_text(
+        _json.dumps({"name": "note-keeper", "version": "1.0.0", "description": "Keeps notes."}),
+        encoding="utf-8",
+    )
+
+    context = RepositoryContext(tmp_path)
+    config = LinterConfig.default()
+    linter = Linter(context, config)
+    violations = linter.run()
+
+    output = format_text(violations, context, linter.rules, "0.0.0")
+    assert "Plugins:   1" in output
+
+
 def test_text_includes_summary(valid_plugin):
     context = RepositoryContext(valid_plugin)
     config = LinterConfig.default()
@@ -244,9 +283,9 @@ def test_text_includes_rule_id(valid_plugin):
     violations = _make_violations()
 
     output = format_text(violations, context, [], "0.0.0", verbose=True)
-    assert "(plugin-json-required)" in output
-    assert "(command-naming)" in output
-    assert "(plugin-json-valid)" in output
+    assert "(claude-plugin-json-required)" in output
+    assert "(claude-command-naming)" in output
+    assert "(claude-plugin-json-valid)" in output
 
 
 def test_text_verbose_shows_info(valid_plugin):
@@ -322,7 +361,7 @@ def test_json_violations_serialized(valid_plugin):
     data = json.loads(output)
 
     assert len(data["violations"]) == 3
-    assert data["violations"][0]["rule_id"] == "plugin-json-required"
+    assert data["violations"][0]["rule_id"] == "claude-plugin-json-required"
     assert data["violations"][0]["severity"] == "error"
     assert data["violations"][1]["line"] == 3
     assert data["summary"]["errors"] == 1
@@ -387,9 +426,9 @@ def test_sarif_severity_mapping(valid_plugin):
     results = data["runs"][0]["results"]
     levels = {r["ruleId"]: r["level"] for r in results}
 
-    assert levels["plugin-json-required"] == "error"
-    assert levels["command-naming"] == "warning"
-    assert levels["plugin-json-valid"] == "note"
+    assert levels["claude-plugin-json-required"] == "error"
+    assert levels["claude-command-naming"] == "warning"
+    assert levels["claude-plugin-json-valid"] == "note"
 
 
 def test_sarif_excludes_info_without_verbose(valid_plugin):
@@ -428,7 +467,7 @@ def test_sarif_uri_is_posix_and_root_relative(valid_plugin):
     abs_path = context.root_path / "plugins" / "foo" / "commands" / "bar.md"
     violations = [
         RuleViolation(
-            rule_id="command-naming",
+            rule_id="claude-command-naming",
             severity=Severity.WARNING,
             message="bad",
             file_path=abs_path,
@@ -449,7 +488,7 @@ def test_sarif_relative_path_is_root_relative(valid_plugin):
     context = RepositoryContext(valid_plugin)
     violations = [
         RuleViolation(
-            rule_id="command-naming",
+            rule_id="claude-command-naming",
             severity=Severity.WARNING,
             message="bad",
             file_path=Path("plugins/foo/commands/bar.md"),
@@ -470,7 +509,7 @@ def test_sarif_outside_root_omits_uribaseid(valid_plugin, tmp_path):
     outside = tmp_path / "elsewhere" / "other.md"
     violations = [
         RuleViolation(
-            rule_id="command-naming",
+            rule_id="claude-command-naming",
             severity=Severity.WARNING,
             message="bad",
             file_path=outside,
@@ -588,7 +627,7 @@ def test_text_links_rule_docs_for_violations(valid_plugin):
     linter.run()
     violations = [
         RuleViolation(
-            rule_id="command-naming",
+            rule_id="claude-command-naming",
             severity=Severity.WARNING,
             message="Command file should use kebab-case",
             file_path=Path("plugins/foo/commands/Bad_Name.md"),
@@ -598,7 +637,7 @@ def test_text_links_rule_docs_for_violations(valid_plugin):
 
     output = format_text(violations, context, linter.rules, "1.0.0")
     assert "Rule docs" in output
-    assert "https://skillsaw.org/rules/command-naming/" in output
+    assert "https://skillsaw.org/rules/claude-command-naming/" in output
 
 
 def test_text_no_rule_docs_section_when_clean(valid_plugin):
@@ -633,7 +672,7 @@ def test_text_no_rule_docs_for_synthetic_rule_ids(valid_plugin):
 def _hyperlink_violations():
     return [
         RuleViolation(
-            rule_id="command-naming",
+            rule_id="claude-command-naming",
             severity=Severity.WARNING,
             message="Command file should use kebab-case",
             file_path=Path("plugins/foo/commands/Bad_Name.md"),
@@ -656,7 +695,10 @@ def test_text_hyperlinks_link_rule_ids_and_paths(valid_plugin):
     output = format_text(
         _hyperlink_violations(), context, linter.rules, "1.0.0", color=True, hyperlinks=True
     )
-    assert "\x1b]8;;https://skillsaw.org/rules/command-naming/\x1b\\command-naming" in output
+    assert (
+        "\x1b]8;;https://skillsaw.org/rules/claude-command-naming/\x1b\\claude-command-naming"
+        in output
+    )
     assert "\x1b]8;;file://" in output
     # Synthetic rule ids have no docs page and must not be linked.
     assert "\x1b]8;;https://skillsaw.org/rules/invalid-config/" not in output
@@ -672,7 +714,7 @@ def test_text_hyperlinks_collapse_rule_docs_footer(valid_plugin):
         _hyperlink_violations(), context, linter.rules, "1.0.0", color=True, hyperlinks=True
     )
     assert "Rule docs" not in output
-    assert "https://skillsaw.org/rules/command-naming/\x1b\\" in output  # only as a link
+    assert "https://skillsaw.org/rules/claude-command-naming/\x1b\\" in output  # only as a link
     assert "skillsaw explain" in output  # the one-line hint remains
 
 
@@ -686,7 +728,7 @@ def test_text_no_osc8_without_hyperlinks(valid_plugin):
     output = format_text(_hyperlink_violations(), context, linter.rules, "1.0.0", color=True)
     assert "\x1b]8;;" not in output
     assert "Rule docs" in output
-    assert "https://skillsaw.org/rules/command-naming/" in output
+    assert "https://skillsaw.org/rules/claude-command-naming/" in output
 
 
 def test_sarif_synthetic_descriptor_for_unknown_rule_id(valid_plugin):
@@ -763,7 +805,7 @@ def test_html_shows_violations(valid_plugin):
 
     output = format_html(violations, context, [], "1.0.0")
     assert "Missing plugin.json" in output
-    assert "plugin-json-required" in output
+    assert "claude-plugin-json-required" in output
     assert "<table>" in output
 
 
@@ -847,9 +889,9 @@ def test_gitlab_severity_mapping(valid_plugin):
     data = json.loads(output)
 
     severity_by_check = {e["check_name"]: e["severity"] for e in data}
-    assert severity_by_check["plugin-json-required"] == "critical"
-    assert severity_by_check["command-naming"] == "major"
-    assert severity_by_check["plugin-json-valid"] == "minor"
+    assert severity_by_check["claude-plugin-json-required"] == "critical"
+    assert severity_by_check["claude-command-naming"] == "major"
+    assert severity_by_check["claude-plugin-json-valid"] == "minor"
 
 
 def test_gitlab_fingerprints_unique(valid_plugin):
@@ -861,6 +903,55 @@ def test_gitlab_fingerprints_unique(valid_plugin):
 
     fingerprints = [e["fingerprint"] for e in data]
     assert len(fingerprints) == len(set(fingerprints))
+
+
+def test_gitlab_discriminator_distinguishes_same_location(valid_plugin):
+    """Sibling subchecks at one source line retain distinct fingerprints."""
+    context = RepositoryContext(valid_plugin)
+    path = Path("plugins/foo/skills/deploy/SKILL.md")
+    violations = [
+        RuleViolation(
+            rule_id="content-description-routing",
+            severity=Severity.WARNING,
+            message="missing trigger",
+            file_path=path,
+            line=3,
+            fingerprint_discriminator="missing-trigger",
+        ),
+        RuleViolation(
+            rule_id="content-description-routing",
+            severity=Severity.WARNING,
+            message="name restatement",
+            file_path=path,
+            line=3,
+            fingerprint_discriminator="name-restatement",
+        ),
+    ]
+
+    output = format_code_climate(violations, context, [], "1.0.0")
+    fingerprints = [entry["fingerprint"] for entry in json.loads(output)]
+
+    assert len(fingerprints) == len(set(fingerprints)) == 2
+
+
+def test_gitlab_metric_keeps_legacy_fingerprint(valid_plugin):
+    """Existing metric-bearing rules retain their external issue identity."""
+    context = RepositoryContext(valid_plugin)
+    violation = RuleViolation(
+        rule_id="context-budget",
+        severity=Severity.WARNING,
+        message="description exceeds budget",
+        file_path=Path("plugins/foo/skills/deploy/SKILL.md"),
+        line=3,
+        value=100,
+        metric="skill-description",
+    )
+
+    output = format_code_climate([violation], context, [], "1.0.0")
+    fingerprint = json.loads(output)[0]["fingerprint"]
+    legacy_input = "context-budget:plugins/foo/skills/deploy/SKILL.md:3"
+
+    assert fingerprint == hashlib.sha256(legacy_input.encode()).hexdigest()
 
 
 def test_gitlab_fingerprint_is_sha256_hex(valid_plugin):
@@ -883,7 +974,9 @@ def test_gitlab_excludes_info_without_verbose(valid_plugin):
     data = json.loads(output)
 
     assert len(data) == 2
-    assert all(e["severity"] != "minor" or e["check_name"] != "plugin-json-valid" for e in data)
+    assert all(
+        e["severity"] != "minor" or e["check_name"] != "claude-plugin-json-valid" for e in data
+    )
 
 
 def test_gitlab_line_numbers(valid_plugin):
@@ -894,8 +987,8 @@ def test_gitlab_line_numbers(valid_plugin):
     data = json.loads(output)
 
     by_check = {e["check_name"]: e for e in data}
-    assert by_check["plugin-json-required"]["location"]["lines"]["begin"] == 1
-    assert by_check["command-naming"]["location"]["lines"]["begin"] == 3
+    assert by_check["claude-plugin-json-required"]["location"]["lines"]["begin"] == 1
+    assert by_check["claude-command-naming"]["location"]["lines"]["begin"] == 3
 
 
 def test_code_climate_paths_relative_to_repo_root(valid_plugin):
@@ -1005,7 +1098,7 @@ def _make_fixable_violations():
             fix_confidence=AutofixConfidence.SAFE,
         ),
         RuleViolation(
-            rule_id="agent-frontmatter",
+            rule_id="claude-agent-frontmatter",
             severity=Severity.ERROR,
             message="Missing 'description' in frontmatter",
             file_path=Path("agents/bar.md"),
@@ -1036,7 +1129,7 @@ def test_text_marks_safe_fixable_violations(valid_plugin):
     output = format_text(_make_fixable_violations(), context, [], "0.0.0")
 
     assert "(agentskill-valid) [*] [skills/foo/SKILL.md]:" in output
-    assert "(agent-frontmatter) [*] [agents/bar.md]:" in output
+    assert "(claude-agent-frontmatter) [*] [agents/bar.md]:" in output
 
 
 def test_text_marks_suggest_fixable_violations(valid_plugin):
@@ -1123,7 +1216,7 @@ def test_json_fixable_true_includes_confidence(valid_plugin):
     context = RepositoryContext(valid_plugin)
     report = json.loads(format_json(_make_fixable_violations(), context, [], "0.0.0"))
 
-    safe = next(v for v in report["violations"] if v["rule_id"] == "agent-frontmatter")
+    safe = next(v for v in report["violations"] if v["rule_id"] == "claude-agent-frontmatter")
     assert safe["fixable"] is True
     assert safe["fix_confidence"] == "safe"
 

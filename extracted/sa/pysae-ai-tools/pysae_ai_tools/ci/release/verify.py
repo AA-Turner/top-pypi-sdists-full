@@ -1,14 +1,19 @@
 """Verify a release is complete before it ships.
 
 Checks, for a given ``vX.Y.Z`` tag:
-  * ``CHANGELOG.md`` has a ``## [<tag>]`` section with at least one entry;
-  * (unless ``--no-release-notes``) each user-facing release-notes file under
-    ``docs/release-notes/`` carries a section for the version. Which files are
-    expected is driven by ``.pysae-ai-tools.yaml (release.notes/stores)`` (the same config
-    ``code release-notes`` generates from): only the configured ``languages`` ×
-    ``variants`` are checked. With no config — or no restriction — that's the
-    full default of three languages (fr/en/it) × three formats (markdown,
-    Google Play, Apple).
+  * ``CHANGELOG.md`` has a ``## [<tag>]`` section with at least one entry,
+    unless the repo turned the changelog off (``changelog.enabled: false``, the
+    same flag ``code changelog generate`` honours when generating);
+  * each user-facing release-notes file under ``docs/release-notes/`` carries a
+    section for the version, unless they are switched off — either per repo
+    (``release.notes.enabled: false``, the same flag ``code release-notes``
+    honours when generating) or per run (``--no-release-notes``, the escape
+    hatch for a repo that keeps notes on but doesn't follow the
+    ``docs/release-notes/`` convention). Which files are expected is driven by
+    ``.pysae-ai-tools.yaml (release.notes/stores)``: only the configured
+    ``languages`` × ``variants`` are checked. With no config — or no
+    restriction — that's the full default of three languages (fr/en/it) ×
+    three formats (markdown, Google Play, Apple).
 
 Run it in the release flow (after the pipeline generated ``CHANGELOG.md`` and
 the release notes were committed) to refuse shipping a release whose changelog
@@ -35,6 +40,7 @@ from ...code.release_notes import (
     release_notes_google_play_file,
 )
 from ...code.versioning import RELEASE_TAG_RE, is_store_skipping_prerelease
+from ...common.project_config import flag_enabled
 
 
 @dataclass
@@ -76,6 +82,12 @@ _VARIANT_TARGETS: dict[str, tuple[str, Callable[[Path, str], Path], Callable[[st
 def verify_release(repo_root: Path, tag: str, check_release_notes: bool = True) -> list[Check]:
     """Return one :class:`Check` per verified artefact.
 
+    Each half of the verification follows the flag that drives its generation:
+    a repo that produces no changelog (``changelog.enabled: false``) is never
+    asked for one, and the same goes for the release notes
+    (``release.notes.enabled: false``), ``check_release_notes`` notwithstanding.
+    A repo that turned both off releases on an empty check list.
+
     Release-notes checks honour ``.pysae-ai-tools.yaml (release.notes/stores)`` — only the
     configured ``languages`` × ``variants`` are verified, mirroring what
     ``code release-notes`` actually generates. With no config (or no
@@ -83,14 +95,15 @@ def verify_release(repo_root: Path, tag: str, check_release_notes: bool = True) 
     """
     checks: list[Check] = []
 
-    changelog = repo_root / "CHANGELOG.md"
-    if not changelog.exists():
-        checks.append(Check("changelog", False, "CHANGELOG.md missing"))
-    else:
-        ok, detail = _changelog_has_version(changelog.read_text(encoding="utf-8", errors="replace"), tag)
-        checks.append(Check("changelog", ok, detail))
+    if flag_enabled(repo_root, "changelog", "enabled"):
+        changelog = repo_root / "CHANGELOG.md"
+        if not changelog.exists():
+            checks.append(Check("changelog", False, "CHANGELOG.md missing"))
+        else:
+            ok, detail = _changelog_has_version(changelog.read_text(encoding="utf-8", errors="replace"), tag)
+            checks.append(Check("changelog", ok, detail))
 
-    if check_release_notes:
+    if check_release_notes and flag_enabled(repo_root, "release", "notes", "enabled"):
         config = release_config(repo_root)
         # Betas ship only the markdown webapp notes — the store variants are produced
         # at the final release, so don't require them for a beta. A hotfix
@@ -124,7 +137,9 @@ def main(
         bool,
         typer.Option(
             "--no-release-notes",
-            help="Skip the docs/release-notes/ checks (only for repos without that convention).",
+            help="Skip the docs/release-notes/ checks (only for repos that keep release notes on "
+            "but don't follow that convention). A repo with release.notes.enabled: false skips "
+            "them already, without this flag.",
         ),
     ] = False,
     as_json: Annotated[bool, typer.Option("--json", help="Emit the checks as JSON.")] = False,
