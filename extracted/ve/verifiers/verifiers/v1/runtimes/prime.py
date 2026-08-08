@@ -1,7 +1,7 @@
 """Remote Prime sandbox runtime.
 
 `expose` (sandbox port -> public URL) uses the SDK's native exposure (`client.expose`), so a
-host-side harness/framework can reach a tool/user server hosted in the sandbox. The reverse
+host-side harness/framework can reach a tool server hosted in the sandbox. The reverse
 direction (a program in the sandbox reaching a host service) is the shared host-side
 `Tunnel` (interception.tunnel), not the runtime's concern.
 """
@@ -12,18 +12,22 @@ import logging
 import math
 import shlex
 import tempfile
+from collections.abc import AsyncIterator
 from pathlib import Path, PurePosixPath
 from typing import ClassVar, Literal
+from urllib.parse import urlsplit
 
-from pydantic import model_validator
-from pydantic_config import BaseConfig
+from prime_sandboxes.models import validate_egress_lists
+from pydantic import Field, model_validator
 
 from verifiers.v1.errors import SandboxError
 from verifiers.v1.runtimes.base import (
     SERVICE_PORT,
     BaseRuntimeInfo,
+    NetworkPolicyConfig,
     ProgramResult,
     Runtime,
+    RuntimeProcess,
     parse_gpu,
 )
 from verifiers.v1.runtimes.limiters import creation_limiter
@@ -34,7 +38,7 @@ MAX_LIFETIME = 24 * 60 * 60
 """Prime's fixed cap (seconds) on any sandbox's total lifetime."""
 
 
-class PrimeConfig(BaseConfig):
+class PrimeConfig(NetworkPolicyConfig):
     type: Literal["prime"] = "prime"
     image: str = "python:3.11-slim"
     """Docker image to run. Any pullable ref works: on the first use of an image, the
@@ -42,14 +46,13 @@ class PrimeConfig(BaseConfig):
     ~10 minutes) and caches the result, so later sandboxes on the same ref start in
     seconds."""
     workdir: str = "/app"
-    network_access: bool = True
     vm: bool = False
     """Run as a micro-VM rather than a container (kernel features / stronger isolation)."""
     guaranteed: bool = False
     """Request guaranteed (vs best-effort) capacity."""
     region: str | None = None
     """Region to provision in (None = provider-chosen)."""
-    labels: list[str] = []
+    labels: list[str] = Field(default_factory=list)
     """Labels attached to the sandbox."""
     # TaskData.resources uses these units; non-default runtime config values take precedence.
     cpu: float = 1.0
@@ -63,9 +66,25 @@ class PrimeConfig(BaseConfig):
     idle_timeout: float | None = 3600
     """Seconds of inactivity before the sandbox self-deletes (None disables)."""
     creates_per_min: int | None = None
-    """Pace sandbox creation to this many per minute, enforced host-wide across every
+    """Pace sandbox creation to this many per minute, enforced user-wide across every
     env-server worker process (None/<= 0 disables it). (Tunnel creation is limited separately
     and globally — see interception.tunnel.prime.TUNNEL_LIMITER.)"""
+
+    @model_validator(mode="after")
+    def _validate_egress(self) -> "PrimeConfig":
+        if not self.network_restricted:
+            return self
+        if not self.vm:
+            raise ValueError(
+                "Prime allow/block egress lists require a VM sandbox (vm=true)"
+            )
+        if not self.allow:
+            return self
+        validate_egress_lists(
+            None if self.allow == ["*"] else self.allow,
+            self.block or None,
+        )
+        return self
 
     @model_validator(mode="after")
     def _validate_idle_timeout(self) -> "PrimeConfig":
@@ -83,6 +102,25 @@ class PrimeRuntimeInfo(PrimeConfig, BaseRuntimeInfo):
     a first-use auto-build ran while this sandbox waited to start."""
 
 
+class PrimeProcess(RuntimeProcess):
+    def __init__(self, process) -> None:
+        self._process = process
+        self.stdout: AsyncIterator[bytes] = process.stdout
+        self.stderr: AsyncIterator[bytes] = process.stderr
+
+    async def write(self, data: bytes) -> None:
+        await self._process.write_stdin(data)
+
+    async def wait(self) -> int:
+        return await self._process.wait()
+
+    async def terminate(self) -> None:
+        await self._process.terminate()
+
+    async def kill(self) -> None:
+        await self._process.kill()
+
+
 class PrimeRuntime(Runtime):
     is_local: ClassVar[bool] = False
 
@@ -91,6 +129,10 @@ class PrimeRuntime(Runtime):
         self.config = config
         self.info = PrimeRuntimeInfo(**config.model_dump())
         self._client = None
+
+    @property
+    def supports_live_processes(self) -> bool:
+        return self.config.vm
 
     @property
     def published_port(self) -> int | None:
@@ -133,7 +175,6 @@ class PrimeRuntime(Runtime):
                         name=self.name,
                         labels=self.config.labels,
                         docker_image=self.config.image,
-                        network_access=self.config.network_access,
                         vm=self.config.vm,
                         guaranteed=self.config.guaranteed,
                         **{k: v for k, v in options.items() if v is not None},
@@ -165,23 +206,59 @@ class PrimeRuntime(Runtime):
         ) as e:  # provisioning failure is one rollout's problem, not the eval's
             raise SandboxError(f"prime sandbox provisioning failed: {e}") from e
 
+    async def prepare_execution(self, routes: list[str] | None) -> None:
+        """Apply the host policy after setup and wait until the platform enforces it."""
+        if not self.network_restricted:
+            return
+        try:
+            if routes is None:
+                policy = {"allow": ["*"]}
+            else:
+                hosts = list(
+                    dict.fromkeys(
+                        h for h in (urlsplit(route).hostname for route in routes) if h
+                    )
+                )
+                if self.config.allow == ["*"]:
+                    policy = {"deny": self.config.block}
+                else:
+                    entries = list(dict.fromkeys([*hosts, *self.config.allow]))
+                    validate_egress_lists(entries, None)
+                    policy = {"allow": entries} if entries else {"deny": ["*"]}
+            status = await self._client.set_network(self.info.id, **policy)
+            try:
+                async with asyncio.timeout(60):
+                    delay = 0.1
+                    while not status.applied:
+                        await asyncio.sleep(delay)
+                        delay = min(delay * 2, 3)
+                        status = await self._client.get_network(self.info.id)
+            except TimeoutError as e:
+                raise SandboxError(
+                    "prime egress policy was not applied within 60s on sandbox "
+                    f"{self.info.id}; refusing to start the agent unrestricted"
+                ) from e
+        except SandboxError:
+            raise
+        except Exception as e:
+            raise SandboxError(f"prime egress policy failed: {e}") from e
+        logger.info(
+            "prime: egress policy applied on sandbox %s (allow=%s block=%s)",
+            self.info.id,
+            policy.get("allow"),
+            policy.get("deny"),
+        )
+
     async def run(self, argv: list[str], env: dict[str, str]) -> ProgramResult:
         try:
-            # Poll directly so the rollout stage owns the execution timeout; the SDK helper
-            # otherwise imposes its own 15-minute limit.
-            job = await self._client.start_background_job(
+            result = await self._client.run_background_job(
                 self.info.id,
                 shlex.join(argv),
+                timeout=MAX_LIFETIME,
                 working_dir=self.config.workdir,
                 env=env,
+                poll_interval=1,
             )
-            delay = 0.1
-            while True:
-                result = await self._client.get_background_job(self.info.id, job)
-                if result.completed:
-                    break
-                await asyncio.sleep(delay)
-                delay = min(delay * 2, 3)
         except (
             Exception
         ) as e:  # a sandbox/API failure is one rollout's problem, not the eval's
@@ -191,6 +268,25 @@ class PrimeRuntime(Runtime):
             stdout=result.stdout or "",
             stderr=result.stderr or "",
         )
+
+    async def open_process(
+        self, argv: list[str], env: dict[str, str]
+    ) -> RuntimeProcess:
+        if not self.config.vm:
+            raise SandboxError(
+                "persistent harness sessions on Prime require a VM sandbox; "
+                "set runtime.prime.vm=true"
+            )
+        try:
+            process = await self._client.open_process(
+                self.info.id,
+                shlex.join(argv),
+                working_dir=self.config.workdir,
+                env=env,
+            )
+        except Exception as e:
+            raise SandboxError(f"prime live process failed to start: {e}") from e
+        return PrimeProcess(process)
 
     async def expose(self, port: int) -> str | None:
         # Publish a server hosted IN the sandbox via the SDK's native port exposure → a public
@@ -212,16 +308,18 @@ class PrimeRuntime(Runtime):
     async def run_background(
         self, argv: list[str], env: dict[str, str], log: str
     ) -> None:
-        # `&` backgrounds inside the sandbox; the job returns immediately, the process
-        # lives until the sandbox is deleted in stop().
-        inner = f"nohup {shlex.join(argv)} > {shlex.quote(log)} 2>&1 &"
-        result = await self.run(["sh", "-c", inner], env)
-        if result.exit_code != 0:
-            raise SandboxError(
-                f"prime background launch failed: {result.stderr.strip()}"
+        command = f"exec {shlex.join(argv)} > {shlex.quote(log)} 2>&1"
+        try:
+            await self._client.start_background_job(
+                self.info.id,
+                command,
+                working_dir=self.config.workdir,
+                env=env,
             )
+        except Exception as e:
+            raise SandboxError(f"prime background launch failed: {e}") from e
 
-    async def read(self, path: str) -> bytes:
+    async def _read(self, path: str) -> bytes:
         # Avoid background-job log limits and base64 overhead by downloading binary data directly.
         # The temporary file is removed on every exit, and its byte read stays off the event loop.
         target = (
@@ -279,7 +377,7 @@ class PrimeRuntime(Runtime):
         if self.info.id is not None:  # keep info.id available after teardown
             try:
                 await client.delete(self.info.id)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - provider teardown is best-effort
                 logger.warning(
                     "prime: failed to delete sandbox %s: %s", self.info.id, e
                 )

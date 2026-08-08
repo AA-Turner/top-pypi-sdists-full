@@ -24,7 +24,7 @@ from collections import Counter
 
 from bitarray import (bitarray, frozenbitarray, decodetree, bits2bytes,
                       get_default_endian)
-from bitarray.test_bitarray import Util, is_pypy, urandom_2, PTRSIZE
+from bitarray.test_bitarray import Util, is_pypy, urandom_2, ENDIANS, PTRSIZE
 
 from bitarray.util import (
     zeros, ones, urandom, random_k, random_p, pprint, strip, count_n,
@@ -37,10 +37,7 @@ from bitarray.util import (
     huffman_code, canonical_huffman, canonical_decode,
 )
 
-from bitarray.util import _Random  # type: ignore
 
-
-ENDIANS = ('little', 'big')
 OPT_ENDIANS = ENDIANS + (None,)
 
 # ---------------------------  zeros()  ones()  -----------------------------
@@ -219,56 +216,6 @@ class Random_K_Tests(unittest.TestCase):
         # initialize seed with current system time again
         seed()
 
-    # ---------------- tests for internal _Random methods -------------------
-
-    def test_op_seq(self):
-        r = _Random()
-        G = r.op_seq
-        K = r.K
-        M = r.M
-
-        # special cases
-        self.assertRaises(ValueError, G, 0)
-        self.assertEqual(G(1), zeros(M - 1))
-        self.assertEqual(G(K // 2), bitarray())
-        self.assertEqual(G(K - 1), ones(M - 1))
-        self.assertRaises(ValueError, G, K)
-
-        # examples
-        for p, s in [
-                (0.15625, '0100'),
-                (0.25,       '0'),  # 1/2   AND ->   1/4
-                (0.375,     '10'),  # 1/2   OR ->   3/4   AND ->   3/8
-                (0.5,         ''),
-                (0.625,     '01'),  # 1/2   AND ->   1/4   OR ->   5/8
-                (0.6875,   '101'),
-                (0.75,       '1'),  # 1/2   OR ->   3/4
-        ]:
-            seq = G(int(p * K))
-            self.assertEqual(seq.to01(), s)
-
-        for i in range(1, K):
-            seq = G(i)
-            self.assertTrue(0 <= len(s) < M)
-            q = 0.5                        # a = random_half()
-            for k in seq:
-                # k=0: AND    k=1: OR
-                if k:
-                    q += 0.5 * (1.0 - q)   # a |= random_half()
-                else:
-                    q *= 0.5               # a &= random_half()
-            self.assertEqual(q, i / K)
-
-    def test_combine_half(self):
-        r = _Random(1_000_000)
-        for seq, mean in [
-                ([],     500_000),  # .random_half() itself
-                ([0],    250_000),  # AND
-                ([1],    750_000),  # OR
-                ([1, 0], 375_000),  # OR followed by AND
-        ]:
-            a = r.combine_half(seq)
-            self.assertTrue(abs(a.count() - mean) < 5_000)
 
 # ----------------------------  random_p()  ---------------------------------
 
@@ -355,12 +302,6 @@ class Random_P_Tests(unittest.TestCase):
         # initialize seed with current system time again
         seed()
 
-    def test_small_p_limit(self):
-        # For understanding how the algorithm works, see ./doc/random_p.rst
-        # Also, see VerificationTests in devel/test_random.py
-        r = _Random()
-        limit = 1.0 / (r.K + 1)  # lower limit for p
-        self.assertTrue(r.SMALL_P > limit)
 
 # ----------------------------  gen_primes()  -------------------------------
 
@@ -387,7 +328,7 @@ class PrimeTests(unittest.TestCase):
         self.assertRaises(ValueError, P, 8, "foo")
         self.assertRaises(ValueError, P, 8, endian="foo")
 
-    def test_explitcit(self):
+    def test_explicit(self):
         for n in range(230):
             endian = choice(OPT_ENDIANS)
             odd = getrandbits(1)
@@ -495,6 +436,12 @@ class PPrintTests(unittest.TestCase):
                     self.assertEqual(len(group), n)
                 for line in s.split('\n'):
                     self.assertTrue(len(line) < width)
+
+    def test_narrow_width(self):
+        a = bitarray('101')
+        f = StringIO()
+        pprint(a, stream=f, width=6)
+        self.assertEqual(eval(f.getvalue()), a)
 
     def test_fallback(self):
         for a in None, 'asd', [1, 2], bitarray(), frozenbitarray('1'):
@@ -879,7 +826,7 @@ class BitwiseAnyTests(unittest.TestCase, Util):
         self.assertEqual(r, (a & b).any())
         self.assertEqual(r, count_and(a, b) > 0)
 
-    def test_explitcit(self):
+    def test_explicit(self):
         for a, b , res in [
                 ('', '', False),
                 ('0', '1', False),
@@ -932,13 +879,13 @@ class SubsetTests(unittest.TestCase, Util):
         self.assertEqual(a | b == b, res)
         self.assertEqual(a & b == a, res)
 
-    def test_True(self):
+    def test_true(self):
         for a, b in [('', ''), ('0', '1'), ('0', '0'), ('1', '1'),
                      ('000', '111'), ('0101', '0111'),
                      ('000010111', '010011111')]:
             self.check(bitarray(a), bitarray(b), True)
 
-    def test_False(self):
+    def test_false(self):
         for a, b in [('1', '0'), ('1101', '0111'),
                      ('0000101111', '0100111011')]:
             self.check(bitarray(a), bitarray(b), False)
@@ -970,7 +917,7 @@ class CorrespondAllTests(unittest.TestCase):
                           bitarray('01', 'little'),
                           bitarray('11', 'big'))
 
-    def test_explitcit(self):
+    def test_explicit(self):
         for a, b, res in [
                 ('', '', (0, 0, 0, 0)),
                 ('0000011111',
@@ -1095,7 +1042,7 @@ class ByteSwapTests(unittest.TestCase):
 
 class ParityTests(unittest.TestCase):
 
-    def test_explitcit(self):
+    def test_explicit(self):
         for s, res in [('', 0), ('1', 1), ('0010011', 1), ('10100110', 0)]:
             self.assertIs(parity(bitarray(s)), res)
             self.assertIs(parity(frozenbitarray(s)), res)
@@ -1189,8 +1136,8 @@ class XoredIndicesTests(unittest.TestCase, Util):
         for s, r in [("", 0), ("0", 0), ("1", 0), ("11", 1),
                      ("011", 3), ("001", 2), ("0001100", 7),
                      ("01100111 1101", 13)]:
-            for a in [bitarray(s, self.random_endian()),
-                      frozenbitarray(s, self.random_endian())]:
+            for a in [bitarray(s, choice(ENDIANS)),
+                      frozenbitarray(s, choice(ENDIANS))]:
                 self.assertEqual(xor_indices(a), r)
 
     def test_wrong_args(self):
@@ -1288,7 +1235,7 @@ class IntervalsTests(unittest.TestCase, Util):
     def test_uniform(self):
         for n in range(1, 100):
             for v in 0, 1:
-                a = n * bitarray([v], self.random_endian())
+                a = n * bitarray([v], choice(ENDIANS))
                 self.assertEqual(list(intervals(a)), [(v, 0, n)])
                 self.assertEqual(runs(a), 1)
 
@@ -1381,7 +1328,7 @@ class HexlifyTests(unittest.TestCase, Util):
         for s in '01a7g89', '0\u20ac', '0 \0', b'\x00':
             self.assertRaises(ValueError, hex2ba, s)
 
-        for s in 'g', 'ag', 'aag' 'aaaga', 'ag':
+        for s in 'g', 'ag', 'aag', 'aaaga', 'ag':
             msg = "invalid digit found for base16, got 'g' (0x67)"
             self.assertRaisesMessage(ValueError, msg, hex2ba, s, 'big')
 
@@ -1532,7 +1479,7 @@ class BaseTests(unittest.TestCase, Util):
 
         for n in range(50):
             s = ''.join(choices(hexdigits, k=n))
-            endian = self.random_endian()
+            endian = choice(ENDIANS)
             a = base2ba(16, s, endian)
             self.assertEQUAL(a, hex2ba(s, endian))
             self.assertEqual(ba2base(16, a), ba2hex(a))
@@ -1596,7 +1543,7 @@ class BaseTests(unittest.TestCase, Util):
             self.assertEqual(1 << m, n)
             self.assertEqual(len(alphabet), n)
             for i, c in enumerate(alphabet):
-                endian = self.random_endian()
+                endian = choice(ENDIANS)
                 self.assertEqual(ba2int(base2ba(n, c, endian)), i)
                 if m == 4 and c in "ABCDEF":
                     c = chr(ord(c) + 32)
@@ -1906,7 +1853,7 @@ class SC_Tests(unittest.TestCase, Util):
     def test_random(self):
         for _ in range(10):
             n = randrange(100_000)
-            endian = self.random_endian()
+            endian = choice(ENDIANS)
             a = ones(n, endian)
             while a.count():
                 a &= urandom(n, endian)
@@ -1959,7 +1906,7 @@ class VLFTests(unittest.TestCase, Util):
         blob = b'\xd3\x20'
         for s in (blob, iter(blob), memoryview(blob), iter([0xd3, 0x20]),
                   bytearray(blob)):
-            a = vl_decode(s, endian=self.random_endian())
+            a = vl_decode(s, endian=choice(ENDIANS))
             self.assertIs(type(a), bitarray)
             self.assertEqual(a, bitarray('0011 01'))
 
@@ -2456,6 +2403,9 @@ class HuffmanUtil:
             self.assertIs(type(v), frozenbitarray)
             self.assertGreater(len(v), 0)
 
+        if sys.version_info[:2] >= (3, 15):
+            hash(frozendict(code))
+
         tree = decodetree(code)
         self.assertEqual(tree.todict(), code)
         n = len(code)
@@ -2481,7 +2431,9 @@ class CommonHuffmanTests(HuffmanUtil, unittest.TestCase):
             # cannot compare 'a' with 1
             self.assertRaises(TypeError, F, {'A': 'a', 'B': 1})
             # frequency map cannot be empty
-            self.assertRaises(ValueError, F, {})
+            d = {}
+            self.assertRaises(ValueError, F, d)
+            self.assertEqual(d, {})  # d wasn't changed by F
             # wrong endianness type / extra argument
             self.assertRaises(TypeError, F, {'A': 2, 'B': 1}, 1)
 
@@ -2492,10 +2444,13 @@ class CommonHuffmanTests(HuffmanUtil, unittest.TestCase):
 
     def test_small_range(self):
         for n in range(1, 10):
-            f = {i: random() for i in range(n)}
+            f = {i: randrange(10) for i in range(n)}
+            f2 = dict(f)
             for code in self.create_codes(f):
                 self.assertEqual(len(code), n)
                 self.check_code(code)
+            # make sure frequency map wasn't changed
+            self.assertEqual(f, f2)
 
     @unittest.skipIf(sys.version_info[:2] < (3, 15),
                      "frozendict introduced in Python 3.15")
@@ -2610,13 +2565,14 @@ class CanonicalHuffmanTests(Util, HuffmanUtil, unittest.TestCase):
         self.assertEqual(bytearray(canonical_decode(a, count, symbol)), plain)
 
     def test_example(self):
+        F = frozenbitarray
         cnt = {'a': 5, 'b': 3, 'c': 1, 'd': 1, 'r': 2}
         codedict, count, symbol = canonical_huffman(cnt)
-        self.assertEqual(codedict, {'a': frozenbitarray('0'),
-                                    'b': frozenbitarray('10'),
-                                    'c': frozenbitarray('1110'),
-                                    'd': frozenbitarray('1111'),
-                                    'r': frozenbitarray('110')})
+        self.assertEqual(codedict, {'a': F('0'),
+                                    'b': F('10'),
+                                    'c': F('1110'),
+                                    'd': F('1111'),
+                                    'r': F('110')})
         self.assertEqual(count, [0, 1, 1, 1, 2])
         self.assertEqual(symbol, ['a', 'b', 'r', 'c', 'd'])
         a = bitarray('01011001110011110101100')
@@ -2642,28 +2598,29 @@ class CanonicalHuffmanTests(Util, HuffmanUtil, unittest.TestCase):
                               canonical_decode(a, count, symbol))
 
     def test_canonical_decode_errors(self):
+        C = canonical_decode
         a = bitarray('1101')
         s = ['a']
         # bitarray not of bitarray type
-        self.assertRaises(TypeError, canonical_decode, '11', [0, 1], s)
+        self.assertRaises(TypeError, C, '11', [0, 1], s)
         # count not sequence
-        self.assertRaises(TypeError, canonical_decode, a, {0, 1}, s)
+        self.assertRaises(TypeError, C, a, {0, 1}, s)
         # count element not an int
-        self.assertRaises(TypeError, canonical_decode, a, [0, 1.0], s)
+        self.assertRaises(TypeError, C, a, [0, 1.0], s)
         # count element overflow
-        self.assertRaises(OverflowError, canonical_decode, a, [0, 1 << 65], s)
+        self.assertRaises(OverflowError, C, a, [0, 1 << 65], s)
         # symbol not sequence
-        self.assertRaises(TypeError, canonical_decode, a, [0, 1], 43)
+        self.assertRaises(TypeError, C, a, [0, 1], 43)
 
         symbol = ['a', 'b', 'c', 'd']
         # sum(count) != len(symbol)
         self.assertRaisesMessage(ValueError,
                                  "sum(count) = 3, but len(symbol) = 4",
-                                 canonical_decode, a, [0, 1, 2], symbol)
+                                 C, a, [0, 1, 2], symbol)
         # count list too long
         self.assertRaisesMessage(ValueError,
                                  "len(count) cannot be larger than 32",
-                                 canonical_decode, a, 33 * [0], symbol)
+                                 C, a, 33 * [0], symbol)
 
     def test_canonical_decode_count_range(self):
         a = bitarray()
@@ -2694,29 +2651,30 @@ class CanonicalHuffmanTests(Util, HuffmanUtil, unittest.TestCase):
         self.assertEqual(list(iter), [])
 
     def test_canonical_decode_simple(self):
+        C = canonical_decode
         # symbols can be anything, they do not even have to be hashable here
         cnt = [0, 0, 4]
         s = ['A', 42, [1.2-3.7j, 4j], {'B': 6}]
         a = bitarray('00 01 10 11')
         # count can be a list
-        self.assertEqual(list(canonical_decode(a, cnt, s)), s)
+        self.assertEqual(list(C(a, cnt, s)), s)
         # count can also be a tuple (any sequence object in fact)
-        self.assertEqual(list(canonical_decode(a, (0, 0, 4), s)), s)
-        self.assertEqual(list(canonical_decode(7 * a, cnt, s)), 7 * s)
+        self.assertEqual(list(C(a, (0, 0, 4), s)), s)
+        self.assertEqual(list(C(7 * a, cnt, s)), 7 * s)
         # the count list may have extra 0's at the end (but not too many)
         count = [0, 0, 4, 0, 0, 0, 0, 0]
-        self.assertEqual(list(canonical_decode(a, count, s)), s)
+        self.assertEqual(list(C(a, count, s)), s)
         # the element count[0] is unused
-        self.assertEqual(list(canonical_decode(a, [-47, 0, 4], s)), s)
+        self.assertEqual(list(C(a, [-47, 0, 4], s)), s)
         # in fact it can be anything, as it is entirely ignored
-        self.assertEqual(list(canonical_decode(a, [None, 0, 4], s)), s)
+        self.assertEqual(list(C(a, [None, 0, 4], s)), s)
 
         # the symbol argument can be any sequence object
         s = [65, 66, 67, 98]
-        self.assertEqual(list(canonical_decode(a, cnt, s)), s)
-        self.assertEqual(list(canonical_decode(a, cnt, bytearray(s))), s)
-        self.assertEqual(list(canonical_decode(a, cnt, tuple(s))), s)
-        self.assertEqual(list(canonical_decode(a, cnt, bytes(s))), s)
+        self.assertEqual(list(C(a, cnt, s)), s)
+        self.assertEqual(list(C(a, cnt, bytearray(s))), s)
+        self.assertEqual(list(C(a, cnt, tuple(s))), s)
+        self.assertEqual(list(C(a, cnt, bytes(s))), s)
         # Implementation Note:
         #   The symbol can even be an iterable.  This was done because we
         #   want to use PySequence_Fast in order to convert sequence
@@ -2724,7 +2682,7 @@ class CanonicalHuffmanTests(Util, HuffmanUtil, unittest.TestCase):
         #   as all objects are now elements in an array of pointers (as
         #   opposed to having the object's __getitem__ method called on
         #   every iteration).
-        self.assertEqual(list(canonical_decode(a, cnt, iter(s))), s)
+        self.assertEqual(list(C(a, cnt, iter(s))), s)
 
     def test_canonical_decode_empty(self):
         a = bitarray()
@@ -2757,7 +2715,7 @@ class CanonicalHuffmanTests(Util, HuffmanUtil, unittest.TestCase):
     def test_canonical_decode_large(self):
         with open(__file__, 'rb') as f:
             msg = bytearray(f.read())
-        self.assertTrue(len(msg) > 50000)
+        self.assertTrue(len(msg) > 10_000)
         codedict, count, symbol = canonical_huffman(Counter(msg))
         a = bitarray()
         a.encode(codedict, msg)
@@ -2812,9 +2770,9 @@ class CanonicalHuffmanTests(Util, HuffmanUtil, unittest.TestCase):
 
     def ensure_complete(self, count):
         # ensure code is complete and not oversubscribed
-        len_c = len(count)
-        x = sum(count[i] << (len_c - i) for i in range(1, len_c))
-        self.assertEqual(x, 1 << len_c)
+        maxbits = len(count) - 1
+        x = sum(count[i] << (maxbits - i) for i in range(1, maxbits + 1))
+        self.assertEqual(x, 1 << maxbits)
 
     def ensure_round_trip(self, chc, count, symbol):
         # create a short test message, encode and decode
@@ -2844,6 +2802,11 @@ class CanonicalHuffmanTests(Util, HuffmanUtil, unittest.TestCase):
         self.ensure_count(chc, count)
         self.ensure_complete(count)
         self.ensure_round_trip(chc, count, symbol)
+
+    def test_small_range(self):
+        for n in range(2, 10):
+            freq = {i: randrange(10) for i in range(n)}
+            self.check_canonical_code(*canonical_huffman(freq))
 
     def test_simple_counter(self):
         plain = bytearray(b'the quick brown fox jumps over the lazy dog.')

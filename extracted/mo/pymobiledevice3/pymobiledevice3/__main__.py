@@ -40,12 +40,15 @@ from pymobiledevice3.exceptions import (
     ConnectionFailedError,
     ConnectionFailedToUsbmuxdError,
     ConnectionTerminatedError,
+    CryptexdError,
     DeprecationError,
     DeveloperModeError,
     DeveloperModeIsNotEnabledError,
+    DeviceFeatureNotSupportedError,
     DeviceHasPasscodeSetError,
     DeviceNotFoundError,
     FeatureNotSupportedError,
+    InstallCoordinationError,
     InternalError,
     InvalidServiceError,
     MessageNotSupportedError,
@@ -117,6 +120,7 @@ CLI_GROUPS = {
     "bonjour": "bonjour",
     "companion": "companion_proxy",
     "crash": "crash",
+    "cryptex": "cryptex",
     "developer": "developer",
     "diagnostics": "diagnostics",
     "lockdown": "lockdown",
@@ -349,6 +353,8 @@ def invoke_cli_with_error_handling() -> bool:
         logger.error(str(e))
     except UserspaceTunnelUnavailableError as e:
         logger.error(str(e))
+    except DeviceFeatureNotSupportedError as e:
+        logger.error(f"{e} (iOS {e.product_version})")
     except (InvalidServiceError, RSDRequiredError) as e:
         reason = ""
         # Both exceptions carry the device's product version (no extra device round-trip needed).
@@ -407,6 +413,10 @@ def invoke_cli_with_error_handling() -> bool:
         logger.error("Not enough disk space")
     except DeprecationError:
         logger.error("failed to query MobileGestalt, MobileGestalt deprecated (iOS >= 17.4).")
+    except CryptexdError as e:
+        logger.error(f"cryptexd rejected the request: {e}")
+    except InstallCoordinationError as e:
+        logger.error(f"install coordination request failed: {e}")
     except OSNotSupportedError as e:
         logger.error(
             f"Unsupported OS - {e.os_name}. To add support, consider contributing at "

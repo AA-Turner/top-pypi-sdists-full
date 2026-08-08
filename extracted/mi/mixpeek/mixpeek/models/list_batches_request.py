@@ -32,10 +32,11 @@ class ListBatchesRequest(BaseModel):
     status: Optional[TaskStatusEnum] = Field(default=None, description="Filter batches by status.")
     collection_id: Optional[StrictStr] = Field(default=None, description="Filter batches to only those associated with a specific collection ID. Useful for tracking the processing state of all batches for a given collection.")
     bucket_id: Optional[StrictStr] = Field(default=None, description="Filter batches to only those belonging to a specific bucket. Useful with the org-level POST /v1/batches/list endpoint to scope results.")
+    namespace_id: Optional[StrictStr] = Field(default=None, description="Filter batches to a single namespace. Required here because POST /v1/batches/list is organization-scoped and does NOT read the X-Namespace header — that header is ignored on this endpoint, so pass the namespace here to narrow results.")
     offset: Optional[Annotated[int, Field(strict=True, ge=0)]] = Field(default=0, description="The number of batches to skip.")
     limit: Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]] = Field(default=100, description="The maximum number of batches to return.")
     cursor: Optional[StrictStr] = Field(default=None, description="Cursor for deep pagination. Use next_cursor from a previous response to fetch the next page. More efficient than offset for large result sets.")
-    __properties: ClassVar[List[str]] = ["status", "collection_id", "bucket_id", "offset", "limit", "cursor"]
+    __properties: ClassVar[List[str]] = ["status", "collection_id", "bucket_id", "namespace_id", "offset", "limit", "cursor"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -91,6 +92,7 @@ class ListBatchesRequest(BaseModel):
             "status": obj.get("status"),
             "collection_id": obj.get("collection_id"),
             "bucket_id": obj.get("bucket_id"),
+            "namespace_id": obj.get("namespace_id"),
             "offset": obj.get("offset") if obj.get("offset") is not None else 0,
             "limit": obj.get("limit") if obj.get("limit") is not None else 100,
             "cursor": obj.get("cursor")

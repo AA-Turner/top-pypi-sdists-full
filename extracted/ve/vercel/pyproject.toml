@@ -29,7 +29,7 @@ dependencies = [
     "vercel-internal-telemetry>=0.6.0",
     "vercel-oidc>=0.6.0",
     "vercel-queue>=0.6.0",
-    "vercel-sandbox>=0.2.0,<0.4.0",
+    "vercel-sandbox>=0.2.0,<0.5.0",
 ]
 
 [project.scripts]
@@ -56,6 +56,7 @@ include = [
     "/cron/py.typed",
     "/deployments/py.typed",
     "/functions/py.typed",
+    "/project_routes/py.typed",
     "/projects/py.typed",
     "/workflow/py.typed",
     "/pyproject.toml",
@@ -71,13 +72,16 @@ dev-mode-dirs = [".."]
 only-include = [
     "/_internal/auth.py",
     "/_internal/blob",
+    "/_internal/devalue",
     "/_internal/fs.py",
     "/_internal/pagination.py",
+    "/_internal/project_routes",
     "/_internal/workflow",
     "/blob",
     "/cron",
     "/deployments",
     "/functions",
+    "/project_routes",
     "/projects",
     "/workflow",
     "/__main__.py",

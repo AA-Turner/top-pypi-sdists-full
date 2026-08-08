@@ -7,15 +7,18 @@ from dlt.common.configuration.plugins import SupportsCliCommand, TCliCommandComp
 
 
 def _apply_timestamps(args: argparse.Namespace) -> None:
+    # Current package
     from dlt_runtime._runtime_command_views import set_show_exact_timestamps
 
     set_show_exact_timestamps(bool(getattr(args, "timestamps", False)))
 
 
 def _dispatch(action: Callable[[], Any]) -> None:
+    # Other libraries
     from dlt._workspace.cli import echo as fmt
     from dlt._workspace.cli.exceptions import CliCommandInnerException
 
+    # Current package
     from dlt_runtime.exceptions import RuntimeNotAuthenticated
 
     try:
@@ -145,6 +148,7 @@ class LoginCommand(SupportsCliCommand):
         )
 
     def execute(self, args: argparse.Namespace) -> None:
+        # Current package
         import dlt_runtime._runtime_command as cmd
 
         _dispatch(
@@ -164,6 +168,7 @@ class LogoutCommand(SupportsCliCommand):
         self.parser = parser
 
     def execute(self, args: argparse.Namespace) -> None:
+        # Current package
         import dlt_runtime._runtime_command as cmd
 
         _dispatch(cmd.logout)
@@ -193,6 +198,7 @@ class RunCommand(SupportsCliCommand):
         )
 
     def execute(self, args: argparse.Namespace) -> None:
+        # Current package
         import dlt_runtime._runtime_command as cmd
 
         _apply_timestamps(args)
@@ -233,6 +239,7 @@ class ServeCommand(SupportsCliCommand):
         )
 
     def execute(self, args: argparse.Namespace) -> None:
+        # Current package
         import dlt_runtime._runtime_command as cmd
 
         _apply_timestamps(args)
@@ -309,6 +316,7 @@ class DeployCommand(SupportsCliCommand):
         )
 
     def execute(self, args: argparse.Namespace) -> None:
+        # Current package
         import dlt_runtime._runtime_command as cmd
 
         _apply_timestamps(args)
@@ -333,6 +341,7 @@ class ShowCommand(SupportsCliCommand):
         self.parser = parser
 
     def execute(self, args: argparse.Namespace) -> None:
+        # Current package
         import dlt_runtime._runtime_command as cmd
 
         _dispatch(cmd.open_workspace)
@@ -348,6 +357,7 @@ class DashboardCommand(SupportsCliCommand):
         self.parser = parser
 
     def execute(self, args: argparse.Namespace) -> None:
+        # Current package
         import dlt_runtime._runtime_command as cmd
 
         _dispatch(cmd.open_dashboard)
@@ -541,7 +551,10 @@ class WorkspaceCommand(SupportsCliCommand):
         )
 
     def execute(self, args: argparse.Namespace) -> None:
+        # Other libraries
         from dlt._workspace.cli import echo as fmt
+
+        # Current package
         import dlt_runtime._runtime_command as cmd
 
         _apply_timestamps(args)
@@ -619,12 +632,142 @@ class WorkspaceCommand(SupportsCliCommand):
         _dispatch(action)
 
 
+class VariableCommand(SupportsCliCommand):
+    command = "variable"
+    compose: TCliCommandCompose = "additive"
+    help_string = "Workspace variable operations: list, set, delete"
+    description = (
+        "Manage workspace variables — plain or secret values injected into every"
+        " run's environment. Scope them workspace-wide or to a single profile."
+    )
+    docs_url: Optional[str] = None
+
+    @staticmethod
+    def _add_scope_args(
+        parser: argparse.ArgumentParser, *, required: bool = False
+    ) -> None:
+        # A write targets exactly one scope, so absence must not silently mean one.
+        scope = parser.add_mutually_exclusive_group(required=required)
+        scope.add_argument(
+            "--profile",
+            type=str,
+            default=None,
+            help="Target the scope of this profile",
+        )
+        scope.add_argument(
+            "--workspace",
+            dest="workspace_only",
+            action="store_true",
+            help="Target the workspace-wide scope",
+        )
+
+    def configure_parser(self, parser: argparse.ArgumentParser) -> None:
+        self.parser = parser
+        _add_timestamps_flag(parser)
+        sub = parser.add_subparsers(
+            title="Available subcommands", dest="op1", required=False
+        )
+
+        list_p = sub.add_parser(
+            "list",
+            help="List variables in every scope, or in one scope",
+            description=(
+                "List workspace variables. Without a scope selector every scope is"
+                " listed, with the profile shown per row. Secret values are masked."
+            ),
+        )
+        self._add_scope_args(list_p)
+
+        set_p = sub.add_parser(
+            "set",
+            help="Create or update one variable",
+            description=(
+                "Create or update a variable. The value is read from stdin unless"
+                " --value is given, so secrets need not appear in argv or shell"
+                " history."
+            ),
+        )
+        set_p.add_argument("name", type=str, help="Variable name")
+        set_p.add_argument(
+            "--value",
+            type=str,
+            default=None,
+            help="Value to store. Omit to read it from stdin",
+        )
+        # Never defaulted: an omitted flag is invisible, so either mistake would be silent.
+        kind = set_p.add_mutually_exclusive_group(required=True)
+        kind.add_argument(
+            "--plain",
+            dest="secret",
+            action="store_false",
+            help="Store a readable value",
+        )
+        kind.add_argument(
+            "--secret",
+            dest="secret",
+            action="store_true",
+            help="Store a write-only value, never shown again",
+        )
+        self._add_scope_args(set_p, required=True)
+
+        delete_p = sub.add_parser(
+            "delete",
+            help="Remove one variable",
+            description="Remove a variable from the workspace or a profile scope.",
+        )
+        delete_p.add_argument("name", type=str, help="Variable name")
+        delete_p.add_argument(
+            "--allow-missing",
+            action="store_true",
+            help="Treat an absent variable as success instead of an error",
+        )
+        self._add_scope_args(delete_p, required=True)
+
+    def execute(self, args: argparse.Namespace) -> None:
+        # Other libraries
+        from dlt._workspace.cli import echo as fmt
+
+        # Current package
+        import dlt_runtime._runtime_command as cmd
+
+        _apply_timestamps(args)
+
+        def action() -> None:
+            op1 = getattr(args, "op1", None)
+            if op1 is None:
+                self.parser.print_help()
+                return
+            if op1 == "list":
+                cmd.variable_list(
+                    getattr(args, "profile", None),
+                    bool(getattr(args, "workspace_only", False)),
+                )
+            elif op1 == "set":
+                cmd.variable_set(
+                    args.name,
+                    bool(args.secret),
+                    getattr(args, "value", None),
+                    getattr(args, "profile", None),
+                )
+            elif op1 == "delete":
+                cmd.variable_delete(
+                    args.name,
+                    getattr(args, "profile", None),
+                    bool(getattr(args, "allow_missing", False)),
+                )
+            else:
+                fmt.echo(f"Unknown variable subcommand: {op1}")
+                self.parser.print_usage()
+
+        _dispatch(action)
+
+
 class JobCommand(SupportsCliCommand):
     command = "job"
     compose: TCliCommandCompose = "additive"
     help_string = (
         "Job operations: list, info, run, serve, trigger, publish, unpublish,"
-        " logs, cancel, runs"
+        " pause, resume, logs, cancel, runs"
     )
     description = (
         "List and operate on jobs registered in the connected workspace, plus"
@@ -740,6 +883,35 @@ class JobCommand(SupportsCliCommand):
             description="Revoke the public link for an interactive notebook/app.",
         )
         unpublish_p.add_argument("script_path", help="Local path to the notebook/app")
+
+        pause_p = sub.add_parser(
+            "pause",
+            help="Pause the schedule of one or more jobs",
+            description=(
+                "Pause the schedule of every job matching the given names, refs or"
+                " selectors (batch, schedule:*, tag:ops, ...). Only jobs with a schedule can be paused."
+            ),
+        )
+        pause_p.add_argument(
+            "selector_or_job_name",
+            nargs="+",
+            help="Job names, script paths, job refs, or selectors.",
+        )
+
+        resume_p = sub.add_parser(
+            "resume",
+            help="Resume the schedule of one or more jobs",
+            description=(
+                "Resume the schedule of every job matching the given names, refs or"
+                " selectors (batch, schedule:*, tag:ops, ...). The first run covers"
+                " the whole period the job was paused for."
+            ),
+        )
+        resume_p.add_argument(
+            "selector_or_job_name",
+            nargs="+",
+            help="Job names, script paths, job refs, or selectors.",
+        )
 
         logs_p = sub.add_parser(
             "logs",
@@ -891,7 +1063,10 @@ class JobCommand(SupportsCliCommand):
         )
 
     def execute(self, args: argparse.Namespace) -> None:
+        # Other libraries
         from dlt._workspace.cli import echo as fmt
+
+        # Current package
         import dlt_runtime._runtime_command as cmd
 
         _apply_timestamps(args)
@@ -931,6 +1106,10 @@ class JobCommand(SupportsCliCommand):
                 )
             elif op1 == "unpublish":
                 cmd.unpublish(args.script_path)
+            elif op1 == "pause":
+                cmd.pause_job(args.selector_or_job_name)
+            elif op1 == "resume":
+                cmd.resume_job(args.selector_or_job_name)
             elif op1 == "logs":
                 cmd.logs(
                     args.selector_or_job_name,
@@ -1001,6 +1180,7 @@ class PipelineRunCommand(SupportsCliCommand):
         )
 
     def execute(self, args: argparse.Namespace) -> None:
+        # Current package
         import dlt_runtime._runtime_command as cmd
 
         _apply_timestamps(args)
@@ -1031,6 +1211,7 @@ class PipelineShowCommand(SupportsCliCommand):
         parser.add_argument("pipeline_name", help="Name of the pipeline to show")
 
     def execute(self, args: argparse.Namespace) -> None:
+        # Current package
         import dlt_runtime._runtime_command as cmd
 
         _dispatch(lambda: cmd.show_pipeline(pipeline_name=args.pipeline_name))

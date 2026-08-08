@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: together
-Version: 2.28.0
+Version: 2.30.0
 Summary: The official Python library for the together API
 Project-URL: Homepage, https://github.com/togethercomputer/together-py
 Project-URL: Repository, https://github.com/togethercomputer/together-py
@@ -25,7 +25,7 @@ Classifier: Typing :: Typed
 Requires-Python: >=3.10
 Requires-Dist: anyio<5,>=3.5.0
 Requires-Dist: cyclopts>=4.6.0
-Requires-Dist: detect-agent>=0.2.0
+Requires-Dist: detect-agent>=0.5.0
 Requires-Dist: distro<2,>=1.7.0
 Requires-Dist: filelock>=3.13.1
 Requires-Dist: httpx<1,>=0.23.0
@@ -258,9 +258,9 @@ async with client.beta.realtime.transcription(
 
     async for event in session:
         if isinstance(event, TranscriptDelta):
-            print("interim:", event.text)   # updates while a phrase is spoken
+            print("interim:", event.text)  # updates while a phrase is spoken
         elif isinstance(event, TranscriptCompleted):
-            print("final:", event.text)     # one per finished utterance
+            print("final:", event.text)  # one per finished utterance
 
     transcript = await session.flush()  # finalize whatever was said last
 ```

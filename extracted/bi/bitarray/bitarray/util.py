@@ -57,8 +57,8 @@ def random_k(__n, k, endian=None):
 Return (pseudo-) random bitarray of length `n` with `k` elements
 set to one.  Mathematically equivalent to setting (in a bitarray of
 length `n`) all bits at indices `random.sample(range(n), k)` to one.
-The random bitarrays are reproducible when giving Python's `random.seed()`
-a specific seed value.
+The random bitarrays are reproducible when calling Python's `random.seed()`
+with a specific seed value.
 """
     r = _Random(__n, endian)
     k = operator.index(k)
@@ -71,7 +71,7 @@ def random_p(__n, p=0.5, endian=None):
 Return (pseudo-) random bitarray of length `n`, where each bit has
 probability `p` of being one (independent of any other bits).  Mathematically
 equivalent to `bitarray((random() < p for _ in range(n)), endian)`, but much
-faster for large `n`.  The random bitarrays are reproducible when giving
+faster for large `n`.  The random bitarrays are reproducible when calling
 Python's `random.seed()` with a specific seed value.
 
 This function requires Python 3.12 or higher, as it depends on the standard
@@ -87,13 +87,10 @@ when Python version is too low.
 
 class _Random:
 
-    # The main reason for this class is to enable testing functionality
-    # individually in the test class Random_P_Tests in 'test_util.py'.
-    # The test class also contains many comments and explanations.
     # To better understand how the algorithm works, see ./doc/random_p.rst
-    # See also, VerificationTests in devel/test_random.py
+    # See also, Internal_Tests and VerificationTests in devel/test_random.py
 
-    # maximal number of calls to .random_half() in .combine()
+    # maximal number of calls to .random_half() in .combine_half()
     M = 8
 
     # number of resulting probability intervals
@@ -112,7 +109,9 @@ class _Random:
         Return bitarray with each bit having probability p = 1/2 of being 1.
         """
         nbytes = self.nbytes
-        # use random module function for reproducibility (not urandom())
+        # Use random module function for reproducibility (not urandom()).
+        # random.randbytes() can be used once Python 3.9 is the minimum
+        # supported version.
         b = random.getrandbits(8 * nbytes).to_bytes(nbytes, 'little')
         a = bitarray(b, self.endian)
         del a[self.n:]
@@ -332,7 +331,7 @@ Equivalent to `sum(i for i, v in enumerate(a) if v)`.
 def pprint(__a, stream=None, group=8, indent=4, width=80):
     """pprint(bitarray, /, stream=None, group=8, indent=4, width=80)
 
-Pretty-print bitarray object to `stream`, defaults is `sys.stdout`.
+Pretty-print bitarray object to `stream`, defaults to `sys.stdout`.
 By default, bits are grouped in bytes (8 bits), and 64 bits per line.
 Non-bitarray objects are printed using `pprint.pprint()`.
 """
@@ -357,16 +356,13 @@ Non-bitarray objects are printed using `pprint.pprint()`.
     gpl = (width - indent) // (group + 1)  # groups per line
     epl = group * gpl                      # elements per line
     if epl == 0:
-        epl = width - indent - 2
+        epl = max(1, width - indent - 2)
     type_name = type(__a).__name__
-    # here 4 is len("'()'")
-    multiline = len(type_name) + 4 + len(__a) + len(__a) // group >= width
-    if multiline:
-        quotes = "'''"
-    elif __a:
-        quotes = "'"
-    else:
-        quotes = ""
+    n = len(__a)
+    multiline = n > 0 and (  # here 4 is len("('')")
+        len(type_name) + 4 + n + (n - 1) // group >= width
+    )
+    quotes = "'''" if multiline else ("'" if __a else "")
 
     stream.write("%s(%s" % (type_name, quotes))
     for i, b in enumerate(__a):
@@ -420,9 +416,9 @@ to be in order, and their size is always non-zero (`stop - start > 0`).
     while stop < n:
         start = stop
         # assert __a[start] == value
-        try:  # find next occurrence of opposite value
-            stop = __a.index(not value, start)
-        except ValueError:
+        # find next occurrence of opposite value
+        stop = __a.find(not value, start)
+        if stop < 0:
             stop = n
         yield int(value), start, stop
         value = not value  # next interval has opposite value
@@ -437,18 +433,20 @@ The bit-endianness of the bitarray is respected.
 """
     if not isinstance(__a, bitarray):
         raise TypeError("bitarray expected, got '%s'" % type(__a).__name__)
+
     length = len(__a)
     if length == 0:
         raise ValueError("non-empty bitarray expected")
 
-    if __a.padbits:
-        pad = zeros(__a.padbits, __a.endian)
-        __a = __a + pad if __a.endian == "little" else pad + __a
-
     res = int.from_bytes(__a.tobytes(), byteorder=__a.endian)
 
-    if signed and res >> length - 1:
+    # Big-endian pad bits are on the right and must be shifted away.
+    if __a.endian == 'big':
+        res >>= __a.padbits
+
+    if signed and res & (1 << (length - 1)):
         res -= 1 << length
+
     return res
 
 
@@ -471,31 +469,27 @@ and requires `length` to be provided.
     if signed:
         if length is None:
             raise TypeError("signed requires argument 'length'")
-        m = 1 << length - 1
+        m = 1 << (length - 1)
         if not (-m <= i < m):
             raise OverflowError("signed integer not in range(%d, %d), "
                                 "got %d" % (-m, m, i))
         if i < 0:
             i += 1 << length
-    else:  # unsigned
-        if length and i >> length:
-            raise OverflowError("unsigned integer not in range(0, %d), "
-                                "got %d" % (1 << length, i))
+    elif length and i >> length:
+        raise OverflowError("unsigned integer not in range(0, %d), "
+                            "got %d" % (1 << length, i))
+
+    if length is None:
+        length = max(1, i.bit_length())
 
     a = bitarray(0, endian)
-    b = i.to_bytes(bits2bytes(i.bit_length()), byteorder=a.endian)
-    a.frombytes(b)
-    le = a.endian == 'little'
-    if length is None:
-        return strip(a, 'right' if le else 'left') if a else a + '0'
+    a.frombytes(i.to_bytes(bits2bytes(length), byteorder=a.endian))
 
-    if len(a) > length:
-        return a[:length] if le else a[-length:]
-    if len(a) == length:
-        return a
-    # len(a) < length, we need padding
-    pad = zeros(length - len(a), a.endian)
-    return a + pad if le else pad + a
+    if a.endian == 'little':
+        del a[length:]
+    else:
+        del a[:-length]
+    return a
 
 # ------------------------------ Huffman coding -----------------------------
 
@@ -538,10 +532,12 @@ and return its root node.
     return minheap[0]
 
 
-def _ensure_anydict(d):
+def _check_anydict(d):
     types = dict if sys.version_info[:2] < (3, 15) else (dict, frozendict)
     if not isinstance(d, types):
         raise TypeError("dict expected, got '%s'" % type(d).__name__)
+    if not d:
+        raise ValueError("cannot create Huffman code with no symbols")
 
 
 def huffman_code(__freq_map, endian=None):
@@ -552,33 +548,26 @@ calculate the Huffman code, i.e. a dict mapping those symbols to
 frozenbitarrays (with given bit-endianness).  Note that the symbols are not
 limited to being strings.  Symbols may be any hashable object.
 """
-    _ensure_anydict(__freq_map)
+    _check_anydict(__freq_map)
 
-    if len(__freq_map) < 2:
-        if len(__freq_map) == 0:
-            raise ValueError("cannot create Huffman code with no symbols")
-        # Only one symbol: Normally if only one symbol is given, the code
-        # could be represented with zero bits.  However here, the code should
-        # be at least one bit for the .encode() and .decode() methods to work.
-        # So we represent the symbol by a single code of length one, in
-        # particular one 0 bit.  This is an incomplete code, since if a 1 bit
-        # is received, it has no meaning and will result in an error.
-        sym = list(__freq_map)[0]
+    if len(__freq_map) == 1:
+        # With one symbol, Huffman coding would normally assign it an empty
+        # code.  Here the code must be nonempty, so that .encode() represents
+        # each occurrence and .decode() can recover their number.  We use 0,
+        # leaving 1 unassigned; therefore the prefix code is incomplete.
+        sym = next(iter(__freq_map))
         return {sym: frozenbitarray('0', endian)}
 
     result = {}
 
-    def traverse(nd, prefix=None):
-        if prefix is None:
-            prefix = frozenbitarray(0, endian)
-
+    def traverse(nd, prefix):
         try:                    # leaf
             result[nd.symbol] = prefix
         except AttributeError:  # parent, so traverse each child
             traverse(nd.child[0], prefix + '0')
             traverse(nd.child[1], prefix + '1')
 
-    traverse(_huffman_tree(__freq_map))
+    traverse(_huffman_tree(__freq_map), frozenbitarray(0, endian))
     return result
 
 
@@ -594,27 +583,25 @@ calculate the canonical Huffman code.  Returns a tuple containing:
 
 Note: the two lists may be used as input for `canonical_decode()`.
 """
-    _ensure_anydict(__freq_map)
+    _check_anydict(__freq_map)
 
-    if len(__freq_map) < 2:
-        if len(__freq_map) == 0:
-            raise ValueError("cannot create Huffman code with no symbols")
+    if len(__freq_map) == 1:
         # Only one symbol: see note above in huffman_code()
-        sym = list(__freq_map)[0]
+        sym = next(iter(__freq_map))
         return {sym: frozenbitarray('0', 'big')}, [0, 1], [sym]
 
     code_length = {}  # map symbols to their code length
 
-    def traverse(nd, length=0):
+    def traverse(nd, length):
         # traverse the Huffman tree, but (unlike in huffman_code() above) we
-        # now just simply record the length for reaching each symbol
+        # simply record the length for reaching each symbol
         try:                    # leaf
             code_length[nd.symbol] = length
         except AttributeError:  # parent, so traverse each child
             traverse(nd.child[0], length + 1)
             traverse(nd.child[1], length + 1)
 
-    traverse(_huffman_tree(__freq_map))
+    traverse(_huffman_tree(__freq_map), 0)
 
     # We now have a mapping of symbols to their code length, which is all we
     # need to construct a list of tuples (symbol, code length) sorted by

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: whenever
-Version: 0.10.4
+Version: 0.10.5
 Summary: Modern datetime library for Python
 Author-email: Arie Bovenberg <a.c.bovenberg@gmail.com>
 Maintainer-email: Arie Bovenberg <a.c.bovenberg@gmail.com>
@@ -21,6 +21,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Programming Language :: Python :: Free Threading :: 2 - Beta

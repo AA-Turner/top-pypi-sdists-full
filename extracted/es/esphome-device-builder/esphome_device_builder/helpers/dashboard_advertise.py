@@ -106,6 +106,11 @@ def default_friendly_name() -> str:
     return label or "esphome-dashboard"
 
 
+def advertised_friendly_name(advertiser: DashboardAdvertiser | None) -> str:
+    """Return the advertised display name, hostname-derived when zeroconf never came up."""
+    return advertiser.friendly_name if advertiser is not None else default_friendly_name()
+
+
 def _is_loopback_adapter(adapter: ifaddr.Adapter) -> bool:
     """
     Return ``True`` when *adapter* is the host's loopback interface.

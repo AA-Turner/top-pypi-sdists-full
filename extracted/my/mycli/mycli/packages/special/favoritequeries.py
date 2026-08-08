@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 import re
 from typing import Any
@@ -7,7 +8,9 @@ from typing import Any
 from jinja2 import meta, nodes
 from jinja2.sandbox import SandboxedEnvironment
 
-from mycli.config import read_config_file
+from mycli.config import log, read_config_file
+
+logger = logging.getLogger(__name__)
 
 MISSING = object()
 
@@ -75,14 +78,17 @@ with a short name.
 Examples:
 
     # Save a new favorite query.
-    > /fs simple select * from abc where a is not Null;
+    > /fs simple SELECT * FROM abc WHERE a IS NOT NULL;
+
+    # When multi-line mode is on, pressing Return twice is needed to save.
+    # This supports multi-statement favorites.
 
     # List all favorite queries.
     > /f
     ╒═══════════╤══════════════════════════════════════════════════╕
     │ Name      │ Query                                            │
     ╞═══════════╪══════════════════════════════════════════════════╡
-    │ simple    │ SELECT * FROM abc where a is not NULL            │
+    │ simple    │ SELECT * FROM abc WHERE a IS NOT NULL            │
     │ find_user │ SELECT * FROM users WHERE name = '{{ kv.name }}' │
     ╘═══════════╧══════════════════════════════════════════════════╛
 
@@ -94,15 +100,16 @@ Examples:
     │ 日本語 │ 日本語 │
     ╘════════╧════════╛
 
-    # Run a favorite query containing {{ kv.name }} in the template:
+    # Run a favorite query containing {{ kv.name }} in the template.
     > /f find_user --name=henry
     > /f find_user --name henry
 
-    # Run a favorite query containing $1 in the template:
+    # Run a favorite query containing positional parameter $1 in the
+    # template.
     > /f find_user henry
 
-    # Use -- to disambiguate positional parameters, especially if
-    # the positional value starts with a dash.
+    # Use -- to disambiguate positional parameters such as $1, especially
+    # if the positional value starts with a dash.
     > /f query --key=value -- positional-value
     > /f query -- --positional-value-which-looks-like-a-flag--
 
@@ -119,8 +126,54 @@ Examples:
         self.config_file = config_file
 
     @classmethod
-    def from_config(cls, config: Any, config_file: str | None = None) -> FavoriteQueries:
-        return FavoriteQueries(config, config_file)
+    def from_config(
+        cls,
+        config: Any,
+        config_file: str | None = None,
+        shared_favorites_file: str | None = None,
+    ) -> FavoriteQueries:
+        favorites = cls(config, config_file)
+        if not shared_favorites_file:
+            return favorites
+
+        shared_favorites_file = os.path.expanduser(shared_favorites_file)
+        if not os.path.isabs(shared_favorites_file):
+            log(
+                logger,
+                logging.WARNING,
+                f"Shared favorites file path must be absolute: '{shared_favorites_file}'.",
+            )
+            return favorites
+
+        if not os.path.isfile(shared_favorites_file):
+            log(
+                logger,
+                logging.WARNING,
+                f"Unable to read shared favorites file '{shared_favorites_file}'.",
+            )
+            return favorites
+
+        shared_config = read_config_file(shared_favorites_file)
+        if shared_config is None:
+            return favorites
+
+        configured_queries = config.get(cls.section_name, {})
+        shared_queries = shared_config.get(cls.section_name, {})
+        config[cls.section_name] = {}
+        config[cls.section_name].update(shared_queries)
+        config[cls.section_name].update(configured_queries)
+        return favorites
+
+    def _clean_query(self, query: str | None) -> str | None:
+        if not query:
+            return query
+        query = query.lstrip(' \t\n\r')
+        query = query.rstrip(' \t\n\r')
+        query = query.removesuffix(';')
+        query = query.removesuffix(r'\G')
+        query = query.removesuffix(r'\x')
+        query = query.rstrip(' \t\n\r')
+        return query
 
     def _config_for_write(self) -> Any:
         if self.config_file is None:
@@ -137,14 +190,14 @@ Examples:
         config[self.section_name][name] = query
 
     def list(self) -> list[str | None]:
-        return list(self.config.get(self.section_name, {}))
+        return [self._clean_query(x) for x in self.config.get(self.section_name, {})]
 
     def get(self, name) -> str | None:
-        return self.config.get(self.section_name, {}).get(name, None)
+        return self._clean_query(self.config.get(self.section_name, {}).get(name, None))
 
     def save(self, name: str, query: str) -> None:
         config = self._config_for_write()
-        query = query.rstrip(' \t\n\r;')
+        query = self._clean_query(query) or ''
         config.encoding = "utf-8"
         section_existed = self.section_name in config
         previous_query = config.get(self.section_name, {}).get(name, MISSING)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dlthub-client
-Version: 0.28.1
+Version: 0.28.2
 Summary: CLI tool for accessing dltHub runtime
 Author-email: "dltHub Inc." <services@dlthub.com>
 Maintainer-email: Marcin Rudolf <marcin@dlthub.com>, David Sharf <dave@dlthub.com>

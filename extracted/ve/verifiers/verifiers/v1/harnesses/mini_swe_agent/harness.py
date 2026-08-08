@@ -1,15 +1,19 @@
 from pathlib import Path
 
+from pydantic import Field
+
 from verifiers.v1.clients import ModelContext
-from verifiers.v1.harness import Harness, HarnessConfig
+from verifiers.v1.configs.harness import HarnessConfig
+from verifiers.v1.harness import Harness
 from verifiers.v1.runtimes import ProgramResult, Runtime
+from verifiers.v1.task import TaskData
 from verifiers.v1.trace import Trace
 
 PROGRAM_SOURCE = (Path(__file__).resolve().parent / "program.py").read_text()
 
 
 class MiniSWEAgentHarnessConfig(HarnessConfig):
-    version: str = "2.4.5"
+    version: str = Field(default="2.4.6", pattern=r"^[A-Za-z0-9._+-]+$")
     """mini-swe-agent release to install, pinned for reproducibility."""
 
 
@@ -29,10 +33,11 @@ class MiniSWEAgentHarness(Harness[MiniSWEAgentHarnessConfig]):
         endpoint: str,
         secret: str,
         mcp_urls: dict[str, str],
+        data: TaskData,
     ) -> ProgramResult:
         if self.config.disabled_tools:
             raise ValueError("mini-swe-agent does not support disabling tools")
-        _, prompt = self.resolve_prompt(trace.task.data)
+        _, prompt = self.resolve_text_prompt(data)
         source = PROGRAM_SOURCE.replace("{version}", self.config.version)
         args = [
             "--model",

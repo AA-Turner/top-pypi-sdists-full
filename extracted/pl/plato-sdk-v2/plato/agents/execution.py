@@ -14,6 +14,7 @@ from plato.agents.vm_setup import make_agent_pool_prefix
 from plato.agents.warmpool import AgentVMBudget, WarmPool
 from plato.git_ops.merge import delete_remote_ref, merge_ref_to_main
 from plato.git_ops.repo import trust_git_directory
+from plato.rpc.errors import RetryableInfraError
 from plato.runtimes.base import Runtime, RuntimeInfo
 from plato.runtimes.config import VMRuntimeConfig
 from plato.transports.git import GitPublishedRef, GitTransport
@@ -33,6 +34,13 @@ _SALVAGE_TIMEOUT_S = 60
 
 
 def _is_retryable_warm_pool_run_error(exc: BaseException) -> bool:
+    # RPC path: typed infrastructure failures (unreachable VM, rejected token,
+    # VM reclaimed mid-run, daemon lost the job's outcome) are exactly the
+    # "retry on a fresh VM" class the SSH substrings below approximate. Without
+    # this, RPC-path infra failures fail the run outright instead of retrying.
+    if isinstance(exc, RetryableInfraError):
+        return True
+    # SSH path: the same conditions are only visible as stderr text.
     message = str(exc)
     return "Permission denied (publickey)" in message or "lost connection" in message
 

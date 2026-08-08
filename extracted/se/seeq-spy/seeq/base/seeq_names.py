@@ -24,10 +24,10 @@ class SeeqNames:
             
         
         class Endpoints:
-            consumption = '/data-lab-consumption'
+            consumption = '/consumption'
             job = '/data-lab-job'
             management = '/data-lab-management'
-            management_internal = '/data-lab-management-internal'
+            management_internal = '/management-internal'
         
     
     class SystemFolderIdentifiers:
@@ -1543,6 +1543,7 @@ class SeeqNames:
         batch_action = 'Batch Action'
         table_type = 'Table Type'
         navigation_column_id = 'Navigation Column Id'
+        filter_spec = 'Filter Spec'
         is_context_condition = 'Is Context Condition'
         versioned_item_type = 'Versioned Item Type'
         production_version_number = 'Production Version Number'
@@ -1576,12 +1577,13 @@ class SeeqNames:
         calculated_table_id = 'Calculated Table Id'
         users_shared = 'Users Shared'
         topics_shared = 'Topics Shared'
-        workbooks_shared = 'Workbooks Shared'
-        users_accessed_last_week = 'Users Accessed Last Week'
-        topics_accessed_last_week = 'Topics Accessed Last Week'
-        workbooks_accessed_last_week = 'Workbooks Accessed Last Week'
+        analyses_shared = 'Analyses Shared'
+        users_accessed_in_last7_days = 'Users Accessed In Last 7 Days'
+        topics_accessed_in_last7_days = 'Topics Accessed In Last 7 Days'
+        analyses_accessed_in_last7_days = 'Analyses Accessed In Last 7 Days'
         total_items_shared = 'Total Items Shared'
         hosts_external_organization = 'Hosts External Organization'
+        sharing_statistics_last_updated_at = 'Sharing Statistics Last Updated At'
         organization_folder_id = 'Folder ID'
         organization_user_group_id = 'User Group ID'
         source = 'Source'

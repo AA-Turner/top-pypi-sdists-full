@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 
 from seeq import spy
+from seeq.base.seeq_names import SeeqNames
 from seeq.sdk import *
 from seeq.spy import _common, _compatibility, _login, _url
 from seeq.spy._errors import *
@@ -1786,12 +1787,21 @@ def _get_user_name(user_output: UserOutputV1) -> str:
     return user_name
 
 
+def _filter_df_only_unarchived(df: Optional[pd.DataFrame]) -> Optional[pd.DataFrame]:
+    if df is None or 'Archived' not in df.columns:
+        return df
+
+    # Null Archived values count as unarchived
+    return df[df['Archived'].ne(True)]
+
+
 def _rollup_context_columns(session: Session, final_row_dict, context_rows, tz_convert, user_map):
     """
     Transform a DataFrame by rolling up context columns into sub-DataFrames.
 
     Groups rows by Condition ID and Capsule ID, then consolidates all context columns
-    (comments, labels, numeric) into a single 'Vantage Context' column containing sub-DataFrames.
+    (comments, labels, numeric) into a single 'Vantage Context' column containing sub-DataFrames. Also derives
+    the Flagged, Reviewed, Labels and Comments summary columns from the context rows, excluding archived entries.
     """
 
     # Helper function to convert snake_case to Title Case
@@ -1866,35 +1876,43 @@ def _rollup_context_columns(session: Session, final_row_dict, context_rows, tz_c
 
                 final_row_dict['Vantage Context'] = context_subdf
 
-    built_in_labels = {'flag': 'Flagged', 'reviewed': 'Reviewed'}
+    # Archived context stays visible in 'Vantage Context' but is excluded from the derived summary columns
+    active_context_subdf = _filter_df_only_unarchived(context_subdf)
+
+    context_names = SeeqNames.SeeqContextNameSpace
+    vantage_category_prefix = f'{context_names.vantage_label_category_namespace}.'
+    has_label_columns = active_context_subdf is not None and (
+            'Category Name' in active_context_subdf.columns and 'Label Name' in active_context_subdf.columns)
+
+    built_in_labels = {context_names.flagged_context_label_name: 'Flagged', 'reviewed': 'Reviewed'}
     for boolean_label, boolean_column in built_in_labels.items():
         final_row_dict[boolean_column] = False
-        if context_subdf is not None and (
-                'Category Name' in context_subdf.columns and 'Label Name' in context_subdf.columns):
-            boolean_label_df = context_subdf[(context_subdf['Context Type'] == 'Label') &
-                                             (context_subdf['Category Name'].str.startswith('__Vantage.')) &
-                                             (context_subdf['Label Name'] == f'{boolean_label}')]
+        if has_label_columns:
+            boolean_label_df = active_context_subdf[
+                (active_context_subdf['Context Type'] == 'Label') &
+                (active_context_subdf['Category Name'].str.startswith(vantage_category_prefix)) &
+                (active_context_subdf['Label Name'] == f'{boolean_label}')]
             final_row_dict[boolean_column] = not boolean_label_df.empty
 
     final_row_dict['Labels'] = set()
-    if context_subdf is not None and (
-            'Category Name' in context_subdf.columns and 'Label Name' in context_subdf.columns):
-        label_column_candidates_df = context_subdf[(context_subdf['Context Type'] == 'Label') &
-                                                   (~context_subdf['Category Name'].isin({
-                                                       '__Seeq.suppression',
-                                                       '__Vantage.flag',
-                                                       '__Vantage.reviewed',
-                                                       '__Vantage.suppression'
-                                                   }))]
+    if has_label_columns:
+        label_column_candidates_df = active_context_subdf[
+            (active_context_subdf['Context Type'] == 'Label') &
+            (~active_context_subdf['Category Name'].isin({
+                context_names.suppression_label_category_name,
+                context_names.flag_label_category_name,
+                context_names.reviewed_label_category_name,
+                context_names.vantage_suppression_label_category_name
+            }))]
 
         if not label_column_candidates_df.empty:
             unique_labels = set(label_column_candidates_df['Label Name'].unique().tolist())
             final_row_dict['Labels'] = unique_labels
 
     comments_str = ''
-    if context_subdf is not None:
-        comment_candidates_df = context_subdf[context_subdf['Context Type'] == 'Comment'].sort_values(
-            'Created At')
+    if active_context_subdf is not None:
+        comment_candidates_df = active_context_subdf[
+            active_context_subdf['Context Type'] == 'Comment'].sort_values('Created At')
 
         for _, comment_row in comment_candidates_df.iterrows():
             user_output = _get_user_output(session, comment_row['Creator ID'], user_map)

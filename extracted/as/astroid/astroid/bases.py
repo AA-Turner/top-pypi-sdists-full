@@ -146,7 +146,7 @@ class Proxy:
         return getattr(self._proxied, name)
 
     def infer(  # type: ignore[return]
-        self, context: InferenceContext | None = None, **kwargs: Any
+        self, context: InferenceContext | None = None
     ) -> collections.abc.Generator[InferenceResult, None, InferenceErrorInfo | None]:
         yield self
 
@@ -371,9 +371,7 @@ class Instance(BaseInstance):
         return method.infer_call_result(self, context)
 
     def __repr__(self) -> str:
-        return "<Instance of {}.{} at 0x{}>".format(
-            self._proxied.root().name, self._proxied.name, id(self)
-        )
+        return f"<Instance of {self._proxied.root().name}.{self._proxied.name} at 0x{id(self)}>"
 
     def __str__(self) -> str:
         return f"Instance of {self._proxied.root().name}.{self._proxied.name}"
@@ -398,9 +396,9 @@ class Instance(BaseInstance):
 
         The truth value of an instance is determined by these conditions:
 
-           * if it implements __bool__ on Python 3 or __nonzero__
-             on Python 2, then its bool value will be determined by
-             calling this special method and checking its result.
+           * if it implements __bool__, then its bool value will be
+             determined by calling this special method and checking
+             its result.
            * when this method is not defined, __len__() is called, if it
              is defined, and the object is considered true if its result is
              nonzero. If a class defines neither __len__() nor __bool__(),
@@ -453,9 +451,7 @@ class UnboundMethod(Proxy):
     def __repr__(self) -> str:
         assert self._proxied.parent, "Expected a parent node"
         frame = self._proxied.parent.frame()
-        return "<{} {} of {} at 0x{}".format(
-            self.__class__.__name__, self._proxied.name, frame.qname(), id(self)
-        )
+        return f"<{self.__class__.__name__} {self._proxied.name} of {frame.qname()} at 0x{id(self)}"
 
     def implicit_parameters(self) -> Literal[0, 1]:
         return 0
@@ -674,7 +670,6 @@ class BoundMethod(UnboundMethod):
             bases=bases.elts,
             body=[empty],
             decorators=None,
-            newstyle=True,
             metaclass=mcs,
             keywords=[],
         )

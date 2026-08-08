@@ -202,9 +202,22 @@ class CommandResolver(Resolver):
 
 @dataclass(frozen=True)
 class ManualResolver(Resolver):
-    """Terminal resolver — informational only, surfaces manual instructions."""
+    """Terminal resolver — informational only, surfaces manual instructions.
+
+    ``creation_url`` is the page that mints the value, when there is exactly one
+    and reaching it is the whole manual step. Declaring it separately from the
+    prose lets the interactive prompt open a browser straight onto it instead of
+    leaving the user to copy a URL out of a paragraph. Leave it empty when the
+    manual step is a sequence of clicks rather than a single page.
+
+    ``creation_hint`` is the one thing to know while filling the form in — for a
+    field the link cannot pre-fill, typically. Shown whether the manual step is a
+    page we open or a sequence of clicks.
+    """
 
     instructions: str
+    creation_url: str = ""
+    creation_hint: str = ""
 
     @property
     def default_label(self) -> str:
@@ -517,6 +530,10 @@ class EnvVarSpec:
     resolved_name: str | None = None
 
 
+# Built once: the same link is quoted in the prose and handed to the browser, and
+# the two must not be able to drift apart.
+_REGISTRY_PAT_CREATION_URL = registry_pat.creation_url(DEFAULT_GITLAB_HOST)
+
 ENV_CONFIG: dict[str, EnvVarSpec] = {
     "AWS_DEFAULT_REGION": EnvVarSpec(
         description="Région AWS (lue dans ~/.aws/config, défaut Pysae : eu-west-3)",
@@ -628,7 +645,15 @@ ENV_CONFIG: dict[str, EnvVarSpec] = {
         ),
         resolvers=(
             ManualResolver(
-                instructions=f"Crée-le (nom et scopes pré-remplis) : {registry_pat.creation_url(DEFAULT_GITLAB_HOST)}",
+                instructions=f"Crée-le (nom, description et scopes pré-remplis) : {_REGISTRY_PAT_CREATION_URL}",
+                creation_url=_REGISTRY_PAT_CREATION_URL,
+                # GitLab ignores an expiry passed in the link and defaults the
+                # field to 30 days — short enough to make the CLI renew the token
+                # every fortnight for no reason. Say it while the form is open.
+                creation_hint=(
+                    "Seule la date d'expiration reste à régler (GitLab propose 30 jours) — "
+                    "prends la durée qui te convient, elle sera reconduite à chaque renouvellement automatique."
+                ),
             ),
         ),
         cache=True,
@@ -967,12 +992,36 @@ ENV_CONFIG: dict[str, EnvVarSpec] = {
 }
 
 
-def get_manual_instructions(var: str) -> str | None:
-    """Return the ManualResolver instructions for `var`, if any."""
+def _manual_resolver(var: str) -> ManualResolver | None:
+    """The manual step declared for ``var`` — the one every getter below reads.
+
+    One traversal, one meaning: the *first* ManualResolver in the chain, whether
+    the field being read is filled or not. Picking "the first resolver whose
+    field is non-empty" per getter would let two of them describe two different
+    manual steps for the same variable.
+    """
     spec = ENV_CONFIG.get(var)
     if spec is None:
         return None
     for resolver in spec.resolvers:
         if isinstance(resolver, ManualResolver):
-            return resolver.instructions
+            return resolver
     return None
+
+
+def get_manual_instructions(var: str) -> str | None:
+    """Return the ManualResolver instructions for `var`, if any."""
+    resolver = _manual_resolver(var)
+    return resolver.instructions if resolver else None
+
+
+def get_creation_url(var: str) -> str:
+    """The page that mints ``var``, when its manual step is a single page."""
+    resolver = _manual_resolver(var)
+    return resolver.creation_url if resolver else ""
+
+
+def get_creation_hint(var: str) -> str:
+    """What to know while filling ``var``'s form in, if anything."""
+    resolver = _manual_resolver(var)
+    return resolver.creation_hint if resolver else ""

@@ -946,6 +946,19 @@ class MockPinningAdapter(OpsMcpAdapter):
         """List active mock rollouts for a connector."""
         return self.rollouts.get(connector_id, ())
 
+    def list_active_rollouts_with_siblings(
+        self,
+        connector_id: str,
+    ) -> tuple[ConnectorRollout, ...]:
+        """List active mock rollouts and their sibling tiers for a connector."""
+        active = self.list_active_rollouts(connector_id)
+        rc_tags = {rollout.rc_docker_image_tag for rollout in active}
+        return tuple(
+            rollout
+            for rollout in self.rollouts.get(connector_id, ())
+            if rollout.rc_docker_image_tag in rc_tags
+        )
+
     def list_progressive_rollouts(
         self,
         *,
@@ -958,11 +971,35 @@ class MockPinningAdapter(OpsMcpAdapter):
                 rollout
                 for connector_rollouts in self.rollouts.values()
                 for rollout in connector_rollouts
+                if rollout.state
+                in {"initialized", "workflow_started", "in_progress", "paused"}
             ),
             key=lambda rollout: rollout.updated_at,
             reverse=True,
         )
         return tuple(rollouts[:limit] if limit is not None else rollouts)
+
+    def list_progressive_rollouts_with_siblings(
+        self,
+        *,
+        limit: int | None = None,
+    ) -> tuple[ConnectorRollout, ...]:
+        """List active mock rollouts and their sibling tiers."""
+        active = self.list_progressive_rollouts(limit=limit)
+        pairs = {
+            (rollout.connector_id, rollout.rc_docker_image_tag) for rollout in active
+        }
+        rollouts = sorted(
+            (
+                rollout
+                for connector_rollouts in self.rollouts.values()
+                for rollout in connector_rollouts
+                if (rollout.connector_id, rollout.rc_docker_image_tag) in pairs
+            ),
+            key=lambda rollout: rollout.updated_at,
+            reverse=True,
+        )
+        return tuple(rollouts)
 
     def get_current_context(
         self,
@@ -1090,7 +1127,13 @@ class MockPinningAdapter(OpsMcpAdapter):
             organization_name="Mock Organization",
         )
 
-    def get_rollout_sync_summary(self, rollout_id: str) -> RolloutSyncSummary:
+    def get_rollout_sync_summary(
+        self,
+        rollout_id: str,
+        *,
+        tier: str = "",
+        is_destination: bool,
+    ) -> RolloutSyncSummary:
         """Return a mock rollout health + population summary, keyed by rollout.
 
         Distinct values per rollout ID so the per-tier cards render realistic
@@ -1104,7 +1147,6 @@ class MockPinningAdapter(OpsMcpAdapter):
                 health="18 healthy | 0 unhealthy | 2 awaiting",
                 num_pinned=20,
                 num_eligible=20,
-                num_actors=240,
                 num_healthy=18,
                 num_unhealthy=0,
             ),
@@ -1113,7 +1155,6 @@ class MockPinningAdapter(OpsMcpAdapter):
                 health="0 healthy | 0 unhealthy | 0 awaiting",
                 num_pinned=0,
                 num_eligible=60,
-                num_actors=240,
                 num_healthy=0,
                 num_unhealthy=0,
             ),
@@ -1122,7 +1163,6 @@ class MockPinningAdapter(OpsMcpAdapter):
                 health="30 healthy | 3 unhealthy | 12 awaiting",
                 num_pinned=45,
                 num_eligible=65,
-                num_actors=300,
                 num_healthy=30,
                 num_unhealthy=3,
             ),
@@ -1131,7 +1171,6 @@ class MockPinningAdapter(OpsMcpAdapter):
                 health="10 healthy | 0 unhealthy | 2 awaiting",
                 num_pinned=12,
                 num_eligible=23,
-                num_actors=120,
                 num_healthy=10,
                 num_unhealthy=0,
             ),
@@ -1140,7 +1179,6 @@ class MockPinningAdapter(OpsMcpAdapter):
                 health="9 healthy | 0 unhealthy | 3 awaiting",
                 num_pinned=12,
                 num_eligible=30,
-                num_actors=300,
                 num_healthy=9,
                 num_unhealthy=0,
             ),
@@ -1151,11 +1189,25 @@ class MockPinningAdapter(OpsMcpAdapter):
                 health="8 healthy | 1 unhealthy | 1 awaiting",
                 num_pinned=12,
                 num_eligible=40,
-                num_actors=120,
                 num_healthy=8,
                 num_unhealthy=1,
             ),
         )
+
+    def get_rollout_sync_summaries_by_tier(
+        self,
+        rollout_id: str,
+        *,
+        is_destination: bool,
+    ) -> dict[str, RolloutSyncSummary]:
+        if not rollout_id:
+            return {}
+        return {
+            CustomerTier.TIER_2.value: self.get_rollout_sync_summary(
+                rollout_id,
+                is_destination=is_destination,
+            )
+        }
 
     def get_connector_population(
         self,

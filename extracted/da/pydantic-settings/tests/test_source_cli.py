@@ -1,12 +1,14 @@
 import argparse
 import asyncio
+import os
 import re
 import sys
 import time
 import typing
 from enum import Enum, IntEnum
 from pathlib import Path, PureWindowsPath
-from typing import Annotated, Any, Dict, Generic, List, Literal, Tuple, TypeVar, Union  # noqa: UP035
+from string import ascii_letters
+from typing import Annotated, Any, Dict, Generic, List, Literal, Optional, Tuple, TypeVar, Union  # noqa: UP035
 
 import pytest
 import typing_extensions
@@ -21,6 +23,7 @@ from pydantic import (
     Field,
     GetCoreSchemaHandler,
     RootModel,
+    SecretStr,
     Tag,
     ValidationError,
     field_validator,
@@ -589,6 +592,336 @@ My Multiline Doc
   -h, --help  show this help message and exit
 """
         )
+
+
+def test_cli_show_env_vars_off_by_default():
+    class Settings(BaseSettings):
+        model_config = SettingsConfigDict(cli_prog_name='example.py', env_prefix='MYAPP_')
+
+        foo: str
+
+    assert (
+        CliApp.format_help(Settings, strip_ansi_color=True)
+        == f"""usage: example.py [-h] [--foo str]
+
+{ARGPARSE_OPTIONS_TEXT}:
+  -h, --help  show this help message and exit
+  --foo str   (required)
+"""
+    )
+
+
+def test_cli_show_env_vars_with_env_prefix():
+    class Settings(BaseSettings):
+        model_config = SettingsConfigDict(cli_prog_name='example.py', env_prefix='MYAPP_', cli_show_env_vars=True)
+
+        foo: str = Field(description='Foo value')
+
+    help_text = CliApp.format_help(Settings, strip_ansi_color=True)
+
+    assert 'Foo value (required) [env: MYAPP_FOO]' in help_text
+
+
+def test_cli_show_env_vars_mutually_exclusive_group():
+    class Choice(CliMutuallyExclusiveGroup):
+        api_token: str | None = None
+        api_key: str | None = None
+
+    class Settings(BaseSettings):
+        model_config = SettingsConfigDict(
+            cli_prog_name='example.py',
+            cli_show_env_vars=True,
+            env_nested_delimiter='__',
+            env_prefix='MYAPP_',
+        )
+
+        choice: Choice
+
+    cli_settings = CliSettingsSource(Settings, cli_show_env_vars=True)
+    help_text = CliApp.format_help(Settings, cli_settings_source=cli_settings, strip_ansi_color=True)
+
+    assert 'choice options (mutually exclusive):' in help_text
+    assert 'set choice from JSON string (default: {}) [env:' in help_text
+    assert 'MYAPP_CHOICE]' in help_text
+    assert '(default: null) [env: MYAPP_CHOICE__API_TOKEN]' in help_text
+    assert '(default: null) [env: MYAPP_CHOICE__API_KEY]' in help_text
+    assert cli_settings.env_var_names == {
+        'choice': ('MYAPP_CHOICE',),
+        'choice.api_token': ('MYAPP_CHOICE__API_TOKEN',),
+        'choice.api_key': ('MYAPP_CHOICE__API_KEY',),
+    }
+
+
+def test_cli_show_env_vars_secret_str():
+    class Settings(BaseSettings):
+        model_config = SettingsConfigDict(cli_prog_name='example.py', env_prefix='MYAPP_', cli_show_env_vars=True)
+
+        password: SecretStr
+
+    help_text = CliApp.format_help(Settings, strip_ansi_color=True)
+
+    assert '--password SecretStr' in help_text
+    assert '(required) [env: MYAPP_PASSWORD]' in help_text
+
+
+def test_cli_show_env_vars_optional_field():
+    class Settings(BaseSettings):
+        model_config = SettingsConfigDict(cli_prog_name='example.py', env_prefix='MYAPP_', cli_show_env_vars=True)
+
+        optional_token: str | None = None
+
+    help_text = CliApp.format_help(Settings, strip_ansi_color=True)
+
+    assert '--optional_token {str,null}' in help_text
+    assert '(default: null) [env: MYAPP_OPTIONAL_TOKEN]' in help_text
+
+
+def test_cli_show_env_vars_kebab_case():
+    class Settings(BaseSettings):
+        model_config = SettingsConfigDict(
+            cli_prog_name='example.py',
+            cli_show_env_vars=True,
+            cli_kebab_case=True,
+            env_prefix='MYAPP_',
+        )
+
+        api_token: str
+
+    help_text = CliApp.format_help(Settings, strip_ansi_color=True)
+
+    assert '--api-token str' in help_text
+    assert '(required) [env: MYAPP_API_TOKEN]' in help_text
+
+
+def test_cli_show_env_vars_alias_choices():
+    class Settings(BaseSettings):
+        model_config = SettingsConfigDict(cli_prog_name='example.py', cli_show_env_vars=True)
+
+        token: str = Field(validation_alias=AliasChoices('TOKEN', 'LEGACY_TOKEN'))
+
+    help_text = CliApp.format_help(Settings, strip_ansi_color=True)
+
+    assert '[env: TOKEN | LEGACY_TOKEN]' in help_text
+
+
+def test_cli_show_env_vars_nested_model():
+    class Database(BaseModel):
+        url: str
+
+    class Settings(BaseSettings):
+        model_config = SettingsConfigDict(
+            cli_prog_name='example.py',
+            cli_show_env_vars=True,
+            env_nested_delimiter='__',
+            env_prefix='MYAPP_',
+        )
+
+        database: Database
+
+    help_text = CliApp.format_help(Settings, strip_ansi_color=True)
+
+    assert '--database [JSON]' in help_text
+    assert '[env:' in help_text
+    assert 'MYAPP_DATABASE]' in help_text
+    assert '--database.url str' in help_text
+    assert '[env: MYAPP_DATABASE__URL]' in help_text
+
+
+def test_cli_show_env_vars_deep_nesting():
+    class Credentials(BaseModel):
+        username: str
+
+    class Database(BaseModel):
+        credentials: Credentials
+
+    class Settings(BaseSettings):
+        model_config = SettingsConfigDict(
+            cli_prog_name='example.py',
+            cli_show_env_vars=True,
+            env_nested_delimiter='__',
+            env_prefix='MYAPP_',
+        )
+
+        database: Database
+
+    help_text = CliApp.format_help(Settings, strip_ansi_color=True)
+
+    assert '--database.credentials.username str' in help_text
+    assert 'MYAPP_DATABASE__CREDENTIALS__USERNAME' in help_text
+
+
+@pytest.mark.parametrize(
+    ('env_prefix_target', 'expected_alias_env', 'expected_variable_env'),
+    [
+        ('alias', 'TARGET_FOOALIAS', 'BAR'),
+        ('variable', 'FOOALIAS', 'TARGET_BAR'),
+        ('all', 'TARGET_FOOALIAS', 'TARGET_BAR'),
+    ],
+)
+def test_cli_show_env_vars_env_prefix_target(env_prefix_target, expected_alias_env, expected_variable_env):
+    class Settings(BaseSettings):
+        model_config = SettingsConfigDict(
+            cli_prog_name='example.py',
+            cli_show_env_vars=True,
+            env_prefix='TARGET_',
+            env_prefix_target=env_prefix_target,
+        )
+
+        foo: str = Field(alias='FooAlias')
+        bar: str
+
+    help_text = CliApp.format_help(Settings, strip_ansi_color=True)
+
+    assert f'[env: {expected_alias_env}]' in help_text
+    assert f'[env: {expected_variable_env}]' in help_text
+
+
+def test_cli_show_env_vars_discriminated_union():
+    class Cat(BaseModel):
+        pet_type: Literal['cat']
+        meows: int
+
+    class Dog(BaseModel):
+        pet_type: Literal['dog']
+        barks: float
+
+    class Settings(BaseSettings):
+        model_config = SettingsConfigDict(
+            cli_prog_name='example.py',
+            cli_show_env_vars=True,
+            env_nested_delimiter='__',
+            env_prefix='MYAPP_',
+        )
+
+        pet: Cat | Dog = Field(discriminator='pet_type')
+
+    help_text = CliApp.format_help(Settings, strip_ansi_color=True)
+
+    assert '[env: MYAPP_PET__PET_TYPE]' in help_text
+    assert '[env: MYAPP_PET__MEOWS]' in help_text
+    assert '[env: MYAPP_PET__BARKS]' in help_text
+
+
+def test_cli_show_env_vars_alias_only_and_positional_skip():
+    class Settings(BaseSettings):
+        model_config = SettingsConfigDict(cli_prog_name='example.py', cli_show_env_vars=True)
+
+        aliased: str = Field(alias='ALIASED')
+        positional: CliPositionalArg[str]
+
+    cli_settings = CliSettingsSource(Settings, cli_show_env_vars=True)
+    help_text = CliApp.format_help(Settings, cli_settings_source=cli_settings, strip_ansi_color=True)
+
+    assert '[env: ALIASED]' in help_text
+    assert '[env: ]' not in help_text
+    assert cli_settings.env_var_names == {'ALIASED': ('ALIASED',)}
+
+
+def test_cli_show_env_vars_case_sensitive_display():
+    class CaseInsensitive(BaseSettings):
+        model_config = SettingsConfigDict(
+            cli_prog_name='example.py',
+            cli_show_env_vars=True,
+            env_prefix='myapp_',
+            case_sensitive=False,
+        )
+
+        foo_bar: str
+
+    class CaseSensitive(BaseSettings):
+        model_config = SettingsConfigDict(
+            cli_prog_name='example.py',
+            cli_show_env_vars=True,
+            env_prefix='myapp_',
+            case_sensitive=True,
+        )
+
+        foo_bar: str
+
+    assert '[env: MYAPP_FOO_BAR]' in CliApp.format_help(CaseInsensitive, strip_ansi_color=True)
+    # On Windows, os.environ is case-insensitive, so case_sensitive has no effect for
+    # environment variables and the canonical (upper-cased) name is displayed (see #295).
+    expected_case_sensitive_env = 'MYAPP_FOO_BAR' if os.name == 'nt' else 'myapp_foo_bar'
+    assert f'[env: {expected_case_sensitive_env}]' in CliApp.format_help(CaseSensitive, strip_ansi_color=True)
+
+
+def test_cli_show_env_vars_subcommand(capsys):
+    class SubCommand(BaseModel):
+        foo: str
+
+    class Settings(BaseSettings):
+        model_config = SettingsConfigDict(
+            cli_prog_name='example.py',
+            cli_show_env_vars=True,
+            env_nested_delimiter='__',
+            env_prefix='MYAPP_',
+        )
+
+        sub: CliSubCommand[SubCommand]
+
+    with pytest.raises(SystemExit):
+        CliApp.run(Settings, cli_args=['sub', '--help'])
+
+    assert '[env: MYAPP_SUB__FOO]' in capsys.readouterr().out
+
+
+def test_cli_show_env_vars_without_env_nested_delimiter():
+    class Database(BaseModel):
+        url: str
+
+    class Settings(BaseSettings):
+        model_config = SettingsConfigDict(
+            cli_prog_name='example.py',
+            cli_show_env_vars=True,
+            env_prefix='MYAPP_',
+        )
+
+        database: Database
+
+    cli_settings = CliSettingsSource(Settings, cli_show_env_vars=True)
+    help_text = CliApp.format_help(Settings, cli_settings_source=cli_settings, strip_ansi_color=True)
+
+    assert 'MYAPP_DATABASE' in help_text
+    assert '--database.url str' in help_text
+    assert 'MYAPP_DATABASE__URL' not in help_text
+    assert cli_settings.env_var_names.get('database') == ('MYAPP_DATABASE',)
+    assert 'database.url' not in cli_settings.env_var_names
+
+
+def test_cli_run_subcommand_show_env_vars_outside_cli_stack():
+    class SubCommand(BaseModel):
+        value: str
+
+        def cli_cmd(self) -> None:
+            pass
+
+    class Settings(BaseSettings):
+        model_config = SettingsConfigDict(
+            cli_prog_name='example.py',
+            env_prefix='MYAPP_',
+        )
+
+        foo: str = 'foo'
+        sub: CliSubCommand[SubCommand]
+
+    with pytest.raises(SettingsError, match='Error: CLI subcommand is required') as exc_info:
+        CliApp.run_subcommand(
+            Settings.model_construct(foo='foo', sub=None), cli_show_env_vars=True, cli_exit_on_error=False
+        )
+
+    assert 'MYAPP_FOO' in str(exc_info.value)
+
+
+def test_cli_show_env_vars_cli_app_runtime_override(capsys):
+    class Settings(BaseSettings):
+        model_config = SettingsConfigDict(cli_prog_name='example.py', env_prefix='MYAPP_')
+
+        foo: str
+
+    with pytest.raises(SystemExit):
+        CliApp.run(Settings, cli_args=['--help'], cli_show_env_vars=True)
+
+    assert '[env: MYAPP_FOO]' in capsys.readouterr().out
 
 
 def test_cli_help_union_of_models(capsys, monkeypatch):
@@ -1573,10 +1906,9 @@ def test_cli_variadic_positional_arg_custom_type():
 
     Regression test for https://github.com/pydantic/pydantic-settings/issues/823
     """
-    from string import ascii_letters
 
     class AsciiLetters(str):
-        def __new__(cls, content: object) -> 'AsciiLetters':
+        def __new__(cls, content: object) -> typing_extensions.Self:
             if not all(c in ascii_letters for c in str(content)):
                 raise Exception('Non-ascii letter')
             return super().__new__(cls, content)
@@ -2394,6 +2726,19 @@ def test_cli_user_settings_source_exceptions():
         CliSettingsSource(CfgWithSubCommand, add_subparsers_method=None)
 
 
+def test_cli_enum_default_through_nested_annotation(capsys, monkeypatch):
+    class Cfg(BaseSettings, cli_parse_args=True, cli_prog_name='example.py'):
+        fruit: Annotated[FruitsEnum, Field(description='fruit')] | None = FruitsEnum.kiwi
+
+    with monkeypatch.context() as m:
+        m.setattr(sys, 'argv', ['example.py', '--help'])
+
+        with pytest.raises(SystemExit):
+            Cfg()
+
+        assert '(default: kiwi)' in capsys.readouterr().out
+
+
 @pytest.mark.parametrize(
     'value,expected',
     [
@@ -2425,13 +2770,11 @@ def test_cli_user_settings_source_exceptions():
         (DirectoryPath, 'Path'),
         (FruitsEnum, '{pear,kiwi,lime}'),
         (time.time_ns, 'time_ns'),
-        (foobar, 'foobar'),
         (CliDummyParser.add_argument, 'CliDummyParser.add_argument'),
         (lambda: str | int, '{str,int}'),
         (lambda: list[int], 'list[int]'),
         (lambda: List[int], 'List[int]'),  # noqa: UP006
         (lambda: list[dict[str, int]], 'list[dict[str,int]]'),
-        (lambda: list[str | int], 'list[{str,int}]'),
         (lambda: list[str | int], 'list[{str,int}]'),
         (lambda: LoggedVar[int], 'LoggedVar[int]'),
         (lambda: LoggedVar[Dict[int, str]], 'LoggedVar[Dict[int,str]]'),  # noqa: UP006
@@ -2444,7 +2787,7 @@ def test_cli_metavar_format(hide_none_type, value, expected):
 
     cli_settings = CliSettingsSource(SimpleSettings, cli_hide_none_type=hide_none_type)
     if hide_none_type:
-        if value == [1, 2, 3] or isinstance(value, LoggedVar) or isinstance(value, Representation):
+        if value == [1, 2, 3] or isinstance(value, (LoggedVar, Representation)):
             pytest.skip()
         if value in ('foobar', 'SomeForwardRefString'):
             expected = f"ForwardRef('{value}')"  # forward ref implicit cast
@@ -2624,8 +2967,8 @@ def test_cli_mutually_exclusive_group(capsys, monkeypatch):
         circle_optional: Circle = Circle(radius=None, diameter=None, perimeter=24)
         circle_required: Circle
 
-    CliApp.run(Settings, cli_args=['--circle-required.radius=1', '--circle-optional.radius=1']).model_dump() == {
-        'circle_optional': {'radius': 1, 'diameter': 22, 'perimeter': 24},
+    assert CliApp.run(Settings, cli_args=['--circle-required.radius=1', '--circle-optional.radius=1']).model_dump() == {
+        'circle_optional': {'radius': 1, 'diameter': None, 'perimeter': 24},
         'circle_required': {'radius': 1, 'diameter': 22, 'perimeter': 23},
     }
 
@@ -2824,7 +3167,6 @@ def test_cli_self_referential_model():
 
     Self-referential models should not cause infinite recursion in CLI arg parser.
     """
-    from typing import Optional
 
     class Foo(BaseModel):
         foo: Optional['Foo'] = None
@@ -2852,7 +3194,6 @@ def test_cli_mutually_recursive_models():
     Mutually recursive models (A -> B -> A) via discriminated unions should not
     cause infinite recursion in CLI arg parser.
     """
-    from typing import Annotated, Literal, Union
 
     class A(BaseModel):
         type: Literal['a'] = 'a'

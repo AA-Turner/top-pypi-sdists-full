@@ -8,6 +8,7 @@ import io
 import re
 import sys
 import unittest
+from unittest.mock import patch
 
 import pytest
 
@@ -15,7 +16,7 @@ import astroid
 from astroid import MANAGER, builder, nodes, objects, test_utils, util
 from astroid.bases import Instance
 from astroid.brain.brain_namedtuple_enum import _get_namedtuple_fields
-from astroid.const import PY312_PLUS, PY313_PLUS
+from astroid.const import PY312_PLUS, PY313_PLUS, PY315_PLUS
 from astroid.exceptions import (
     AttributeInferenceError,
     InferenceError,
@@ -494,6 +495,36 @@ class TypingBrain(unittest.TestCase):
         attr = next(attr_def.infer())
         self.assertEqual(attr.value, "bar")
 
+    def test_namedtuple_class_form_assignment_targets(self):
+        """An assignment in the body may not bind a single plain name.
+
+        Regression test for https://github.com/pylint-dev/astroid/issues/3190
+        """
+        attribute, subscript, unpacking = builder.extract_node("""
+        from typing import NamedTuple
+
+        class Attribute(NamedTuple):
+            cat.color = "black"
+
+        class Subscript(NamedTuple):
+            basket[0] = "apple"
+
+        class Unpacking(NamedTuple):
+            apple, banana = "red", "yellow"
+
+        Attribute()  #@
+        Subscript()  #@
+        Unpacking()  #@
+        """)
+        # Inference must not raise ``AttributeError`` or ``KeyError``.
+        for node in (attribute, subscript, unpacking):
+            self.assertIsInstance(next(node.infer()), astroid.Instance)
+
+        # The names bound by unpacking are still class attributes.
+        inferred = next(unpacking.infer())
+        for name, value in (("apple", "red"), ("banana", "yellow")):
+            self.assertEqual(next(inferred.getattr(name)[0].infer()).value, value)
+
     def test_tuple_type(self):
         node = builder.extract_node("""
         from typing import Tuple
@@ -655,6 +686,22 @@ class TypingBrain(unittest.TestCase):
         # Test TypedDict instance is callable
         assert next(code[1].infer()).callable() is True
 
+    def test_typed_dict_required_and_optional_keys(self):
+        """TypedDict subclasses expose ``__required_keys__`` and ``__optional_keys__``."""
+        code = builder.extract_node("""
+        from typing import TypedDict
+        from typing_extensions import TypedDict as ETD
+
+        class CustomTD(TypedDict):  #@
+            var: int
+
+        class CustomTD2(ETD):  #@
+            var: int
+        """)
+        for cls in code:
+            for attr in ("__required_keys__", "__optional_keys__"):
+                assert cls.getattr(attr), f"{cls.name}.{attr} not found"
+
     def test_typing_alias_type(self):
         """
         Test that the type aliased thanks to typing._alias function are
@@ -787,7 +834,10 @@ class TypingBrain(unittest.TestCase):
         typing.ByteString
         """)
         inferred = next(right_node.infer())
-        check_metaclass_is_abc(inferred)
+        # From Python 3.15 we add a stub definition of `ByteString`. It doesn't need all properties
+        # of the original implementation.
+        if not PY315_PLUS:
+            check_metaclass_is_abc(inferred)
         with self.assertRaises(AttributeInferenceError):
             self.assertIsInstance(
                 inferred.getattr("__class_getitem__")[0], nodes.FunctionDef
@@ -998,6 +1048,25 @@ class RandomSampleTest(unittest.TestCase):
         assert len(inferred.elts) == 1
         assert isinstance(inferred.elts[0], nodes.FunctionDef)
         assert inferred.elts[0].name == "len"
+
+    def test_no_crash_on_module_clone(self) -> None:
+        """Test that random.sample does not crash when cloning Module nodes.
+
+        Module.__init__ does not accept ``lineno``/``col_offset`` kwargs, so
+        cloning must filter init params to those the class actually accepts.
+
+        Regression test for https://github.com/pylint-dev/astroid/issues/3043
+        """
+        node = astroid.extract_node("""
+        from random import sample
+        import gc
+        sample(list({gc}) * 2, 1)  #@
+        """)
+        inferred = next(node.infer())
+        assert isinstance(inferred, nodes.List)
+        assert len(inferred.elts) == 1
+        assert isinstance(inferred.elts[0], nodes.Module)
+        assert inferred.elts[0].name == "gc"
 
 
 class SubprocessTest(unittest.TestCase):
@@ -1407,6 +1476,7 @@ def test_infer_str() -> None:
     str(s) #@
     str('a') #@
     str(some_object()) #@
+    str(7**10000) #@
     """)
     for node in ast_nodes:
         inferred = next(node.infer())
@@ -1418,6 +1488,54 @@ def test_infer_str() -> None:
     inferred = next(node.infer())
     assert isinstance(inferred, astroid.Instance)
     assert inferred.qname() == "builtins.str"
+
+
+def test_infer_str_const() -> None:
+    ast_nodes = astroid.extract_node("""
+    str('') #@
+    str('a') #@
+    str(1) #@
+    str(True) #@
+    str(False) #@
+    str(None) #@
+    str(4.33) #@
+    str(...) #@
+    str(2 + 2) #@
+    str() #@
+    str(int) #@
+    str(2 if unknown() else 3) #@
+    """)
+
+    inferred = list(node.inferred()[0].value for node in ast_nodes)
+    assert inferred[0] == ""
+    assert inferred[1] == "a"
+    assert inferred[2] == "1"
+    assert inferred[3] == "True"
+    assert inferred[4] == "False"
+    assert inferred[5] == "None"
+    assert inferred[6] == "4.33"
+    assert inferred[7] == "Ellipsis"
+    assert inferred[8] == "4"
+    assert inferred[9] == ""
+    assert inferred[10] == ""
+    assert inferred[11] == ""
+
+
+def test_infer_str_does_not_run_user_str() -> None:
+    """A user-defined __str__ must never be executed during inference."""
+    node = astroid.extract_node("""
+    class StrWillFail:
+        def __str__(self):
+            raise RuntimeError
+
+    str(StrWillFail()) #@
+    """)
+    # The argument infers to an Instance, not a nodes.Const, so infer_str
+    # returns the empty-string fallback without ever calling __str__.
+    inferred = node.inferred()
+    assert len(inferred) == 1
+    assert isinstance(inferred[0], nodes.Const)
+    assert inferred[0].value == ""
 
 
 def test_infer_int() -> None:
@@ -1516,6 +1634,54 @@ def test_infer_dict_from_keys() -> None:
         assert sorted(actual_values) == ["a", "b", "c"]
 
 
+def test_container_transform_oversized_str_declines() -> None:
+    """list/set/tuple/frozenset must not build one Const per character for a
+    str/bytes constant longer than the cap."""
+    with patch("astroid.brain.brain_builtin_inference._MAX_INFERABLE_STR_LEN", 4):
+        for builtin in ("list", "set", "tuple", "frozenset"):
+            node = astroid.extract_node(f'{builtin}("abcdef")')
+            inferred = next(node.infer())
+            assert isinstance(inferred, Instance)
+
+    # Small strings still infer their exact contents.
+    node = astroid.extract_node('list("abc")')
+    inferred = next(node.infer())
+    assert isinstance(inferred, nodes.List)
+    assert [elem.value for elem in inferred.elts] == ["a", "b", "c"]
+
+
+def test_infer_dict_fromkeys_oversized_str_declines() -> None:
+    """dict.fromkeys must not build one key per character for a str/bytes
+    constant longer than the cap."""
+    with patch("astroid.brain.brain_builtin_inference._MAX_INFERABLE_STR_LEN", 4):
+        node = astroid.extract_node('dict.fromkeys("abcdef")')
+        inferred = next(node.infer())
+        assert isinstance(inferred, nodes.Dict)
+        assert inferred.items == []
+
+
+def test_infer_dict_from_keys_deduplicates() -> None:
+    # dict.fromkeys drops duplicate keys, so the inferred dict must too. As a
+    # side effect a repeated string no longer materializes one key per
+    # character (dict.fromkeys("x" * 10**8) is a single-key dict).
+    nodes_with_dupes = astroid.extract_node("""
+    dict.fromkeys("aab") #@
+    dict.fromkeys(b"aab") #@
+    dict.fromkeys([1, 1, 2]) #@
+    dict.fromkeys((1, 2, 1)) #@
+    """)
+    expected = [["a", "b"], [97, 98], [1, 2], [1, 2]]
+    for node, keys in zip(nodes_with_dupes, expected):
+        inferred = next(node.infer())
+        assert isinstance(inferred, nodes.Dict)
+        assert [elem.value for elem in inferred.itered()] == keys
+
+    repeated = astroid.extract_node('dict.fromkeys("x" * 1000)')
+    inferred = next(repeated.infer())
+    assert isinstance(inferred, nodes.Dict)
+    assert [elem.value for elem in inferred.itered()] == ["x"]
+
+
 class TestFunctoolsPartial:
     @staticmethod
     def test_infer_partial() -> None:
@@ -1536,6 +1702,30 @@ class TestFunctoolsPartial:
         assert partial.doc_node.value == "Docstring"
         assert partial.lineno == 3
         assert partial.col_offset == 0
+        assert partial.end_lineno == 5
+        assert partial.end_col_offset == 16
+
+    @staticmethod
+    def test_partial_descriptor_binding() -> None:
+        ast_nodes = astroid.extract_node("""
+        from functools import partial
+
+        def test(x):
+            return x
+
+        p = partial(test, x=1)
+        a = p.__get__({})
+        a #@
+        a() #@
+        """)
+        bound, result = ast_nodes
+        inferred_bound = next(bound.infer())
+        assert isinstance(inferred_bound, astroid.BoundMethod)
+        assert isinstance(inferred_bound._proxied._proxied, objects.PartialFunction)
+
+        inferred_result = next(result.infer())
+        assert isinstance(inferred_result, nodes.Const)
+        assert inferred_result.value == 1
 
     def test_invalid_functools_partial_calls(self) -> None:
         ast_nodes = astroid.extract_node("""

@@ -664,6 +664,7 @@ from .type_defs import (
     UpdateContactRequestTypeDef,
     UpdateContactRoutingDataRequestTypeDef,
     UpdateContactScheduleRequestTypeDef,
+    UpdateContactTaskTemplateRequestTypeDef,
     UpdateDataTableAttributeRequestTypeDef,
     UpdateDataTableAttributeResponseTypeDef,
     UpdateDataTableMetadataRequestTypeDef,
@@ -4154,6 +4155,16 @@ class ConnectClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/update_contact_schedule.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#update_contact_schedule)
+        """
+
+    def update_contact_task_template(
+        self, **kwargs: Unpack[UpdateContactTaskTemplateRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Updates the task template association on an existing task contact.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/update_contact_task_template.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#update_contact_task_template)
         """
 
     def update_data_table_attribute(

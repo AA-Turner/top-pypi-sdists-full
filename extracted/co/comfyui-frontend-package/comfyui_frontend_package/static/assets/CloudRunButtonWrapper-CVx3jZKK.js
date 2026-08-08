@@ -1,2 +1,0 @@
-import"./rolldown-runtime-G-74P12b.js";import{Ht as e,M as t,P as n,U as r,at as i,dt as a}from"./vendor-vue-core-BZZQdWHo.js";import{or as o}from"./settingStore-FoBj0dOm.js";import{t as s}from"./ComfyQueueButton-2QYg0KbQ.js";import{t as c}from"./SubscribeToRun-BJd4dYAq.js";var l=r({__name:`CloudRunButtonWrapper`,setup(r){let{canRunWorkflows:l}=o(),u=t(()=>l.value?s:c);return(t,r)=>(i(),n(a(u.value),{key:e(l)?`queue`:`subscribe`}))}});export{l as default};
-//# sourceMappingURL=CloudRunButtonWrapper-CVx3jZKK.js.map

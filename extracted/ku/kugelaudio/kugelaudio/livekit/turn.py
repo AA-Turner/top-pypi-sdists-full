@@ -17,7 +17,12 @@ from livekit.agents import (
     stt,
 )
 
-from kugelaudio.turn import TurnDecision, TurnDetector, TurnLanguage
+from kugelaudio.turn import (
+    TurnDecision,
+    TurnDecisionReason,
+    TurnDetector,
+    TurnLanguage,
+)
 from kugelaudio.turn._stream import AsyncTurnEndpoint
 from kugelaudio.turn.errors import TurnAudioError, TurnStateError
 
@@ -47,13 +52,22 @@ class KugelTurnBridge:
         timeout_ms: int = 10_000,
         poll_interval_ms: int = 50,
         pre_roll_ms: int = 500,
+        barge_in_ms: int | None = None,
     ) -> None:
         if vad_silence_ms < 0:
             raise TurnStateError(
                 f"vad_silence_ms must be non-negative, got {vad_silence_ms}"
             )
+        if barge_in_ms is not None and barge_in_ms <= 0:
+            raise TurnStateError(
+                f"barge_in_ms must be positive when set, got {barge_in_ms}"
+            )
         self._session: _LiveKitSession | None = None
         self._vad_silence_ms = vad_silence_ms
+        self._barge_in_ms = barge_in_ms
+        self._on_decision = on_decision
+        self._barge_in_task: asyncio.Task[None] | None = None
+        self._paused_by_barge_in = False
         self._resampler: rtc.AudioResampler | None = None
         self._input_rate: int | None = None
         self._closed = False
@@ -66,7 +80,7 @@ class KugelTurnBridge:
                 timeout_ms=timeout_ms,
             ),
             on_end_turn=self._commit_user_turn,
-            on_decision=on_decision,
+            on_decision=self._observe_decision,
             poll_interval_ms=poll_interval_ms,
             pre_roll_ms=pre_roll_ms,
         )
@@ -86,6 +100,8 @@ class KugelTurnBridge:
             raise TurnStateError(
                 "KugelTurnBridge is already attached to another session"
             )
+        if self._barge_in_ms is not None:
+            self._verify_barge_in_support(typed_session)
         self._session = typed_session
         typed_session.on(
             "user_input_transcribed",
@@ -125,6 +141,8 @@ class KugelTurnBridge:
                 cast(Callable[[object], None], self._on_user_state),
             )
         self._session = None
+        self._cancel_barge_in()
+        self._paused_by_barge_in = False
         await self._endpoint.aclose()
         try:
             if self._commit_futures:
@@ -175,13 +193,144 @@ class KugelTurnBridge:
         self._raise_commit_failure()
         if event.new_state == "speaking":
             self._endpoint.speech_started()
+            self._schedule_barge_in()
         elif event.new_state == "listening" and self._endpoint.active:
+            self._cancel_barge_in()
             self._endpoint.speech_stopped(initial_silence_ms=self._vad_silence_ms)
+
+    # region barge-in
+    #
+    # ``turn_detection="manual"`` disables every one of LiveKit's own
+    # audio-activity interrupt paths (``AgentActivity.on_vad_inference_done``
+    # and both transcript hooks return early, and
+    # ``_resolve_interruption_detection`` yields ``None``), because LiveKit
+    # assumes the application owns turn taking. KugelTurn owns end-of-turn but
+    # still wants LiveKit's pause/resume behaviour for barge-in, so the bridge
+    # drives ``AgentActivity`` directly. Those two entry points are private, so
+    # ``_verify_barge_in_support`` pins them explicitly rather than letting a
+    # LiveKit upgrade silently turn barge-in back off.
+
+    _ACTIVITY_HOOKS = (
+        "_interrupt_by_audio_activity",
+        "_start_false_interruption_timer",
+    )
+    # LiveKit 1.5 added a gate that makes ``_interrupt_by_audio_activity`` a
+    # no-op under manual turn detection; 1.3 has no such flag and needs no
+    # opt-in. Treat it as optional so both API generations work.
+    _ACTIVITY_ENABLE_FLAG = "_interruption_by_audio_activity_enabled"
+
+    def _verify_barge_in_support(self, session: _LiveKitSession) -> None:
+        """Fail loudly when the installed LiveKit lacks the pause hooks."""
+        for attribute in ("agent_state", "_activity"):
+            if not hasattr(session, attribute):
+                raise TurnStateError(
+                    f"barge_in_ms requires AgentSession.{attribute}; "
+                    "the installed livekit-agents release does not expose it"
+                )
+        activity = getattr(session, "_activity", None)
+        if activity is None:
+            # The activity only exists once the agent has started; the hooks are
+            # re-checked on the first barge-in.
+            return
+        self._verify_activity_hooks(activity)
+
+    def _verify_activity_hooks(self, activity: object) -> None:
+        missing = [name for name in self._ACTIVITY_HOOKS if not hasattr(activity, name)]
+        if missing:
+            raise TurnStateError(
+                "barge_in_ms requires AgentActivity"
+                f".{', .'.join(missing)}; the installed livekit-agents release "
+                "does not expose them"
+            )
+
+    def _schedule_barge_in(self) -> None:
+        if self._barge_in_ms is None or self._closed:
+            return
+        self._cancel_barge_in()
+        task = asyncio.create_task(
+            self._barge_in_after_delay(), name="kugelaudio-turn-barge-in"
+        )
+        task.add_done_callback(self._barge_in_done)
+        self._barge_in_task = task
+
+    def _cancel_barge_in(self) -> None:
+        task = self._barge_in_task
+        if task is not None and not task.done():
+            task.cancel()
+        self._barge_in_task = None
+
+    async def _barge_in_after_delay(self) -> None:
+        assert self._barge_in_ms is not None
+        await asyncio.sleep(self._barge_in_ms / 1000)
+        self._pause_agent_speech()
+
+    def _pause_agent_speech(self) -> None:
+        """Pause the agent mid-sentence once overlap outlasts ``barge_in_ms``."""
+        session = self._session
+        if session is None:
+            return
+        if getattr(session, "agent_state", None) != "speaking":
+            return
+        activity = getattr(session, "_activity", None)
+        if activity is None:
+            return
+        self._verify_activity_hooks(activity)
+        # LiveKit 1.5 disables this flag for manual turn detection, making the
+        # call below a no-op without it. ``_interrupt_by_audio_activity``
+        # restores it to the session default (still disabled) on the way out, so
+        # LiveKit's own interrupt paths stay off and each barge-in re-arms it
+        # deliberately.
+        if hasattr(activity, self._ACTIVITY_ENABLE_FLAG):
+            setattr(activity, self._ACTIVITY_ENABLE_FLAG, True)
+        activity._interrupt_by_audio_activity()
+        self._paused_by_barge_in = True
+        logger.info("paused agent speech for barge-in")
+
+    def _resume_agent_speech(self) -> None:
+        """Resume a paused agent turn as soon as KugelTurn rejects the overlap."""
+        if not self._paused_by_barge_in:
+            return
+        self._paused_by_barge_in = False
+        session = self._session
+        activity = getattr(session, "_activity", None) if session else None
+        if activity is None:
+            return
+        self._verify_activity_hooks(activity)
+        # Re-arm LiveKit's own false-interruption timer at zero delay: that runs
+        # its resume path (agent-state restore, audio resume, the
+        # `agent_false_interruption` event) instead of reimplementing it here.
+        activity._start_false_interruption_timer(0)
+        logger.info("resumed agent speech; KugelTurn rejected the overlap")
+
+    def _barge_in_done(self, task: asyncio.Task[None]) -> None:
+        if self._barge_in_task is task:
+            self._barge_in_task = None
+        if task.cancelled():
+            return
+        failure = task.exception()
+        if failure is not None:
+            self._commit_failure = failure
+            logger.error(
+                "barge-in pause failed",
+                exc_info=(type(failure), failure, failure.__traceback__),
+            )
+
+    def _observe_decision(self, decision: TurnDecision) -> None:
+        if decision.reason is TurnDecisionReason.MODEL_HOLD:
+            self._resume_agent_speech()
+        if self._on_decision is not None:
+            self._on_decision(decision)
+
+    # endregion
 
     async def _commit_user_turn(self, decision: TurnDecision) -> None:
         session = self._session
         if session is None:
             raise TurnStateError("LiveKit session detached before turn commit")
+        # A committed turn is a confirmed interruption: LiveKit's own commit path
+        # hard-interrupts the paused speech, so it must not be resumed.
+        self._cancel_barge_in()
+        self._paused_by_barge_in = False
         result = session.commit_user_turn()
         # LiveKit 1.3 returns None; newer releases return an awaitable transcript.
         # RISK: this compatibility branch is version-sensitive and must remain

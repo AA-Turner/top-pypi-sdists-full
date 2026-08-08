@@ -280,8 +280,8 @@ class SpacesClient:
 
         body = gen.AddSpaceUserRequest(
             user_id=user_id,
-            role=gen.SpaceRoleAssignment(
-                gen.PredefinedRoleAssignment(
+            role=gen.SpaceRoleAssignmentRequest(
+                gen.PredefinedRoleAssignmentRequest(
                     type=gen.SpaceRoleAssignmentType.PREDEFINED,
                     name=role.name,
                 )
@@ -289,7 +289,7 @@ class SpacesClient:
                 # discriminated union; drift is guarded by the test asserting
                 # the Literal matches SpaceRoleAssignmentType.
                 if role.type == "PREDEFINED"
-                else gen.CustomRoleAssignment(
+                else gen.CustomRoleAssignmentRequest(
                     type=gen.SpaceRoleAssignmentType.CUSTOM,
                     id=role.id,
                 )

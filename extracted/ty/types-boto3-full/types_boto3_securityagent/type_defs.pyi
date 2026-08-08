@@ -1235,12 +1235,16 @@ class ActorOutputTypeDef(TypedDict):
     uris: NotRequired[list[str]]
     authentication: NotRequired[AuthenticationTypeDef]
     description: NotRequired[str]
+    enableEmailMfa: NotRequired[bool]
+    mfaForwardingAddress: NotRequired[str]
 
 class ActorTypeDef(TypedDict):
     identifier: NotRequired[str]
     uris: NotRequired[Sequence[str]]
     authentication: NotRequired[AuthenticationTypeDef]
     description: NotRequired[str]
+    enableEmailMfa: NotRequired[bool]
+    mfaForwardingAddress: NotRequired[str]
 
 class AddArtifactInputTypeDef(TypedDict):
     agentSpaceId: str

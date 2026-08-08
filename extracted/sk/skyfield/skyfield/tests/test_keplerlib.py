@@ -2,7 +2,7 @@ import os
 from numpy import pi, seterr, linspace
 
 from skyfield.api import load
-from skyfield.constants import GM_SUN_Pitjeva_2005_km3_s2 as GM_SUN
+from skyfield.constants import GM_SUN_DE440_km3_s2 as GM_SUN
 from skyfield.data import mpc
 from skyfield.keplerlib import _KeplerOrbit as KeplerOrbit, propagate, _CONVERT_GM
 from skyfield.tests.test_elementslib import compare, ele_to_vec

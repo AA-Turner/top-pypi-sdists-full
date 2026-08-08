@@ -263,6 +263,9 @@ class TasksClient:
                 with the following fields:
 
                 - ``evaluator_id`` — Evaluator identifier (base64). Required.
+                - ``evaluator_version_id`` — Pins the evaluator to one version
+                  (base64). Optional; omit it to run the latest version. Must
+                  be a version of ``evaluator_id``.
                 - ``query_filter`` — Per-evaluator filter (AND-ed with
                   task-level filter). Optional.
                 - ``column_mappings`` — Maps template variable names to column
@@ -430,6 +433,8 @@ class TasksClient:
                 with the following fields:
 
                 - ``evaluator_id`` — Evaluator identifier (base64). Required.
+                - ``evaluator_version_id`` — Pins the evaluator to one version
+                  (base64). Optional; omit it to run the latest version.
                 - ``query_filter`` — Per-evaluator filter. Optional.
                 - ``column_mappings`` — Template variable name mappings. Optional.
 

@@ -687,6 +687,8 @@ class Timestamp(Num):
     - Unix timestamps (as integers or floats)
 
     All timestamps are converted to Unix timestamps in UTC for consistency.
+    Bare date values and date-only ISO strings are anchored to the UTC calendar
+    day, not the host's local day, and naive datetimes are read as UTC.
     """
 
     SUPPORTED_TYPES = (
@@ -714,12 +716,34 @@ class Timestamp(Num):
         date_pattern = r"^\d{4}-\d{2}-\d{2}$"
         return bool(re.match(date_pattern, iso_string))
 
+    @staticmethod
+    def _as_date(value: Any) -> Any:
+        """Normalize a date-only ISO string to a date, leaving anything else alone.
+
+        Returns a datetime.date for a "YYYY-MM-DD" string, and the value
+        unchanged for every other input, including a date-shaped string that is
+        not a real calendar date.
+        """
+        if isinstance(value, str) and Timestamp._is_date_only(value):
+            try:
+                return datetime.datetime.strptime(value, "%Y-%m-%d").date()
+            except ValueError:
+                # Date-shaped but not a real date, e.g. "2023-02-30": _is_date_only
+                # only checks the digit pattern. Hand it back so the caller below
+                # rejects it with one consistent message.
+                return value
+        return value
+
     def _convert_to_timestamp(self, value, end_date=False):
         """
         Convert various inputs to a Unix timestamp (seconds since epoch in UTC).
 
+        Naive datetimes are interpreted as UTC rather than local time.
+
         Args:
             value: A datetime, date, string, int, or float
+            end_date: For a bare date, anchor to the end of that UTC day
+                (23:59:59.999999) instead of the start (00:00:00).
 
         Returns:
             float: Unix timestamp
@@ -730,6 +754,10 @@ class Timestamp(Num):
         if isinstance(value, (int, float)):
             # Already a Unix timestamp
             return float(value)
+
+        # Coerce before the fromisoformat call below, which would otherwise turn a
+        # date-only string into a midnight datetime and skip the end_date branch.
+        value = self._as_date(value)
 
         if isinstance(value, str):
             # Parse ISO format
@@ -764,7 +792,8 @@ class Timestamp(Num):
     ) -> FilterExpression:
         """
         Filter for timestamps equal to the specified value.
-        For date objects (without time), this matches the entire day.
+        For date objects (without time), this matches the entire UTC calendar
+        day, from 00:00:00 to 23:59:59.999999 UTC.
 
         Args:
             other: A datetime, date, ISO string, or Unix timestamp
@@ -773,17 +802,12 @@ class Timestamp(Num):
             self: The filter object for method chaining
         """
         if self._is_date(other):
-            # For date objects, match the entire day
+            # For date objects, match the entire day. Passing the date itself
+            # lets _convert_to_timestamp derive the UTC day bounds.
             if isinstance(other, str):
                 other = datetime.datetime.strptime(other, "%Y-%m-%d").date()
             assert isinstance(other, datetime.date)  # validate for mypy
-            start = datetime.datetime.combine(other, datetime.time.min).astimezone(
-                datetime.timezone.utc
-            )
-            end = datetime.datetime.combine(other, datetime.time.max).astimezone(
-                datetime.timezone.utc
-            )
-            return self.between(start, end)
+            return self.between(other, other)
 
         timestamp = self._convert_to_timestamp(other)
         self._set_value(timestamp, self.SUPPORTED_TYPES, FilterOperator.EQ)
@@ -794,7 +818,8 @@ class Timestamp(Num):
     ) -> FilterExpression:
         """
         Filter for timestamps not equal to the specified value.
-        For date objects (without time), this excludes the entire day.
+        For date objects (without time), this excludes the entire UTC calendar
+        day, from 00:00:00 to 23:59:59.999999 UTC.
 
         Args:
             other: A datetime, date, ISO string, or Unix timestamp
@@ -803,13 +828,16 @@ class Timestamp(Num):
             self: The filter object for method chaining
         """
         if self._is_date(other):
-            # For date objects, exclude the entire day
+            # For date objects, exclude the entire day by negating exactly the
+            # range that __eq__ matches.
             if isinstance(other, str):
                 other = datetime.datetime.strptime(other, "%Y-%m-%d").date()
             assert isinstance(other, datetime.date)  # validate for mypy
-            start = datetime.datetime.combine(other, datetime.time.min)
-            end = datetime.datetime.combine(other, datetime.time.max)
-            return self.between(start, end)
+            start_ts = self._convert_to_timestamp(other)
+            end_ts = self._convert_to_timestamp(other, end_date=True)
+            return FilterExpression(
+                self.OPERATOR_MAP[FilterOperator.NE] % (self._field, start_ts, end_ts)
+            )
 
         timestamp = self._convert_to_timestamp(other)
         self._set_value(timestamp, self.SUPPORTED_TYPES, FilterOperator.NE)
@@ -819,19 +847,27 @@ class Timestamp(Num):
         """
         Filter for timestamps greater than the specified value.
 
+        For a bare date (or date-only ISO string), this means after the *end* of
+        that UTC day, so the day itself is excluded.
+
         Args:
             other: A datetime, date, ISO string, or Unix timestamp
 
         Returns:
             self: The filter object for method chaining
         """
-        timestamp = self._convert_to_timestamp(other)
+        # end_date anchors a bare date to 23:59:59.999999 so the exclusive lower
+        # bound skips the whole day rather than just its first instant.
+        timestamp = self._convert_to_timestamp(other, end_date=True)
         self._set_value(timestamp, self.SUPPORTED_TYPES, FilterOperator.GT)
         return FilterExpression(str(self))
 
     def __lt__(self, other):
         """
         Filter for timestamps less than the specified value.
+
+        For a bare date (or date-only ISO string), this means before the *start*
+        of that UTC day, so the day itself is excluded.
 
         Args:
             other: A datetime, date, ISO string, or Unix timestamp
@@ -847,6 +883,9 @@ class Timestamp(Num):
         """
         Filter for timestamps greater than or equal to the specified value.
 
+        For a bare date (or date-only ISO string), this means from the *start* of
+        that UTC day, so the day itself is included.
+
         Args:
             other: A datetime, date, ISO string, or Unix timestamp
 
@@ -861,13 +900,18 @@ class Timestamp(Num):
         """
         Filter for timestamps less than or equal to the specified value.
 
+        For a bare date (or date-only ISO string), this means through the *end* of
+        that UTC day, so the day itself is included.
+
         Args:
             other: A datetime, date, ISO string, or Unix timestamp
 
         Returns:
             self: The filter object for method chaining
         """
-        timestamp = self._convert_to_timestamp(other)
+        # end_date anchors a bare date to 23:59:59.999999 so the inclusive upper
+        # bound covers the whole day rather than just its first instant.
+        timestamp = self._convert_to_timestamp(other, end_date=True)
         self._set_value(timestamp, self.SUPPORTED_TYPES, FilterOperator.LE)
         return FilterExpression(str(self))
 
@@ -875,9 +919,15 @@ class Timestamp(Num):
         """
         Filter for timestamps between start and end (inclusive).
 
+        Bare dates (and date-only ISO strings) span whole UTC calendar days:
+        start anchors to 00:00:00 of its day and end to 23:59:59.999999 of its
+        day, so both endpoint days are covered in full.
+
         Args:
             start: A datetime, date, ISO string, or Unix timestamp
             end: A datetime, date, ISO string, or Unix timestamp
+            inclusive: Which endpoints to include -- "both" (default), "left",
+                "right", or "neither".
 
         Returns:
             self: The filter object for method chaining

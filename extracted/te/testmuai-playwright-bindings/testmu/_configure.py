@@ -28,7 +28,7 @@ _config_data = {
     "uploaded_files": [],
     "environment_id": 0,
     "default_action_timeout_ms": 10000,
-    "default_navigation_timeout_ms": 30000,
+    "default_navigation_timeout_ms": 60000,
     # Opt-in marker — generated tests set this to True to enable kaneRunV4 +
     # preCmdVisual cap emission in _capability.py.
     "kane_run_v4": False,
@@ -100,7 +100,7 @@ _DEFAULTS = {
     "multiple_profiles": False, "variables": {}, "test_params": {},
     "global_variables": [], "uploaded_files": [], "environment_id": 0,
     "default_action_timeout_ms": 10000,
-    "default_navigation_timeout_ms": 30000,
+    "default_navigation_timeout_ms": 60000,
     "kane_run_v4": False,
     "kane_version": "v4",
     "auto_heal_version": "",

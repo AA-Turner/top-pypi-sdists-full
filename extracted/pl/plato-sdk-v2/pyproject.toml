@@ -57,6 +57,7 @@ plato-git-ops-server = "plato.git_ops.server:main"
 plato-apple-container-server = "plato.utils.apple_container_server:main"
 plato-world-runner = "plato.worlds.runner:main"
 plato-agent-runner = "plato.agents.runner:main"
+plato-agent-daemon = "plato.agents.daemon.main:main"
 
 [project.entry-points."plato.worlds"]
 plato-world-test-harness = "plato.worlds.testing.harness_world:WorldTestHarnessWorld"

@@ -21,13 +21,13 @@ if TYPE_CHECKING:
     from arize.config import SDKConfiguration
     from arize.prompts.types import (
         InputVariableFormat,
-        InvocationParams,
+        InvocationParamsRequest,
         ListPromptsResponse,
         ListPromptVersionsResponse,
-        LLMMessage,
+        LLMMessageRequest,
         LlmProvider,
         Prompt,
-        ProviderParams,
+        ProviderParamsRequest,
     )
 
 logger = logging.getLogger(__name__)
@@ -107,11 +107,11 @@ class PromptsClient:
         commit_message: str,
         input_variable_format: InputVariableFormat,
         provider: LlmProvider,
-        messages: builtins.list[LLMMessage],
+        messages: builtins.list[LLMMessageRequest],
         description: str | None = None,
         model: str | None = None,
-        invocation_params: InvocationParams | None = None,
-        provider_params: ProviderParams | None = None,
+        invocation_params: InvocationParamsRequest | None = None,
+        provider_params: ProviderParamsRequest | None = None,
     ) -> PromptWithVersion:
         """Create a prompt with an initial version.
 
@@ -327,10 +327,10 @@ class PromptsClient:
         commit_message: str,
         input_variable_format: InputVariableFormat,
         provider: LlmProvider,
-        messages: builtins.list[LLMMessage],
+        messages: builtins.list[LLMMessageRequest],
         model: str | None = None,
-        invocation_params: InvocationParams | None = None,
-        provider_params: ProviderParams | None = None,
+        invocation_params: InvocationParamsRequest | None = None,
+        provider_params: ProviderParamsRequest | None = None,
     ) -> PromptVersion:
         """Create a new version for an existing prompt.
 

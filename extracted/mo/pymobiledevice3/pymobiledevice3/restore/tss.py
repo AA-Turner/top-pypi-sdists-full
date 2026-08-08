@@ -20,11 +20,49 @@ from pymobiledevice3.utils import bytes_to_uint, plist_access_path
 # defaults write com.apple.configurator.xpc.DeviceService AuthInstallSigningServerURL http://gs.apple.com:80
 # defaults write com.apple.AMPDevicesAgent AuthInstallSigningServerURL http://gs.apple.com:80
 # ```
+#
+# CoreDevice (Xcode / `devicectl`) does not use `AuthInstallSigningServerURL`. Its equivalent knob
+# is `ddiSigningServer`, alongside `mountCryptexDDI(... signingServerURL: ...)` in
+# CoreDevice.framework:
+#
+# ```shell
+# defaults write com.apple.CoreDevice.CoreDeviceService ddiSigningServer http://gs.apple.com:80
+# ```
+#
+# That redirect does not help in practice, though: CoreDevice caches the personalization ticket, so
+# repeated DDI installs make no TSS request at all (verified with tcpdump -- zero packets to
+# gs.apple.com while `devicectl` reinstalled the cryptex). No user-readable on-disk ticket cache was
+# found to invalidate, and neither nonce-roll routine actually rolls a domain, so the cache cannot
+# be forced to miss either. MITM is no better: gs.apple.com is pinned, and mitmproxy only gets
+# "Server TLS handshake failed / self-signed certificate in certificate chain".
+#
+# Read the request out of the unified log instead. `CoreDeviceService` logs the whole dictionary it
+# is about to sign, verbatim, under `com.apple.libcryptex:scrivener` -- run a DDI install and then:
+#
+# ```shell
+# log show --last 5m --info --debug --predicate 'process == "CoreDeviceService"' \
+#     | awk '/tss request = \{/,/^\}/'
+# ```
+#
+# This is how `TSSRequest.add_cryptex1_tags` was derived; the device side is equally chatty, so
+# streaming its syslog filtered to the `cryptex` subsystem explains rejections a key at a time.
 TSS_CONTROLLER_ACTION_URL = "http://gs.apple.com/TSS/controller?action=2"
 
 TSS_CLIENT_VERSION_STRING = "libauthinstall-1104.0.9"
 
 logger = logging.getLogger(__name__)
+
+
+def cryptex1_udid(chip_instance: dict[str, typing.Any]) -> bytes:
+    """Build the ``Cryptex1,UDID`` identifying the device in a Cryptex1 TSS request.
+
+    It is the 16-byte concatenation of the chip ID and the ECID, both big-endian, and ends up in
+    the signed ticket verbatim as the ``UDID`` property.
+
+    :param chip_instance: the device's AppleImage4 chip instance, as returned by
+        `CryptexdService.read_personalization_identifiers`.
+    """
+    return chip_instance["img4_chip_chip"].to_bytes(8, "big") + chip_instance["img4_chip_ecid"].to_bytes(8, "big")
 
 
 def get_with_or_without_comma(obj: dict[str, typing.Any], k: str, default: typing.Any = None) -> typing.Any:
@@ -360,6 +398,56 @@ class TSSRequest:
 
         if overrides is not None:
             self._request.update(overrides)
+
+    def add_cryptex1_tags(
+        self,
+        build_identity: dict[str, typing.Any],
+        chip_instance: dict[str, typing.Any],
+        nonce: bytes,
+    ) -> None:
+        """Build a Cryptex1 personalization request (``@Cryptex1,Ticket``).
+
+        Cryptex1 tickets are a different shape from the AP tickets `add_ap_tags` produces, which is
+        why that method skips every ``Cryptex1,*`` key. The device is identified by
+        ``Cryptex1,UDID`` alone — none of the ``Ap*`` tags an AP request carries appear here — and
+        each personalized component contributes nothing but its ``Digest``. The generic DMG is
+        declared ``Personalize: False`` in the build manifest and is left out entirely.
+
+        The exact shape was taken from Xcode: ``CoreDeviceService`` logs the dictionary it is about
+        to sign under the ``com.apple.libcryptex:scrivener`` subsystem, so a DDI install can be
+        observed with::
+
+            log show --last 5m --info --debug --predicate 'process == "CoreDeviceService"'
+
+        :param build_identity: the build identity whose ``Info.Variant`` names a cryptex, i.e. the
+            one carrying ``Cryptex1,*`` manifest entries.
+        :param chip_instance: the device's AppleImage4 chip instance, as returned by
+            `CryptexdService.read_personalization_identifiers`.
+        :param nonce: the cryptex nonce for the identity's ``Cryptex1,NonceDomain``.
+        """
+        self._request.update({
+            "@Cryptex1,Ticket": True,
+            "Cryptex1,ChipID": int(str(build_identity["Cryptex1,ChipID"]), 0),
+            "Cryptex1,Type": build_identity["Cryptex1,Type"],
+            "Cryptex1,SubType": build_identity["Cryptex1,SubType"],
+            "Cryptex1,ProductClass": int(str(build_identity["Cryptex1,ProductClass"]), 0),
+            "Cryptex1,UseProductClass": build_identity["Cryptex1,UseProductClass"],
+            "Cryptex1,NonceDomain": build_identity["Cryptex1,NonceDomain"],
+            "Cryptex1,Version": build_identity["Cryptex1,Version"],
+            "Cryptex1,PreauthorizationVersion": build_identity["Cryptex1,PreauthorizationVersion"],
+            "Cryptex1,Nonce": nonce,
+            "Cryptex1,ProductionMode": bool(chip_instance["img4_chip_cpro"]),
+            "Cryptex1,UDID": cryptex1_udid(chip_instance),
+            "Cryptex1,UniqueTagList": b"",
+        })
+
+        for key, manifest_entry in build_identity["Manifest"].items():
+            if not key.startswith("Cryptex1,"):
+                continue
+            if not manifest_entry.get("Info", {}).get("Personalize", False):
+                logger.debug(f"skipping {key} as it is not personalized")
+                continue
+            self._request[key] = {"Digest": manifest_entry["Digest"]}
 
     def add_ap_tags(self, parameters: dict[str, typing.Any], overrides: typing.Optional[dict[str, typing.Any]] = None):
         """loop over components from build manifest"""

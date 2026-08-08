@@ -91,6 +91,7 @@ __all__ = [
     "NerLabel",
     "OutputSettings",
     "ReasoningEvent",
+    "RelatedSuggestion",
     "RelationKind",
     "ResultContent",
     "RetrievalAgentEffort",
@@ -203,6 +204,7 @@ from tako.aio.models.metric_definition import MetricDefinition as MetricDefiniti
 from tako.aio.models.ner_label import NerLabel as NerLabel
 from tako.aio.models.output_settings import OutputSettings as OutputSettings
 from tako.aio.models.reasoning_event import ReasoningEvent as ReasoningEvent
+from tako.aio.models.related_suggestion import RelatedSuggestion as RelatedSuggestion
 from tako.aio.models.relation_kind import RelationKind as RelationKind
 from tako.aio.models.result_content import ResultContent as ResultContent
 from tako.aio.models.retrieval_agent_effort import RetrievalAgentEffort as RetrievalAgentEffort

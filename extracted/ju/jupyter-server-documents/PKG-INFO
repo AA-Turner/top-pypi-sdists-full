@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: jupyter_server_documents
-Version: 0.3.2
+Version: 0.3.3
 Summary: A JupyterLab extension that provides RTC capabilities.
 Project-URL: Homepage, https://github.com/jupyter-ai-contrib/jupyter-server-documents
 Project-URL: Bug Tracker, https://github.com/jupyter-ai-contrib/jupyter-server-documents/issues

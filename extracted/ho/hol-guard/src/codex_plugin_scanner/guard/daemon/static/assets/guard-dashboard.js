@@ -16940,6 +16940,7 @@ function normalizePackageManagerProtection(raw) {
     shell_profile_path: isStringOrNull(raw["shell_profile_path"]) ? raw["shell_profile_path"] : null,
     shim_dir: shimDir,
     supported_managers: normalizeStringArray(raw["supported_managers"]),
+    detected_managers: normalizeStringArray(raw["detected_managers"]),
     installed_managers: normalizeStringArray(raw["installed_managers"]),
     active_managers: normalizeStringArray(raw["active_managers"]),
     missing_shims: normalizeStringArray(raw["missing_shims"]),
@@ -18621,11 +18622,12 @@ function normalizePackageFirewallStatus(value) {
     shell_profile_path: isStringOrNull(shellProfilePath) ? shellProfilePath : null,
     shim_dir: stringValue$1(readPackageShimField(shimStatus, "shim_dir", "shimDir")) ?? "",
     supported_managers: supportedManagers,
+    detected_managers: detectedManagers,
     installed_managers: installedManagers,
     active_managers: activeManagers,
     missing_shims: missingManagers,
     protected_managers: protectedManagers,
-    unprotected_managers: supportedManagers.filter((manager) => !protectedSet.has(manager))
+    unprotected_managers: detectedManagers.filter((manager) => !protectedSet.has(manager))
   };
   return {
     actions: normalizePackageFirewallActions(record2.actions),
@@ -24178,15 +24180,33 @@ function Sparkline({ items, days = 7 }) {
       days,
       " days"
     ] }),
-    /* @__PURE__ */ jsxRuntimeExports.jsx("div", { className: "flex h-10 w-full items-end gap-1", children: buckets.map((count, i) => /* @__PURE__ */ jsxRuntimeExports.jsx(
+    /* @__PURE__ */ jsxRuntimeExports.jsx(
       "div",
       {
-        className: "flex-1 rounded-sm bg-brand-blue/20 transition-all hover:bg-brand-blue/30",
-        style: { height: `${Math.max(count / max * 100, count > 0 ? 8 : 4)}%` },
-        title: `${count} action${count !== 1 ? "s" : ""}`
-      },
-      i
-    )) })
+        className: "flex h-14 w-full items-end gap-1",
+        role: "img",
+        "aria-label": `Guard activity over the last ${days} days`,
+        children: buckets.map((count, i) => /* @__PURE__ */ jsxRuntimeExports.jsxs(
+          "div",
+          {
+            className: "flex min-w-0 flex-1 flex-col items-center justify-end gap-1",
+            title: `${count} action${count !== 1 ? "s" : ""}`,
+            children: [
+              count > 0 ? /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "text-[10px] font-semibold leading-none text-slate-500", children: count }) : null,
+              /* @__PURE__ */ jsxRuntimeExports.jsx(
+                "div",
+                {
+                  className: "w-full rounded-sm bg-brand-blue/20 transition-all hover:bg-brand-blue/30",
+                  style: { height: `${Math.max(count / max * 32, count > 0 ? 4 : 2)}px` },
+                  "aria-hidden": "true"
+                }
+              )
+            ]
+          },
+          i
+        ))
+      }
+    )
   ] });
 }
 const PAGE_SIZE$1 = 50;

@@ -716,6 +716,7 @@ class StartFHIRImportJobRequestTypeDef(TypedDict):
     ProfileId: NotRequired[str]
     InputFormat: NotRequired[str]
     DriftDetectionEnabled: NotRequired[bool]
+    ProvenanceEnabled: NotRequired[bool]
 
 
 class CreateFHIRDatastoreRequestTypeDef(TypedDict):

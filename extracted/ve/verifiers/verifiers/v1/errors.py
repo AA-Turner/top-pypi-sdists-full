@@ -3,17 +3,17 @@
 Four mechanisms, each in one place:
 
 1. Vocabulary (this module): `RolloutError` and the flat boundary types below. Each names the
-   boundary a failure crossed — provider, harness, toolset, user, sandbox, task, or
-   interception — so a recorded `trace.error.type` says where the rollout broke.
+   boundary a failure crossed — provider, harness, toolset, sandbox, task, or
+   interception — so a recorded `trace.last_error.type` says where the rollout broke.
 2. Classification (`boundary`): the one helper that runs a framework→code boundary and attributes
    any escaping error to that boundary's type. Extension code (task hooks, harness subclasses)
    raises plain Python errors — it never constructs a `vf` error type; `boundary` classifies them.
    Infra that fails raises its type at the source (`runtimes` → `SandboxError`, `clients` →
    `ProviderError`, tunnels → `TunnelError`); an already-typed `RolloutError` passes through unchanged.
-3. Surfacing (`session.RolloutSession.error`): a model/tool/user call fails behind the harness
+3. Surfacing (`session.RolloutSession.error`): a model or tool call fails behind the harness
    subprocess and comes back as HTTP, so the interception server stashes the real error there and
    the rollout re-raises it once the harness returns — not a secondary `HarnessError`.
-4. Capture (`Rollout.run`, mirrored by the env-server): the one place that records a failure (typed
+4. Capture (`Rollout`, mirrored by the env-server): the one place that records a failure (typed
    or not) onto the trace and never lets it cancel sibling rollouts. A bad rollout is data, not a
    crash.
 
@@ -60,8 +60,10 @@ class ToolsetError(RolloutError):
     """A task's `Toolset` could not be built or served."""
 
 
-class UserError(RolloutError):
-    """A task's `User` simulator could not be served, or its `respond` raised."""
+class EnvError(RolloutError):
+    """The environment's own hooks failed — `run()` or `finalize()` raised (or
+    ran no agent at all). Episode-level: per-agent failures stay typed on their
+    traces. (Not `EnvironmentError` — that's a builtin alias of OSError.)"""
 
 
 class SandboxError(RolloutError):
@@ -69,7 +71,7 @@ class SandboxError(RolloutError):
 
 
 class TaskError(RolloutError):
-    """Task-authored code raised — `setup`, `finalize`, or a `@reward`/`@metric`/`@group_reward`."""
+    """Task-authored code raised — `setup`, `finalize`, or a `@reward`/`@metric`."""
 
 
 class InterceptionError(RolloutError):

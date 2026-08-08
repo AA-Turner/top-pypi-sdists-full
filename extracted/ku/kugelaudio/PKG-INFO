@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: kugelaudio
-Version: 1.8.0
+Version: 1.9.0
 Summary: Official Python SDK for KugelAudio TTS API
 Project-URL: Homepage, https://kugelaudio.com
 Project-URL: Documentation, https://docs.kugelaudio.com
@@ -203,6 +203,7 @@ bridge = KugelTurnBridge(
     vad_silence_ms=200,
     action_delay_ms=200,  # omit to use the calibrated language delay
     timeout_ms=10_000,
+    barge_in_ms=300,  # omit to disable barge-in
     on_decision=observe_decision,
 )
 
@@ -239,11 +240,66 @@ speech resumes, and calls `commit_user_turn()` when the measured policy ends.
 Keep `vad_silence_ms` equal to LiveKit's `min_silence_duration` in milliseconds.
 The validated configuration is 200 ms.
 
+`barge_in_ms` restores barge-in, which `turn_detection="manual"` otherwise turns
+off entirely: LiveKit skips all of its own audio-activity interrupt paths when
+the application owns turn taking, so without this the agent talks over an
+interrupting user until KugelTurn ends the turn. When overlapping speech lasts
+longer than `barge_in_ms`, the bridge pauses the agent's audio output; if
+KugelTurn then scores the overlap as incomplete or a backchannel, the same
+speech resumes where it stopped, and if KugelTurn ends the turn instead, the
+paused speech is interrupted for good. LiveKit's `false_interruption_timeout`
+(2 s by default) remains the backstop. This path drives two private
+`AgentActivity` methods; the bridge verifies both at `attach()` and raises
+`TurnStateError` if a LiveKit release removes them, rather than silently
+reverting to no barge-in. Omit `barge_in_ms` to keep the previous behaviour.
+
 `on_decision` runs for the first model score and each meaningful policy-state
 change, including the final `model_complete` or `timeout`. Its `TurnDecision`
 contains the transcript, threshold, four class probabilities, silence duration,
 and `inference_ms` when a new model score was computed. Keep the callback
 non-blocking; enqueue network or storage work instead of performing it inline.
+
+#### LiveKit TTS plugin
+
+`kugelaudio.livekit.TTS` streams over a single persistent WebSocket shared by
+every synthesis context:
+
+```python
+from kugelaudio.livekit import TTS
+
+tts = TTS(
+    api_key="your-api-key",
+    model="kugel-3",
+    voice_id=123,
+    cfg_scale=2.0,          # guidance scale, clamped to [1.2, 2.5]
+    max_new_tokens=2048,
+    sample_rate=24000,
+    normalize=True,
+    language="de",          # skips server-side detection
+    speed=1.1,              # playback rate, [0.8, 1.2]
+)
+
+tts.prewarm(timeout=10.0)   # optional: open the socket ahead of the first turn
+
+tts.update_options(speed=0.9)
+```
+
+`speed` uses pitch-preserving time-stretching. Values outside `[0.8, 1.2]`
+raise `ValueError` in both `TTS(...)` and `update_options(...)` — the API
+rejects out-of-range rates rather than clamping them, so the SDK fails loudly
+instead of quietly synthesising at a different rate than you asked for. Leave
+it unset to keep the server default of 1.0.
+
+Because all contexts share one socket, `speed` is applied **session-wide**
+(last-writer-wins), not per request. `update_options` recycles the connection,
+so a new rate binds for every context started after the call while contexts
+already in flight keep the old one. Wrap text in
+`<prosody rate="slow|medium|fast|0.8-1.2">…</prosody>` to override the rate for
+a single span.
+
+`prewarm(timeout=...)` opens the socket in the background. Its budget is its
+own: a synthesis call passing a shorter `conn_options.timeout` fails on its own
+schedule instead of first waiting out the prewarm attempt.
 
 ### Pipecat
 

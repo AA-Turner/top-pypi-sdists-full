@@ -11,16 +11,16 @@ Docs: https://fastcore.fast.ai/nbio.html.md"""
 # %% auto #0
 __all__ = ['langs', 'cell_insert_line', 'cell_str_replace', 'cell_strs_replace', 'cell_replace_lines', 'cell_del_lines',
            'cell_ast_replace', 'IMG_MIMES', 'nb_lang', 'NbCell', 'dict2nb', 'read_nb', 'mk_cell', 'new_nb',
-           'first_code_ln', 'dir_tag', 'nb2dict', 'nb2str', 'write_nb', 'find_id', 'cell_edit', 'view_cell',
-           'validate_cell', 'validate_nb', 'repair_cell', 'repair_nb', 'preferred_out', 'join_out', 'mk_stream',
-           'mk_result', 'mk_display', 'mk_error', 'concat_streams', 'preferred_msg_out', 'render_output',
-           'render_outputs', 'render_text', 'item2xml', 'cell2xml', 'cells2xml', 'Notebook', 'CellRow', 'CellRows',
-           'summary_nb', 'Found', 'FoundCells', 'find_cells', 'deep_merge', 'update_cell', 'select_cells', 'exec_cell',
-           'show_cell', 'msg2out', 'msgs2outs']
+           'cell_frontmatter', 'md_frontmatter', 'nb_frontmatter', 'first_code_ln', 'dir_tag', 'nb2dict', 'nb2str',
+           'write_nb', 'find_id', 'cell_edit', 'view_cell', 'validate_cell', 'validate_nb', 'repair_cell', 'repair_nb',
+           'preferred_out', 'join_out', 'mk_stream', 'mk_result', 'mk_display', 'mk_error', 'concat_streams',
+           'preferred_msg_out', 'render_output', 'render_outputs', 'render_text', 'item2xml', 'cell2xml', 'cells2xml',
+           'Notebook', 'CellRow', 'CellRows', 'summary_nb', 'Found', 'FoundCells', 'find_cells', 'deep_merge',
+           'update_cell', 'select_cells', 'run_cell', 'msg2out', 'msgs2outs']
 
 # %% ../nbs/13_nbio.ipynb #954ca1aa
 from .basics import *
-from .xtras import rtoken_hex,clean_cli_output,take_lines,str_diff,truncstr
+from .xtras import frontmatter,rtoken_hex,clean_cli_output,take_lines,str_diff,truncstr
 from .imports import *
 from .ansi import ansi2html
 from .meta import delegates,splice_sig
@@ -139,6 +139,35 @@ def new_nb(cells=None, meta=None, nbformat=4, nbformat_minor=5):
     "Returns an empty new notebook"
     cells = [o if isinstance(o,dict) else mk_cell(o) for o in cells or []]
     return dict2nb(cells=cells or [],metadata=meta or {},nbformat=nbformat,nbformat_minor=nbformat_minor)
+
+# %% ../nbs/13_nbio.ipynb #af62e5ef
+def cell_frontmatter(s:str, strvals:bool=False):
+    "Frontmatter mapping from a cell source that is entirely a literal `---` block, else {}"
+    d,body = frontmatter(s.strip(), strvals=strvals)
+    return d if not body.strip() else {}
+
+def md_frontmatter(s:str):
+    "Frontmatter synthesized from an H1-formatted markdown cell: `# title`, `> description`, and `- key: value` lines"
+    import yaml
+    m = re.search(r'^#\s+(\S.*?)\s*$', s, flags=re.MULTILINE)
+    if not m: return {}
+    res = dict(title=m.group(1))
+    m = re.search(r'^>\s+(\S.*?)\s*$', s, flags=re.MULTILINE)
+    if m: res['description'] = m.group(1)
+    r = re.findall(r'^-\s+(\S.*:.*\S)\s*$', s, flags=re.MULTILINE)
+    if r:
+        try: res.update(yaml.safe_load('\n'.join(r)))
+        except yaml.YAMLError as e: warn(f'Failed to create YAML dict for:\n{r}\n\n{e}\n')
+    return res
+
+def nb_frontmatter(nb, strvals:bool=False):
+    "Frontmatter from `nb`: its first raw cell plus first markdown cell (literal `---` block, or `# title` synthesis), raw keys winning"
+    raw = first(c for c in nb.cells if c.cell_type=='raw')
+    md  = first(c for c in nb.cells if c.cell_type=='markdown')
+    res = (cell_frontmatter(md.source, strvals=strvals) or md_frontmatter(md.source)) if md else {}
+    if raw: res.update(cell_frontmatter(raw.source, strvals=strvals))
+    return res
+
 
 # %% ../nbs/13_nbio.ipynb #c2ed0d5e
 def _dir_pre(lang=None): return fr"\s*{langs[lang]}\s*\|"
@@ -541,10 +570,23 @@ def render_outputs(outputs):
     return '\n'.join(render_output(o) for o in concat_streams(outputs))
 
 # %% ../nbs/13_nbio.ipynb #88b0018a
-def _render_text(out, html1st=False):
+def _tb_line(l, maxlen):
+    "One traceback line, capped at `maxlen`; `None` drops it (an over-long anchor line means nothing once cut). `File `/`Cell ` locations are exempt."
+    if len(l) <= maxlen: return l
+    if l.strip() and not (set(l) - set('~^ ')): return None
+    if l.lstrip().startswith(('File ', 'Cell ')): return l
+    return l[:maxlen] + '…'
+
+def _cap_tb(tb, maxlen):
+    "Cap over-long lines in `tb`'s chunks, stripping ANSI first (the cap can sever an escape sequence); the last chunk is the exception message and survives whole"
+    tb = [strip_ansi(c) for c in tb]
+    return ['\n'.join(l for l in (_tb_line(x, maxlen) for x in c.split('\n')) if l is not None) for c in tb[:-1]] + tb[-1:]
+
+def _render_text(out, html1st=False, tb_maxlen=None):
     typ = out['output_type']
+    if typ=='error' and tb_maxlen: out = {**out, 'traceback': _cap_tb(out.get('traceback', []), tb_maxlen)}
     mime,d = preferred_msg_out(out, html1st=html1st, include_imgs=False)
-    d = join_out(d)
+    d = strip_ansi(join_out(d))
     if not d: return None
     attrs = {}
     if typ == 'stream': typ = out.get('name')
@@ -552,10 +594,10 @@ def _render_text(out, html1st=False):
     body = f'\n{d}' if d.endswith('\n') else f'\n{d}\n'
     return d, to_xml(ft(typ, body, **attrs), do_escape=False, indent=False)
 
-def render_text(outputs, html1st=False):
-    "Render notebook outputs to concise text, using XML-ish tags when multiple outputs are present."
+def render_text(outputs, html1st=False, tb_maxlen=None):
+    "Render notebook outputs to concise ANSI-stripped text, using XML-ish tags when multiple outputs are present; `tb_maxlen` caps over-long error-traceback lines"
     if (not isinstance(outputs, (list,tuple))) or (outputs and not isinstance(outputs[0],dict)): return ''
-    items = [o for out in concat_streams(outputs) if (o := _render_text(out, html1st=html1st))]
+    items = [o for out in concat_streams(outputs) if (o := _render_text(out, html1st=html1st, tb_maxlen=tb_maxlen))]
     if not items: return ''
     return items[0][0] if len(items)==1 else '\n'.join(o[1] for o in items)
 
@@ -824,44 +866,28 @@ def select_cells(
     if skip_noeval: sel = [o for o in sel if not _is_noeval(o)]
     return sel
 
-# %% ../nbs/13_nbio.ipynb #b30755db
-async def exec_cell(
-    shell, # An IPython `InteractiveShell` (or compatible: `transform_cell`, `compile`, `user_ns`, `events`)
-    src:str, # Cell source: magics, `!` commands, and top-level `await` all work
-): # The final bare expression's value (None if there is none, or a trailing `;` suppresses it)
-    "Run cell `src` in `shell` as a library call: the value and any exception go to the caller, and only the code's own output is shown"
-    __tracebackhide__ = True
-    xsrc = shell.transform_cell(src)
-    tree,cfname = ast.parse(xsrc),shell.compile.cache(xsrc)
-    expr = tree.body.pop().value if tree.body and isinstance(tree.body[-1], ast.Expr) else None
-    async def _go(node, mode):
-        __tracebackhide__ = "__ipython_bottom__"  # to the debugger: all frames above are host machinery
-        co = compile(ast.fix_missing_locations(node), cfname, mode, flags=ast.PyCF_ALLOW_TOP_LEVEL_AWAIT)
-        r = eval(co, shell.user_global_ns, shell.user_ns)
-        return await r if co.co_flags & inspect.CO_COROUTINE else r
-    shell.events.trigger('pre_execute')
-    r = None
-    try:
-        if tree.body: await _go(tree, 'exec')
-        if expr is not None: r = await _go(ast.Expression(body=expr), 'eval')
-    finally: shell.events.trigger('post_execute')
-    if src.rstrip().endswith(';') and not src.lstrip().startswith('%%'): return
-    return r
-
-# %% ../nbs/13_nbio.ipynb #6b39aa5b
-async def show_cell(
-    shell, # An IPython `InteractiveShell` (or compatible), as `exec_cell`
-    src:str, # Cell source, as `exec_cell`
-    raise_exc:bool=True, # Raise a failing cell's exception? Else display its traceback as the outcome
+# %% ../nbs/13_nbio.ipynb #4c71f592
+async def run_cell(
+    shell, # An `InteractiveShell`-compatible object: `transform_cell`, `run_cell_async`, `events`
+    raw_cell:str, # Python/IPython source for one cell: magics, `!` commands, and top-level `await` all work
+    store_history:bool=False, # Store the cell in the shell's history? (enables native `;` suppression and execution counts)
+    silent:bool=False, # Suppress displayhook and `post_run_cell` event? (the result value stays unset)
+    shell_futures:bool=True, # Share `__future__` imports with the shell?
+    cell_id=None, # Optional cell id, passed through to `run_cell_async`
 ):
-    "Run cell `src` in `shell` and display its result, notebook-style"
-    from IPython.display import display
-    try: r = await exec_cell(shell, src)
+    "Run one cell on `shell`: transform, await `run_cell_async` on the calling loop, and fire the post events; returns the `ExecutionResult`"
+    preprocessing_exc_tuple = None
+    try: transformed_cell = shell.transform_cell(raw_cell)
     except Exception:
-        if raise_exc: raise
-        traceback.print_exc()
-        return
-    if r is not None: display(r)
+        transformed_cell = raw_cell
+        preprocessing_exc_tuple = sys.exc_info()
+    result = None
+    try: result = await shell.run_cell_async(raw_cell, store_history, silent, shell_futures=shell_futures,
+        transformed_cell=transformed_cell, preprocessing_exc_tuple=preprocessing_exc_tuple, cell_id=cell_id)
+    finally:
+        shell.events.trigger('post_execute')
+        if not silent: shell.events.trigger('post_run_cell', result)
+    return result
 
 # %% ../nbs/13_nbio.ipynb #ec976147
 def _msg_type(msg): return msg.get('msg_type') or msg['header']['msg_type']

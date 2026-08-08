@@ -1,0 +1,1 @@
+import{qr as e}from"./settingStore-JJ6taRxG.js";export{e as useAssetsStore};

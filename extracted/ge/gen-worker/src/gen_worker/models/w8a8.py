@@ -39,6 +39,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from .. import activity as activity_mod
 from ..component_vocab import denoiser_components
+from .safetensors_header import header_len_ok
 from .artifact_contract import CONTRACT_COZY_FP8_ROWWISE, implements_contract
 from typing import Any, Dict, List, Optional
 import shutil
@@ -53,7 +54,6 @@ W8A8_MIN_SM = 89
 W8A8_ROWWISE_MIN_SM = 90
 _FP8_MAX = 448.0
 _DIM_ALIGN = 16
-_MAX_HEADER_BYTES = 100 << 20
 
 
 class W8a8Error(RuntimeError):
@@ -82,7 +82,7 @@ def _read_header(path: Path) -> dict:
             if len(raw) < 8:
                 return {}
             (n,) = struct.unpack("<Q", raw)
-            if n <= 0 or n > _MAX_HEADER_BYTES:
+            if not header_len_ok(n):
                 return {}
             header = json.loads(f.read(n))
     except (OSError, ValueError):
@@ -396,6 +396,16 @@ def _build_module_class() -> type:
             if gemm_mode not in ("rowwise", "pertensor"):
                 raise ValueError(f"invalid gemm_mode {gemm_mode!r}")
             self.gemm_mode = gemm_mode
+            # pgw#1015: RECORD it. `adapter_fidelity.branch_compute_dtype`
+            # probes `mod.compute_dtype` FIRST, then the weight (fp8 here, so
+            # correctly skipped), then the bias — so on a BIAS-FREE layer it
+            # had nothing left and silently fell back to bf16. Measured: in
+            # one denoiser, `mlp_in` (bias) got float32 branches and
+            # `attn.to_q` (no bias) got bfloat16, and the first branch-bearing
+            # forward died with "expected mat1 and mat2 to have the same
+            # dtype". Invisible on sdxl only because its compute dtype IS
+            # bf16; every bias-free projection on any other lane was wrong.
+            self.compute_dtype = compute_dtype
             self.in_features = int(in_features)
             self.out_features = int(out_features)
             meta = torch.device("meta")

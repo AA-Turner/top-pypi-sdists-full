@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: astroid
-Version: 4.1.2
+Version: 4.3.0
 Summary: An abstract syntax tree for Python with inference support.
 License-Expression: LGPL-2.1-or-later
 Project-URL: Bug tracker, https://github.com/pylint-dev/astroid/issues

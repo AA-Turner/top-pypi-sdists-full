@@ -4,8 +4,12 @@ from collections import Counter
 from dataclasses import dataclass, field
 from typing import cast
 
-from sqlfluff.core.dialects.common import AliasInfo
-from sqlfluff.core.parser.segments import BaseSegment, RawSegment
+from sqlfluff.core.dialects.common import (
+    AliasInfo,
+    ObjectReferenceLevel,
+    extract_possible_references,
+)
+from sqlfluff.core.parser.segments import BaseSegment
 from sqlfluff.core.rules import (
     BaseRule,
     EvalResultType,
@@ -69,6 +73,22 @@ class Rule_AL05(BaseRule):
         "postgres",
         "mariadb",
     ]
+    # T-SQL datatype methods that produce a rowset and therefore require a
+    # correlation name in the FROM clause. This is deliberately an allowlist:
+    # most datatype methods (`query`, `value`, spatial and `hierarchyid`
+    # methods, ...) are scalar-valued and are not table expressions, so only
+    # the rowset-producing `nodes` belongs here (issue #6733).
+    _tsql_rowset_datatype_methods = frozenset({"nodes"})
+    # Dialects where a bare table alias can be used as a whole-row/composite
+    # value (e.g. `SELECT to_json(t) FROM tbl AS t`). In these dialects such a
+    # reference is a legitimate use of the alias, so AL05 must not flag it as
+    # unused (issue #7039). In standard SQL this is not generally valid, so the
+    # behaviour stays opt-in per dialect to avoid masking genuinely unused
+    # aliases (see test_ansi_function_not_table_parameter).
+    _dialects_with_row_references = [
+        "postgres",
+        "redshift",
+    ]
     is_fix_compatible = True
 
     # config
@@ -87,7 +107,11 @@ class Rule_AL05(BaseRule):
         query = cast(
             AL05Query, AL05Query.from_segment(context.segment, dialect=context.dialect)
         )
-        self._analyze_table_aliases(query)
+        self._analyze_table_aliases(
+            query,
+            allow_row_references=context.dialect.name
+            in self._dialects_with_row_references,
+        )
 
         if context.dialect.name in ("redshift", "bigquery"):
             # Redshift supports un-nesting using aliases.
@@ -237,6 +261,18 @@ class Rule_AL05(BaseRule):
                         for seg in openrowset.recursive_crawl("keyword")
                     ):
                         return True
+                    # A rowset-producing datatype method such as
+                    # `@x.nodes('...')` must be given a correlation name in
+                    # T-SQL; removing the alias produces invalid syntax, so the
+                    # alias is required even when it is not otherwise referenced
+                    # (issue #6733).
+                    for method in segment.recursive_crawl("datatype_method"):
+                        name = method.get_child("datatype_method_name_identifier")
+                        if (
+                            name is not None
+                            and name.raw.lower() in self._tsql_rowset_datatype_methods
+                        ):
+                            return True
                 # Found a table expression. Does it have a VALUES clause?
                 if segment.get_child("values_clause"):
                     # Found a VALUES clause. Is this a dialect that requires
@@ -263,7 +299,9 @@ class Rule_AL05(BaseRule):
         # This should never happen. Return False just to be safe.
         return False  # pragma: no cover
 
-    def _analyze_table_aliases(self, query: AL05Query) -> None:
+    def _analyze_table_aliases(
+        self, query: AL05Query, allow_row_references: bool = False
+    ) -> None:
         # Get table aliases defined in query.
         for selectable in query.selectables:
             select_info = selectable.select_info
@@ -277,17 +315,34 @@ class Rule_AL05(BaseRule):
                 for r in (
                     select_info.reference_buffer + select_info.table_reference_buffer
                 ):
-                    for tr in r.extract_possible_references(
-                        level=r.ObjectReferenceLevel.TABLE
-                    ):
+                    table_refs = extract_possible_references(
+                        r,
+                        level=ObjectReferenceLevel.TABLE,
+                        dialect_name=query.dialect.name,
+                    )
+                    for tr in table_refs:
                         # This function walks up the query's parent stack if necessary.
                         self._resolve_and_mark_reference(query, tr.segments[0])
+                    # A bare, single-part reference (e.g. `t` in `to_json(t)` or
+                    # a whole-row `SELECT t`) yields no TABLE-level parts above.
+                    # In dialects with composite/row references it can still be a
+                    # use of a table alias, so fall back to treating the lone
+                    # identifier as a possible alias reference rather than
+                    # mis-reporting the alias as unused (issue #7039).
+                    if allow_row_references and not table_refs:
+                        ref_segments = [
+                            seg for seg in r.segments if seg.is_type("identifier")
+                        ]
+                        if len(ref_segments) == 1:
+                            self._resolve_and_mark_reference(query, ref_segments[0])
 
         # Visit children.
         for child in query.children:
-            self._analyze_table_aliases(cast(AL05Query, child))
+            self._analyze_table_aliases(
+                cast(AL05Query, child), allow_row_references=allow_row_references
+            )
 
-    def _resolve_and_mark_reference(self, query: AL05Query, ref: RawSegment) -> None:
+    def _resolve_and_mark_reference(self, query: AL05Query, ref: BaseSegment) -> None:
         # Does this query define the referenced alias?
         _ref = self._cs_str_id(ref)
         if any(_ref == self._cs_str_id(a.segment) for a in query.aliases if a.segment):

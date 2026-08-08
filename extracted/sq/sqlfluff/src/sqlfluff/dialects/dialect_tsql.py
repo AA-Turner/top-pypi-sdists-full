@@ -263,8 +263,10 @@ tsql_dialect.insert_lexer_matchers(
             (
                 r"([xX]'([\da-fA-F][\da-fA-F])+'"
                 r"|0[xX][\da-fA-F]*"
-                r"|[+-]*[" + "".join(tsql_dialect.sets("currency_symbols")) + r"]"
-                r"[" + "".join(tsql_dialect.sets("currency_symbols")) + r"+-]*"
+                r"|[+-]*["
+                + "".join(sorted(tsql_dialect.sets("currency_symbols")))
+                + r"]"
+                r"[" + "".join(sorted(tsql_dialect.sets("currency_symbols"))) + r"+-]*"
                 r"(?>\d+\.\d+|\d+\.(?![\.\w])|\.\d+|\d+))"
             ),
             LiteralSegment,
@@ -275,18 +277,28 @@ tsql_dialect.insert_lexer_matchers(
 
 tsql_dialect.patch_lexer_matchers(
     [
-        # Patching single_quote to allow for TSQL-style escaped quotes
+        # Patching single_quote to allow for TSQL-style escaped quotes.
+        # segment_kwargs mirror the ansi single_quote lexer so that
+        # raw_normalized() still strips the delimiters and unescapes, minus
+        # the backslash escapes which T-SQL does not have ('' is the only
+        # escape). Without them, rules comparing normalized identifiers
+        # (e.g. RF05 on a single-quoted alias) see the delimiters as part
+        # of the name.
         RegexLexer(
             "single_quote",
             r"'([^']|'')*'",
             CodeSegment,
+            segment_kwargs={
+                "quoted_value": (r"'((?:[^']|'')*)'", 1),
+                "escape_replacements": [(r"''", "'")],
+            },
         ),
         # Patching comments to remove hash comments
         RegexLexer(
             "inline_comment",
             r"(--)[^\n]*",
             CommentSegment,
-            segment_kwargs={"trim_start": ("--")},
+            segment_kwargs={"trim_start": ("--",)},
         ),
         # Patching block comments to account for nested blocks.
         # N.B. this syntax is only possible via the non-standard-library
@@ -401,12 +413,12 @@ tsql_dialect.add(
     CredentialGrammar=Sequence(
         "IDENTITY",
         Ref("EqualsSegment"),
-        Ref("QuotedLiteralSegment"),
+        Ref("QuotedLiteralSegmentOptWithN"),
         Sequence(
             Ref("CommaSegment"),
             "SECRET",
             Ref("EqualsSegment"),
-            Ref("QuotedLiteralSegment"),
+            Ref("QuotedLiteralSegmentOptWithN"),
             optional=True,
         ),
     ),
@@ -944,6 +956,8 @@ class StatementSegment(ansi.StatementSegment):
             Ref("LabelStatementSegment"),
             Ref("CreateTypeStatementSegment"),
             Ref("CreateDatabaseScopedCredentialStatementSegment"),
+            Ref("CreateCredentialStatementSegment"),
+            Ref("AlterCredentialStatementSegment"),
             Ref("DropCredentialStatementSegment"),
             Ref("CreateExternalDataSourceStatementSegment"),
             Ref("SqlcmdCommandSegment"),
@@ -8262,15 +8276,58 @@ class CreateDatabaseScopedCredentialStatementSegment(BaseSegment):
     )
 
 
+class CreateCredentialStatementSegment(BaseSegment):
+    """A `CREATE CREDENTIAL` statement.
+
+    https://learn.microsoft.com/en-us/sql/t-sql/statements/create-credential-transact-sql
+    """
+
+    type = "create_credential_statement"
+    match_grammar: Matchable = Sequence(
+        "CREATE",
+        "CREDENTIAL",
+        Ref("ObjectReferenceSegment"),
+        "WITH",
+        Ref("CredentialGrammar"),
+        Sequence(
+            "FOR",
+            "CRYPTOGRAPHIC",
+            "PROVIDER",
+            Ref("ObjectReferenceSegment"),
+            optional=True,
+        ),
+    )
+
+
+class AlterCredentialStatementSegment(BaseSegment):
+    """An `ALTER CREDENTIAL` or `ALTER DATABASE SCOPED CREDENTIAL` statement.
+
+    https://learn.microsoft.com/en-us/sql/t-sql/statements/alter-credential-transact-sql
+    https://learn.microsoft.com/en-us/sql/t-sql/statements/alter-database-scoped-credential-transact-sql
+    """
+
+    type = "alter_credential_statement"
+    match_grammar: Matchable = Sequence(
+        "ALTER",
+        Sequence("DATABASE", "SCOPED", optional=True),
+        "CREDENTIAL",
+        Ref("ObjectReferenceSegment"),
+        "WITH",
+        Ref("CredentialGrammar"),
+    )
+
+
 class DropCredentialStatementSegment(BaseSegment):
-    """A `DROP CREDENTIAL` statement.
+    """A `DROP CREDENTIAL` or `DROP DATABASE SCOPED CREDENTIAL` statement.
 
     https://learn.microsoft.com/en-us/sql/t-sql/statements/drop-credential-transact-sql
+    https://learn.microsoft.com/en-us/sql/t-sql/statements/drop-database-scoped-credential-transact-sql
     """
 
     type = "drop_credential_statement"
     match_grammar: Matchable = Sequence(
         "DROP",
+        Sequence("DATABASE", "SCOPED", optional=True),
         "CREDENTIAL",
         Ref("ObjectReferenceSegment"),
     )

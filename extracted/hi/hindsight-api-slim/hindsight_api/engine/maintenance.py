@@ -25,6 +25,12 @@ server-side PL/pgSQL routines (``schemas_with_expired_rows`` and
 ``banks_needing_consolidation``, in the configured schema — see ``fq_routine``) —
 one round-trip each — instead of a per-schema query storm, which matters at
 thousands of tenants.
+
+The loop runs in *every* API/worker process with no leader election, so a job that
+enqueues work must make that enqueue idempotent or the fleet queues one wave per
+process. Retention and operation cleanup are deletes; the consolidation reconcile
+and the scheduled mental model refresh both dedupe against in-flight operations
+inside the inserting transaction (see ``_submit_async_operation``).
 """
 
 from __future__ import annotations
@@ -54,6 +60,14 @@ _RETENTION_INTERVAL_SECONDS = 3600
 # sets the drain rate for a backlog. Kept at one-per-tick (the value it used while
 # it rode the worker's poll loop) so throughput is unchanged by the move.
 _OPERATION_CLEANUP_INTERVAL_SECONDS = 60
+# Cross-store txn recovery (only when the memories store keeps its rows outside SQL): a backstop
+# for a writer that crashed between its external writes and the decide. The happy path decides
+# inline after commit, so this rarely finds work; five minutes bounds how long a crashed txn stalls
+# its namespace's fold.
+_TXN_RECOVERY_INTERVAL_SECONDS = 300
+# A pending txn is left alone for this long from first sighting before the sweep aborts an
+# unwitnessed one — the writer may still be mid-flight (PendingTxn carries no timestamp).
+_TXN_RECOVERY_GRACE_SECONDS = 300
 
 
 class MaintenanceLoop:
@@ -65,6 +79,9 @@ class MaintenanceLoop:
         self._stop = asyncio.Event()
         # Monotonic timestamps of the last run per job, keyed by job name.
         self._last_run: dict[str, float] = {}
+        # Cross-store txn recovery: first-sighting time per pending txn_id, so an unwitnessed
+        # txn gets a grace period before the sweep aborts it. Persists across ticks.
+        self._txn_first_seen: dict[str, float] = {}
 
     # ── lifecycle ──────────────────────────────────────────────────────────
 
@@ -109,7 +126,25 @@ class MaintenanceLoop:
         llm_on = cfg.llm_trace_enabled and cfg.llm_trace_retention_days > 0
         mm_refresh_on = cfg.mental_model_refresh_tick_seconds > 0
         op_cleanup_on = cfg.operation_retention_days > 0
-        return reconcile_on or audit_on or llm_on or mm_refresh_on or op_cleanup_on
+        return (
+            reconcile_on
+            or audit_on
+            or llm_on
+            or mm_refresh_on
+            or op_cleanup_on
+            or MaintenanceLoop._cross_store_recovery_enabled()
+        )
+
+    @staticmethod
+    def _cross_store_recovery_enabled() -> bool:
+        """True when the memories store keeps memories outside SQL and therefore has
+        cross-store write-group txns a crashed writer could leave undecided."""
+        try:
+            from .memories import get_memories
+
+            return not get_memories().writes_memory_rows_in_sql
+        except Exception:
+            return False
 
     # ── loop ───────────────────────────────────────────────────────────────
 
@@ -145,6 +180,8 @@ class MaintenanceLoop:
             await self._run_timed("scheduled mental model refresh", self._run_scheduled_mm_refresh())
         if cfg.operation_retention_days > 0 and self._is_due("operation_cleanup", _OPERATION_CLEANUP_INTERVAL_SECONDS):
             await self._run_timed("operation cleanup", self._run_operation_cleanup(cfg))
+        if self._cross_store_recovery_enabled() and self._is_due("txn_recovery", _TXN_RECOVERY_INTERVAL_SECONDS):
+            await self._run_timed("cross-store txn recovery", self._run_txn_recovery())
 
     async def _run_timed(self, name: str, coro: Coroutine[Any, Any, None]) -> None:
         """Run a maintenance job and emit one timing line for it.
@@ -258,6 +295,42 @@ class MaintenanceLoop:
                 _current_schema.reset(token)
         if pruned:
             logger.info(f"Operation cleanup: pruned {pruned} operation(s) total")
+
+    # ── cross-store txn recovery ─────────────────────────────────────────────
+
+    async def _run_txn_recovery(self) -> None:
+        """Resolve write-group txns a crashed writer left undecided, for a store that keeps its
+        rows outside SQL.
+
+        For each bank, the store lists its namespace's pending txns and decides each against the
+        Postgres witness table (present ⇒ commit, absent past the grace ⇒ abort — never on
+        assumption), then reaps expired witness rows. A no-op for the SQL stores. Best-effort: a
+        failure here only delays a stalled fold until the next tick.
+        """
+        from .memories import get_memories
+
+        store = get_memories()
+        if store.writes_memory_rows_in_sql:
+            return
+        backend = self._engine._backend
+        try:
+            async with acquire_with_retry(backend, max_retries=1) as conn:
+                bank_ids = [r[0] for r in await conn.fetch(f"SELECT bank_id FROM {fq_table('banks')}")]
+                if not bank_ids:
+                    return
+                decided = await store.recover_pending_txns(
+                    conn=conn,
+                    fq_table=fq_table,
+                    bank_ids=bank_ids,
+                    first_seen=self._txn_first_seen,
+                    now=time.monotonic(),
+                    grace_seconds=_TXN_RECOVERY_GRACE_SECONDS,
+                )
+        except Exception as e:
+            logger.warning(f"Cross-store txn recovery failed: {e}")
+            return
+        if decided:
+            logger.info(f"Cross-store txn recovery: decided {decided} undecided txn(s)")
 
     # ── consolidation reconcile ──────────────────────────────────────────────
 
@@ -383,6 +456,7 @@ class MaintenanceLoop:
         submitted = 0
         skipped_unknown = 0
         skipped_fresh = 0
+        skipped_in_flight = 0
         for row in due:
             schema = row["schema_name"]
             bank_id = row["bank_id"]
@@ -413,18 +487,28 @@ class MaintenanceLoop:
                 if not is_stale:
                     skipped_fresh += 1
                     continue
-                await engine.submit_async_refresh_mental_model(
-                    bank_id=bank_id, mental_model_id=mm_id, request_context=context
+                # skip_if_in_flight makes the enqueue itself idempotent. The discovery
+                # routine already excludes models with a pending/processing refresh,
+                # but that exclusion is a *read*: this loop runs in every process, so
+                # every process saw the same "nothing in flight" snapshot and inserted
+                # its own operation — one queued wave per process (#3210). The insert
+                # now carries the check, so a second one is never created.
+                result = await engine.submit_async_refresh_mental_model(
+                    bank_id=bank_id, mental_model_id=mm_id, request_context=context, skip_if_in_flight=True
                 )
-                submitted += 1
+                if result.get("deduplicated"):
+                    skipped_in_flight += 1
+                else:
+                    submitted += 1
             except Exception as e:
                 logger.warning(f"Scheduled mental model refresh failed for {mm_id} in {schema}: {e}")
             finally:
                 _current_schema.reset(token)
 
-        if submitted or skipped_unknown or skipped_fresh:
+        if submitted or skipped_unknown or skipped_fresh or skipped_in_flight:
             logger.info(
                 f"Scheduled mental model refresh: scheduled {submitted} model(s)"
                 + (f", {skipped_fresh} up-to-date" if skipped_fresh else "")
+                + (f", {skipped_in_flight} already in flight" if skipped_in_flight else "")
                 + (f", skipped {skipped_unknown} in unrecognized schema(s)" if skipped_unknown else "")
             )

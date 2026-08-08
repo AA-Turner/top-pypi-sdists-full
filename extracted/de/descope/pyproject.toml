@@ -1,8 +1,7 @@
 [project]
 name = "descope"
-version = "2.10.0"
+version = "2.11.1"
 description = "Descope Python SDK"
-authors = [{ name = "Descope", email = "info@descope.com" }]
 requires-python = ">=3.9,<4.0"
 readme = "README.md"
 license = "MIT"
@@ -30,6 +29,10 @@ dependencies = [
     "email-validator>=2,<3",
 ]
 
+[[project.authors]]
+name = "Descope"
+email = "info@descope.com"
+
 [project.optional-dependencies]
 Flask = ["Flask>=2"]
 
@@ -43,27 +46,16 @@ Documentation = "https://docs.descope.com"
 dev = [
     "pre-commit==3.8.0",
     "python-dotenv>=1.2.1",
-    "ruff==0.15.20",
+    "ruff==0.15.22",
 ]
 types = [
-    # mypy 1.12+ requires Python 3.10+; on 3.9 we stay on the last 1.11.x line.
-    # mypy is only run in the lint job (Python 3.13) so 3.9 never installs it in CI.
     "mypy>=1.20.1; python_version >= '3.10'",
-    "mypy==1.11.2; python_version < '3.10'",
+    "mypy>=1.11.2,<1.12; python_version < '3.10'",
 ]
 tests = [
-    # pytest 9 requires Python 3.10+; on 3.9 we stay on the last 8.x line.
-    # The `<9` upper bound on the 3.9 entry is REQUIRED — without it renovate
-    # bumps the pin past 9.0 and produces an unsatisfiable lock. Keep it.
-    # CVE-2025-71176 (pytest <9.0.3 tmp-dir predictability) is dev-only and
-    # not fixable on 3.9 — risk is bounded to local CI runners.
     "pytest>=9.0.3; python_version >= '3.10'",
     "pytest>=8.4,<9; python_version < '3.10'",
     "pytest-cov>=5",
-    # pytest-asyncio 1.4.0 dropped Python 3.9 support; on 3.9 we stay on the last
-    # release that still supports it (1.2.0). Bumping this to 1.4.0 (renovate, #1584)
-    # made the locked resolution unsatisfiable for the 3.9 split and broke CI's
-    # install step. Keep ==1.2.0 on the 3.9 entry.
     "pytest-asyncio==1.2.0; python_version < '3.10'",
     "pytest-asyncio==1.4.0; python_version >= '3.10'",
     "coverage[toml]>=7.3.1,<8",
@@ -76,15 +68,9 @@ default-groups = "all"
 module-name = "descope"
 module-root = ""
 
-[build-system]
-requires = ["uv_build>=0.11.7,<0.12.0"]
-build-backend = "uv_build"
-
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
-markers = [
-    "e2e: end-to-end tests against a real Descope backend (require DESCOPE_PROJECT_ID and DESCOPE_MANAGEMENT_KEY)",
-]
+markers = ["e2e: end-to-end tests against a real Descope backend (require DESCOPE_PROJECT_ID and DESCOPE_MANAGEMENT_KEY)"]
 
 [tool.coverage.run]
 relative_files = true
@@ -100,13 +86,19 @@ skip_empty = true
 line-length = 120
 
 [tool.ruff.lint]
-# Replaces flake8 (E/W/F), isort (I), flake8-bugbear (B), pep8-naming (N), pyupgrade (UP)
-select = ["E", "W", "F", "I", "B", "N", "UP"]
+select = [
+    "E",
+    "W",
+    "F",
+    "I",
+    "B",
+    "N",
+    "UP",
+]
 ignore = [
-    "E501",  # line length is enforced by the formatter
-    "N818",  # public exception class names predate the *Error suffix convention
-    "B904",  # exception chaining cleanup tracked separately
-    # PEP 585/604 syntax requires Python 3.10+ at runtime; we still support 3.9
+    "E501",
+    "N818",
+    "B904",
     "UP006",
     "UP007",
     "UP035",
@@ -117,19 +109,23 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["F401"]
-# Public management APIs intentionally mirror the backend JSON schema (camelCase)
 "descope/management/tenant.py" = ["N803"]
 "descope/management/tenant_async.py" = ["N803"]
-"descope/management/user.py" = ["N803", "N806"]
-"descope/management/user_async.py" = ["N803", "N806"]
-# Tests intentionally use blind exception checks and raw attribute access
-"tests/**" = ["B017", "B018"]
-# e2e test classes use a TestE2E_<Area> naming scheme for readable grouping
+"descope/management/user.py" = [
+    "N803",
+    "N806",
+]
+"descope/management/user_async.py" = [
+    "N803",
+    "N806",
+]
+"tests/**" = [
+    "B017",
+    "B018",
+]
 "tests/e2e/**" = ["N801"]
 
 [tool.pylic]
-# License names match the long-form `License` metadata field that pylic reads
-# from installed package METADATA. SPDX short names rarely match.
 safe_licenses = [
     "MIT License",
     "MIT",
@@ -141,11 +137,12 @@ safe_licenses = [
     "Python Software Foundation License",
     "PSF-2.0",
 ]
-# Per-package allowances for non-standard licenses
-# (certifi/MPL-2.0, email-validator/Unlicense — both pre-approved in the old liccheck policy;
-#  pathspec/MPL-2.0 is a transitive mypy dependency).
 unsafe_packages = [
     "certifi",
     "email-validator",
     "pathspec",
 ]
+
+[build-system]
+requires = ["uv_build>=0.11.7,<0.12.0"]
+build-backend = "uv_build"

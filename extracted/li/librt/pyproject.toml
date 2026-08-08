@@ -19,7 +19,7 @@ authors = [
     {name = "Jukka Lehtosalo", email = "jukka.lehtosalo@iki.fi"},
     {name = "Ivan Levkivskyi", email = "levkivskyi@gmail.com"},
 ]
-version = "0.14.0"
+version = "0.15.0"
 license = "MIT"
 classifiers = [
   "Development Status :: 3 - Alpha",
@@ -50,8 +50,10 @@ librt = ["py.typed", "**/*.pyi"]
 build-frontend = "build"
 linux.manylinux-x86_64-image = "manylinux_2_28"
 linux.manylinux-aarch64-image = "manylinux_2_28"
+linux.manylinux-ppc64le-image = "manylinux_2_28"
 linux.musllinux-x86_64-image = "musllinux_1_2"
 linux.musllinux-aarch64-image = "musllinux_1_2"
+linux.musllinux-ppc64le-image = "musllinux_1_2"
 
 build-verbosity = 1
 

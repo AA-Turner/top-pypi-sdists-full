@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: edx-enterprise
-Version: 8.7.2
+Version: 8.8.0
 Summary: Your project description goes here
 Home-page: https://github.com/openedx/edx-enterprise
 Author: edX
@@ -165,6 +165,16 @@ Change Log
 Unreleased
 ----------
 * nothing unreleased
+
+[8.8.0] - 2026-08-07
+---------------------
+* feat: add pipeline steps for logistration filters
+
+[8.7.3] - 2026-07-27
+---------------------
+* feat: add multiple SSO tenants during devstack provisioning
+
+  * The real reason for the version bump: Added ``assign_system_wide_enterprise_role`` management command and updated other ones.
 
 [8.7.2] - 2026-07-27
 ---------------------

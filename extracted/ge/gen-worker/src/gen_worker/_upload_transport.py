@@ -35,9 +35,11 @@ on ``requests``, on a per-save ``requests.Session`` owned by
 ``presigned_upload.py``.
 
 Public API: ``upload_part_to_presigned_url(url, file_path, offset,
-length, pool=None)`` -> ``etag``, plus ``PutPool``. Caller owns the
-part-level fan-out (``presigned_upload.py``) and the file-level fan-out
-(``_concurrent_upload.py``). This module is a pure transport leaf.
+length, pool=None)`` -> ``etag``, ``PutPool``, and ``backoff_sleep_s`` —
+the ONE decorrelated-jitter backoff every worker-side upload loop uses
+(pgw#1004 wired the chunk-CAS data plane onto it rather than growing a
+fourth implementation). Caller owns the part-level fan-out
+(``presigned_upload.py``). This module is a pure transport leaf.
 """
 
 from __future__ import annotations
@@ -247,7 +249,7 @@ def _classify_transport_exception(exc: BaseException) -> TransportError:
     return TransportError(f"S3 part upload unexpected error: {exc!r}", retryable=False)
 
 
-def _backoff_sleep_s(attempt: int, base_s: float = _BACKOFF_BASE_S, cap_s: float = _BACKOFF_CAP_S) -> float:
+def backoff_sleep_s(attempt: int, base_s: float = _BACKOFF_BASE_S, cap_s: float = _BACKOFF_CAP_S) -> float:
     """Decorrelated-jitter backoff (AWS Architecture Blog: 'Exponential Backoff And Jitter').
 
     Attempt is 1-indexed; attempt=1 returns U[base, base*3], attempt=2
@@ -349,7 +351,7 @@ def upload_part_to_presigned_url(
             last_err = err
             if not err.retryable or attempt >= max_attempts:
                 raise err
-            sleep_s = _backoff_sleep_s(attempt)
+            sleep_s = backoff_sleep_s(attempt)
             logger.info(
                 "presigned_part_retry attempt=%d/%d sleep_s=%.2f err=%s",
                 attempt, max_attempts, sleep_s, err,
@@ -387,7 +389,7 @@ def upload_part_to_presigned_url(
         last_err = status_err
         if not status_err.retryable or attempt >= max_attempts:
             raise status_err
-        sleep_s = _backoff_sleep_s(attempt)
+        sleep_s = backoff_sleep_s(attempt)
         logger.info(
             "presigned_part_retry attempt=%d/%d sleep_s=%.2f status=%d",
             attempt, max_attempts, sleep_s, status_err.status_code or 0,
@@ -402,9 +404,16 @@ def optimal_part_concurrency(total_parts: int) -> int:
     """Fixed part-level concurrency for one file's multipart upload.
 
     A single file can saturate R2 with a small number of in-flight PUTs.
-    Keep this fixed so it cannot multiply with file-level fan-out into an
-    uncontrolled retry storm. The current Tensorhub presigned path also
-    has a process-wide PUT budget in ``presigned_upload.py``.
+
+    pgw#973 (§4.24): this is the BINDING bound on the in-repo presigned path —
+    the caller is sequential, so 4 is the real ceiling on concurrent PUTs.
+    ``presigned_upload._PRESIGNED_PUT_BUDGET`` (8) is not a second cap on this
+    axis; it covers a different one (an endpoint author saving from their own
+    threads). The previous text here cited ``_concurrent_upload.py`` as the
+    file-level fan-out owner — that module no longer exists.
+
+    Without this, one large file's part count IS the concurrency, and a
+    thousand-part upload opens a thousand PUTs.
     """
     if total_parts <= 1:
         return 1

@@ -289,6 +289,7 @@ class RunCache:
         session_manager: SessionManager,
         decision_logger: t.Optional[BaseDecisionLogger] = None,
     ) -> RunCache:
+
         profiles = Profiles.from_config(config, run_cache_config)
         adapter_ext = create_adapter_extension(
             adapter,

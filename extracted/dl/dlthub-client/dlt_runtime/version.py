@@ -1,3 +1,4 @@
+# Python internals
 from importlib.metadata import version as pkg_version
 
 PKG_NAME = "dlthub-client"

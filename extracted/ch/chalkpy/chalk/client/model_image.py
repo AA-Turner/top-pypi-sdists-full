@@ -8,6 +8,7 @@ import tempfile
 import textwrap
 import types
 import warnings
+from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 
 from chalk.ml.model_handler import CHALK_HANDLER_ARTIFACT_PATH
@@ -705,14 +706,23 @@ def _render_chalk_handler_config(
     )
 
 
+@dataclass
+class HandlerArtifacts:
+    """Artifact files (serialized model + `files=`) for a `@model_handler`, with inferred schemas."""
+
+    uploads: List[Tuple[str, str]]  # (local_path, container_basename)
+    serialized_name: Optional[str]
+    owned_tmp_paths: List[str]
+    resolved_model_type: Optional[ModelType]
+    inferred_input_schema: Optional[Any]
+    inferred_output_schema: Optional[Any]
+
+
 def _collect_chalk_handler_artifacts(
     handler_instance: Any,
     model_type: Optional[ModelType],
-) -> Tuple[List[Tuple[str, str]], Optional[str], List[str], Optional[ModelType], Optional[Any], Optional[Any]]:
-    """Collect the artifact files that need to land on the runtime volume.
-
-    Returns ``(uploads, serialized_name, owned_tmp_paths, resolved_model_type, inferred_input_schema, inferred_output_schema)``.
-    """
+) -> HandlerArtifacts:
+    """Collect the artifact files that need to land on the runtime volume."""
     uploads: List[Tuple[str, str]] = []
     owned_tmp: List[str] = []
     serialized_name: Optional[str] = None
@@ -749,7 +759,14 @@ def _collect_chalk_handler_artifacts(
         seen.add(base)
         uploads.append((f, base))
 
-    return uploads, serialized_name, owned_tmp, resolved_model_type, inferred_input_schema, inferred_output_schema
+    return HandlerArtifacts(
+        uploads=uploads,
+        serialized_name=serialized_name,
+        owned_tmp_paths=owned_tmp,
+        resolved_model_type=resolved_model_type,
+        inferred_input_schema=inferred_input_schema,
+        inferred_output_schema=inferred_output_schema,
+    )
 
 
 def upload_chalk_handler_artifacts(volume_name: str, uploads: List[Tuple[str, str]], chalk_client: Any = None) -> None:
@@ -822,29 +839,35 @@ def _needs_system_libgomp(dependencies: List[str]) -> bool:
     return False
 
 
-def build_chalk_model_handler_image(
+@dataclass
+class StagedModelHandlerImage:
+    """A staged (not yet built) `@model_handler` image plus its artifacts and inferred schemas."""
+
+    image: Any  # unbuilt chalkcompute.Image
+    artifact_uploads: List[Tuple[str, str]]  # (local_path, container_basename)
+    serialized_name: Optional[str]
+    owned_tmp_paths: List[str]
+    inferred_input_schema: Optional[Any]
+    inferred_output_schema: Optional[Any]
+
+
+def stage_chalk_model_handler_image(
     handler_instance: Any,
     model_type: Optional[ModelType],
     dependencies: List[str],
-) -> Tuple[str, List[Tuple[str, str]], Optional[str], List[str], Optional[Any], Optional[Any]]:
-    """Build a deployable image for a `@model_handler` instance.
-
-    Returns ``(image_uri, artifact_uploads, serialized_model_filename, owned_tmp_paths, inferred_input_schema, inferred_output_schema)``.
-    """
+) -> StagedModelHandlerImage:
+    """Stage (but do not build) the deployable image for a `@model_handler` instance."""
     try:
-        from chalkcompute import Image, build_image  # pyright: ignore[reportMissingImports]
+        from chalkcompute import Image  # pyright: ignore[reportMissingImports]
     except ImportError:
         raise ImportError("Please install `chalkcompute` to enable @model_handler image builds.")
 
     # Collect artifacts first so basename collisions abort before image work.
-    (
-        artifact_uploads,
-        serialized_name,
-        owned_tmp_paths,
-        resolved_model_type,
-        inferred_input_schema,
-        inferred_output_schema,
-    ) = _collect_chalk_handler_artifacts(handler_instance, model_type)
+    artifacts = _collect_chalk_handler_artifacts(handler_instance, model_type)
+    artifact_uploads = artifacts.uploads
+    serialized_name = artifacts.serialized_name
+    owned_tmp_paths = artifacts.owned_tmp_paths
+    resolved_model_type = artifacts.resolved_model_type
 
     # Container deps: chalk-remote-call-python is the entrypoint; pyarrow is
     # used by the static shim; chalkpy provides `chalk.ml.model_handler` for
@@ -899,14 +922,13 @@ def build_chalk_model_handler_image(
         code_tmp_paths.append(config_path)
         img = img.add_local_file(config_path, _CONFIG_DEST, strategy="copy")
 
-        image_uri = build_image(img)
-        return (
-            image_uri,
-            artifact_uploads,
-            serialized_name,
-            owned_tmp_paths,
-            inferred_input_schema,
-            inferred_output_schema,
+        return StagedModelHandlerImage(
+            image=img,
+            artifact_uploads=artifact_uploads,
+            serialized_name=serialized_name,
+            owned_tmp_paths=owned_tmp_paths,
+            inferred_input_schema=artifacts.inferred_input_schema,
+            inferred_output_schema=artifacts.inferred_output_schema,
         )
     except Exception:
         for p in owned_tmp_paths:
@@ -921,3 +943,49 @@ def build_chalk_model_handler_image(
                 os.unlink(p)
             except OSError:
                 pass
+
+
+def serialize_image_spec(image: Any) -> bytes:
+    """Serialize an ``Image`` to ``ImageSpec`` bytes (excludes strategy='volume' files)."""
+    return image.to_proto().SerializeToString()
+
+
+def image_local_files(image: Any) -> List[Tuple[str, str, Optional[int]]]:
+    """Return the image's strategy='volume' files as ``(src, dest, mode)`` triples."""
+    return [(lf.src, lf.dest, lf.mode) for lf in getattr(image, "lazy_local_files", []) or []]
+
+
+def image_spec_bakes_handler_shim(data: bytes) -> bool:
+    """True if an ImageSpec bakes the chalk handler shim — i.e. a handler/inferred serving image."""
+    from chalkcompute._gen.chalk.sandbox.v1 import service_pb2 as _sandbox  # pyright: ignore[reportMissingImports]
+
+    spec = _sandbox.ImageSpec()
+    spec.ParseFromString(data)
+    return any(s.HasField("add_file") and s.add_file.destination == _SHIM_DEST for s in spec.steps)
+
+
+def build_image_from_spec_bytes(data: bytes, chalk_client: Any = None) -> str:
+    """Rebuild the image from persisted ``ImageSpec`` bytes and return its URI."""
+    try:
+        from chalkcompute import Image, build_image  # pyright: ignore[reportMissingImports]
+    except ImportError:
+        raise ImportError("Please install `chalkcompute` to enable @model_handler image builds.")
+    return build_image(Image.from_proto_bytes(data), chalk_client=chalk_client)
+
+
+def build_image_from_spec_with_files(
+    data: bytes,
+    local_files: List[Tuple[str, str, Optional[int]]],
+    chalk_client: Any = None,
+) -> Tuple[str, List[Dict[str, str]]]:
+    """Rebuild from ``ImageSpec`` bytes + ``(src, dest, mode)`` files; return (uri, volume_mounts)."""
+    try:
+        from chalkcompute import Image, build_image_with_volumes  # pyright: ignore[reportMissingImports]
+    except ImportError:
+        raise ImportError("Please install `chalkcompute` to enable @model_handler image builds.")
+    img = Image.from_proto_bytes(data)
+    for src, dest, mode in local_files:
+        img = img.add_local_file(src, dest, mode=mode, strategy="volume")
+    uri, volumes = build_image_with_volumes(img, chalk_client=chalk_client)
+    mounts = [{"name": v.name, "mount_path": v.mount_path, "type": v.type} for v in volumes]
+    return uri, mounts

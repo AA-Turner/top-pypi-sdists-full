@@ -5,7 +5,11 @@ from functools import partial
 from typing import NamedTuple, Optional, TypeVar, cast
 
 from sqlfluff.core.dialects.base import Dialect
-from sqlfluff.core.dialects.common import AliasInfo
+from sqlfluff.core.dialects.common import (
+    AliasInfo,
+    ObjectReferenceLevel,
+    extract_possible_references,
+)
 from sqlfluff.core.parser import (
     BaseSegment,
     CodeSegment,
@@ -263,10 +267,14 @@ class Rule_ST05(BaseRule):
                         or any(ps.segment.is_type(*parent_types) for ps in path_to)
                     ):
                         continue
-                    if _is_correlated_subquery(
-                        Segments(query.selectables[0].selectable),
-                        select_source_names,
-                        dialect,
+                    # A set expression has one selectable per branch.
+                    if any(
+                        _is_correlated_subquery(
+                            Segments(selectable_.selectable),
+                            select_source_names,
+                            dialect,
+                        )
+                        for selectable_ in query.selectables
                     ):
                         continue
                     yield _NestedSubQuerySummary(
@@ -364,7 +372,9 @@ def _is_correlated_subquery(
     nested_select_info = get_select_statement_info(select_statement, dialect)
     if nested_select_info:
         for r in nested_select_info.reference_buffer:
-            for tr in r.extract_possible_references(level=r.ObjectReferenceLevel.TABLE):
+            for tr in extract_possible_references(
+                r, level=ObjectReferenceLevel.TABLE, dialect_name=dialect.name
+            ):
                 # Check for correlated subquery, as indicated by use of a
                 # parent reference.
                 if tr.part in select_source_names:
@@ -613,17 +623,34 @@ def _segmentify(input_el: str, casing: str) -> BaseSegment:
 
 
 class SegmentCloneMap:
-    """Clones a segment tree, maps from original segments to their clones."""
+    """Clones a segment tree, maps from original segments to their clones.
+
+    The clone (a full ``segment.copy()``) is built lazily on first lookup: the
+    caller builds the map for every SELECT statement but only *uses* it when
+    there are subqueries to rewrite, so deferring avoids cloning the whole
+    statement tree on the common no-subquery path (a notable cost over the Rust
+    arena façade, where copy() materialises real segments).
+    """
 
     def __init__(self, segment: BaseSegment):
+        self._segment = segment
+        self.segment_map: Optional[dict[int, BaseSegment]] = None
+
+    def _build(self) -> dict[int, BaseSegment]:
+        segment = self._segment
         segment_copy = segment.copy()
-        self.segment_map = {}
+        segment_map: dict[int, BaseSegment] = {}
         for old_segment, new_segment in zip(
             segment.recursive_crawl_all(),
             segment_copy.recursive_crawl_all(),
         ):
             new_segment.pos_marker = old_segment.pos_marker
-            self.segment_map[id(old_segment)] = new_segment
+            segment_map[id(old_segment)] = new_segment
+        self.segment_map = segment_map
+        return segment_map
 
     def __getitem__(self, old_segment: BaseSegment) -> BaseSegment:
-        return self.segment_map[id(old_segment)]
+        segment_map = self.segment_map
+        if segment_map is None:
+            segment_map = self._build()
+        return segment_map[id(old_segment)]

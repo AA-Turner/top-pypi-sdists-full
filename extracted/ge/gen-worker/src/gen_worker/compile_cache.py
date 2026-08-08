@@ -730,7 +730,7 @@ def is_cache_ref(ref: str, family: str = "") -> bool:
     """True when ``ref`` names an inductor compile-cache cell (optionally of
     one specific family). Cells are flavored either with the legacy human
     label (``inductor-<sku>-torch<mm>[-lane]``) or, post-th#883, with the
-    worker-computed cell key itself (``ck2-<sha256>`` — pull-by-key)."""
+    worker-computed cell key itself (``ck1-<sha256>`` — pull-by-key)."""
 
     fam, flavor = parse_cell_ref(ref)
     if not fam or (family and fam != family):
@@ -767,7 +767,7 @@ def declared_contract_facts(cfg: Any, *, lora_bucket_override: Optional[int] = N
     }
 
 
-# --- static code closure (ck5 recipe identity, Paul's exact-identity
+# --- static code closure (recipe identity, Paul's exact-identity
 # ruling) -------------------------------------------------------------------
 #
 # "Look at our code and say 'this is the graph we need', ideally with pure
@@ -775,7 +775,7 @@ def declared_contract_facts(cfg: Any, *, lora_bucket_override: Optional[int] = N
 # import graph reachable from the compile/composition entrypoints, resolved
 # by AST inspection only (no execution): every reached source file is
 # content-digested, and the sorted (module-path, digest) list digests into
-# the ck5 ``code_closure`` axis. Paul's root-imports convention (top-of-file
+# the ``code_closure`` axis. Paul's root-imports convention (top-of-file
 # imports, no runtime imports) is exactly what makes this static graph
 # SOUND — and the mint-time completeness gate below turns that convention
 # into a hard check where the key's honesty depends on it.
@@ -875,7 +875,7 @@ def static_code_closure(roots: Tuple[str, ...] = ()) -> Tuple[Tuple[str, str], .
 
 def closure_completeness_gap(roots: Tuple[str, ...] = ()) -> List[str]:
     """Loaded modules inside the composition namespaces that the static
-    import walk cannot see. NOT a mint gate (Paul's ck6 ruling demoted the
+    import walk cannot see. NOT a mint gate (Paul's pgw#990 ruling demoted the
     closure to a possible future memo — this check's only job was memo
     honesty, so it rides the deferred memo issue): kept as diagnostics for
     that issue. Note the live finding it produced: executor-side models/*
@@ -906,7 +906,7 @@ def assert_closure_complete(roots: Tuple[str, ...] = ()) -> None:
     gaps = closure_completeness_gap(roots)
     if gaps:
         raise RuntimeError(
-            f"code-closure completeness gate (ck5): {len(gaps)} loaded "
+            f"code-closure completeness gate: {len(gaps)} loaded "
             f"module(s) outside the static import closure — a dynamic "
             f"import is hiding trace-relevant code from the recipe key: "
             f"{gaps[:10]!r}")
@@ -931,7 +931,7 @@ def toolchain_digest() -> Tuple[Tuple[str, str], ...]:
     try:
         import importlib.metadata
 
-        # ck5: diffusers/transformers/peft ride here at package granularity
+        # diffusers/transformers/peft ride here at package granularity
         # (their VERSION axes left the key; content replaces them).
         wanted = ("torch", "triton", "diffusers", "transformers", "peft")
         for dist in importlib.metadata.distributions():
@@ -960,7 +960,7 @@ def content_keys() -> Tuple[Tuple[str, str], ...]:
     """torch/triton CONTENT identity as upstream computes it (cache-design
     review §6.5: ``torch_key`` hashes the whole torch package's bytes;
     ``triton_key`` per-file shas + the libtriton binary). Recorded in
-    metadata for observability/forensics — the ck5 key's content identity
+    metadata for observability/forensics — the key's content identity
     for the same stack rides the ``toolchain`` axis (dist-info RECORDs +
     tool binaries), which is cheaper and covers the cuda runtime too."""
     out: Dict[str, str] = {"torch": "", "triton": ""}
@@ -1034,10 +1034,10 @@ def artifact_metadata(
         # pgw#697: per-module fingerprint rows so an adoption refusal can
         # name the exact drifted module, not just a digest mismatch.
         "composition": [[str(p), str(d)] for p, d in composition],
-        # pgw#696: the execution-environment seal rides verbatim — the ck4
+        # pgw#696: the execution-environment seal rides verbatim — the
         # env_seal axis is recomputed FROM it, never trusted as a stamp.
         env_seal.SEAL_KEY: env_seal.effective_seal(),
-        # ck5 recipe facts: toolchain + static code closure feed the key
+        # recipe facts: toolchain + static code closure feed the key
         # axes (recomputed from these blocks, never trusted as stamps);
         # content_keys stay observability (review §6.5). Endpoint closure
         # roots ride in when the executor passes them (train-lane wiring).
@@ -1410,7 +1410,7 @@ def _semantic_cache_tag(pipeline: Any, cfg: Any) -> str:
     ``cache_key_tag`` (review §6.3), so a delivered cell's entries are
     mechanically unconsumable by a process whose declared semantic identity
     differs. Environment facts are deliberately excluded: the inner FX key
-    already hashes them natively (system info, config, dtypes) and the ck5
+    already hashes them natively (system info, config, dtypes) and the
     outer key pins them via env_seal/toolchain/code_closure — the tag's job
     is semantics only."""
     execution_lane = cell_key._canonical_execution_lane(
@@ -2208,6 +2208,47 @@ def _resolve_target(pipeline: Any, target: str) -> Optional[Tuple[Any, str, Call
     return None
 
 
+class CompileArmRefused(RuntimeError):
+    """A NAMED, deterministic reason this process cannot arm this pipeline.
+
+    pgw#985: what decides whether a second pod gets bought is the
+    CLASSIFICATION, not the message. ``begin_fleet_mint`` used to raise a bare
+    ``RuntimeError`` for every decline — which the mint child let out as exit
+    1 (``CRASHED``, retryable) while the AOT recipe typed the identical
+    condition as a refusal (``EXIT_REFUSED``, terminal). Same fact, two
+    vocabularies, and the retryable one billed a second mint that could not
+    possibly succeed.
+    """
+
+
+def resolve_targets(
+    pipeline: Any, cfg: Any,
+) -> List[Tuple[str, Any, str, Callable[..., Any]]]:
+    """The declared targets ``pipeline`` actually OWNS — the ONE authority.
+
+    ``(declared name, owner, attribute, eager callable)`` per resolvable
+    target, in declaration order. :func:`has_compile_target`, :func:`apply`
+    and :func:`begin_fleet_mint` all read THIS list (§1.29, one relation) —
+    it used to be scanned independently by the first two, which is how a
+    reader of the third could not tell which scan had spoken.
+
+    Whether the pipeline OWNS a declared target is the only question answered
+    here. Whether this process can ARM the targets it owns is a different
+    question with a different answer, and :func:`arming_block` owns it;
+    conflating the two is what let a cardless mint pod report "no compile
+    targets resolved on TinyDiffusionPipeline" about a pipeline whose
+    ``.unet`` had resolved a frame earlier (pgw#985).
+    """
+    out: List[Tuple[str, Any, str, Callable[..., Any]]] = []
+    for target in tuple(getattr(cfg, "targets", ()) or ()):
+        resolved = _resolve_target(pipeline, str(target))
+        if resolved is None:
+            continue
+        owner, attr, fn = resolved
+        out.append((str(target), owner, attr, fn))
+    return out
+
+
 def has_compile_target(pipeline: Any, cfg: Any) -> bool:
     """Whether ``pipeline`` owns at least one callable declared by ``cfg``.
 
@@ -2216,10 +2257,41 @@ def has_compile_target(pipeline: Any, cfg: Any) -> bool:
     is a compile-adoption target; family-wide scans must not try to wrap every
     resident model object.
     """
-    return any(
-        _resolve_target(pipeline, str(target)) is not None
-        for target in tuple(getattr(cfg, "targets", ()) or ())
-    )
+    return bool(resolve_targets(pipeline, cfg))
+
+
+def arming_block(
+    pipeline: Any, cfg: Any, *, cache_ready: bool, allow_cold: bool,
+) -> str:
+    """Why :func:`apply` would decline to arm — ``""`` when nothing blocks it.
+
+    The ONE precondition authority, for the same reason
+    :func:`resolve_targets` is the one target authority. Every reason here is
+    deterministic for the life of this process: none of them can differ on a
+    retry, so a caller that must classify (the mint child) can refuse on any
+    of them without losing a mint a second attempt would have made.
+
+    Deliberately side-effect free — :func:`apply` still owns the arming
+    mutations; this only names.
+    """
+    if _PROCESS_COMPILES_DISABLED:
+        return f"process compiles are disabled: {_PROCESS_COMPILES_DISABLED}"
+    if operator_eager_pin(pipeline):
+        return ("the hub-resolved execution lane is operator-pinned to +eager "
+                "(pgw#714 kill switch)")
+    try:
+        import torch
+    except Exception as exc:  # noqa: BLE001 — a torchless process is eager
+        return f"torch is not importable ({type(exc).__name__}: {exc})"
+    if not torch.cuda.is_available():
+        return "torch reports no CUDA device in this process"
+    if cache_ready:
+        return ""
+    if not allow_cold:
+        return "no verified cache artifact was seeded and cold compile was not requested"
+    if not toolchain_present():
+        return "cold compile was requested but no C compiler is on PATH"
+    return ""
 
 
 def _type_name(value: Any) -> str:
@@ -3102,20 +3174,18 @@ def apply(
     """
     if getattr(pipeline, _MARKER_ATTR, None) is not None:
         return True
-    if _PROCESS_COMPILES_DISABLED:
-        logger.error(
-            "compile-cache: not arming (process compiles disabled: %s); "
-            "staying eager", _PROCESS_COMPILES_DISABLED)
+    # pgw#985: ONE reading of the preconditions, named. `begin_fleet_mint`
+    # reads the same function to say WHY it refused, so the two can never
+    # again describe the same decline in two different sentences.
+    block = arming_block(
+        pipeline, cfg, cache_ready=cache_ready, allow_cold=allow_cold)
+    if block:
+        logger.log(
+            logging.ERROR if _PROCESS_COMPILES_DISABLED else logging.INFO,
+            "compile-cache: not arming (%s); staying eager", block)
         return False
-    if operator_eager_pin(pipeline):
-        logger.info(
-            "compile-cache: operator-pinned +eager execution lane — compile "
-            "arming suppressed (pgw#714 kill switch); staying eager")
-        return False
-    try:
-        import torch
-    except Exception:
-        return False
+    import torch
+
     # gw#608: cross-pod cell portability requires the (portable) FX graph
     # cache to be the lookup surface — see _disable_aot_autograd_cache.
     _disable_aot_autograd_cache()
@@ -3123,19 +3193,6 @@ def apply(
     # construction: every compile path arms through apply()):
     _install_fx_system_shim()          # SKU name -> sm token (P0, review §6.1)
     _set_semantic_cache_tag(pipeline, cfg)  # semantic identity tag (§6.3)
-    if not torch.cuda.is_available():
-        logger.info("compile-cache: no CUDA; staying eager")
-        return False
-    if not cache_ready:
-        if not allow_cold:
-            logger.info("compile-cache: no verified cache artifact; staying eager")
-            return False
-        if not toolchain_present():
-            logger.warning(
-                "compile-cache: cold compile explicitly requested but no C "
-                "compiler is on PATH; staying eager",
-            )
-            return False
 
     # Dynamo's per-code-object recompile limit defaults to 8; a preset table
     # bigger than that (LTX: 12 video graphs, ie#381) would silently fall
@@ -3178,12 +3235,7 @@ def apply(
     applied: list[str] = []
     originals: list[Tuple[Any, str, Callable[..., Any]]] = []
     regional_mods: list[Any] = []
-    for target in cfg.targets:
-        resolved = _resolve_target(pipeline, target)
-        if resolved is None:
-            logger.debug("compile-cache: pipeline has no target %r; skipping", target)
-            continue
-        owner, attr, fn = resolved
+    for target, owner, attr, fn in resolve_targets(pipeline, cfg):
         # pgw#817/D4: computed BEFORE the branch so a declined regional target
         # falls through to the whole-forward branch (which does apply the
         # declared marks) instead of being skipped entirely.
@@ -3835,7 +3887,13 @@ def build(
     # Cold compilation is an explicit producer-library operation; serving
     # workers have no environment switch that can enter this path.
     if not apply(pipe, cfg, cache_ready=False, guard=False, allow_cold=True):
-        raise RuntimeError(f"no compile targets resolved on {type(pipe).__name__}")
+        # pgw#985: name the fact that actually declined — "no compile targets"
+        # was this line's answer to every one of them, including "no CUDA".
+        raise CompileArmRefused(
+            f"cannot arm {type(pipe).__name__} for a cold compile: "
+            + (arming_block(pipe, cfg, cache_ready=False, allow_cold=True)
+               or f"no compile target resolves for targets="
+                  f"{[str(t) for t in (getattr(cfg, 'targets', ()) or ())]}"))
 
     timings: Dict[str, float] = {}
     decode = any(t.startswith("vae") for t in cfg.targets)
@@ -3988,7 +4046,13 @@ def _compile_and_warm(pipe: Any, cfg: Any, *, steps: int = 2, say: Any = None) -
     call must fail the mint — a silently-eager capture must never be saved."""
     _say = say if callable(say) else (lambda msg: logger.info("%s", msg))
     if not apply(pipe, cfg, cache_ready=False, guard=False, allow_cold=True):
-        raise RuntimeError(f"no compile targets resolved on {type(pipe).__name__}")
+        # pgw#985: name the fact that actually declined — "no compile targets"
+        # was this line's answer to every one of them, including "no CUDA".
+        raise CompileArmRefused(
+            f"cannot arm {type(pipe).__name__} for a cold compile: "
+            + (arming_block(pipe, cfg, cache_ready=False, allow_cold=True)
+               or f"no compile target resolves for targets="
+                  f"{[str(t) for t in (getattr(cfg, 'targets', ()) or ())]}"))
     import torch
 
     decode = any(t.startswith("vae") for t in cfg.targets)
@@ -4106,9 +4170,19 @@ def begin_fleet_mint(pipe: Any, cfg: Any, capture: Path) -> None:
     other code path that could re-create serving's call shape, so the
     mint can never diverge from what it actually serves.
 
-    Raises if no compile target resolves on ``pipe`` (nothing to prove or
-    publish); the caller's miss policy applies exactly as it did for a
-    failed :func:`mint_artifact` call.
+    Raises :class:`CompileArmRefused` — typed and deterministic — when there
+    is nothing to prove or publish; the caller's miss policy applies exactly
+    as it did for a failed :func:`mint_artifact` call. pgw#985: the two facts
+    that can refuse here are DIFFERENT and are now named as such. A pipeline
+    that owns no declared target is a WIRING fact; a process that cannot arm
+    the targets it does own (no CUDA, no toolchain, an operator eager pin) is
+    an ENVIRONMENT fact. Both used to raise the wiring sentence, so a cardless
+    mint pod reported "no compile targets resolved on TinyDiffusionPipeline"
+    about a pipeline whose ``.unet`` had resolved a frame earlier.
+
+    The DECISION still has one evaluator — :func:`apply` — and this only names
+    what it declined on, through the same :func:`arming_block` ``apply``
+    itself consulted.
 
     gw#608 ROOT CAUSE lived here: the cache-dir env is PROCESS-GLOBAL, and
     this function re-pointed it BEFORE knowing the arm could succeed. On a
@@ -4121,18 +4195,30 @@ def begin_fleet_mint(pipe: Any, cfg: Any, capture: Path) -> None:
     BEFORE this call). The arm is therefore transactional now: nothing to
     arm never touches the env, and an arm failure restores it exactly.
     """
-    if not has_compile_target(pipe, cfg):
-        raise RuntimeError(
-            f"no compile targets resolved on {type(pipe).__name__}")
+    family = str(getattr(cfg, "family", "") or "(unset)")
+    owned = [name for name, *_ in resolve_targets(pipe, cfg)]
+    if not owned:
+        raise CompileArmRefused(
+            f"no compile target resolves on {type(pipe).__name__} for family "
+            f"{family!r}: declared "
+            f"targets={[str(t) for t in (getattr(cfg, 'targets', ()) or ())]}")
     prior = {
         env: os.environ.get(env)
         for env in ("TORCHINDUCTOR_CACHE_DIR", "TRITON_CACHE_DIR")
     }
     capture_env(capture)
     try:
+        # `apply` DECIDES — one call, and it reads `arming_block` for the same
+        # preconditions this refusal then names. Asking `arming_block` here
+        # first would be a second gate `apply` does not answer to, and the
+        # decision must have exactly one evaluator.
         if not apply(pipe, cfg, cache_ready=False, guard=True, allow_cold=True):
-            raise RuntimeError(
-                f"no compile targets resolved on {type(pipe).__name__}")
+            raise CompileArmRefused(
+                f"{type(pipe).__name__} owns the declared compile target(s) "
+                f"{owned} for family {family!r}, but this process cannot arm "
+                f"them: "
+                + (arming_block(pipe, cfg, cache_ready=False, allow_cold=True)
+                   or "apply() declined without naming a precondition"))
     except BaseException:
         for env, value in prior.items():
             if value is None:
@@ -4239,10 +4325,13 @@ __all__ = [
     "ARTIFACT_FORMAT",
     "AdoptError",
     "CellSelectionBugError",
+    "CompileArmRefused",
     "CompiledExecutionLaneUnavailableError",
     "build",
     "apply",
     "apply_lora_execution_lane",
+    "arming_block",
+    "resolve_targets",
     "artifact_fx_lines",
     "artifact_metadata",
     "begin_fleet_mint",

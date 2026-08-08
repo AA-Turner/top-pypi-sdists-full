@@ -1,7 +1,9 @@
 """Automatic version check + self-update with 1-hour TTL cache.
 
-Checks if a newer version is available on PyPI (remote install) or if
-``origin/main`` has new commits (git clone install). When an update is
+Checks if a newer version is available on the project's private GitLab registry
+(remote install) or if ``origin/main`` has new commits (git clone install). The
+registry check needs the same read token as the install itself; without one it
+stays silent rather than reporting a phantom "up to date". When an update is
 detected and ``auto_update`` is enabled in the user config, runs
 ``pysae-ai-tools self-update`` automatically. Otherwise, prints a yellow
 notification inviting the user to update manually.
@@ -29,13 +31,14 @@ import time
 from pathlib import Path
 
 from .config import CACHE_DIR
-from .install_source import detect_install_source
+from .env import cache
+from .install_source import PACKAGE, PACKAGES_API, detect_install_source
 
 CACHE_FILE = CACHE_DIR / "version-check.json"
 LOCK_FILE = CACHE_DIR / "update.lock"
 TTL_SECONDS = 3600  # 1 hour
 LOCK_STALE_SECONDS = 600  # A self-update should never take >10 min.
-PACKAGE = "pysae-ai-tools"
+TOKEN_VAR = "GITLAB_REGISTRY_TOKEN"
 
 YELLOW = "\033[33m"
 RESET = "\033[0m"
@@ -104,16 +107,16 @@ def _resolve_message() -> str | None:
     """Probe for an available update, picking the channel from the install source.
 
     A local directory install is polled against ``origin/main``; a registry
-    install against PyPI. A local install that isn't a git repo has nothing to
-    poll — never fall back to PyPI for it (that would wrongly compare its build
-    version against the published release).
+    install against the private GitLab registry. A local install that isn't a
+    git repo has nothing to poll — never fall back to the registry for it (that
+    would wrongly compare its build version against the published release).
     """
     source = detect_install_source()
     if source.local_dir is not None:
         if (source.local_dir / ".git").exists():
             return _check_git_updates(source.local_dir)
         return None
-    return _check_pypi_updates()
+    return _check_registry_updates()
 
 
 def _check_git_updates(repo: Path) -> str | None:
@@ -141,19 +144,61 @@ def _check_git_updates(repo: Path) -> str | None:
     return None
 
 
-def _check_pypi_updates() -> str | None:
-    """Check if a newer version is on PyPI. Returns a message or None."""
+def _registry_token() -> str:
+    """The PAT that reads the private registry — environment first, then cache.
+
+    The same precedence the credential itself follows, read straight from the
+    cache rather than through the ``env`` resolver: this runs on the way to a
+    command the user actually asked for, and must not prompt or reach AWS. A
+    missing token is not an error — the caller degrades to "no update known".
+    """
+    token = os.environ.get(TOKEN_VAR)
+    if token:
+        return token
+    return cache.read(TOKEN_VAR) or ""
+
+
+def _check_registry_updates() -> str | None:
+    """Check the private GitLab registry for a newer release. Message or None.
+
+    Ordered by publication date rather than by version: GitLab sorts versions as
+    strings, which puts ``0.1.999`` above ``0.1.1000``. Publication order is the
+    real one here, since the version is derived from the commit count.
+
+    Every failure — no token, a revoked one, GitLab unreachable — is silence
+    rather than noise: an update check runs on the way to a command the user
+    actually asked for, and must never speak up about its own plumbing.
+    """
     try:
         from pysae_ai_tools import __version__
 
         if ".dev" in __version__:
             return None
 
+        token = _registry_token()
+        if not token:
+            return None
+
         import httpx
 
-        r = httpx.get(f"https://pypi.org/pypi/{PACKAGE}/json", timeout=5.0, follow_redirects=True)
+        r = httpx.get(
+            PACKAGES_API,
+            params={
+                "package_type": "pypi",
+                "package_name": PACKAGE,
+                "order_by": "created_at",
+                "sort": "desc",
+                "per_page": 1,
+            },
+            headers={"PRIVATE-TOKEN": token},
+            timeout=5.0,
+            follow_redirects=True,
+        )
         r.raise_for_status()
-        latest = r.json().get("info", {}).get("version", "")
+        packages = r.json()
+        if not isinstance(packages, list) or not packages:
+            return None
+        latest = str(packages[0].get("version") or "")
         if latest and latest != __version__:
             return f"Update available: {__version__} → {latest}"
     except Exception:  # noqa: BLE001

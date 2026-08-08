@@ -1,12 +1,13 @@
 """Web UI URL templates and builders. Mirrors `web/src/misc/routes.tsx`."""
 
+# Python internals
 import re
 from typing import Union
 from urllib.parse import quote, urlparse
 from uuid import UUID
 
+# Other libraries
 from dlt._workspace._workspace_context import active
-
 
 _LEGACY_API_BASE_URL_RE = re.compile(
     r"^(?P<scheme>https?)://dlthub\.(?P<tld>app|net|test|dev)/api/(?:api|auth)/?$"

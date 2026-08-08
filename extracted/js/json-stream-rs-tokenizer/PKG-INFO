@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: json-stream-rs-tokenizer
-Version: 0.5.1
+Version: 0.5.2.post1
 Summary: A faster tokenizer for the json-stream Python library
 Project-URL: Repository, https://github.com/smheidrich/py-json-stream-rs-tokenizer
 Project-URL: Changelog, https://github.com/smheidrich/py-json-stream-rs-tokenizer/blob/main/CHANGELOG.md
@@ -14,10 +14,11 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Classifier: License :: OSI Approved :: MIT License
 Requires-Python: >=3.8,<3.15
 Description-Content-Type: text/markdown
 License-File: LICENSE
+License-File: LICENSES-RUST-DEPS.html
+License-File: LICENSES-RUST.html
 Provides-Extra: benchmark
 Requires-Dist: json-stream-to-standard-types<0.2,>=0.1; extra == "benchmark"
 Requires-Dist: tqdm<5,>=4.64; extra == "benchmark"
@@ -179,9 +180,18 @@ manually.
 
 ## License
 
-MIT license. Refer to the
+The project's code itself is provided under the MIT license.
+Refer to the
 [LICENSE](https://github.com/smheidrich/py-json-stream-rs-tokenizer/blob/main/LICENSE)
 file for details.
+The library binaries shipped in Python wheels have 3rd party dependencies
+compiled in under different, but similarly permissive licenses. Refer to
+[LICENSES-RUST-DEPS.html](https://htmlpreview.github.io/?https://github.com/smheidrich/py-json-stream-rs-tokenizer/blob/main/LICENSES-RUST-DEPS.html)
+(dependency crates)
+and
+[LICENSES-RUST.html](https://htmlpreview.github.io/?https://github.com/smheidrich/py-json-stream-rs-tokenizer/blob/main/LICENSES-RUST.html)
+(Rust itself, stdlib etc.)
+for more information.
 
 ## Changelog
 

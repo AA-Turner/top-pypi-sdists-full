@@ -38,6 +38,7 @@ from _memray.records cimport FileFormat as _FileFormat
 from _memray.records cimport MemoryRecord
 from _memray.records cimport MemorySnapshot as _MemorySnapshot
 from _memray.records cimport TrackedObject
+from _memray.sink cimport BufferedFileSink
 from _memray.sink cimport FileSink
 from _memray.sink cimport NullSink
 from _memray.sink cimport Sink
@@ -112,7 +113,7 @@ def set_log_level(int level):
     setLogThreshold(level)
 
 
-cpdef enum AllocatorType:
+cpdef enum class AllocatorType:
     PYMALLOC_FREE = 1
     PYMALLOC_MALLOC = 2
     PYMALLOC_CALLOC = 3
@@ -131,11 +132,11 @@ cpdef enum AllocatorType:
 
 # Note: enumerator values are negative because they must be unique
 #       from the enumerator values of the AllocatorType enum above
-cpdef enum ObjectTrackingEvent:
+cpdef enum class ObjectTrackingEvent:
     OBJECT_CREATED = -1
     OBJECT_DESTROYED = -2
 
-cpdef enum PythonAllocatorType:
+cpdef enum class PythonAllocatorType:
     PYTHON_ALLOCATOR_PYMALLOC = 1
     PYTHON_ALLOCATOR_PYMALLOC_DEBUG = 2
     PYTHON_ALLOCATOR_MALLOC = 3
@@ -143,7 +144,7 @@ cpdef enum PythonAllocatorType:
     PYTHON_ALLOCATOR_MIMALLOC = 5
     PYTHON_ALLOCATOR_MIMALLOC_DEBUG = 6
 
-cpdef enum FileFormat:
+cpdef enum class FileFormat:
     ALL_ALLOCATIONS = _FileFormat.ALL_ALLOCATIONS
     AGGREGATED_ALLOCATIONS = _FileFormat.AGGREGATED_ALLOCATIONS
 
@@ -251,7 +252,7 @@ cdef hybrid_stack_trace(
         # Check for Python frame boundaries: traditional _PyEval_EvalFrameDefault
         # or Python 3.14 tail call interpreter LLVM-generated functions
         is_python_frame_boundary = "_PyEval_EvalFrameDefault" in symbol or (
-            symbol.startswith("_TAIL_CALL_") and ".llvm." in symbol
+            symbol.startswith("_TAIL_CALL_")
         )
         if pidx >= 0 and is_python_frame_boundary:
             while True:
@@ -755,6 +756,7 @@ cdef class Tracker:
     cdef bool _trace_python_allocators
     cdef object _previous_profile_func
     cdef object _previous_thread_profile_func
+    cdef object _patched_thread_class
     cdef unique_ptr[RecordWriter] _writer
     cdef object _surviving_objects
 
@@ -769,6 +771,10 @@ cdef class Tracker:
 
             if is_dev_null:
                 return unique_ptr[Sink](new NullSink())
+            if getattr(destination, "buffered", False):
+                return unique_ptr[Sink](new BufferedFileSink(os.fsencode(destination.path),
+                                                             destination.overwrite,
+                                                             destination.compress_on_exit))
             return unique_ptr[Sink](new FileSink(os.fsencode(destination.path),
                                                  destination.overwrite,
                                                  destination.compress_on_exit))
@@ -794,6 +800,15 @@ cdef class Tracker:
             )
 
         cdef cppstring command_line = " ".join(sys.argv)
+
+        # Record the traced process's search paths. Reporters will use them for
+        # classifying filenames to module names.
+        from memray.reporters.module_tools import get_python_path_info
+        path_info = get_python_path_info()
+        py_libdest = os.path.abspath(path_info["stdlib"]) if path_info["stdlib"] else ""
+        py_site_packages = [os.path.abspath(p) for p in path_info["site_packages"]]
+        py_sys_path = [os.path.abspath(p) for p in path_info["sys_path"]]
+
         self._native_traces = native_traces
         self._track_object_lifetimes = track_object_lifetimes
         self._memory_interval_ms = memory_interval_ms
@@ -818,6 +833,9 @@ cdef class Tracker:
                 file_format,
                 trace_python_allocators,
                 track_object_lifetimes,
+                py_libdest,
+                py_site_packages,
+                py_sys_path,
             )
         )
 
@@ -832,21 +850,22 @@ cdef class Tracker:
                 raise RuntimeError("Attempting to use stale output handle")
             writer = move(self._writer)
 
+            self._patched_thread_class = threading.Thread
             for attr in ("_name", "_ident"):
-                assert not hasattr(threading.Thread, attr)
+                assert not hasattr(self._patched_thread_class, attr)
                 setattr(
-                    threading.Thread,
+                    self._patched_thread_class,
                     attr,
                     ThreadNameInterceptor(attr, NativeTracker.registerThreadNameById),
                 )
 
-            orig_set_os_name = getattr(threading.Thread, "_set_os_name", None)
+            orig_set_os_name = getattr(self._patched_thread_class, "_set_os_name", None)
             if orig_set_os_name is not None:
                 def set_os_name_wrapper(self):
                     cdef unique_ptr[RecursionGuard] guard = make_unique[RecursionGuard]()
                     orig_set_os_name(self)
 
-                setattr(threading.Thread, "_set_os_name", set_os_name_wrapper)
+                setattr(self._patched_thread_class, "_set_os_name", set_os_name_wrapper)
 
             self._previous_profile_func = sys.getprofile()
             self._previous_thread_profile_func = threading._profile_hook
@@ -875,7 +894,11 @@ cdef class Tracker:
             threading.setprofile(self._previous_thread_profile_func)
 
             for attr in ("_name", "_ident"):
-                delattr(threading.Thread, attr)
+                try:
+                    delattr(self._patched_thread_class, attr)
+                except AttributeError:
+                    pass
+            self._patched_thread_class = None
 
     cdef void _populate_surviving_objects(self):
         cdef NativeTracker *tracker = NativeTracker.getTracker()
@@ -1487,6 +1510,8 @@ def compute_statistics(
     report_progress=False,
     num_largest=5,
 ):
+    from memray.reporters.module_tools import ModuleResolver
+
     cdef shared_ptr[RecordReader] reader_sp = make_shared[RecordReader](
         unique_ptr[FileSource](new FileSource(file_name))
     )
@@ -1506,15 +1531,28 @@ def compute_statistics(
         total=total,
         report_progress=report_progress,
     )
+
+    # Aggregate allocation counts and bytes per distinct call stack using a C++
+    # integer map keyed by frame_index. Many allocations share the same stack,
+    # so this avoids duplicating work.
+    cdef unordered_map[size_t, pair[size_t, size_t]] stats_by_stack
+    cdef pair[size_t, size_t]* stack_entry
+
     with progress_indicator:
         while True:
             PyErr_CheckSignals()
             ret = reader.nextRecord()
             if ret == RecordResult.RecordResultAllocationRecord:
+                allocation = reader.getLatestAllocation()
                 aggregator.addAllocation(
-                    reader.getLatestAllocation(),
-                    reader.getLatestPythonLocationId(reader.getLatestAllocation()),
+                    allocation,
+                    reader.getLatestPythonLocationId(allocation),
                 )
+
+                if not isDeallocator(allocation.allocator):
+                    stack_entry = &stats_by_stack[allocation.frame_index]
+                    stack_entry.first += 1
+                    stack_entry.second += allocation.size
                 progress_indicator.update(1)
             elif ret == RecordResult.RecordResultMemoryRecord:
                 pass
@@ -1548,6 +1586,40 @@ def compute_statistics(
         for count_and_loc in aggregator.topLocationsByCount(num_largest)
     ]
 
+    # Resolve each distinct call stack to a module name, adding its aggregated
+    # counts into the per-module totals.
+    module_resolver = ModuleResolver(
+        {
+            "stdlib": pathlib.Path(header["libdest"]) if header["libdest"] else None,
+            "site_packages": [pathlib.Path(p) for p in header["site_packages"]],
+            "sys_path": [pathlib.Path(p) for p in header["sys_path"]],
+        }
+    )
+    module_stats = {}  # module -> [num_allocations, total_bytes]
+    cdef pair[size_t, pair[size_t, size_t]] stack_stats
+    for stack_stats in stats_by_stack:
+        stack = reader.Py_GetStackFrame(stack_stats.first)
+        module_name = module_resolver.get_module_for_stack(stack)
+        entry = module_stats.setdefault(module_name, [0, 0])
+        entry[0] += stack_stats.second.first
+        entry[1] += stack_stats.second.second
+
+    top_modules_by_count = sorted(
+        module_stats.items(), key=lambda x: x[1][0], reverse=True
+    )[:num_largest]
+    top_modules_by_allocation_count = [
+        (name, count, total_bytes)
+        for name, (count, total_bytes) in top_modules_by_count
+    ]
+
+    top_modules_by_size = sorted(
+        module_stats.items(), key=lambda x: x[1][1], reverse=True
+    )[:num_largest]
+    top_modules_by_allocation_size = [
+        (name, count, total_bytes)
+        for name, (count, total_bytes) in top_modules_by_size
+    ]
+
     # And we're done!
     cdef uint64_t peak_memory = aggregator.peakBytesAllocated()
     return Stats(
@@ -1559,6 +1631,8 @@ def compute_statistics(
         allocation_count_by_allocator=allocation_count_by_allocator,
         top_locations_by_size=top_locations_by_size,
         top_locations_by_count=top_locations_by_count,
+        top_modules_by_allocation_size=top_modules_by_allocation_size,
+        top_modules_by_allocation_count=top_modules_by_allocation_count,
     )
 
 
@@ -1656,7 +1730,7 @@ cdef class SocketReader:
             (<AllocationRecord> alloc)._reader = self._reader
             yield alloc
 
-cpdef enum SymbolicSupport:
+cpdef enum class SymbolicSupport:
     NONE = 1
     FUNCTION_NAME_ONLY = 2
     TOTAL = 3
@@ -1821,6 +1895,9 @@ cdef class RecordWriterTestHarness:
         records.thread_id_t main_tid=1,
         size_t skipped_frames=0,
         str command_line="memray test harness",
+        str libdest="",
+        list site_packages=[],
+        list sys_path=[],
     ):
         """Initialize a new RecordWriterTestHarness.
 
@@ -1838,6 +1915,9 @@ cdef class RecordWriterTestHarness:
             file_format,
             trace_python_allocators,
             track_object_lifetimes,
+            libdest,
+            site_packages,
+            sys_path,
         )
         self._writer.get().setMainTidAndSkippedFrames(main_tid, skipped_frames)
         self.write_header(False)

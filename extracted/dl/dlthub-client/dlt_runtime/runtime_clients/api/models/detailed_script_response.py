@@ -14,6 +14,7 @@ from ..types import UNSET, Unset
 
 if TYPE_CHECKING:
     from ..models.run_response import RunResponse
+    from ..models.script_version_response import ScriptVersionResponse
     from ..models.t_job_definition import TJobDefinition
 
 
@@ -32,6 +33,7 @@ class DetailedScriptResponse:
         job_definition_engine_version (int): Manifest engine version for future migration
         job_definition_hash (str): Hash of the job definition for change detection
         job_ref (str): Canonical job reference, unique per workspace
+        profile (str): The profile the script runs under
         public_url (None | str): The public URL where the script can be accessed without authentication, is None if not
             enabled
         script_type (ScriptType): The type of the script: batch, interactive, or stream
@@ -39,6 +41,8 @@ class DetailedScriptResponse:
         version (int): The current version of the script
         workspace_id (UUID): The ID of the workspace the script belongs to
         archived (bool | Unset): Whether the script is archived and hidden from default listings Default: False.
+        current_version (None | ScriptVersionResponse | Unset): The active script version, carrying its provider,
+            instance size, and resolved hardware.
         default_trigger (None | str | Unset): Primary trigger string (computed from job_definition)
         deployment_module (None | str | Unset): Deployment module name (e.g. __deployment__)
         description (None | str | Unset): The description of the script
@@ -51,8 +55,11 @@ class DetailedScriptResponse:
         name (None | str | Unset): Display name for the job
         next_scheduled_run (datetime.datetime | None | Unset): The next scheduled run of the script, is None if no
             schedule is set
+        paused (bool | Unset): Whether the job's scheduled runs are paused. The scheduler skips it, both on its own
+            schedule and through a freshness cascade; manual runs, `trigger` and `job.success:`/`job.fail:` chains are
+            unaffected. Only a job with `next_scheduled_run` can be paused, and losing that schedule on a deploy clears the
+            pause. Default: False.
         pipeline_name (None | str | Unset): Pipeline name this job operates on (computed from job_definition)
-        profile (None | str | Unset): The name of the profile to use for the script
         public_secret (None | Unset | UUID): The secret UUID used to generate the public URL for this script
         triggers (list[str] | None | Unset): Trigger strings for this job (computed from job_definition)
     """
@@ -65,12 +72,14 @@ class DetailedScriptResponse:
     job_definition_engine_version: int
     job_definition_hash: str
     job_ref: str
+    profile: str
     public_url: None | str
     script_type: ScriptType
     script_url: None | str
     version: int
     workspace_id: UUID
     archived: bool | Unset = False
+    current_version: None | ScriptVersionResponse | Unset = UNSET
     default_trigger: None | str | Unset = UNSET
     deployment_module: None | str | Unset = UNSET
     description: None | str | Unset = UNSET
@@ -80,14 +89,15 @@ class DetailedScriptResponse:
     last_run: None | RunResponse | Unset = UNSET
     name: None | str | Unset = UNSET
     next_scheduled_run: datetime.datetime | None | Unset = UNSET
+    paused: bool | Unset = False
     pipeline_name: None | str | Unset = UNSET
-    profile: None | str | Unset = UNSET
     public_secret: None | Unset | UUID = UNSET
     triggers: list[str] | None | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         from ..models.run_response import RunResponse
+        from ..models.script_version_response import ScriptVersionResponse
 
         created_by = str(self.created_by)
 
@@ -105,6 +115,8 @@ class DetailedScriptResponse:
 
         job_ref = self.job_ref
 
+        profile = self.profile
+
         public_url: None | str
         public_url = self.public_url
 
@@ -118,6 +130,14 @@ class DetailedScriptResponse:
         workspace_id = str(self.workspace_id)
 
         archived = self.archived
+
+        current_version: dict[str, Any] | None | Unset
+        if isinstance(self.current_version, Unset):
+            current_version = UNSET
+        elif isinstance(self.current_version, ScriptVersionResponse):
+            current_version = self.current_version.to_dict()
+        else:
+            current_version = self.current_version
 
         default_trigger: None | str | Unset
         if isinstance(self.default_trigger, Unset):
@@ -184,17 +204,13 @@ class DetailedScriptResponse:
         else:
             next_scheduled_run = self.next_scheduled_run
 
+        paused = self.paused
+
         pipeline_name: None | str | Unset
         if isinstance(self.pipeline_name, Unset):
             pipeline_name = UNSET
         else:
             pipeline_name = self.pipeline_name
-
-        profile: None | str | Unset
-        if isinstance(self.profile, Unset):
-            profile = UNSET
-        else:
-            profile = self.profile
 
         public_secret: None | str | Unset
         if isinstance(self.public_secret, Unset):
@@ -225,6 +241,7 @@ class DetailedScriptResponse:
                 "job_definition_engine_version": job_definition_engine_version,
                 "job_definition_hash": job_definition_hash,
                 "job_ref": job_ref,
+                "profile": profile,
                 "public_url": public_url,
                 "script_type": script_type,
                 "script_url": script_url,
@@ -234,6 +251,8 @@ class DetailedScriptResponse:
         )
         if archived is not UNSET:
             field_dict["archived"] = archived
+        if current_version is not UNSET:
+            field_dict["current_version"] = current_version
         if default_trigger is not UNSET:
             field_dict["default_trigger"] = default_trigger
         if deployment_module is not UNSET:
@@ -252,10 +271,10 @@ class DetailedScriptResponse:
             field_dict["name"] = name
         if next_scheduled_run is not UNSET:
             field_dict["next_scheduled_run"] = next_scheduled_run
+        if paused is not UNSET:
+            field_dict["paused"] = paused
         if pipeline_name is not UNSET:
             field_dict["pipeline_name"] = pipeline_name
-        if profile is not UNSET:
-            field_dict["profile"] = profile
         if public_secret is not UNSET:
             field_dict["public_secret"] = public_secret
         if triggers is not UNSET:
@@ -266,6 +285,7 @@ class DetailedScriptResponse:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.run_response import RunResponse
+        from ..models.script_version_response import ScriptVersionResponse
         from ..models.t_job_definition import TJobDefinition
 
         d = dict(src_dict)
@@ -284,6 +304,8 @@ class DetailedScriptResponse:
         job_definition_hash = d.pop("job_definition_hash")
 
         job_ref = d.pop("job_ref")
+
+        profile = d.pop("profile")
 
         def _parse_public_url(data: object) -> None | str:
             if data is None:
@@ -306,6 +328,25 @@ class DetailedScriptResponse:
         workspace_id = UUID(d.pop("workspace_id"))
 
         archived = d.pop("archived", UNSET)
+
+        def _parse_current_version(
+            data: object,
+        ) -> None | ScriptVersionResponse | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                current_version_type_0 = ScriptVersionResponse.from_dict(data)
+
+                return current_version_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(None | ScriptVersionResponse | Unset, data)
+
+        current_version = _parse_current_version(d.pop("current_version", UNSET))
 
         def _parse_default_trigger(data: object) -> None | str | Unset:
             if data is None:
@@ -430,6 +471,8 @@ class DetailedScriptResponse:
             d.pop("next_scheduled_run", UNSET)
         )
 
+        paused = d.pop("paused", UNSET)
+
         def _parse_pipeline_name(data: object) -> None | str | Unset:
             if data is None:
                 return data
@@ -438,15 +481,6 @@ class DetailedScriptResponse:
             return cast(None | str | Unset, data)
 
         pipeline_name = _parse_pipeline_name(d.pop("pipeline_name", UNSET))
-
-        def _parse_profile(data: object) -> None | str | Unset:
-            if data is None:
-                return data
-            if isinstance(data, Unset):
-                return data
-            return cast(None | str | Unset, data)
-
-        profile = _parse_profile(d.pop("profile", UNSET))
 
         def _parse_public_secret(data: object) -> None | Unset | UUID:
             if data is None:
@@ -491,12 +525,14 @@ class DetailedScriptResponse:
             job_definition_engine_version=job_definition_engine_version,
             job_definition_hash=job_definition_hash,
             job_ref=job_ref,
+            profile=profile,
             public_url=public_url,
             script_type=script_type,
             script_url=script_url,
             version=version,
             workspace_id=workspace_id,
             archived=archived,
+            current_version=current_version,
             default_trigger=default_trigger,
             deployment_module=deployment_module,
             description=description,
@@ -506,8 +542,8 @@ class DetailedScriptResponse:
             last_run=last_run,
             name=name,
             next_scheduled_run=next_scheduled_run,
+            paused=paused,
             pipeline_name=pipeline_name,
-            profile=profile,
             public_secret=public_secret,
             triggers=triggers,
         )

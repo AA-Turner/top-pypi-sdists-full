@@ -38,6 +38,8 @@ class SecurityMonitoringCriticalAssetAttributes(ModelNormal):
             "creation_author_id": (int,),
             "creation_date": (int,),
             "creator": (SecurityMonitoringUser,),
+            "description": (str,),
+            "editable": (bool,),
             "enabled": (bool,),
             "query": (str,),
             "rule_query": (str,),
@@ -53,6 +55,8 @@ class SecurityMonitoringCriticalAssetAttributes(ModelNormal):
         "creation_author_id": "creation_author_id",
         "creation_date": "creation_date",
         "creator": "creator",
+        "description": "description",
+        "editable": "editable",
         "enabled": "enabled",
         "query": "query",
         "rule_query": "rule_query",
@@ -69,6 +73,8 @@ class SecurityMonitoringCriticalAssetAttributes(ModelNormal):
         creation_author_id: Union[int, UnsetType] = unset,
         creation_date: Union[int, UnsetType] = unset,
         creator: Union[SecurityMonitoringUser, UnsetType] = unset,
+        description: Union[str, UnsetType] = unset,
+        editable: Union[bool, UnsetType] = unset,
         enabled: Union[bool, UnsetType] = unset,
         query: Union[str, UnsetType] = unset,
         rule_query: Union[str, UnsetType] = unset,
@@ -91,6 +97,12 @@ class SecurityMonitoringCriticalAssetAttributes(ModelNormal):
 
         :param creator: A user.
         :type creator: SecurityMonitoringUser, optional
+
+        :param description: A description of the critical asset.
+        :type description: str, optional
+
+        :param editable: Whether the critical asset is editable.
+        :type editable: bool, optional
 
         :param enabled: Whether the critical asset is enabled.
         :type enabled: bool, optional
@@ -125,6 +137,10 @@ class SecurityMonitoringCriticalAssetAttributes(ModelNormal):
             kwargs["creation_date"] = creation_date
         if creator is not unset:
             kwargs["creator"] = creator
+        if description is not unset:
+            kwargs["description"] = description
+        if editable is not unset:
+            kwargs["editable"] = editable
         if enabled is not unset:
             kwargs["enabled"] = enabled
         if query is not unset:

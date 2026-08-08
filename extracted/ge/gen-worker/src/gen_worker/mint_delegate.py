@@ -48,32 +48,41 @@ logger = logging.getLogger(__name__)
 #: Kill switch, for red-verifying the in-process shape only. Delegation is the
 #: default because the in-process shape VIOLATES the liveness contract
 #: (WORKER-CONTRACTS §1/§2) — it is kept reachable to prove that, not to run.
+#:
+#: pgw#995: this is the LAST surviving env behaviour switch in this repo whose
+#: default is ON and whose fleet declaration count is zero — i.e. the last one
+#: that is safe to delete — and it is not deleted here. The reason is specific,
+#: not a shrug: ``fleet_cells.enable_compiled`` ALREADY takes ``delegate=False``
+#: and reports it as ``caller_forced_in_process``, so a strictly better
+#: parameter seam exists and this env is redundant with it. What blocks the
+#: deletion is that ten test sites across seven files force the shape by setting
+#: this env and then driving the EXECUTOR, which reaches the policy with
+#: ``delegate=None``; threading the parameter through those call sites is a real
+#: refactor of a 4k-line test file and does not belong in a sweep. Owner and
+#: scope are recorded on pgw#995. Do not add a second reader in the meantime.
 ENV_IN_PROCESS = "GEN_WORKER_MINT_IN_PROCESS"
 
 
 #: Typed refusals :func:`delegation_refusal` can return. They are the OPERATOR
-#: half of the decision (env kill switches); the PIPELINE half lives in
+#: half of the decision; the PIPELINE half lives in
 #: ``fleet_cells.delegation_refusal``. pgw#813: the two were collapsed into one
 #: either/or sentence on the wire, so a real refusal named two causes that were
 #: both false and never named the one that was true.
+#:
+#: pgw#995 deleted ``REFUSAL_EAGER_FIRST_DISABLED`` with its switch. Delegation
+#: IS eager-first, so the two moved together — and once eager-first is
+#: unconditional, "eager-first is off" is not a state this worker can be in.
+#: A refusal reason that can never be returned is a cause a reader will hunt for
+#: and never find, which is the same defect as a cause that goes unnamed.
 REFUSAL_IN_PROCESS_FORCED = "mint_in_process_forced"
-REFUSAL_EAGER_FIRST_DISABLED = "eager_first_disabled"
 
 
 def delegation_refusal() -> str:
-    """"" when this WORKER may mint out of process, else the typed reason.
-
-    Delegation IS eager-first: the live pipeline is never armed, so a boot that
-    has eager-first turned off has no route to serve while a child compiles.
-    The two switches therefore move together rather than combining into a
-    fourth, undefined shape.
-    """
+    """"" when this WORKER may mint out of process, else the typed reason."""
     if os.environ.get(ENV_IN_PROCESS, "").strip().lower() in (
         "1", "true", "yes", "on"
     ):
         return REFUSAL_IN_PROCESS_FORCED
-    if os.environ.get("GEN_WORKER_EAGER_FIRST_BOOT", "1").strip() == "0":
-        return REFUSAL_EAGER_FIRST_DISABLED
     return ""
 
 
@@ -120,6 +129,10 @@ class DelegatedResult:
     minted: Optional[Any] = None      # fleet_cells.SelfMint
     attempts: int = 0
     budget: Optional[mint_budget.MintBudget] = None
+    #: pgw#999: the CLASSIFIED reason the child's cell did not adopt, carried
+    #: up so the executor's decline names the same token the abort event did.
+    #: Empty for every outcome that is not an adopt refusal.
+    reason: str = ""
 
     @property
     def declined(self) -> bool:
@@ -394,11 +407,20 @@ async def build_cell(
                     status=ADOPTED, minted=minted, attempts=attempts,
                     budget=budget)
             # The child produced bytes this runtime could not adopt.
-            # adopt_delegated_mint already emitted the typed abort and
-            # cleaned up; retrying cannot change a verify()/drift verdict.
+            # `adopt_delegated_mint` emitted the typed abort and cleaned up;
+            # retrying cannot change a verify()/drift verdict.
+            #
+            # pgw#999: it also RECORDED why, and this is where that used to
+            # die. The sentence below was the whole of what the wire got.
+            reason, why = fleet_cells.adopt_refusal(pending)
             return DelegatedResult(
                 status=FAILED, attempts=attempts, budget=budget,
-                detail="the child's cell did not adopt on this runtime")
+                reason=reason,
+                detail=(
+                    f"the child's cell did not adopt on this runtime "
+                    f"({reason}{': ' + why if why else ''})"
+                    if reason else
+                    "the child's cell did not adopt on this runtime"))
 
         _emit_abort(outcome, family, pending.cell_key, attempts)
         if not (outcome.retryable and attempts < max(1, max_attempts)):

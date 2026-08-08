@@ -91,6 +91,8 @@ def get_third_friday(day: date | None = None) -> date:
     day = (day or today_in_new_york()).replace(day=1) + timedelta(weeks=2)
     while day.weekday() != 4:  # Friday
         day += timedelta(days=1)
+    while not is_market_open_on(day):
+        day -= timedelta(days=1)
     return day
 
 

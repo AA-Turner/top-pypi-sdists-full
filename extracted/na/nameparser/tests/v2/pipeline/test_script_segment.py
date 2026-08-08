@@ -1,0 +1,815 @@
+"""Stage: script_segment (#271, #272) -- unspaced CJK splitting, by
+vocabulary and by the pluggable segmenter behind it."""
+import dataclasses
+
+import pytest
+
+from nameparser import Parser
+from nameparser._lexicon import Lexicon
+from nameparser._pipeline._script_segment import script_segment
+from nameparser._pipeline._segment import segment
+from nameparser._pipeline._state import (
+    ParseState, PendingAmbiguity, Structure,
+)
+from nameparser._pipeline._tokenize import tokenize
+from nameparser._policy import Policy, Script
+from nameparser._types import AmbiguityKind, Segmentation, Segmenter
+
+_HAN = Policy(segment_scripts=frozenset({Script.HAN}))
+_HANGUL = Policy()      # HANGUL is the default activation
+# the JA pack's own activation (amendment 2026-07-29): HIRAGANA is the
+# kana license's carrier key, so a kanji+kana composite gates in
+# through it; KATAKANA is deliberately absent from every set.
+_JA = Policy(segment_scripts=frozenset({Script.HAN, Script.HIRAGANA}))
+# 欧 AND 欧阳 both present on purpose: compound-before-single must
+# pick 欧阳 (the issue's own acceptance example); same for 남/남궁.
+# "jr" so the comma cases can reach SUFFIX_COMMA.
+_LEX = Lexicon(surnames=frozenset({"毛", "欧", "欧阳", "김", "남", "남궁"}),
+               suffix_words=frozenset({"jr"}))
+# The peel's own vocabulary (#308). Tails are also suffix words here,
+# as the shipped config asserts they are: the neighbour rule in the
+# segmenter tests below reads that membership, so a stage lexicon that
+# omitted it would pin a shape no real configuration can have.
+_TAILS = frozenset({"씨", "님", "선생님", "박사", "さん", "先生", "様"})
+_LEX_TAILS = _LEX.add(suffix_words=_TAILS, honorific_tails=_TAILS)
+
+
+def _run(text: str, policy: Policy = _HAN, lexicon: Lexicon = _LEX,
+         segmenter: Segmenter | None = None) -> ParseState:
+    state = ParseState(original=text, lexicon=lexicon, policy=policy,
+                       segmenter=segmenter)
+    return script_segment(segment(tokenize(state)))
+
+
+def _texts(state: ParseState) -> list[str]:
+    return [t.text for t in state.tokens]
+
+
+def _fake(splits: tuple[int, ...],
+          confidence: float | None = None) -> Segmenter:
+    """A segmenter that gives the same answer whatever it is handed:
+    every case below pins what the STAGE does with an answer, not how a
+    real segmenter arrives at one (no external dependency here)."""
+    def segmenter(text: str) -> Segmentation | None:
+        return Segmentation(splits, confidence=confidence)
+    return segmenter
+
+
+def _capture(
+        splits: tuple[int, ...] = (2,)) -> tuple[list[str], Segmenter]:
+    """_fake, plus the list of texts it was handed: the two cases below
+    that pin WHETHER and WITH WHAT the stage consults a segmenter need
+    the same closure."""
+    asked: list[str] = []
+
+    def segmenter(text: str) -> Segmentation | None:
+        asked.append(text)
+        return Segmentation(splits)
+    return asked, segmenter
+
+
+def _declines(text: str) -> Segmentation | None:
+    return None
+
+
+def test_splits_leading_surname_and_spans_index_the_original() -> None:
+    state = _run("毛泽东")
+    assert _texts(state) == ["毛", "泽东"]
+    assert [(t.span.start, t.span.end) for t in state.tokens] == [
+        (0, 1), (1, 3)]
+    assert all(state.original[t.span.start:t.span.end] == t.text
+               for t in state.tokens)
+
+
+def test_compound_before_single() -> None:
+    assert _texts(_run("欧阳明")) == ["欧阳", "明"]
+    assert _texts(_run("남궁민수", policy=_HANGUL)) == ["남궁", "민수"]
+
+
+def test_hangul_splits_under_the_default_policy() -> None:
+    assert _texts(_run("김민준", policy=_HANGUL)) == ["김", "민준"]
+
+
+def test_han_needs_the_opt_in() -> None:
+    # default policy activates HANGUL only: Han tokens stay whole
+    assert _texts(_run("毛泽东", policy=_HANGUL)) == ["毛泽东"]
+
+
+def test_inert_without_surname_vocabulary() -> None:
+    assert _texts(_run("毛泽东", lexicon=Lexicon.empty())) == ["毛泽东"]
+
+
+def test_inert_with_segmentation_disabled() -> None:
+    off = Policy(segment_scripts=())  # type: ignore[arg-type]
+    assert _texts(_run("김민준", policy=off)) == ["김민준"]
+
+
+def test_whole_token_surname_does_not_split() -> None:
+    # a bare surname has nothing to split off; a lone token's role is
+    # the order resolution's call, not this stage's. The trap: 欧 and
+    # 남 are ALSO listed, so without the whole-token guard these
+    # would split 欧+阳 / 남+궁 by the shorter prefix
+    assert _texts(_run("欧阳")) == ["欧阳"]
+    assert _texts(_run("남궁", policy=_HANGUL)) == ["남궁"]
+
+
+def test_no_match_leaves_the_token_alone() -> None:
+    assert _texts(_run("阿明")) == ["阿明"]
+
+
+def test_only_the_first_script_token_is_considered() -> None:
+    assert _texts(_run("毛泽东 毛泽东")) == ["毛", "泽东", "毛泽东"]
+
+
+def test_leading_non_script_token_is_skipped_over() -> None:
+    assert _texts(_run("Dr 毛泽东")) == ["Dr", "毛", "泽东"]
+
+
+def test_mixed_script_token_is_not_split() -> None:
+    assert _texts(_run("毛zedong")) == ["毛zedong"]
+
+
+def test_first_script_token_decides_even_on_no_match() -> None:
+    # no fallthrough: the front of the name is the only surname site
+    assert _texts(_run("阿明 毛泽东")) == ["阿明", "毛泽东"]
+
+
+def test_compound_fork_emits_segmentation_ambiguity() -> None:
+    # both 欧阳+明 and 欧+阳明 are vocabulary-supported: the stage
+    # decided a fork, and the pipeline contract is that deciding
+    # stages record it (indices = the two result tokens)
+    out = _run("欧阳明")
+    assert [a.kind for a in out.ambiguities] == [
+        AmbiguityKind.SEGMENTATION]
+    assert out.ambiguities[0].indices == (0, 1)
+    # the documented promise: detail names BOTH readings
+    detail = out.ambiguities[0].detail
+    assert "欧阳" in detail and "明" in detail
+    assert "阳明" in detail
+    ko = _run("남궁민수", policy=_HANGUL)
+    assert [a.kind for a in ko.ambiguities] == [
+        AmbiguityKind.SEGMENTATION]
+
+
+def test_single_possible_split_emits_no_ambiguity() -> None:
+    # only 毛 matches: no fork, no noise
+    assert _run("毛泽东").ambiguities == ()
+    assert _run("김민준", policy=_HANGUL).ambiguities == ()
+
+
+def test_a_family_comma_stands_the_surname_split_down() -> None:
+    # the comma declared the family: splitting it would invent a
+    # boundary the writer did not draw ("남궁 민수" with a space).
+    # The SPLIT only -- the stage as a whole is not inert under a
+    # family comma since #312, and would not be on a lexicon carrying
+    # honorific_tails (_LEX does not; see the peel's own cases below).
+    out = _run("남궁민수, 지훈", policy=_HANGUL)
+    assert out.structure is Structure.FAMILY_COMMA
+    assert _texts(out) == ["남궁민수", "지훈"]
+    assert out.ambiguities == ()
+
+
+def test_family_comma_given_side_untouched() -> None:
+    assert _texts(_run("박, 남궁민수", policy=_HANGUL)) == [
+        "박", "남궁민수"]
+
+
+def test_one_word_before_the_comma_is_never_suffix_comma() -> None:
+    # an unspaced CJK name is ONE word, and segment's suffix-comma
+    # rule needs >1 word before the comma -- so this reads as
+    # FAMILY_COMMA and the opt-out above covers it too
+    out = _run("김민준, Jr.", policy=_HANGUL)
+    assert out.structure is Structure.FAMILY_COMMA
+    assert _texts(out) == ["김민준", "Jr."]
+
+
+def test_suffix_comma_name_part_still_splits() -> None:
+    out = _run("Dr 김민준, Jr.", policy=_HANGUL)
+    assert out.structure is Structure.SUFFIX_COMMA
+    assert _texts(out) == ["Dr", "김", "민준", "Jr."]
+
+
+def test_segments_remap_after_the_split() -> None:
+    out = _run("Dr 김민준, Jr.", policy=_HANGUL)
+    # name segment gains the second half in place; the suffix
+    # segment's index follows the token it names
+    assert out.segments == ((0, 1, 2), (3,))
+    assert [[out.tokens[i].text for i in run] for run in out.segments] \
+        == [["Dr", "김", "민준"], ["Jr."]]
+
+
+def test_ambiguity_indices_shift_past_the_split() -> None:
+    state = segment(tokenize(ParseState(
+        original="毛泽东 X", lexicon=_LEX, policy=_HAN)))
+    state = dataclasses.replace(state, ambiguities=(
+        PendingAmbiguity(AmbiguityKind.UNBALANCED_DELIMITER,
+                         "synthetic", indices=(0,)),
+        PendingAmbiguity(AmbiguityKind.UNBALANCED_DELIMITER,
+                         "synthetic", indices=(1,)),
+    ))
+    out = script_segment(state)
+    # index 0 (the split token itself) stays; index 1 moves right
+    assert out.ambiguities[0].indices == (0,)
+    assert out.ambiguities[1].indices == (2,)
+
+
+def test_the_real_fold_splits_and_keeps_the_stage_after_segment() -> None:
+    # the stage-order contract end to end: a set-comparison ownership
+    # test cannot catch a reorder, but this can -- placed before
+    # segment, the split would feed segment two words where the writer
+    # wrote one and turn the family-comma parse below into a
+    # suffix-comma one
+    p = Parser(lexicon=_LEX, policy=_HANGUL)
+    plain = p.parse("김민준")
+    assert (plain.family, plain.given) == ("김", "민준")
+    declared = p.parse("남궁민수, 지훈")
+    assert (declared.family, declared.given) == ("남궁민수", "지훈")
+
+
+def test_delimited_only_input_reaches_the_empty_segments_guard() -> None:
+    # extraction masks the whole string, so segment produces no runs
+    # at all -- the guard the stage-level helper above cannot reach
+    nick = Parser(lexicon=_LEX, policy=_HANGUL).parse("(민준)")
+    assert nick.nickname == "민준"
+
+
+# -- the pluggable segmenter, consulted on decline (#272) ---------------
+
+
+def test_segmenter_splits_on_vocabulary_decline() -> None:
+    # the baseline: with no segmenter configured a declined token is
+    # simply left whole, so every split below is the hook's doing
+    assert _texts(_run("山田太郎", policy=_JA)) == ["山田太郎"]
+    # 山田太郎 has no vocabulary surname prefix at all, so the
+    # vocabulary declines and the token reaches the segmenter
+    state = _run("山田太郎", policy=_JA, segmenter=_fake((2,)))
+    assert _texts(state) == ["山田", "太郎"]
+    assert [(t.span.start, t.span.end) for t in state.tokens] == [
+        (0, 2), (2, 4)]
+    assert all(state.original[t.span.start:t.span.end] == t.text
+               for t in state.tokens)
+
+
+def test_vocabulary_wins_over_the_segmenter() -> None:
+    # precedence, and the reason parser_for(ZH, JA, segmenter=...)
+    # composes: a matched surname is a dictionary certainty, so the
+    # segmenter is not even asked
+    asked, seg = _capture()
+    state = _run("毛泽东", policy=_JA, segmenter=seg)
+    assert _texts(state) == ["毛", "泽东"]
+    assert asked == []
+
+
+def test_segmenter_decline_and_confident_whole_are_distinct() -> None:
+    # two different ANSWERS -- None is "I don't know", () is
+    # "confidently one token" -- with the same effect on the tokens:
+    # the difference is the protocol's to carry, not this stage's
+    for seg in (_declines, _fake(())):
+        out = _run("山田太郎", policy=_JA, segmenter=seg)
+        assert _texts(out) == ["山田太郎"]
+        assert out.ambiguities == ()   # nothing decided, nothing to report
+
+
+def test_kana_licensed_token_gates_in_for_the_segmenter() -> None:
+    # the gate reads effective_script, not single_script: 高橋みなみ is
+    # mixed Han+hiragana, which the kana license resolves to the
+    # HIRAGANA carrier entry -- and HIRAGANA is in the JA activation
+    state = _run("高橋みなみ", policy=_JA, segmenter=_fake((2,)))
+    assert _texts(state) == ["高橋", "みなみ"]
+
+
+def test_pure_katakana_never_gates_in() -> None:
+    # the license's other half: a lone katakana token is predominantly
+    # a transcribed foreign name, so KATAKANA sits in no activation set
+    # and no segmenter is consulted for one
+    out = _run("マイケル", policy=_JA, segmenter=_fake((2,)))
+    assert _texts(out) == ["マイケル"]
+    assert out.ambiguities == ()
+
+
+def test_kana_licensed_token_stays_whole_under_default_policy() -> None:
+    # the pack IS the language declaration: without it the default
+    # activation is HANGUL alone, so nothing gates in and the
+    # configured segmenter is inert
+    out = _run("高橋みなみ", segmenter=_fake((2,)))
+    assert _texts(out) == ["高橋みなみ"]
+    assert out.ambiguities == ()
+
+
+def test_segmenter_multi_split_produces_n_plus_one_tokens() -> None:
+    # n cuts make n+1 sub-slices, and every index the earlier stages
+    # recorded shifts by n rather than by one
+    state = segment(tokenize(ParseState(
+        original="山田太 X", lexicon=_LEX, policy=_JA,
+        segmenter=_fake((1, 2)))))
+    state = dataclasses.replace(state, ambiguities=(
+        PendingAmbiguity(AmbiguityKind.UNBALANCED_DELIMITER,
+                         "synthetic", indices=(1,)),))
+    out = script_segment(state)
+    assert _texts(out) == ["山", "田", "太", "X"]
+    assert [(t.span.start, t.span.end) for t in out.tokens] == [
+        (0, 1), (1, 2), (2, 3), (4, 5)]
+    assert all(out.original[t.span.start:t.span.end] == t.text
+               for t in out.tokens)
+    assert out.segments == ((0, 1, 2, 3),)
+    assert out.ambiguities[0].indices == (3,)
+
+
+def test_low_confidence_emits_segmentation_ambiguity() -> None:
+    # a statistical guess is a fork the stage decided, so a score under
+    # _SEGMENTER_CONFIDENCE_FLOOR is reported -- unlike a vocabulary
+    # split, which reports only when a SECOND surname also matched
+    state = _run("山田太郎", policy=_JA,
+                 segmenter=_fake((2,), confidence=0.42))
+    assert [a.kind for a in state.ambiguities] == [
+        AmbiguityKind.SEGMENTATION]
+    assert "0.42" in state.ambiguities[0].detail
+    assert state.ambiguities[0].indices == (0, 1)
+
+
+def test_high_confidence_and_no_confidence_emit_nothing() -> None:
+    # a confident answer is not a fork, and an opinionless one gives
+    # the stage nothing to judge -- neither is worth a report
+    # 0.9 is the floor itself: the comparison is strict, so an answer
+    # AT the floor is not under it
+    for conf in (0.99, 0.9, None):
+        state = _run("山田太郎", policy=_JA,
+                     segmenter=_fake((2,), confidence=conf))
+        assert _texts(state) == ["山田", "太郎"]
+        assert state.ambiguities == ()
+
+
+def test_out_of_bounds_split_raises() -> None:
+    # Segmentation cannot check the upper bound (it never sees the
+    # text), so the stage does -- and it RAISES, the same call the
+    # wrong-answer-type check beside it makes: both are protocol
+    # violations by the segmenter's author, inside the declared
+    # totality exception. Declining silently instead (as this did
+    # before the review) made an off-by-one segmenter undebuggable --
+    # every answer vanished and the name merely looked undivided.
+    with pytest.raises(ValueError,
+                       match=r"segmenter returned splits beyond the "
+                             r"token: last offset 5, token length 2"):
+        _run("山田", policy=_JA, segmenter=_fake((5,)))
+    # 2 on a two-character token is the boundary itself: the check is
+    # >=, not >, since a cut at len(text) would leave an empty piece
+    with pytest.raises(ValueError, match="last offset 2, token length 2"):
+        _run("山田", policy=_JA, segmenter=_fake((2,)))
+
+
+def test_family_comma_gates_the_segmenter_too() -> None:
+    # the comma doctrine is about the input's structure, not the
+    # split's source: the structural opt-out runs before any consult
+    out = _run("山田太郎, 花子", policy=_JA, segmenter=_fake((2,)))
+    assert out.structure is Structure.FAMILY_COMMA
+    assert _texts(out) == ["山田太郎", "花子"]
+    assert out.ambiguities == ()
+
+
+def test_empty_vocabulary_still_consults_the_segmenter() -> None:
+    # "consult on vocabulary decline" has no unstated exception for a
+    # lexicon that declines EVERYTHING: a surname-less vocabulary is
+    # the JA pack's own shape (the segmenter is its whole mechanism),
+    # so an emptiness bail here would make it silently inert
+    state = _run("山田太郎", policy=_JA, lexicon=Lexicon.empty(),
+                 segmenter=_fake((2,)))
+    assert _texts(state) == ["山田", "太郎"]
+
+
+def test_a_wrong_answer_type_raises_a_curated_error() -> None:
+    # a duck-typed lookalike would otherwise wander into the split
+    # path and surface as a ValueError naming Token -- the reader's
+    # bug is in their segmenter, and the message must say so
+    class NotASegmentation:
+        splits = (2,)
+        confidence = None
+
+    def seg(text: str) -> Segmentation | None:
+        return NotASegmentation()   # type: ignore[return-value]
+
+    with pytest.raises(TypeError,
+                       match="segmenter must return Segmentation or None, "
+                             "got NotASegmentation"):
+        _run("山田太郎", policy=_JA, segmenter=seg)
+
+
+def test_a_neighbour_in_an_UNACTIVATED_script_still_blocks_the_consult() -> None:
+    # The precondition counts a second script-written token whatever
+    # script it is written in -- effective_script merely non-None, NOT
+    # membership in the activation set. A katakana or hangul neighbour
+    # is a boundary its writer drew just as deliberately as a Han one,
+    # so the name is already divided and the segmenter must not be
+    # asked. Narrowing the check to `in scripts` would make both of
+    # these split 山 + 田太郎 while the writer's own boundary sat one
+    # token to the right.
+    for name in ("山田太郎 マイケル", "山田太郎 김민준"):
+        out = _run(name, policy=_JA, segmenter=_fake((1,)))
+        assert _texts(out) == name.split(), name
+        assert out.ambiguities == (), name
+
+
+def test_only_a_manufactured_tail_does_not_block_the_consult() -> None:
+    # The exemption is PROVENANCE, not vocabulary. A tail the peel
+    # manufactured is a boundary nobody drew -- glued 山田太郎様 was
+    # written as one token -- so the segmenter is asked, and asked
+    # about the name alone. The SPACED spelling of the same honorific
+    # is the opposite case: its writer drew that boundary and wrote
+    # 山田太郎 as a unit beside it, so the consult is declined and the
+    # unit stays whole. Asking the suffix VOCABULARY instead cannot
+    # tell these apart -- same word, same place -- and answering both
+    # the first way divided 佐藤 氏 into 佐 + 藤.
+    asked, seg = _capture()
+    out = _run("山田太郎様", policy=_JA, lexicon=_LEX_TAILS, segmenter=seg)
+    assert asked == ["山田太郎"]
+    assert _texts(out) == ["山田", "太郎", "様"]
+
+    asked, seg = _capture()
+    out = _run("山田太郎 様", policy=_JA, lexicon=_LEX_TAILS, segmenter=seg)
+    assert asked == []
+    assert _texts(out) == ["山田太郎", "様"]
+
+
+def test_a_manufactured_tail_does_not_excuse_a_real_boundary() -> None:
+    # The peeled tail stops counting, and nothing else does: 太郎 is
+    # still a boundary its writer drew, so the name is already divided
+    # and the segmenter must not be asked. Without the narrowing the
+    # rule reads as "an exempt token anywhere disables the neighbour
+    # test", which passes every other test in this file and divides
+    # 山田 into 山 + 田.
+    asked, seg = _capture()
+    out = _run("山田 太郎様", policy=_JA, lexicon=_LEX_TAILS,
+               segmenter=seg)
+    assert asked == []
+    assert _texts(out) == ["山田", "太郎", "様"]
+
+
+# -- the glued honorific peel (#308) -----------------------------------
+
+
+def test_peels_a_listed_tail_without_any_activation() -> None:
+    # The peel is licensed by the TAIL, not by the script, so it runs
+    # under a policy that activates nothing -- 田中さん must peel under
+    # the DEFAULT policy, where HAN is in no activation set. Spans stay
+    # sub-slices of the original (anti-#100), like every split here.
+    off = Policy(segment_scripts=())    # type: ignore[arg-type]
+    out = _run("田中さん", policy=off, lexicon=_LEX_TAILS)
+    assert _texts(out) == ["田中", "さん"]
+    assert [(t.span.start, t.span.end) for t in out.tokens] == [
+        (0, 2), (2, 4)]
+    assert all(out.original[t.span.start:t.span.end] == t.text
+               for t in out.tokens)
+    assert out.ambiguities == ()        # decisive vocabulary, no fork
+
+
+def test_peel_then_segmentation_compose() -> None:
+    # the peel runs first, so the segmentation half sees the REMAINDER
+    assert _texts(_run("김민준씨", policy=_HANGUL,
+                       lexicon=_LEX_TAILS)) == ["김", "민준", "씨"]
+
+
+def test_a_token_that_is_a_tail_never_peels() -> None:
+    # nothing to split off, and the guard is the peel site's scan past
+    # post-nominals, not the length cap: 선생님 ENDS in the shorter
+    # tail 님, so a cap-based guard would peel it to 선생 + 님
+    assert _texts(_run("씨", policy=_HANGUL, lexicon=_LEX_TAILS)) == ["씨"]
+    assert _texts(_run("さん", policy=_HANGUL,
+                       lexicon=_LEX_TAILS)) == ["さん"]
+    assert _texts(_run("선생님", policy=_HANGUL,
+                       lexicon=_LEX_TAILS)) == ["선생님"]
+
+
+def test_longest_tail_wins() -> None:
+    # 님 and 선생님 both match by endswith, and only the longer one
+    # leaves a remainder that is a name (박선생 is not one)
+    assert _texts(_run("박선생님", policy=_HANGUL,
+                       lexicon=_LEX_TAILS)) == ["박", "선생님"]
+
+
+def test_one_peel_never_a_stack() -> None:
+    # The remainder here ENDS in another listed tail (박사) and is
+    # still not peeled again: one peel, then the stage moves on to
+    # segmentation, which splits the surname off what is left.
+    # The SOLE home of this pin, and it needs the synthetic lexicon:
+    # _TAILS deliberately omits 박사님, which the shipped vocabulary
+    # carries, so 김민준박사님 gives up the whole honorific there (the
+    # ko_honorific_glued_doctor case row). No shipped entry pair has
+    # the shape this needs -- a tail whose remainder ends in a
+    # DIFFERENT tail, the two not forming a listed entry themselves --
+    # so no realistic name can carry the pin end to end.
+    assert _texts(_run("김민준박사님", policy=_HANGUL,
+                       lexicon=_LEX_TAILS)) == ["김", "민준박사", "님"]
+
+
+def test_peel_needs_no_script_on_the_remainder() -> None:
+    # the tail is the license: Japanese text about a foreigner
+    assert _texts(_run("Andersonさん", policy=_HANGUL,
+                       lexicon=_LEX_TAILS)) == ["Anderson", "さん"]
+
+
+def test_an_unlisted_tail_never_peels() -> None:
+    # endswith against the vocabulary, never against a shape: 지양 ends
+    # in a shipped SPACED honorific that is deliberately not a tail
+    assert _texts(_run("김지양", policy=_HANGUL,
+                       lexicon=_LEX_TAILS)) == ["김", "지양"]
+
+
+def test_an_interpunct_gates_the_split_but_not_the_peel() -> None:
+    # The dot marks a transcription, which is a claim about where the
+    # name divides into syllable groups -- so it still gates the
+    # surname split. An honorific glued to a transcribed name is
+    # still an honorific, so the peel crosses it (#312). 威 is a
+    # surname in this lexicon precisely so the first clause bites:
+    # without the gate 威廉 would divide 威 + 廉.
+    lex = _LEX_TAILS.add(surnames={"威"})
+    state = segment(tokenize(ParseState(
+        original="威廉·莎士比亚先生", lexicon=lex, policy=_HAN)))
+    assert state.interpunct_offsets
+    out = script_segment(state)
+    assert _texts(out) == ["威廉", "莎士比亚", "先生"]
+
+
+def test_a_peeled_tail_is_not_a_surname_site() -> None:
+    # The peel manufactures a token, and the site scan below must not
+    # then treat it as a name: 남궁 opens with the listed surname 남,
+    # so without the post-nominal guard the stage would split the
+    # honorific it had just created.
+    lex = Lexicon(surnames=frozenset({"남"}),
+                  suffix_words=frozenset({"남궁"}),
+                  honorific_tails=frozenset({"남궁"}))
+    assert _texts(_run("Anderson남궁", policy=_HANGUL,
+                       lexicon=lex)) == ["Anderson", "남궁"]
+
+
+def test_a_leading_post_nominal_is_not_a_surname_site() -> None:
+    # A surname LEADS, so an honorific in the surname's own position
+    # means there is no surname to find -- decline rather than scan
+    # on. Scanning on would reach the given name, which is what the
+    # first-token rule above exists to prevent: 지 is a listed
+    # surname, so 양 지훈 would split its own given name in half.
+    assert _texts(_run("씨 김민준", policy=_HANGUL,
+                       lexicon=_LEX_TAILS)) == ["씨", "김민준"]
+
+
+def test_a_trailing_post_nominal_does_not_hide_the_peel_site() -> None:
+    # the site is the last token that is not ITSELF a post-nominal, so
+    # an unrelated trailing suffix cannot put the glued one out of
+    # reach -- "김민준씨 jr" must answer as "Dr 김민준씨, Jr." does
+    assert _texts(_run("김민준씨 jr", policy=_HANGUL,
+                       lexicon=_LEX_TAILS)) == ["김", "민준", "씨", "jr"]
+
+
+def test_the_peel_only_looks_at_the_last_non_post_nominal_token() -> None:
+    # a tail anywhere but the end is somebody's name, not an
+    # honorific: only the trailing position is an honorific site, the
+    # same reasoning the trailing-only suffix gate follows
+    assert _texts(_run("田中さん 太郎", policy=_HANGUL,
+                       lexicon=_LEX_TAILS)) == ["田中さん", "太郎"]
+
+
+def test_the_peel_reaches_past_a_family_comma() -> None:
+    # A comma says where the FAMILY name ends. It says nothing about
+    # whether a trailing honorific is part of the name, so the peel
+    # does not inherit the gate that stops the surname split -- and
+    # under FAMILY_COMMA the name spans both segments, so the site
+    # scan has to cross the boundary to find 민준씨 at all.
+    assert _texts(_run("김, 민준씨", policy=_HANGUL,
+                       lexicon=_LEX_TAILS)) == ["김", "민준", "씨"]
+
+
+def test_the_peel_scans_the_name_runs_and_no_further() -> None:
+    # Crossing a FAMILY comma is not crossing every comma: past the
+    # name's own runs lie post-nominals, and taking one as the site
+    # abandons the peel. Two shapes, both silently broken by a scan
+    # over ALL segments. segment admits a post-comma run on
+    # is_suffix_lenient while the site scan asks is_suffix_strict, so
+    # an initial-shaped suffix word is a site rather than a token to
+    # step over -- "V." ends in no tail, and 씨 would stay glued. And
+    # a later junk segment would take the peel off the person's own
+    # name onto 박씨, peeling the wrong 씨 of two.
+    lex = _LEX_TAILS.add(suffix_words={"v"})
+    assert _texts(_run("Dr 김민준씨, V.", policy=_HANGUL,
+                       lexicon=lex)) == ["Dr", "김", "민준", "씨", "V."]
+    assert _texts(_run("Dr 김민준씨, Jr., 박씨", policy=_HANGUL,
+                       lexicon=lex)) == [
+        "Dr", "김", "민준", "씨", "Jr.", "박씨"]
+
+
+def test_a_suffix_comma_keeps_the_peel_inside_the_name() -> None:
+    # The test above shows a suffix comma not being crossed while the
+    # name HOLDS a site, which is the easy half: segments[0] answers
+    # the scan either way, so a gate that had stopped keying on
+    # FAMILY_COMMA -- on "there is a second run at all", say -- would
+    # still land the peel on 민준씨 and pass. This is the twin that can
+    # see it: two words before the comma so the structure is
+    # SUFFIX_COMMA, NO site among them, and a token beyond the comma
+    # that ends in a listed tail. The peel must answer None, not reach
+    # past the name for the junk one -- "J.씨" is a stray post-nominal,
+    # and its 씨 is nobody's honorific.
+    assert _texts(_run("John Smith, J.씨", policy=_HANGUL,
+                       lexicon=_LEX_TAILS)) == ["John", "Smith", "J.씨"]
+
+
+def test_the_peel_crosses_a_family_comma_and_stops_there() -> None:
+    # The family-comma mirror of the test above, and the only input
+    # that pins the SECOND half of segments[:2] -- that it is two runs
+    # and not three. Every other family-comma case here has exactly
+    # two segments, so the slice is otherwise only ever exercised as
+    # "more than one run": widening it to three passes them all.
+    # Both shapes above, re-spelled with the name split across a family
+    # comma -- but only the SECOND of the two pins the slice, and the
+    # measurement says so: widen this scan to three runs and 박씨 is
+    # the junk tail whose 씨 gets peeled instead of the person's own,
+    # while "Jr." is a post-nominal by the STRICT test as well, so a
+    # wider scan steps over it onto 민준씨 and peels correctly anyway.
+    # It is the initial-shaped words ("V." in the test above) that fall
+    # in the strict/lenient gap, not "Jr."; this input keeps 씨's
+    # placement pinned against a third run of ordinary post-nominals.
+    assert _texts(_run("김, 민준씨, Jr.", policy=_HANGUL,
+                       lexicon=_LEX_TAILS)) == ["김", "민준", "씨", "Jr."]
+    assert _texts(_run("김, 민준씨, 박씨", policy=_HANGUL,
+                       lexicon=_LEX_TAILS)) == ["김", "민준", "씨", "박씨"]
+
+
+def test_a_wholly_suffix_run_after_a_family_comma_is_declined() -> None:
+    # The two tests above pin HOW FAR the crossing reaches; this pins
+    # WHETHER it happens, which the structure alone does not decide.
+    # segment answers FAMILY_COMMA whenever a single word precedes the
+    # comma, even where the part after it is entirely suffix-shaped, so
+    # "the second run is name text" is an inference and a wrong one
+    # here. Scanning it lands the site on "V." -- admitted to the run by
+    # segment's is_suffix_lenient, rejected as an initial by the scan's
+    # is_suffix_strict -- which ends in no listed tail, so the peel is
+    # abandoned and さん stays glued to 田中 (#319). The peel asks
+    # is_wholly_suffix, segment's own predicate, and declines the run.
+    lex = _LEX_TAILS.add(suffix_words={"v"})
+    assert _texts(_run("田中さん, V.", policy=_HANGUL,
+                       lexicon=lex)) == ["田中", "さん", "V."]
+
+
+def test_a_long_wholly_suffix_post_comma_run_is_declined_too() -> None:
+    # The decline is a question about the run's VOCABULARY and not its
+    # LENGTH, and no other input here says so: every case pinning the
+    # decline has a one- or two-token run, so a gate that declined only
+    # short runs passes all of them and this one alone catches it.
+    # Three post-nominals, with the initial-shaped one LEFTMOST on
+    # purpose -- a scan that reached this run would step over PhD and
+    # MD (both post-nominals by the strict test) and stop on "V.",
+    # which ends in no tail, abandoning the peel exactly as above.
+    lex = _LEX_TAILS.add(suffix_words={"v"},
+                         suffix_acronyms={"md", "phd"})
+    assert _texts(_run("田中さん, V. MD PhD", policy=_HANGUL,
+                       lexicon=lex)) == ["田中", "さん", "V.", "MD", "PhD"]
+
+
+def test_a_third_segment_does_not_reopen_the_declined_run() -> None:
+    # WHICH run the decline reads, and how many there may be, are two
+    # more axes no other input here moves: every case pinning the
+    # decline has exactly two segments, so reading segments[-1] instead
+    # of segments[1], or requiring exactly two segments before
+    # declining at all, passes all of them. Both mistakes give the same
+    # visible loss on this input -- the run consulted is 太郎, or none
+    # is, so the scan crosses, "V." is the site, it ends in no tail and
+    # the peel is abandoned. The third segment is junk beyond the name
+    # either way (segment flags it, and the peel already refuses to
+    # scan it -- test_the_peel_crosses_a_family_comma_and_stops_there
+    # above); the question here is only whether its presence changes
+    # the answer about the SECOND.
+    lex = _LEX_TAILS.add(suffix_words={"v"})
+    assert _texts(_run("田中さん, V., 太郎", policy=_HANGUL,
+                       lexicon=lex)) == ["田中", "さん", "V.", "太郎"]
+
+
+def test_a_configured_suffix_delimiter_reaches_the_peel() -> None:
+    # is_wholly_suffix is handed the CALLER's policy, so
+    # extra_suffix_delimiters decides what counts as a suffix run here
+    # exactly as it does inside segment -- a peel that passed a default
+    # policy instead would answer differently from the stage whose
+    # question it is borrowing. Two routes into that answer, neither
+    # reachable from the other's input, so both are pinned: a
+    # delimiter WITHOUT whitespace leaves one token no core equals
+    # ("PhD/MD"), admitted by splits_into_suffixes, while a
+    # whitespace-padded one surfaces as a standalone token ("-"),
+    # admitted by plain core membership. Each peels only with its
+    # delimiter configured; the bare-policy line under each is the
+    # baseline that says so.
+    lex = _LEX_TAILS.add(suffix_words={"v"},
+                         suffix_acronyms={"md", "phd"})
+    slash = Policy(extra_suffix_delimiters=frozenset({"/"}))
+    assert _texts(_run("田中さん, PhD/MD", policy=slash,
+                       lexicon=lex)) == ["田中", "さん", "PhD/MD"]
+    assert _texts(_run("田中さん, PhD/MD", policy=_HANGUL,
+                       lexicon=lex)) == ["田中さん", "PhD/MD"]
+    dash = Policy(extra_suffix_delimiters=frozenset({" - "}))
+    assert _texts(_run("田中さん, Jr. - V.", policy=dash,
+                       lexicon=lex)) == ["田中", "さん", "Jr.", "-", "V."]
+    assert _texts(_run("田中さん, Jr. - V.", policy=_HANGUL,
+                       lexicon=lex)) == ["田中さん", "Jr.", "-", "V."]
+
+
+def test_an_empty_first_run_still_reaches_the_second() -> None:
+    # A leading comma empties segments[0] without emptying the name:
+    # the scan flattens both runs, so an empty first one is nothing to
+    # stop at. Guarding the crossing on a non-empty segments[0] passes
+    # the ", , 씨" test below, where BOTH runs are empty, and fails
+    # only here.
+    assert _texts(_run(", 민준씨", policy=_HANGUL,
+                       lexicon=_LEX_TAILS)) == ["민준", "씨"]
+
+
+def test_the_peel_crosses_a_comma_and_a_dot_at_once() -> None:
+    # The two gates #312 made siblings, composed. Both stand over the
+    # surname split here -- 威 is a listed surname in this lexicon, so
+    # bare 威廉 would divide 威 + 廉, and either gate alone stops that
+    # (the family comma reaches its return first) -- while the peel
+    # crosses both and reaches 太郎さん on the far side of the comma.
+    # Neither gate alone pins this: keying the cross-comma reach on
+    # interpunct-free input passes every other case in this file.
+    lex = _LEX_TAILS.add(surnames={"威"})
+    state = segment(tokenize(ParseState(
+        original="威廉·莎士比亚, 太郎さん", lexicon=lex, policy=_HAN)))
+    assert state.interpunct_offsets
+    assert state.structure is Structure.FAMILY_COMMA
+    assert _texts(script_segment(state)) == [
+        "威廉", "莎士比亚", "太郎", "さん"]
+
+
+def test_the_peel_survives_a_name_with_no_name_tokens() -> None:
+    # The name's runs are EMPTY -- a leading comma yields an empty one
+    # per comma -- so the scan has nothing to look at and answers None
+    # rather than indexing. Reachable, so taking the last token
+    # outright would raise here. The scan's other way to answer None,
+    # a name that is nothing but post-nominals, is not what this
+    # exercises: next() short-circuits on the empty runs and never
+    # asks. test_a_token_that_is_a_tail_never_peels pins that one.
+    assert _texts(_run(", , 씨", policy=_HANGUL,
+                       lexicon=_LEX_TAILS)) == ["씨"]
+
+
+def test_a_comma_does_not_by_itself_change_the_peel() -> None:
+    # The counterpart, and the shape #312 was originally filed about:
+    # the site is the last NON-POST-NOMINAL token, which is 太郎 here
+    # whichever spelling is used, so neither peels. Crossing the comma
+    # must not turn this into a peel.
+    for name in ("田中さん 太郎", "田中さん, 太郎"):
+        expected = name.replace(",", "").split()
+        assert _texts(_run(name, policy=_HANGUL,
+                           lexicon=_LEX_TAILS)) == expected, name
+
+
+# -- the 间隔号 gate: a divided name is a transcription (#298) ----------
+
+
+def test_interpunct_divided_name_never_segments() -> None:
+    # 马丁·路德·金 (Martin Luther King): 马 is a listed surname, but a
+    # 间隔号-divided name is a transcription -- its pieces are syllable
+    # groups, not surname+given, so the dot gates the stage off
+    # entirely, vocabulary AND segmenter (spec 2026-07-30). Built
+    # through the real tokenize so interpunct_offsets is the field's
+    # own producer's, not hand-set.
+    state = segment(tokenize(ParseState(
+        original="马丁·路德·金",
+        lexicon=Lexicon(surnames=frozenset({"马"})), policy=_HAN)))
+    assert state.interpunct_offsets     # tokenize recorded the dots
+    out = script_segment(state)
+    assert out.tokens == state.tokens   # nothing split: no 马 + 丁
+    assert out.ambiguities == ()
+
+
+def test_interpunct_divided_name_never_consults_the_segmenter() -> None:
+    # the gate's other consumer, pinned separately: today the
+    # second-script-token precondition would decline this consult
+    # anyway, but the transcription doctrine must not depend on it --
+    # the dot gates BEFORE either mechanism is reached
+    asked, seg = _capture()
+    state = segment(tokenize(ParseState(
+        original="马丁·路德·金", lexicon=Lexicon.empty(), policy=_HAN,
+        segmenter=seg)))
+    out = script_segment(state)
+    assert out.tokens == state.tokens
+    assert asked == []
+
+
+def test_interpunct_gates_the_whole_name_not_just_dotted_tokens() -> None:
+    # state-global on purpose: the marker reads the WHOLE name as a
+    # transcription listing, so the un-dotted hangul token stays whole
+    # too -- the baseline shows it segments without the B7 elsewhere
+    assert _texts(_run("김민준 马丁 路德", policy=_HANGUL)) == [
+        "김", "민준", "马丁", "路德"]
+    state = segment(tokenize(ParseState(
+        original="김민준 马丁·路德", lexicon=_LEX, policy=_HANGUL)))
+    assert state.interpunct_offsets
+    out = script_segment(state)
+    assert out.tokens == state.tokens
+
+
+def test_the_segmenter_is_handed_the_gated_token_only() -> None:
+    # It is asked where ONE token divides, so it gets that token's text
+    # and nothing else -- not the original, not the name part joined
+    # back together. A leading Latin title is the case that can tell
+    # the difference: it is skipped by the gate (no script) and is not
+    # a neighbour for the precondition either, so the consult happens
+    # and the argument is observable.
+    asked, seg = _capture()
+    out = _run("Dr 山田太郎", policy=_JA, segmenter=seg)
+    assert asked == ["山田太郎"]
+    assert _texts(out) == ["Dr", "山田", "太郎"]

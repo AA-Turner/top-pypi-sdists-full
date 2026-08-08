@@ -1,9 +1,4 @@
-"""Config schemas for the v1 entrypoints — the objects the CLIs parse."""
-
-from verifiers.v1.configs.eval import EvalConfig
-from verifiers.v1.configs.debug import DebugConfig
-from verifiers.v1.configs.init import InitConfig
-from verifiers.v1.configs.serve import ServeConfig
-from verifiers.v1.configs.validate import ValidateConfig
-
-__all__ = ["DebugConfig", "EvalConfig", "InitConfig", "ServeConfig", "ValidateConfig"]
+"""The config tree, separated from the logic it configures: one module per
+domain (`configs.agent`, `configs.harness`, ...) plus the CLI entrypoints' run
+configs under `configs.cli`. Config modules import only types and other configs,
+so any module — the trace record included — can embed them without cycles."""

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-kadmin-rs
-Version: 0.7.2
+Version: 0.7.3
 Classifier: Development Status :: 3 - Alpha
 Classifier: Intended Audience :: System Administrators
 Classifier: Intended Audience :: Developers
@@ -20,14 +20,14 @@ Classifier: Typing :: Typed
 License-File: LICENSE
 Summary: Python interface to the Kerberos administration interface (kadm5)
 Keywords: krb5,kadmin,kadm5,kerberos
-Home-Page: https://github.com/authentik-community/kadmin-rs
+Home-Page: https://github.com/authentik-labs/kadmin-rs
 Author-email: Marc 'risson' Schmitt <marc.schmitt@risson.space>, authentik community <hello@goauthentik.io>
 License-Expression: MIT
 Requires-Python: >=3.11, <3.15
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
-Project-URL: Documentation, https://github.com/authentik-community/kadmin-rs
-Project-URL: Homepage, https://github.com/authentik-community/kadmin-rs
-Project-URL: Repository, https://github.com/authentik-community/kadmin-rs.git
+Project-URL: Documentation, https://github.com/authentik-labs/kadmin-rs
+Project-URL: Homepage, https://github.com/authentik-labs/kadmin-rs
+Project-URL: Repository, https://github.com/authentik-labs/kadmin-rs.git
 
 # Rust and Python bindings for the Kerberos administration interface (kadm5)
 
@@ -148,11 +148,11 @@ Just open a PR.
 
 ### Releasing
 
-1. Go to [Actions > Create release PR](https://github.com/authentik-community/kadmin-rs/actions/workflows/release-pr.yml)
+1. Go to [Actions > Create release PR](https://github.com/authentik-labs/kadmin-rs/actions/workflows/release-pr.yml)
 2. Click "Run workflow" and select what you need to release and input the new version.
 3. Wait for the PR to be opened and the CI to pass
 4. Merge the PR.
-5. Go to [Releases](https://github.com/authentik-community/kadmin-rs/releases)
+5. Go to [Releases](https://github.com/authentik-labs/kadmin-rs/releases)
 6. Edit the created release.
 7. Click "Generate release notes"
 8. Publish

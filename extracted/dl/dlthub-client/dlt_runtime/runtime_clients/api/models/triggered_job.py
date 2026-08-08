@@ -36,7 +36,8 @@ class TriggeredJob:
             'skipped_already_covered' — scheduler/cascade detected prior completed run already covers the period.
             'skipped_trial_expired' — trial period has ended for this organization. 'skipped_minutes_limit' — organization
             has exceeded its cumulative runtime limit. 'skipped_org_concurrency_limit' — organization has reached its
-            maximum number of concurrent runs. Default: TriggeredJobStatus.TRIGGERED.
+            maximum number of concurrent runs. 'skipped_paused' — the job's scheduled runs are paused, so the scheduler did
+            not start this tick. Default: TriggeredJobStatus.TRIGGERED.
     """
 
     job_ref: str

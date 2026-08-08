@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-backoff
-Version: 2.3.1
+Version: 2.4.0
 Summary: Function decoration for backoff and retry
 Project-URL: Documentation, https://python-backoff.github.io/backoff
 Project-URL: Repository, https://github.com/python-backoff/backoff
@@ -11,12 +11,10 @@ License-File: LICENSE
 Keywords: backoff,decorators,retry
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -27,7 +25,7 @@ Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Utilities
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 
 backoff
@@ -406,7 +404,7 @@ asynchronous HTTP client/server library.
         max_time=60,
     )
     async def get_url(url):
-        async with aiohttp.ClientSession(raise_for_status=True) as session:  # noqa: SIM117
+        async with aiohttp.ClientSession(raise_for_status=True) as session:  # ruff:ignore[multiple-with-statements]
             async with session.get(url) as response:
                 return await response.text()
 

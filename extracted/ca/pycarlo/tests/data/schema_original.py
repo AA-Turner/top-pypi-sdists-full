@@ -4434,8 +4434,30 @@ class GithubActionTriggerDispatchStatus(sgqlc.types.Enum):
     __choices__ = ("DISPATCHED", "EXPIRED", "FAILED", "RUNNING", "SUCCEEDED")
 
 
-class GoldenBaselineResultStatus(sgqlc.types.Enum):
-    """Per-case outcome within a baseline.
+class GoldenBaselineStatus(sgqlc.types.Enum):
+    """Overall outcome of a baseline generation over a golden set's
+    cases.  `COMPLETED`: every case scored (also the result for an
+    empty set). `PARTIAL`: at least one case scored and at least one
+    was unavailable or errored. `ERROR`: no case scored. `PENDING`:
+    reserved for symmetry; never returned by the synchronous
+    `generateGoldenBaseline` mutation. Unlike the sibling
+    `GoldenRunStatus` (test runs), baseline generation has no
+    `RUNNING` state — it only ever writes a terminal status.
+
+    Enumeration Choices:
+
+    * `COMPLETED`None
+    * `ERROR`None
+    * `PARTIAL`None
+    * `PENDING`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("COMPLETED", "ERROR", "PARTIAL", "PENDING")
+
+
+class GoldenRunResultStatus(sgqlc.types.Enum):
+    """Per-case outcome within a golden run.
 
     Enumeration Choices:
 
@@ -4448,13 +4470,13 @@ class GoldenBaselineResultStatus(sgqlc.types.Enum):
     __choices__ = ("ERROR", "SCORED", "UNAVAILABLE")
 
 
-class GoldenBaselineStatus(sgqlc.types.Enum):
-    """Overall outcome of a baseline generation over a golden set's
-    cases.  `COMPLETED`: every case scored (also the result for an
-    empty set). `PARTIAL`: at least one case scored and at least one
-    was unavailable or errored. `ERROR`: no case scored. `PENDING`:
-    mirrors `GoldenRunStatus`; never returned by the synchronous
-    `generateGoldenBaseline` mutation.
+class GoldenRunStatus(sgqlc.types.Enum):
+    """Lifecycle of a golden test run.  `PENDING` → `RUNNING` → a
+    terminal state. `COMPLETED`: every case scored. `PARTIAL`: some
+    cases scored, some errored. `ERROR`: none scored (or the whole run
+    was unavailable). `RUNNING` is reserved for the future
+    asynchronous execution path; the synchronous run transitions
+    through it in one request.
 
     Enumeration Choices:
 
@@ -4462,10 +4484,27 @@ class GoldenBaselineStatus(sgqlc.types.Enum):
     * `ERROR`None
     * `PARTIAL`None
     * `PENDING`None
+    * `RUNNING`None
     """
 
     __schema__ = schema
-    __choices__ = ("COMPLETED", "ERROR", "PARTIAL", "PENDING")
+    __choices__ = ("COMPLETED", "ERROR", "PARTIAL", "PENDING", "RUNNING")
+
+
+class GoldenVerdict(sgqlc.types.Enum):
+    """A test run's comparison outcome against the baseline (per rule or
+    per case).  `REGRESSED`: worse than the baseline. `HELD`: within
+    tolerance. `IMPROVED`: better.
+
+    Enumeration Choices:
+
+    * `HELD`None
+    * `IMPROVED`None
+    * `REGRESSED`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("HELD", "IMPROVED", "REGRESSED")
 
 
 class HasErrorsValue(sgqlc.types.Enum):
@@ -6044,6 +6083,8 @@ class Permission(sgqlc.types.Enum):
     * `SettingsAccess`None
     * `SettingsAgentsAccess`None
     * `SettingsAgentsEdit`None
+    * `SettingsAiAgentsAccess`None
+    * `SettingsAiAgentsEdit`None
     * `SettingsApiAccess`None
     * `SettingsApiEdit`None
     * `SettingsApiManageTokens`None
@@ -6163,6 +6204,8 @@ class Permission(sgqlc.types.Enum):
         "SettingsAccess",
         "SettingsAgentsAccess",
         "SettingsAgentsEdit",
+        "SettingsAiAgentsAccess",
+        "SettingsAiAgentsEdit",
         "SettingsApiAccess",
         "SettingsApiEdit",
         "SettingsApiManageTokens",
@@ -7155,6 +7198,10 @@ class ResourcePolicyPath(sgqlc.types.Enum):
     * `SettingsAgentsPropose`None
     * `SettingsAgentsRead`None
     * `SettingsAgentsWrite`None
+    * `SettingsAiAgentsAll`None
+    * `SettingsAiAgentsPropose`None
+    * `SettingsAiAgentsRead`None
+    * `SettingsAiAgentsWrite`None
     * `SettingsAll`None
     * `SettingsApiAll`None
     * `SettingsApiPropose`None
@@ -7353,6 +7400,10 @@ class ResourcePolicyPath(sgqlc.types.Enum):
         "SettingsAgentsPropose",
         "SettingsAgentsRead",
         "SettingsAgentsWrite",
+        "SettingsAiAgentsAll",
+        "SettingsAiAgentsPropose",
+        "SettingsAiAgentsRead",
+        "SettingsAiAgentsWrite",
         "SettingsAll",
         "SettingsApiAll",
         "SettingsApiPropose",
@@ -23231,21 +23282,12 @@ class AgentSegmentsResult(sgqlc.types.Type):
     """Result of getAgentSegments query."""
 
     __schema__ = schema
-    __field_names__ = ("segments", "has_unsegmented_traces")
+    __field_names__ = ("segments",)
     segments = sgqlc.types.Field(
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
         graphql_name="segments",
     )
     """Distinct segment values for the requested field"""
-
-    has_unsegmented_traces = sgqlc.types.Field(
-        sgqlc.types.non_null(Boolean), graphql_name="hasUnsegmentedTraces"
-    )
-    """True when the agent also has spans with NO value for the requested
-    field — the no-workflow scope, addressable as a null element on
-    `workflows` filters. Only computed for the WORKFLOW segment field;
-    always false for TASK and MODEL.
-    """
 
 
 class AgentSpanCondition(sgqlc.types.Type):
@@ -39403,9 +39445,7 @@ class GoldenBaselineResult(sgqlc.types.Type):
     golden_test_case_uuid = sgqlc.types.Field(UUID, graphql_name="goldenTestCaseUuid")
     """Source test case (null if the case was since deleted)."""
 
-    status = sgqlc.types.Field(
-        sgqlc.types.non_null(GoldenBaselineResultStatus), graphql_name="status"
-    )
+    status = sgqlc.types.Field(sgqlc.types.non_null(GoldenRunResultStatus), graphql_name="status")
     """Per-case outcome."""
 
     scored_response = sgqlc.types.Field(String, graphql_name="scoredResponse")
@@ -39439,6 +39479,9 @@ class GoldenEvalScore(sgqlc.types.Type):
         "score",
         "boolean_score",
         "reasoning",
+        "baseline_score",
+        "delta",
+        "verdict",
     )
     alias = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="alias")
     """Result field name for this rule's score."""
@@ -39456,7 +39499,26 @@ class GoldenEvalScore(sgqlc.types.Type):
     """Boolean score when outputType is 'boolean'."""
 
     reasoning = sgqlc.types.Field(String, graphql_name="reasoning")
-    """The LLM judge's brief explanation for the score."""
+    """The LLM judge's brief explanation for the score. On a test run
+    this can echo the live dev-agent response, so it is withheld
+    (null) from callers without access to the underlying raw customer
+    data.
+    """
+
+    baseline_score = sgqlc.types.Field(Float, graphql_name="baselineScore")
+    """The baseline aggregate for this rule (mean for numbers, pass-rate
+    for booleans) that a test run's score is compared against.
+    """
+
+    delta = sgqlc.types.Field(Float, graphql_name="delta")
+    """Test-run score minus baselineScore (case pass/fail as 1.0/0.0 for
+    booleans).
+    """
+
+    verdict = sgqlc.types.Field(GoldenVerdict, graphql_name="verdict")
+    """Per-rule comparison verdict on a test run (REGRESSED / HELD /
+    IMPROVED).
+    """
 
 
 class GoldenPriorTurn(sgqlc.types.Type):
@@ -39471,6 +39533,30 @@ class GoldenPriorTurn(sgqlc.types.Type):
 
     response = sgqlc.types.Field(String, graphql_name="response")
     """The context turn's original response, replayed as history."""
+
+
+class GoldenRunRuleSummary(sgqlc.types.Type):
+    """One eval rule's aggregate over a run's scored cases."""
+
+    __schema__ = schema
+    __field_names__ = ("alias", "template_name", "output_type", "count", "average", "pass_rate")
+    alias = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="alias")
+    """Result field name for this rule."""
+
+    template_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="templateName")
+    """Eval template that was applied."""
+
+    output_type = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="outputType")
+    """Score shape: 'number' or 'boolean'."""
+
+    count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="count")
+    """Number of scored cases contributing."""
+
+    average = sgqlc.types.Field(Float, graphql_name="average")
+    """Mean score when outputType is 'number'."""
+
+    pass_rate = sgqlc.types.Field(Float, graphql_name="passRate")
+    """Fraction passing when outputType is 'boolean'."""
 
 
 class GoldenSet(sgqlc.types.Type):
@@ -39615,6 +39701,130 @@ class GoldenTestCase(sgqlc.types.Type):
 
     created_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdTime")
     """When the turn was captured."""
+
+
+class GoldenTestResult(sgqlc.types.Type):
+    """One case's scored result within a test run."""
+
+    __schema__ = schema
+    __field_names__ = (
+        "uuid",
+        "golden_test_case_uuid",
+        "status",
+        "scored_response",
+        "scores",
+        "verdict",
+        "error",
+    )
+    uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
+    """Public identifier of the result."""
+
+    golden_test_case_uuid = sgqlc.types.Field(UUID, graphql_name="goldenTestCaseUuid")
+    """Source test case (null if the case was since deleted)."""
+
+    status = sgqlc.types.Field(sgqlc.types.non_null(GoldenRunResultStatus), graphql_name="status")
+    """Per-case outcome."""
+
+    scored_response = sgqlc.types.Field(String, graphql_name="scoredResponse")
+    """The live dev-agent response that was judged. Withheld (null) from
+    callers without access to the underlying raw customer data.
+    """
+
+    scores = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(GoldenEvalScore))),
+        graphql_name="scores",
+    )
+    """Per-rule scores with baseline comparison (empty unless SCORED)."""
+
+    verdict = sgqlc.types.Field(GoldenVerdict, graphql_name="verdict")
+    """Case-level comparison verdict (null if no rule was comparable)."""
+
+    error = sgqlc.types.Field(String, graphql_name="error")
+    """Failure detail when the case errored or partially scored. Withheld
+    (null) from callers without access to the underlying raw customer
+    data, since it can echo the live dev-agent response.
+    """
+
+
+class GoldenTestRun(sgqlc.types.Type):
+    """One run of a golden set's eval rules against a live/dev agent, vs
+    the baseline.
+    """
+
+    __schema__ = schema
+    __field_names__ = (
+        "uuid",
+        "status",
+        "rule_summary",
+        "verdict_summary",
+        "compared_baseline_uuid",
+        "target_ref",
+        "baseline_stale",
+        "results",
+        "created_time",
+        "updated_time",
+    )
+    uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
+    """Public identifier of the run."""
+
+    status = sgqlc.types.Field(sgqlc.types.non_null(GoldenRunStatus), graphql_name="status")
+    """Run lifecycle/outcome."""
+
+    rule_summary = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(GoldenRunRuleSummary))),
+        graphql_name="ruleSummary",
+    )
+    """Per-rule aggregates (mean / pass-rate) over the run's scored
+    cases.
+    """
+
+    verdict_summary = sgqlc.types.Field(
+        sgqlc.types.non_null("GoldenVerdictSummary"), graphql_name="verdictSummary"
+    )
+    """Per-run case-verdict counts."""
+
+    compared_baseline_uuid = sgqlc.types.Field(UUID, graphql_name="comparedBaselineUuid")
+    """The baseline this run scored against (null if it was since
+    regenerated).
+    """
+
+    target_ref = sgqlc.types.Field(String, graphql_name="targetRef")
+    """The dev REST endpoint path this run hit."""
+
+    baseline_stale = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="baselineStale")
+    """Whether the compared baseline was built on a different eval
+    configuration than this run scored — verdicts then cover only the
+    shared (intersecting) rules.
+    """
+
+    results = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(GoldenTestResult))),
+        graphql_name="results",
+    )
+    """Per-case results."""
+
+    created_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdTime")
+    """When the run was created."""
+
+    updated_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="updatedTime")
+    """When the run was last written."""
+
+
+class GoldenVerdictSummary(sgqlc.types.Type):
+    """Per-run counts of case verdicts (cases with no comparable rule are
+    excluded).
+    """
+
+    __schema__ = schema
+    __field_names__ = ("regressed", "held", "improved")
+    regressed = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="regressed")
+    """Cases that regressed vs the baseline."""
+
+    held = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="held")
+    """Cases that held within tolerance."""
+
+    improved = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="improved")
+    """Cases that improved vs the baseline."""
 
 
 class GraphEdge(sgqlc.types.Type):
@@ -44821,6 +45031,7 @@ class Mutation(sgqlc.types.Type):
         "delete_golden_test_case",
         "add_conversation_to_golden_set",
         "generate_golden_baseline",
+        "start_golden_test_run",
         "create_or_update_slo_policy",
         "delete_slo_policy",
         "set_slo_policies",
@@ -46820,6 +47031,31 @@ class Mutation(sgqlc.types.Type):
     Arguments:
 
     * `set_uuid` (`UUID!`): Golden set to generate a baseline for.
+    """
+
+    start_golden_test_run = sgqlc.types.Field(
+        "StartGoldenTestRun",
+        graphql_name="startGoldenTestRun",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "set_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="setUuid", default=None
+                    ),
+                ),
+                ("target_path", sgqlc.types.Arg(String, graphql_name="targetPath", default=None)),
+            )
+        ),
+    )
+    """(experimental) Run a golden set's cases against a dev agent and
+    score them vs the baseline.
+
+    Arguments:
+
+    * `set_uuid` (`UUID!`): Golden set to run a test against.
+    * `target_path` (`String`): Dev REST endpoint path to hit;
+      defaults to the set's dev target path.
     """
 
     create_or_update_slo_policy = sgqlc.types.Field(
@@ -72426,6 +72662,7 @@ class Query(sgqlc.types.Type):
         "get_golden_set",
         "get_golden_test_cases",
         "get_golden_baseline",
+        "get_golden_test_runs",
         "get_reinforcement_loop_issues",
         "get_reinforcement_loop_reports",
         "get_linear_teams",
@@ -73689,6 +73926,27 @@ class Query(sgqlc.types.Type):
     Arguments:
 
     * `set_uuid` (`UUID!`): Set whose baseline to fetch.
+    """
+
+    get_golden_test_runs = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(GoldenTestRun))),
+        graphql_name="getGoldenTestRuns",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "set_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="setUuid", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) List a golden set's test runs, newest first.
+
+    Arguments:
+
+    * `set_uuid` (`UUID!`): Set whose test runs to list.
     """
 
     get_reinforcement_loop_issues = sgqlc.types.Field(
@@ -96462,9 +96720,9 @@ class Query(sgqlc.types.Type):
         ),
     )
     """(experimental) Estimate what automatically triaging the account's
-    recent alerts would cost: counts the alerts from the trailing
-    window that the current triage configuration would triage, and
-    projects the credits after the monthly free allowance. Null for
+    recent alerts costs at current volume: counts the alerts from the
+    trailing window that the current triage configuration selects, and
+    prices the volume past the monthly free allowance. Null for
     accounts not on credit-based pricing, where a credit estimate does
     not apply.
 
@@ -101104,6 +101362,12 @@ class StartDatabricksWarehouse(sgqlc.types.Type):
     """Indicates whether the operation was completed successfully."""
 
 
+class StartGoldenTestRun(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("run",)
+    run = sgqlc.types.Field(GoldenTestRun, graphql_name="run")
+
+
 class StartTsaAnalysis(sgqlc.types.Type):
     """Start a Troubleshooting Agent analysis for an alert. Equivalent to
     clicking the Troubleshoot button in a Slack alert. Returns
@@ -105449,7 +105713,8 @@ class TriageAvailability(sgqlc.types.Type):
 class TriageCostEstimateOutput(sgqlc.types.Type):
     """Projected automated-triage volume and cost over a trailing window,
     computed from the alerts the account's current triage
-    configuration would have triaged.
+    configuration selects. Uncapped by the account's daily quota and
+    monthly cap.
     """
 
     __schema__ = schema
@@ -105467,16 +105732,17 @@ class TriageCostEstimateOutput(sgqlc.types.Type):
     triageable_alert_count = sgqlc.types.Field(
         sgqlc.types.non_null(Int), graphql_name="triageableAlertCount"
     )
-    """Alerts created in the window that the current configuration would
-    triage (non-actionable alert types and triage-disabled domains
-    excluded).
+    """Alerts created in the window that the current configuration
+    selects for triage (non-actionable alert types and triage-disabled
+    domains excluded). Includes alerts already triaged, so the count
+    reads the same whether triage is on or off.
     """
 
     billable_alert_count = sgqlc.types.Field(
         sgqlc.types.non_null(Int), graphql_name="billableAlertCount"
     )
-    """Triageable alerts past the monthly free allowance, applied per
-    calendar month (UTC) within the window.
+    """Triageable alerts past the monthly free allowance, which is
+    granted once for the window.
     """
 
     estimated_credits = sgqlc.types.Field(

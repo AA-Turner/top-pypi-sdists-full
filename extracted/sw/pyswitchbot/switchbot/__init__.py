@@ -61,7 +61,7 @@ from .devices.light_strip import (
     SwitchbotStripLight3,
 )
 from .devices.lock import SwitchbotLock
-from .devices.meter_pro import SwitchbotMeterProCO2
+from .devices.meter_pro import SwitchbotMeterPro, SwitchbotMeterProCO2
 from .devices.plug import SwitchbotPlugMini
 from .devices.relay_switch import (
     SwitchbotGarageDoorOpener,
@@ -95,7 +95,6 @@ __all__ = [
     "StripLightColorMode",
     "SwitchBotAdvertisement",
     "Switchbot",
-    "Switchbot",
     "SwitchbotAccountConnectionError",
     "SwitchbotAirPurifier",
     "SwitchbotApiError",
@@ -116,12 +115,11 @@ __all__ = [
     "SwitchbotKeypadVision",
     "SwitchbotLightStrip",
     "SwitchbotLock",
+    "SwitchbotMeterPro",
     "SwitchbotMeterProCO2",
-    "SwitchbotModel",
     "SwitchbotModel",
     "SwitchbotOperationError",
     "SwitchbotPermanentOutdoorLight",
-    "SwitchbotPlugMini",
     "SwitchbotPlugMini",
     "SwitchbotRelaySwitch",
     "SwitchbotRelaySwitch2PM",
@@ -132,7 +130,6 @@ __all__ = [
     "SwitchbotSmartThermostatRadiator",
     "SwitchbotStandingFan",
     "SwitchbotStripLight3",
-    "SwitchbotSupportedType",
     "SwitchbotSupportedType",
     "SwitchbotVacuum",
     "VerticalOscillationAngle",

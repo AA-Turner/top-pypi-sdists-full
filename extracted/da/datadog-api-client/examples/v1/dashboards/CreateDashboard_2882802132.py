@@ -11,14 +11,12 @@ from datadog_api_client.v1.model.formula_and_function_metric_query_definition im
     FormulaAndFunctionMetricQueryDefinition,
 )
 from datadog_api_client.v1.model.host_map_widget_definition import HostMapWidgetDefinition
+from datadog_api_client.v1.model.host_map_widget_definition_request_type import HostMapWidgetDefinitionRequestType
 from datadog_api_client.v1.model.host_map_widget_definition_requests import HostMapWidgetDefinitionRequests
 from datadog_api_client.v1.model.host_map_widget_definition_type import HostMapWidgetDefinitionType
 from datadog_api_client.v1.model.host_map_widget_dimension import HostMapWidgetDimension
 from datadog_api_client.v1.model.host_map_widget_formula import HostMapWidgetFormula
 from datadog_api_client.v1.model.host_map_widget_group_by import HostMapWidgetGroupBy
-from datadog_api_client.v1.model.host_map_widget_infrastructure_request_request_type import (
-    HostMapWidgetInfrastructureRequestRequestType,
-)
 from datadog_api_client.v1.model.host_map_widget_infrastructure_style import HostMapWidgetInfrastructureStyle
 from datadog_api_client.v1.model.host_map_widget_node_type import HostMapWidgetNodeType
 from datadog_api_client.v1.model.host_map_widget_scalar_request import HostMapWidgetScalarRequest
@@ -46,7 +44,7 @@ body = Dashboard(
                 title_align=WidgetTextAlign.LEFT,
                 type=HostMapWidgetDefinitionType.HOSTMAP,
                 requests=HostMapWidgetDefinitionRequests(
-                    request_type=HostMapWidgetInfrastructureRequestRequestType.INFRASTRUCTURE_HOSTMAP,
+                    request_type=HostMapWidgetDefinitionRequestType.INFRASTRUCTURE_HOSTMAP,
                     node_type=HostMapWidgetNodeType.HOST,
                     filter="env:prod",
                     group_by=[

@@ -39,7 +39,6 @@ def _inference_tip_cached(func: InferFn[_NodesT]) -> InferFn[_NodesT]:
     def inner(
         node: _NodesT,
         context: InferenceContext | None = None,
-        **kwargs: Any,
     ) -> Generator[InferenceResult]:
         partial_cache_key = (func, node)
         if partial_cache_key in _CURRENTLY_INFERRING:
@@ -62,9 +61,7 @@ def _inference_tip_cached(func: InferFn[_NodesT]) -> InferFn[_NodesT]:
             _CURRENTLY_INFERRING.add(partial_cache_key)
             try:
                 # May raise UseInferenceDefault
-                result = _cache[func, node, context] = list(
-                    func(node, context, **kwargs)
-                )
+                result = _cache[func, node, context] = list(func(node, context))
             except Exception as e:
                 # Suppress the KeyError from the cache miss.
                 raise e from None
@@ -117,12 +114,8 @@ def inference_tip(
             and node._explicit_inference is not infer_function
         ):
             raise InferenceOverwriteError(
-                "Inference already set to {existing_inference}. "
-                "Trying to overwrite with {new_inference} for {node}".format(
-                    existing_inference=infer_function,
-                    new_inference=node._explicit_inference,
-                    node=node,
-                )
+                f"Inference already set to {infer_function}. "
+                f"Trying to overwrite with {node._explicit_inference} for {node}"
             )
         node._explicit_inference = _inference_tip_cached(infer_function)
         return node

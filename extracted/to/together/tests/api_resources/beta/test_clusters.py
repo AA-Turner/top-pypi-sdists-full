@@ -28,10 +28,9 @@ class TestClusters:
         cluster = client.beta.clusters.create(
             billing_type="RESERVED",
             cluster_name="cluster_name",
-            cuda_version="cuda_version",
             gpu_type="H100_SXM",
             num_gpus=0,
-            nvidia_driver_version="nvidia_driver_version",
+            nvidia_version_id="nvidia_version_id",
             region="region",
         )
         assert_matches_type(Cluster, cluster, path=["response"])
@@ -41,10 +40,8 @@ class TestClusters:
         cluster = client.beta.clusters.create(
             billing_type="RESERVED",
             cluster_name="cluster_name",
-            cuda_version="cuda_version",
             gpu_type="H100_SXM",
             num_gpus=0,
-            nvidia_driver_version="nvidia_driver_version",
             region="region",
             acceptance_tests_params={
                 "dcgm_diag_level": "DCGM_DIAG_LEVEL_SHORT",
@@ -93,11 +90,14 @@ class TestClusters:
                 "ssh_ca_enabled": True,
             },
             cluster_type="KUBERNETES",
+            cuda_version="cuda_version",
             duration_days=0,
             install_traefik=True,
             num_capacity_pool_gpus=0,
             num_preemptible_gpus=0,
             num_reserved_gpus=0,
+            nvidia_driver_version="nvidia_driver_version",
+            nvidia_version_id="nvidia_version_id",
             oidc_config={
                 "client_id": "client_id",
                 "group_claim": "group_claim",
@@ -128,10 +128,9 @@ class TestClusters:
         response = client.beta.clusters.with_raw_response.create(
             billing_type="RESERVED",
             cluster_name="cluster_name",
-            cuda_version="cuda_version",
             gpu_type="H100_SXM",
             num_gpus=0,
-            nvidia_driver_version="nvidia_driver_version",
+            nvidia_version_id="nvidia_version_id",
             region="region",
         )
 
@@ -145,10 +144,9 @@ class TestClusters:
         with client.beta.clusters.with_streaming_response.create(
             billing_type="RESERVED",
             cluster_name="cluster_name",
-            cuda_version="cuda_version",
             gpu_type="H100_SXM",
             num_gpus=0,
-            nvidia_driver_version="nvidia_driver_version",
+            nvidia_version_id="nvidia_version_id",
             region="region",
         ) as response:
             assert not response.is_closed
@@ -385,10 +383,9 @@ class TestAsyncClusters:
         cluster = await async_client.beta.clusters.create(
             billing_type="RESERVED",
             cluster_name="cluster_name",
-            cuda_version="cuda_version",
             gpu_type="H100_SXM",
             num_gpus=0,
-            nvidia_driver_version="nvidia_driver_version",
+            nvidia_version_id="nvidia_version_id",
             region="region",
         )
         assert_matches_type(Cluster, cluster, path=["response"])
@@ -398,10 +395,8 @@ class TestAsyncClusters:
         cluster = await async_client.beta.clusters.create(
             billing_type="RESERVED",
             cluster_name="cluster_name",
-            cuda_version="cuda_version",
             gpu_type="H100_SXM",
             num_gpus=0,
-            nvidia_driver_version="nvidia_driver_version",
             region="region",
             acceptance_tests_params={
                 "dcgm_diag_level": "DCGM_DIAG_LEVEL_SHORT",
@@ -450,11 +445,14 @@ class TestAsyncClusters:
                 "ssh_ca_enabled": True,
             },
             cluster_type="KUBERNETES",
+            cuda_version="cuda_version",
             duration_days=0,
             install_traefik=True,
             num_capacity_pool_gpus=0,
             num_preemptible_gpus=0,
             num_reserved_gpus=0,
+            nvidia_driver_version="nvidia_driver_version",
+            nvidia_version_id="nvidia_version_id",
             oidc_config={
                 "client_id": "client_id",
                 "group_claim": "group_claim",
@@ -485,10 +483,9 @@ class TestAsyncClusters:
         response = await async_client.beta.clusters.with_raw_response.create(
             billing_type="RESERVED",
             cluster_name="cluster_name",
-            cuda_version="cuda_version",
             gpu_type="H100_SXM",
             num_gpus=0,
-            nvidia_driver_version="nvidia_driver_version",
+            nvidia_version_id="nvidia_version_id",
             region="region",
         )
 
@@ -502,10 +499,9 @@ class TestAsyncClusters:
         async with async_client.beta.clusters.with_streaming_response.create(
             billing_type="RESERVED",
             cluster_name="cluster_name",
-            cuda_version="cuda_version",
             gpu_type="H100_SXM",
             num_gpus=0,
-            nvidia_driver_version="nvidia_driver_version",
+            nvidia_version_id="nvidia_version_id",
             region="region",
         ) as response:
             assert not response.is_closed

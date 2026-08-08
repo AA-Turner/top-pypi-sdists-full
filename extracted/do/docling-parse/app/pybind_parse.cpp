@@ -37,6 +37,7 @@ namespace
       case pdflib::TEXT_WIDGET_RENDER_INSTRUCTION: return "widget";
       case pdflib::BITMAP_RENDER_INSTRUCTION: return "bitmap";
       case pdflib::SHAPE_RENDER_INSTRUCTION: return "shape";
+      case pdflib::SHADING_RENDER_INSTRUCTION: return "shading";
       default: return "unknown";
       }
   }
@@ -191,6 +192,33 @@ namespace
       row["fill_alpha"] = instr.get_fill_alpha();
       instructions.append(row);
     }
+
+    void render_shading(pdflib::shading_instruction& instr)
+    {
+      pybind11::dict row;
+      row["type"] = instruction_name(pdflib::SHADING_RENDER_INSTRUCTION);
+      row["shading_key"] = instr.get_key();
+      row["geometry"] = static_cast<int>(instr.get_geometry());
+      row["coords"] = instr.get_coords();
+      row["matrix"] = instr.get_matrix();
+      row["extend_start"] = instr.get_extend_start();
+      row["extend_end"] = instr.get_extend_end();
+      row["fill_alpha"] = instr.get_fill_alpha();
+
+      // The colour ramp is a fixed-resolution resampling; only its endpoints
+      // and its length are stable enough to be worth exporting.
+      pybind11::list stops;
+      for(const auto& stop : instr.get_stops())
+        {
+          pybind11::dict entry;
+          entry["offset"] = stop.get_offset();
+          entry["rgb"] = stop.get_rgb();
+          stops.append(entry);
+        }
+      row["stops"] = stops;
+
+      instructions.append(row);
+    }
   };
 
   struct bitmap_artifact_export_visitor
@@ -202,6 +230,7 @@ namespace
     void render_text(pdflib::text_instruction&) {}
     void render_widget(pdflib::text_widget_instruction&) {}
     void render_shape(pdflib::shape_instruction&) {}
+    void render_shading(pdflib::shading_instruction&) {}
 
     void render_bitmap(pdflib::bitmap_instruction& instr)
     {
@@ -1109,8 +1138,11 @@ PYBIND11_MODULE(pdf_parsers, m) {
 
     Attributes:
         render_text (bool): Render glyph outlines for text cells [default=true].
+        min_stroke_width (float): Minimum stroke width in device pixels for hairlines and sub-pixel vector strokes [default=1.0].
         draw_text_bbox (bool): Draw bounding quad for each text cell [default=false].
         draw_text_basepoint (bool): Draw the text baseline origin as a small red dot [default=false].
+        display_widgets (bool): Draw the bounds of each widget (form-field) annotation as a translucent overlay; the field content itself is rendered regardless [default=false].
+        color_widgets (list[int]): RGB triple (0-255) for the widget overlay [default=[0, 153, 255]].
         fit_glyph_bbox_to_target (bool): Uniformly rescale measured glyph outlines so the rendered bbox fits inside the target glyph bbox, with either width or height matching exactly [default=false].
         resolve_fonts (bool): Resolve PDF font names to system fonts [default=true].
         use_embedded_fonts (bool): Prefer embedded font programs (TrueType/OpenType via Blend2D, Type 1/CFF via FreeType outlines) over system font resolution [default=true].
@@ -1121,8 +1153,11 @@ PYBIND11_MODULE(pdf_parsers, m) {
     )")
     .def(pybind11::init<>())
     .def_readwrite("render_text",             &pdflib::render_config::render_text)
+    .def_readwrite("min_stroke_width",        &pdflib::render_config::min_stroke_width)
     .def_readwrite("draw_text_bbox",          &pdflib::render_config::draw_text_bbox)
     .def_readwrite("draw_text_basepoint",     &pdflib::render_config::draw_text_basepoint)
+    .def_readwrite("display_widgets",         &pdflib::render_config::display_widgets)
+    .def_readwrite("color_widgets",           &pdflib::render_config::color_widgets)
     .def_readwrite("fit_glyph_bbox_to_target",&pdflib::render_config::fit_glyph_bbox_to_target)
     .def_readwrite("resolve_fonts",           &pdflib::render_config::resolve_fonts)
     .def_readwrite("use_embedded_fonts",      &pdflib::render_config::use_embedded_fonts)

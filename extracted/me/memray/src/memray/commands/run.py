@@ -62,7 +62,13 @@ def _run_tracker(
                     sys.path[0] = os.getcwd()
                 # run_module will replace argv[0] with the script's path
                 sys.argv = ["", *args.script_args]
-                runpy.run_module(args.script, run_name="__main__", alter_sys=True)
+                try:
+                    runpy.run_module(args.script, run_name="__main__", alter_sys=True)
+                except ImportError as e:
+                    if e.name in (None, args.script):
+                        post_run_message = None  # Initial import failed
+                        raise MemrayCommandError(f"memray: {e}", exit_code=1)
+                    raise
             elif args.run_as_cmd:
                 if _should_modify_sys_path():
                     sys.path[0] = ""
@@ -150,7 +156,7 @@ def _run_with_socket_output(args: argparse.Namespace) -> None:
         raise MemrayCommandError(f"Invalid port: {port}", exit_code=1)
 
     if not args.quiet:
-        memray_cli = f"memray{sys.version_info.major}.{sys.version_info.minor}"
+        memray_cli = f"{sys.executable} -m memray"
         print(f"Run '{memray_cli} live {port}' in another shell to see live results")
     with suppress(KeyboardInterrupt):
         _run_tracker(destination=SocketDestination(server_port=port), args=args)
@@ -182,7 +188,10 @@ def _run_with_file_output(args: argparse.Namespace) -> None:
     ).strip()
 
     destination = FileDestination(
-        path=filename, overwrite=args.force, compress_on_exit=args.compress_on_exit
+        path=filename,
+        overwrite=args.force,
+        compress_on_exit=args.compress_on_exit,
+        buffered=args.buffered_file_io,
     )
     try:
         _run_tracker(
@@ -265,6 +274,13 @@ class RunCommand:
             action="store_true",
             default=False,
         )
+        parser.add_argument(
+            "--buffered-file-io",
+            help="Buffer captured records in memory instead of using memory mapped IO",
+            action="store_true",
+            dest="buffered_file_io",
+            default=False,
+        )
         compression = parser.add_mutually_exclusive_group()
         compression.add_argument(
             "--compress-on-exit",
@@ -314,6 +330,8 @@ class RunCommand:
                 "Only valid Python files or commands can be executed under memray",
                 exit_code=1,
             )
+        except (FileNotFoundError, PermissionError) as error:
+            raise MemrayCommandError(str(error), exit_code=1)
 
     def run(self, args: argparse.Namespace, parser: argparse.ArgumentParser) -> None:
         if args.no_compress:
@@ -325,6 +343,8 @@ class RunCommand:
             parser.error("--follow-fork cannot be used with the live TUI")
         if args.aggregate and (args.live_mode or args.live_remote_mode):
             parser.error("--aggregate cannot be used with the live TUI")
+        if args.buffered_file_io and (args.live_mode or args.live_remote_mode):
+            parser.error("--buffered-file-io cannot be used with --live/--live-remote")
         with contextlib.suppress(OSError):
             if args.run_as_cmd and pathlib.Path(args.script).exists():
                 parser.error("remove the option -c to run a file")

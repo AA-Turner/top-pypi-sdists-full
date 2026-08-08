@@ -50,7 +50,7 @@ dynamic = ['version']
 yaml = ["pyyaml>=6.0.1"]
 toml = ["tomli>=2.0.1"]
 azure-key-vault = ["azure-keyvault-secrets>=4.8.0", "azure-identity>=1.16.0"]
-aws-secrets-manager = ["boto3>=1.35.0", "types-boto3[secretsmanager]"]
+aws-secrets-manager = ["boto3>=1.35.0"]
 gcp-secret-manager = [
     "google-cloud-secret-manager>=2.23.1",
 ]
@@ -136,10 +136,25 @@ keep-runtime-typing = true
 
 [tool.ruff.lint]
 extend-select = ['Q', 'RUF100', 'C90', 'UP', 'I']
+ignore = [
+    # Defensive/fallback code in the settings sources intentionally catches broad
+    # exceptions (thread boundaries, best-effort docstring and secret lookups).
+    'BLE001',
+    'S110',
+    # We target 3.10+ and use PEP 604/585 syntax without `from __future__ import
+    # annotations`; the future-annotations rules would fight that (and our docs).
+    'FA100',
+    'FA102',
+]
 flake8-quotes = {inline-quotes = 'single', multiline-quotes = 'double'}
 isort = { known-first-party = ['pydantic_settings', 'tests'] }
 mccabe = { max-complexity = 14 }
 pydocstyle = { convention = 'google' }
+
+[tool.ruff.lint.per-file-ignores]
+# Tests deliberately use patterns the linter flags: raising bare exceptions in
+# fixtures, `exec`, mutable class attrs, and warns()/expression-only helpers.
+'tests/**' = ['TRY002', 'S101', 'S102', 'RUF012', 'B018', 'PT031']
 
 [tool.ruff.format]
 quote-style = 'single'

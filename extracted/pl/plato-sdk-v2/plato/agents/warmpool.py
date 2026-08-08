@@ -14,6 +14,12 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from plato.agents import vm_setup
+from plato.rpc.client.connection import AgentDaemonClient
+from plato.rpc.client.fallback import rpc_or_ssh
+from plato.rpc.client.manager import close_agent_client, get_agent_client, get_host_state
+from plato.rpc.client.stubs import HealthStub, PoolStub
+from plato.rpc.errors import AgentRpcError
+from plato.rpc.protocol import CAP_HEALTH_REPORT, CAP_POOL_RECLAIM, CAP_POOL_RESET
 from plato.runtimes.base import Runtime, RuntimeInfo
 from plato.runtimes.vm import VMRuntime
 
@@ -27,6 +33,9 @@ _PROVISION_VM_ATTEMPT_LIMIT = 3
 # evictable idle VM. Bounded polling avoids a lost-wakeup deadlock when an idle
 # VM appears between a failed eviction scan and the condition wait.
 _BUDGET_WAIT_RETRY_S = 1.0
+# Slack added on top of attempts*timeout for the aggregate ceilings below —
+# covers one daemon re-bootstrap (scp + ssh + readiness poll) per cycle.
+_LIFECYCLE_BUDGET_SLACK_S = 120.0
 
 
 class AgentVMBudget:
@@ -487,6 +496,20 @@ class WarmPool:
             self._available = deque(vm for vm in self._available if vm.alias != pooled_vm.alias)
             self._condition.notify_all()
 
+        # Announce the reclaim to the daemon (best-effort) so any in-flight RPC
+        # against this VM gets a typed VMReclaimedError instead of a dropped
+        # connection, then drop the cached client/host state so a future VM
+        # reusing this mesh IP starts from a clean "unknown" instead of firing
+        # RPC at a daemon that isn't there.
+        hostname = pooled_vm.runtime_info.hostname
+        state = get_host_state(hostname)
+        if state.has_capability(CAP_POOL_RECLAIM) and state.token:
+            with contextlib.suppress(Exception):
+                client = get_agent_client(hostname, state.token)
+                await PoolStub(client).reclaim(deadline_s=5.0)
+        with contextlib.suppress(Exception):
+            await close_agent_client(hostname)
+
         try:
             await pooled_vm.vm_runtime.stop(pooled_vm.runtime_info.runtime_id)
         except Exception as exc:
@@ -599,52 +622,163 @@ class WarmPool:
         raise last_exc
 
     async def _reset_vm(self, pooled_vm: PooledVM, workspace_paths: list[str]) -> bool:
+        """Reset a pooled VM: ``reset_attempts`` tries with backoff, shared by
+        BOTH transports (the SSH-era loop lived inside the SSH helper only, so
+        the RPC port silently dropped it: one blip cost the VM).
+
+        Each RPC attempt is a REAL re-execution: ``PoolStub.reset`` mints a
+        fresh idempotency key per call — only the client's internal resend
+        WITHIN one call replays the daemon's cached result. A typed error is a
+        failed attempt, not an abort: transient daemon unavailability (restart,
+        re-arm) gets the same retries an SSH transport drop did. Never raises —
+        parity with the SSH path's bool contract."""
+        ssh_key = pooled_vm.runtime_info.ssh_key_path
+        hostname = pooled_vm.runtime_info.hostname
+
+        async def _rpc(client: AgentDaemonClient) -> tuple[bool, str]:
+            result = await PoolStub(client).reset(workspace_paths, deadline_s=float(self.reset_timeout))
+            # A received typed result IS success — steps are best-effort, parity
+            # with the SSH `(cmd) || true` chain. But failed steps must be
+            # VISIBLE: a workspace that silently didn't reset (wedged sshfs
+            # mount, ENOTCONN) hands stale mount state to the next tenant with
+            # nothing in any log.
+            for step in result.steps:
+                if not step.ok:
+                    logger.warning(
+                        "Warm pool reset on %s: step %s failed: %s",
+                        pooled_vm.alias,
+                        step.name,
+                        step.detail,
+                    )
+            return True, ""
+
+        async def _ssh() -> tuple[bool, str]:
+            return await self._reset_vm_ssh_once(pooled_vm, workspace_paths)
+
+        # Aggregate ceiling (audit H1): the per-attempt layers below each
+        # carry their own retries (client resend, daemon re-bootstrap), and
+        # without a cap they MULTIPLY — a sick daemon turned 3 attempts into
+        # ~12 minutes inside release()'s uncancellable shield, holding a pool
+        # slot and a budget token the whole time. Before the migration,
+        # attempts x timeout was a true ceiling; this restores it.
+        total_budget = self.reset_attempts * float(self.reset_timeout) + _LIFECYCLE_BUDGET_SLACK_S
+        last_detail = ""
+        try:
+            async with asyncio.timeout(total_budget):
+                for attempt in range(self.reset_attempts):
+                    try:
+                        if ssh_key is None:
+                            ok, last_detail = await self._reset_vm_ssh_once(pooled_vm, workspace_paths)
+                        else:
+                            ok, last_detail = await rpc_or_ssh(hostname, ssh_key, CAP_POOL_RESET, _rpc, _ssh)
+                    except AgentRpcError as exc:
+                        ok, last_detail = False, str(exc)
+                    if ok:
+                        return True
+                    if attempt + 1 < self.reset_attempts:
+                        await asyncio.sleep(min(float(2**attempt), 5.0))
+        except TimeoutError:
+            last_detail = f"aggregate reset budget {total_budget:.0f}s exhausted ({last_detail or 'no detail'})"
+
+        logger.warning(
+            "Warm pool reset failed on %s after %d attempt(s): %s",
+            pooled_vm.alias,
+            self.reset_attempts,
+            last_detail or "no detail",
+        )
+        return False
+
+    async def _reset_vm_ssh_once(self, pooled_vm: PooledVM, workspace_paths: list[str]) -> tuple[bool, str]:
+        """One SSH reset attempt. Retries are the caller's job (_reset_vm).
+
+        Every segment is wrapped in ``(...) || true``, so a non-zero exit can
+        only come from the ssh transport itself (typically 255 when the
+        session drops mid-command) — exactly the transient class the caller's
+        retry loop exists for."""
         commands = _runtime_reset_commands(workspace_paths)
         command = " && ".join(f"({cmd}) || true" for cmd in commands)
         command += " && echo warm-pool-reset-ok"
 
-        exit_code = 0
-        stdout = ""
-        stderr = ""
-        # Every segment is wrapped in `(...) || true`, so a non-zero exit can
-        # only come from the ssh transport itself (typically 255 when the
-        # session drops mid-command). Retry with a fresh connection before
-        # giving up — drops here are usually transient.
-        for attempt in range(self.reset_attempts):
-            exit_code, stdout, stderr = await pooled_vm.vm_runtime.exec(
-                pooled_vm.runtime_info.runtime_id,
-                command,
-                timeout=self.reset_timeout,
-            )
-            if exit_code == 0 and "warm-pool-reset-ok" in stdout:
-                return True
-            if attempt + 1 < self.reset_attempts:
-                await asyncio.sleep(min(float(2**attempt), 5.0))
-
-        logger.warning(
-            "Warm pool reset failed on %s (exit=%d): stdout=%s stderr=%s",
-            pooled_vm.alias,
-            exit_code,
-            stdout.strip()[-200:] if stdout else "",
-            stderr.strip()[-200:] if stderr else "",
+        exit_code, stdout, stderr = await pooled_vm.vm_runtime.exec(
+            pooled_vm.runtime_info.runtime_id,
+            command,
+            timeout=self.reset_timeout,
         )
-        return False
+        if exit_code == 0 and "warm-pool-reset-ok" in stdout:
+            return True, ""
+        detail = (
+            f"exit={exit_code} stdout={stdout.strip()[-200:] if stdout else ''}"
+            f" stderr={stderr.strip()[-200:] if stderr else ''}"
+        )
+        return False, detail
 
     async def _health_check(self, pooled_vm: PooledVM) -> bool:
+        """Health-check a pooled VM: ``health_check_attempts`` tries with
+        backoff, shared by BOTH transports.
+
+        The retry loop lives here — not inside the SSH helper — because a
+        single RPC ping is more transient-failure-prone than SSH, not less:
+        it probes our daemon (which has legitimate down-windows: dev-sync
+        reinstall re-arm, restarts) rather than sshd. acquire() and release()
+        destroy the VM on False, so one blip must not cost a warm VM. A failed
+        RPC attempt that demotes the host also lets a later attempt land on
+        the SSH fallback.
+        """
+        ssh_key = pooled_vm.runtime_info.ssh_key_path
+        hostname = pooled_vm.runtime_info.hostname
+
+        async def _rpc(client: AgentDaemonClient) -> bool:
+            await HealthStub(client).ping(deadline_s=float(self.health_check_timeout))
+            return True
+
+        async def _ssh() -> bool:
+            return await self._health_check_ssh_once(pooled_vm)
+
+        async def _attempt() -> bool:
+            if ssh_key is None:
+                return await self._health_check_ssh_once(pooled_vm)
+            try:
+                return await rpc_or_ssh(hostname, ssh_key, CAP_HEALTH_REPORT, _rpc, _ssh)
+            except AgentRpcError as exc:
+                # A health check REPORTS health; it must never raise. The SSH
+                # path returns a bool for every failure, and acquire() calls
+                # this with no try/except — a propagating error there would
+                # strand a VM already moved to _in_use instead of discarding it
+                # and trying the next one. Unreachable/unauthorized/reclaimed is
+                # exactly what "unhealthy" means.
+                logger.info("Warm pool: health check failed for %s: %s", pooled_vm.alias, exc)
+                return False
+
+        # Same aggregate ceiling as _reset_vm (audit H1): nested per-attempt
+        # retries must not multiply past attempts x timeout + one re-bootstrap.
+        total_budget = self.health_check_attempts * float(self.health_check_timeout) + _LIFECYCLE_BUDGET_SLACK_S
         healthy = False
-        for attempt in range(self.health_check_attempts):
-            exit_code, stdout, _ = await pooled_vm.vm_runtime.exec(
-                pooled_vm.runtime_info.runtime_id,
-                "echo warm-pool-ok",
-                timeout=self.health_check_timeout,
+        try:
+            async with asyncio.timeout(total_budget):
+                for attempt in range(self.health_check_attempts):
+                    healthy = await _attempt()
+                    if healthy:
+                        break
+                    if attempt + 1 < self.health_check_attempts:
+                        await asyncio.sleep(min(float(2**attempt), 5.0))
+        except TimeoutError:
+            logger.warning(
+                "Warm pool: health check aggregate budget %.0fs exhausted on %s",
+                total_budget,
+                pooled_vm.alias,
             )
-            healthy = exit_code == 0 and stdout.strip() == "warm-pool-ok"
-            if healthy:
-                break
-            if attempt + 1 < self.health_check_attempts:
-                await asyncio.sleep(min(float(2**attempt), 5.0))
+            healthy = False
         pooled_vm.healthy = healthy
         return healthy
+
+    async def _health_check_ssh_once(self, pooled_vm: PooledVM) -> bool:
+        """One SSH echo probe. Retries are the caller's job (_health_check)."""
+        exit_code, stdout, _ = await pooled_vm.vm_runtime.exec(
+            pooled_vm.runtime_info.runtime_id,
+            "echo warm-pool-ok",
+            timeout=self.health_check_timeout,
+        )
+        return exit_code == 0 and stdout.strip() == "warm-pool-ok"
 
 
 def _runtime_reset_commands(workspace_paths: list[str]) -> list[str]:

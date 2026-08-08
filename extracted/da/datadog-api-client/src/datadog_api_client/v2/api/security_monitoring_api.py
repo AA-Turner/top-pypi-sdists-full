@@ -64,6 +64,8 @@ from datadog_api_client.v2.model.finding_case_response import FindingCaseRespons
 from datadog_api_client.v2.model.attach_case_request import AttachCaseRequest
 from datadog_api_client.v2.model.attach_jira_issue_request import AttachJiraIssueRequest
 from datadog_api_client.v2.model.create_jira_issue_request_array import CreateJiraIssueRequestArray
+from datadog_api_client.v2.model.attach_linear_issue_request import AttachLinearIssueRequest
+from datadog_api_client.v2.model.create_linear_issue_request_array import CreateLinearIssueRequestArray
 from datadog_api_client.v2.model.mute_findings_response import MuteFindingsResponse
 from datadog_api_client.v2.model.mute_findings_request import MuteFindingsRequest
 from datadog_api_client.v2.model.security_findings_search_request import SecurityFindingsSearchRequest
@@ -115,11 +117,17 @@ from datadog_api_client.v2.model.security_monitoring_integration_config_response
 from datadog_api_client.v2.model.security_monitoring_integration_config_create_request import (
     SecurityMonitoringIntegrationConfigCreateRequest,
 )
+from datadog_api_client.v2.model.security_monitoring_entra_id_azure_app_registrations_response import (
+    SecurityMonitoringEntraIdAzureAppRegistrationsResponse,
+)
 from datadog_api_client.v2.model.security_monitoring_integration_credentials_validate_request import (
     SecurityMonitoringIntegrationCredentialsValidateRequest,
 )
 from datadog_api_client.v2.model.security_monitoring_integration_config_update_request import (
     SecurityMonitoringIntegrationConfigUpdateRequest,
+)
+from datadog_api_client.v2.model.security_monitoring_integration_activate_request import (
+    SecurityMonitoringIntegrationActivateRequest,
 )
 from datadog_api_client.v2.model.notification_rule_preview_response import NotificationRulePreviewResponse
 from datadog_api_client.v2.model.security_filters_response import SecurityFiltersResponse
@@ -315,6 +323,31 @@ class SecurityMonitoringApi:
             api_client=api_client,
         )
 
+        self._activate_integration_endpoint = _Endpoint(
+            settings={
+                "response_type": (SecurityMonitoringIntegrationConfigResponse,),
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
+                "endpoint_path": "/api/v2/security_monitoring/configuration/integration_config/{integration_type}/activate",
+                "operation_id": "activate_integration",
+                "http_method": "POST",
+                "version": "v2",
+            },
+            params_map={
+                "integration_type": {
+                    "required": True,
+                    "openapi_types": (str,),
+                    "attribute": "integration_type",
+                    "location": "path",
+                },
+                "body": {
+                    "openapi_types": (SecurityMonitoringIntegrationActivateRequest,),
+                    "location": "body",
+                },
+            },
+            headers_map={"accept": ["application/json"], "content_type": ["application/json"]},
+            api_client=api_client,
+        )
+
         self._attach_case_endpoint = _Endpoint(
             settings={
                 "response_type": (FindingCaseResponse,),
@@ -354,6 +387,26 @@ class SecurityMonitoringApi:
                 "body": {
                     "required": True,
                     "openapi_types": (AttachJiraIssueRequest,),
+                    "location": "body",
+                },
+            },
+            headers_map={"accept": ["application/json"], "content_type": ["application/json"]},
+            api_client=api_client,
+        )
+
+        self._attach_linear_issue_endpoint = _Endpoint(
+            settings={
+                "response_type": (FindingCaseResponse,),
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
+                "endpoint_path": "/api/v2/security/findings/linear_issues",
+                "operation_id": "attach_linear_issue",
+                "http_method": "PATCH",
+                "version": "v2",
+            },
+            params_map={
+                "body": {
+                    "required": True,
+                    "openapi_types": (AttachLinearIssueRequest,),
                     "location": "body",
                 },
             },
@@ -759,6 +812,26 @@ class SecurityMonitoringApi:
             api_client=api_client,
         )
 
+        self._create_linear_issues_endpoint = _Endpoint(
+            settings={
+                "response_type": (FindingCaseResponseArray,),
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
+                "endpoint_path": "/api/v2/security/findings/linear_issues",
+                "operation_id": "create_linear_issues",
+                "http_method": "POST",
+                "version": "v2",
+            },
+            params_map={
+                "body": {
+                    "required": True,
+                    "openapi_types": (CreateLinearIssueRequestArray,),
+                    "location": "body",
+                },
+            },
+            headers_map={"accept": ["application/json"], "content_type": ["application/json"]},
+            api_client=api_client,
+        )
+
         self._create_sample_log_generation_subscription_endpoint = _Endpoint(
             settings={
                 "response_type": (SampleLogGenerationSubscriptionResponse,),
@@ -1078,6 +1151,29 @@ class SecurityMonitoringApi:
             },
             headers_map={
                 "accept": ["*/*"],
+            },
+            api_client=api_client,
+        )
+
+        self._deactivate_integration_endpoint = _Endpoint(
+            settings={
+                "response_type": (SecurityMonitoringIntegrationConfigResponse,),
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
+                "endpoint_path": "/api/v2/security_monitoring/configuration/integration_config/{integration_type}/deactivate",
+                "operation_id": "deactivate_integration",
+                "http_method": "POST",
+                "version": "v2",
+            },
+            params_map={
+                "integration_type": {
+                    "required": True,
+                    "openapi_types": (str,),
+                    "attribute": "integration_type",
+                    "location": "path",
+                },
+            },
+            headers_map={
+                "accept": ["application/json"],
             },
             api_client=api_client,
         )
@@ -1672,6 +1768,22 @@ class SecurityMonitoringApi:
                     "location": "query",
                 },
             },
+            headers_map={
+                "accept": ["application/json"],
+            },
+            api_client=api_client,
+        )
+
+        self._get_entra_id_azure_app_registrations_endpoint = _Endpoint(
+            settings={
+                "response_type": (SecurityMonitoringEntraIdAzureAppRegistrationsResponse,),
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
+                "endpoint_path": "/api/v2/security_monitoring/configuration/integration_config/entra_id/azure_app_registrations",
+                "operation_id": "get_entra_id_azure_app_registrations",
+                "http_method": "GET",
+                "version": "v2",
+            },
+            params_map={},
             headers_map={
                 "accept": ["application/json"],
             },
@@ -4531,6 +4643,32 @@ class SecurityMonitoringApi:
 
         return self._activate_content_pack_endpoint.call_with_http_info(**kwargs)
 
+    def activate_integration(
+        self,
+        integration_type: str,
+        *,
+        body: Union[SecurityMonitoringIntegrationActivateRequest, UnsetType] = unset,
+    ) -> SecurityMonitoringIntegrationConfigResponse:
+        """Activate an entity context sync integration.
+
+        Activate an entity context sync integration for a source type that does not require manually
+        supplied credentials (for example, Entra ID). If an integration of this type already exists,
+        it is returned (re-enabling it first if it was disabled) instead of creating a duplicate.
+
+        :param integration_type: The integration type to activate (for example, ``entra_id`` ).
+        :type integration_type: str
+        :param body: Optional configuration overrides for the integration to activate.
+        :type body: SecurityMonitoringIntegrationActivateRequest, optional
+        :rtype: SecurityMonitoringIntegrationConfigResponse
+        """
+        kwargs: Dict[str, Any] = {}
+        kwargs["integration_type"] = integration_type
+
+        if body is not unset:
+            kwargs["body"] = body
+
+        return self._activate_integration_endpoint.call_with_http_info(**kwargs)
+
     def attach_case(
         self,
         case_id: str,
@@ -4569,6 +4707,23 @@ class SecurityMonitoringApi:
         kwargs["body"] = body
 
         return self._attach_jira_issue_endpoint.call_with_http_info(**kwargs)
+
+    def attach_linear_issue(
+        self,
+        body: AttachLinearIssueRequest,
+    ) -> FindingCaseResponse:
+        """Attach security findings to a Linear issue.
+
+        Attach security findings to a Linear issue by providing the Linear issue URL.
+        You can attach up to 50 security findings per Linear issue. If the Linear issue is not linked to any case, this operation will create a case for the security findings and link the Linear issue to the newly created case. Security findings that are already attached to another Linear issue will be detached from their previous Linear issue and attached to the specified Linear issue.
+
+        :type body: AttachLinearIssueRequest
+        :rtype: FindingCaseResponse
+        """
+        kwargs: Dict[str, Any] = {}
+        kwargs["body"] = body
+
+        return self._attach_linear_issue_endpoint.call_with_http_info(**kwargs)
 
     def attach_service_now_ticket(
         self,
@@ -4939,6 +5094,23 @@ class SecurityMonitoringApi:
 
         return self._create_jira_issues_endpoint.call_with_http_info(**kwargs)
 
+    def create_linear_issues(
+        self,
+        body: CreateLinearIssueRequestArray,
+    ) -> FindingCaseResponseArray:
+        """Create Linear issues for security findings.
+
+        Create Linear issues for security findings.
+        This operation creates a case in Datadog and a Linear issue linked to that case for bidirectional sync between Datadog and Linear. You can create up to 50 Linear issues per request and associate up to 50 security findings per Linear issue. Security findings that are already attached to another Linear issue will be detached from their previous Linear issue and attached to the newly created Linear issue.
+
+        :type body: CreateLinearIssueRequestArray
+        :rtype: FindingCaseResponseArray
+        """
+        kwargs: Dict[str, Any] = {}
+        kwargs["body"] = body
+
+        return self._create_linear_issues_endpoint.call_with_http_info(**kwargs)
+
     def create_sample_log_generation_subscription(
         self,
         body: SampleLogGenerationSubscriptionCreateRequest,
@@ -5223,6 +5395,23 @@ class SecurityMonitoringApi:
         kwargs["content_pack_id"] = content_pack_id
 
         return self._deactivate_content_pack_endpoint.call_with_http_info(**kwargs)
+
+    def deactivate_integration(
+        self,
+        integration_type: str,
+    ) -> SecurityMonitoringIntegrationConfigResponse:
+        """Deactivate an entity context sync integration.
+
+        Deactivate all active entity context sync integrations of the given source type (for example, Entra ID).
+
+        :param integration_type: The integration type to deactivate (for example, ``entra_id`` ).
+        :type integration_type: str
+        :rtype: SecurityMonitoringIntegrationConfigResponse
+        """
+        kwargs: Dict[str, Any] = {}
+        kwargs["integration_type"] = integration_type
+
+        return self._deactivate_integration_endpoint.call_with_http_info(**kwargs)
 
     def delete_custom_framework(
         self,
@@ -5711,6 +5900,19 @@ class SecurityMonitoringApi:
             kwargs["page_token"] = page_token
 
         return self._get_entity_context_endpoint.call_with_http_info(**kwargs)
+
+    def get_entra_id_azure_app_registrations(
+        self,
+    ) -> SecurityMonitoringEntraIdAzureAppRegistrationsResponse:
+        """Get Entra ID Azure App Registration prerequisites.
+
+        Get the Azure App Registrations discovered for the organization and whether at least one of them has
+        resource collection enabled, which is a prerequisite for activating the Entra ID entity context sync integration.
+
+        :rtype: SecurityMonitoringEntraIdAzureAppRegistrationsResponse
+        """
+        kwargs: Dict[str, Any] = {}
+        return self._get_entra_id_azure_app_registrations_endpoint.call_with_http_info(**kwargs)
 
     def get_finding(
         self,
@@ -6554,6 +6756,11 @@ class SecurityMonitoringApi:
 
         Get a list of assets SBOMs for an organization.
 
+        The ``filter[asset_type]`` parameter is required for initial requests (when no ``page[token]`` is provided).
+        Subsequent pages encode the asset type in the pagination token, so ``filter[asset_type]`` is not required
+        for paginated requests. Mixing infrastructure asset types ( ``Host`` , ``HostImage`` , ``Image`` , ``ServerlessFunction`` )
+        with code asset types ( ``Repository`` , ``Service`` ) in the same request is not supported and returns a 400 error.
+
         **Pagination**
 
         Please review the `Pagination section <#pagination>`_ for the "List Vulnerabilities" endpoint.
@@ -6570,7 +6777,7 @@ class SecurityMonitoringApi:
         :type page_token: str, optional
         :param page_number: The page number to be retrieved. It should be equal to or greater than 1.
         :type page_number: int, optional
-        :param filter_asset_type: The type of the assets for the SBOM request.
+        :param filter_asset_type: The type of the assets for the SBOM request. Required for initial requests (when no ``page[token]`` is provided). Infrastructure types ( ``Host`` , ``HostImage`` , ``Image`` , ``ServerlessFunction`` ) and code types ( ``Repository`` , ``Service`` ) cannot be mixed in the same request.
         :type filter_asset_type: AssetType, optional
         :param filter_asset_name: The name of the asset for the SBOM request.
         :type filter_asset_name: str, optional

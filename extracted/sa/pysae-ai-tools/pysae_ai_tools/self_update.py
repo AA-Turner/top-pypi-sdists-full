@@ -2,7 +2,8 @@
 
 Two modes, picked from the uv install source (see ``install_source``):
 - **Local checkout** (``uv tool install [-e] <repo>``): ``git pull`` + re-run ``install.sh``
-- **PyPI install** (via uv): ``uv tool upgrade pysae-ai-tools``
+- **Registry install** (via uv): ``uv tool upgrade pysae-ai-tools``, against the
+  project's private GitLab index
 """
 
 import os
@@ -15,9 +16,7 @@ from typing import Annotated
 import typer
 
 from .common.windows import schedule_deferred_cmd
-from .install_source import detect_install_source
-
-PACKAGE = "pysae-ai-tools"
+from .install_source import INDEX_ARGS, PACKAGE, detect_install_source
 
 # After an update, (re)install + reconfigure the already-selected embedded tools (usage hooks +
 # status line) and MCP servers, so both new server versions and config/code changes take effect.
@@ -147,7 +146,7 @@ def _schedule_windows_deferred_upgrade() -> bool:
     log = Path(tempfile.mkdtemp(prefix="pysae-update-")) / "update.log"
 
     script_lines = [
-        f'uv tool upgrade {PACKAGE} >> "{log}" 2>&1',
+        f'uv tool upgrade {" ".join(INDEX_ARGS)} {PACKAGE} >> "{log}" 2>&1',
         f'pysae-ai-tools tools install --category plugin >> "{log}" 2>&1',
         f'pysae-ai-tools tools install {" ".join(_RECONFIGURE_ARGS)} >> "{log}" 2>&1',
         f'pysae-ai-tools install-completion >> "{log}" 2>&1',
@@ -203,11 +202,16 @@ def _print_upgrade_summary_only(stdout: str, stderr: str) -> None:
         sys.stderr.write(line + "\n")
 
 
-def _update_from_pypi() -> None:
-    """Update from PyPI via uv tool upgrade."""
-    print("Updating from PyPI...", file=sys.stderr)
+def _update_from_registry() -> None:
+    """Update from the private GitLab registry via uv tool upgrade.
 
-    cmd = ["uv", "tool", "upgrade", PACKAGE]
+    The index is passed explicitly even though uv records it in the tool receipt
+    at install time: an install predating the registry migration carries a
+    receipt without it, and would otherwise upgrade against a public index.
+    """
+    print("Updating from the private GitLab registry...", file=sys.stderr)
+
+    cmd = ["uv", "tool", "upgrade", *INDEX_ARGS, PACKAGE]
     print(f"$ {' '.join(cmd)}", file=sys.stderr)
     result = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8")
 
@@ -278,7 +282,7 @@ def main(
         print(f"Local checkout detected at {repo}", file=sys.stderr)
         _update_from_git(repo, no_pull, rebase)
     else:
-        _update_from_pypi()
+        _update_from_registry()
 
     # One-shot relocation of any legacy on-disk state to the XDG dirs (idempotent, best-effort).
     from .migrate import run_migration

@@ -1,5 +1,5 @@
 //! Structural complement of a canonical node.
-use std::{collections::BTreeMap, sync::Arc};
+use std::sync::Arc;
 
 use serde_json::{Number, Value};
 
@@ -12,7 +12,7 @@ use crate::{
             type_set_schema, ArrayLeaf, AtLeastTwo, BoundCardinality, BoundInteger, BoundNumber,
             CanonicalJson, ContainsFacet, Discrete, Distinctness, Divisors, ExcludedDivisors,
             IntegerBounds, IntegerLeaf, LengthBounds, NumberLeaf, ObjectLeaf, ObjectViolation,
-            Schema, SchemaKind, StringLeaf,
+            PropertyMap, Schema, SchemaKind, StringLeaf,
         },
         DefinitionMap, ROOT_DEFINITION_KEY,
     },
@@ -28,6 +28,12 @@ const RESOLUTION_BUDGET: usize = 1024;
 /// branch count, and a complement past this many costs more to assemble than the caller can put to
 /// use.
 const OVERLAP_BUDGET: usize = 64;
+
+/// Branches the conjunction of a union's branch complements may spell. Intersecting complements
+/// multiplies their branch counts, so a union of branches that each rule out a value in several
+/// independent ways has a union form exponential in the branch count. Past this many the symbolic
+/// complement is both exact and smaller.
+pub(crate) const CONJUNCTION_BUDGET: usize = 16;
 
 /// State of one resolving negation walk.
 struct NegationWalk<'a> {
@@ -80,10 +86,9 @@ pub(crate) fn negate_in_place(
     negate_within(schema, &mut walk, ctx)
 }
 
-/// [`negate_in_place`], for a complement that replaces the document root instead. A walk that
-/// reaches a reference already being negated on the current path has no finite complement and
-/// declines; a complement still naming the root would name the wrong document once it takes the
-/// root's place, and declines as well.
+/// [`negate_in_place`], for a complement that replaces the document root instead. A complement
+/// still naming the root would name the wrong document once it takes the root's place, so it
+/// declines.
 pub(crate) fn negate_with_definitions(
     schema: &Schema,
     definitions: &DefinitionMap,
@@ -111,6 +116,21 @@ pub(crate) fn negate_with_definitions(
     Some(complement)
 }
 
+/// The node's own complement, left symbolic. A conjunction too wide to spell as a union is not a
+/// gap in what the IR can express, so it holds whether or not the walk resolves references.
+fn keep_symbolic(schema: &Schema) -> Option<Schema> {
+    Some(Schema::new(SchemaKind::Not(schema.clone())))
+}
+
+/// How many branches a node spells as a union.
+pub(crate) fn union_width(schema: &Schema) -> usize {
+    if let SchemaKind::AnyOf(branches) = schema.kind() {
+        branches.as_slice().len()
+    } else {
+        1
+    }
+}
+
 /// The exact `Not` re-wrap of a node the walk cannot open, for a walk that accepts one.
 fn bar(schema: &Schema, walk: &NegationWalk<'_>) -> Option<Schema> {
     match walk.unspellable {
@@ -125,8 +145,8 @@ fn negate_within(
     ctx: &CanonicalizationContext,
 ) -> Option<Schema> {
     match schema.kind() {
-        SchemaKind::True => Some(Schema::new(SchemaKind::False)),
-        SchemaKind::False => Some(Schema::new(SchemaKind::True)),
+        SchemaKind::True => Some(Schema::falsy()),
+        SchemaKind::False => Some(Schema::truthy()),
         SchemaKind::MultiType(set) => negate_type_set(*set, ctx),
         SchemaKind::Const(value) => negate_finite_values(std::slice::from_ref(value), ctx),
         SchemaKind::Enum(values) => negate_finite_values(values.as_slice(), ctx),
@@ -147,9 +167,12 @@ fn negate_within(
         // De Morgan: the complement of a union is the intersection of the branch complements, so
         // one inexpressible branch declines the whole node.
         SchemaKind::AnyOf(branches) => {
-            let mut result = Schema::new(SchemaKind::True);
+            let mut result = Schema::truthy();
             for branch in branches.as_slice() {
                 result = algebra::intersect(result, negate_within(branch, walk, ctx)?, ctx);
+                if union_width(&result) > CONJUNCTION_BUDGET {
+                    return keep_symbolic(schema);
+                }
             }
             Some(result)
         }
@@ -165,7 +188,7 @@ fn negate_within(
             }
             Some(algebra::union(complements, ctx))
         }
-        SchemaKind::OneOf(branches) => negate_one_of(branches, walk, ctx),
+        SchemaKind::OneOf(branches) => negate_one_of(schema, branches, walk, ctx),
         SchemaKind::Reference(uri) => negate_reference(schema, uri, walk, ctx),
         SchemaKind::TypedGroup { ty, body } => negate_typed_group(*ty, body, walk, ctx),
         SchemaKind::Raw(_) => None,
@@ -184,6 +207,7 @@ fn negate_within(
 ///                              {"not": {"$ref": "#/$defs/a"}}]}]
 /// ```
 fn negate_one_of(
+    schema: &Schema,
     branches: &[Schema],
     walk: &mut NegationWalk<'_>,
     ctx: &CanonicalizationContext,
@@ -203,10 +227,13 @@ fn negate_one_of(
     }
     let depth = walk.active.len();
     let budget = walk.budget;
-    let mut matched_by_none = Schema::new(SchemaKind::True);
+    let mut matched_by_none = Schema::truthy();
     for branch in branches {
         matched_by_none =
             algebra::intersect(matched_by_none, negate_within(branch, walk, ctx)?, ctx);
+        if union_width(&matched_by_none) > CONJUNCTION_BUDGET {
+            return keep_symbolic(schema);
+        }
     }
     // The branch complements resolve references through the same walk, so they leave the path they
     // found and can only have spent budget on it.
@@ -224,9 +251,9 @@ fn negate_one_of(
 }
 
 /// The complement of the reference's target. A target already being negated on the current path
-/// admits no finite complement, and a target this map does not name leaves the reference opaque.
-/// A complement that merely re-wraps the target hands the caller back the problem it asked about,
-/// so it declines instead.
+/// would resolve forever, and a target this map does not name leaves the reference opaque; both
+/// keep the complement symbolic. A complement that merely re-wraps the target hands the caller back
+/// the problem it asked about, so it declines instead.
 fn negate_reference(
     schema: &Schema,
     uri: &Arc<str>,
@@ -234,7 +261,7 @@ fn negate_reference(
     ctx: &CanonicalizationContext,
 ) -> Option<Schema> {
     if walk.active.iter().any(|name| name == uri) {
-        return None;
+        return bar(schema, walk);
     }
     let Some(target) = walk.definitions.get(uri.as_ref()) else {
         return bar(schema, walk);
@@ -336,7 +363,7 @@ fn negate_finite_values(values: &[CanonicalJson], ctx: &CanonicalizationContext)
         branches.push(object_branch(
             above_empty(),
             Vec::new(),
-            BTreeMap::new(),
+            PropertyMap::default(),
             ctx,
         ));
     }
@@ -615,7 +642,7 @@ fn negate_string_leaf(leaf: &StringLeaf, ctx: &CanonicalizationContext) -> Optio
     branches.extend(leaf.formats.iter().map(|format| {
         algebra::string_leaf(
             StringLeaf {
-                excluded_formats: vec![Arc::clone(format)],
+                excluded_formats: vec![format.clone()],
                 ..StringLeaf::default()
             },
             ctx,
@@ -624,7 +651,7 @@ fn negate_string_leaf(leaf: &StringLeaf, ctx: &CanonicalizationContext) -> Optio
     branches.extend(leaf.excluded_formats.iter().map(|format| {
         algebra::string_leaf(
             StringLeaf {
-                formats: vec![Arc::clone(format)],
+                formats: vec![format.clone()],
                 ..StringLeaf::default()
             },
             ctx,
@@ -710,7 +737,7 @@ fn negate_array_leaf(
         "a positional leaf reached the position branches carrying a tail"
     );
     for (index, schema) in leaf.prefix.iter().enumerate() {
-        let mut prefix = vec![Schema::new(SchemaKind::True); index];
+        let mut prefix = vec![Schema::truthy(); index];
         prefix.push(negate_within(schema, walk, ctx)?);
         branches.push(algebra::array_leaf(
             ArrayLeaf {
@@ -796,10 +823,15 @@ fn negate_object_leaf(
     }
     let mut branches = vec![type_set_schema(JsonTypeSet::all().remove(JsonType::Object))];
     for sizes in length_windows(&leaf.sizes)? {
-        branches.push(object_branch(sizes, Vec::new(), BTreeMap::new(), ctx));
+        branches.push(object_branch(
+            sizes,
+            Vec::new(),
+            PropertyMap::default(),
+            ctx,
+        ));
     }
     for key in &leaf.required {
-        let absent = BTreeMap::from([(key.clone(), Schema::new(SchemaKind::False))]);
+        let absent = PropertyMap::from_iter([(key.clone(), Schema::falsy())]);
         branches.push(object_branch(
             LengthBounds::default(),
             Vec::new(),
@@ -809,7 +841,7 @@ fn negate_object_leaf(
     }
     for (key, schema) in &leaf.properties {
         let violating = negate_within(schema, walk, ctx)?;
-        let held = BTreeMap::from([(key.clone(), violating)]);
+        let held = PropertyMap::from_iter([(key.clone(), violating)]);
         branches.push(object_branch(
             LengthBounds::default(),
             vec![key.clone()],
@@ -864,11 +896,11 @@ fn negate_object_leaf(
                     ObjectLeaf {
                         properties: names
                             .iter()
-                            .map(|name| (name.clone(), Schema::new(SchemaKind::True)))
+                            .map(|name| (name.clone(), Schema::truthy()))
                             .collect(),
                         pattern_properties: patterns
                             .iter()
-                            .map(|pattern| (pattern.clone(), Schema::new(SchemaKind::True)))
+                            .map(|pattern| (pattern.clone(), Schema::truthy()))
                             .collect(),
                         additional: Some(additional.clone()),
                         ..ObjectLeaf::default()
@@ -884,7 +916,7 @@ fn negate_object_leaf(
 fn object_branch(
     sizes: LengthBounds,
     required: Vec<std::sync::Arc<str>>,
-    properties: BTreeMap<std::sync::Arc<str>, Schema>,
+    properties: PropertyMap,
     ctx: &CanonicalizationContext,
 ) -> Schema {
     algebra::object_leaf(
@@ -893,7 +925,7 @@ fn object_branch(
             required,
             property_names: None,
             properties,
-            pattern_properties: BTreeMap::new(),
+            pattern_properties: PropertyMap::default(),
             additional: None,
             violations: Vec::new(),
         },
@@ -934,7 +966,7 @@ fn negate_type_set(set: JsonTypeSet, ctx: &CanonicalizationContext) -> Option<Sc
         complement = complement.insert(JsonType::Number);
     }
     if complement.is_empty() {
-        return Some(Schema::new(SchemaKind::False));
+        return Some(Schema::falsy());
     }
     // The shared constructor, so a complement spelling a lone `null` or `boolean` lands on the same
     // canonical node as the direct spelling.
@@ -1068,12 +1100,12 @@ mod tests {
     fn boolean_schemas_negate_to_each_other() {
         let ctx = context();
         assert!(matches!(
-            negate_in_place(&Schema::new(SchemaKind::True), &DefinitionMap::new(), &ctx)
+            negate_in_place(&Schema::truthy(), &DefinitionMap::new(), &ctx)
                 .map(|s| s.kind().clone()),
             Some(SchemaKind::False)
         ));
         assert!(matches!(
-            negate_in_place(&Schema::new(SchemaKind::False), &DefinitionMap::new(), &ctx)
+            negate_in_place(&Schema::falsy(), &DefinitionMap::new(), &ctx)
                 .map(|s| s.kind().clone()),
             Some(SchemaKind::True)
         ));

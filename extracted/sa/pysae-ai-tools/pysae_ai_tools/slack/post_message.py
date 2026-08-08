@@ -43,9 +43,12 @@ from .common import (
 )
 
 # Default attribution shown in the context block when --ai-footer is set. The
-# tool name links to its public PyPI page (mrkdwn <url|label> renders as a
-# clickable link inside a context block).
-AI_FOOTER_TEXT = ":robot_face: Rédigé par Claude via <https://pypi.org/project/pysae-ai-tools|pysae-ai-tools>"
+# tool name links to the GitLab repo (mrkdwn <url|label> renders as a clickable
+# link inside a context block) — the package left public PyPI, whose page is
+# gone. The <url|label> form is also what the footer *marker* keys on, so the
+# label part is not cosmetic; see AI_TOOLS_FOOTER_MARKERS in common.py before
+# reworking this line.
+AI_FOOTER_TEXT = ":robot_face: Rédigé par Claude via <https://gitlab.com/pysae/tools/ai-tools|pysae-ai-tools>"
 
 # chat.postMessage rejects a section block whose text exceeds this length.
 SECTION_TEXT_LIMIT = 3000

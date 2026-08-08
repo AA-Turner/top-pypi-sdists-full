@@ -82,6 +82,9 @@ class AuthClient:
         # RFC 8707 resource indicator. When set, every mint asks for this
         # audience; like the scope above, cache keys do not include it.
         resource: t.Optional[str] = None,
+        # Audiences this client will accept when validating a token. Matching
+        # is exact: a value that is a prefix of another grants nothing.
+        audiences: t.Optional[t.List[str]] = None,
     ) -> None:
         self.public_key_url = urljoin(url, ".well-known/jwks.json")
         self.access_token_url = urljoin(url, "api/v1/login/access-token")
@@ -93,6 +96,7 @@ class AuthClient:
         self._organization_id = organization_id
         self._workspace_id = workspace_id
         self._resource = resource
+        self._audiences = list(audiences) if audiences else [settings.ENV]
         self._recursion_gate: t.Optional[RecursionGate] = None
 
         if recursion_check_enabled and recursion_counter is None:
@@ -196,7 +200,7 @@ class AuthClient:
                 inner_token,
                 public_key,
                 algorithms=[ALGORITHM],
-                audience=settings.ENV,
+                audience=self._audiences,
             )
             return TaktileIdToken(**payload)
         except jwt.ExpiredSignatureError as exc:

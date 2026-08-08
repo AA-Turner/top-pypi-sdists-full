@@ -19,7 +19,8 @@ import msgpack
 import zmq
 import zmq.asyncio
 
-from verifiers.v1.clients.config import ClientConfig
+from verifiers.v1.configs.client import ClientConfig
+from verifiers.v1.episode import WireEpisode
 from verifiers.v1.serve.types import (
     BaseRequest,
     BaseResponse,
@@ -29,11 +30,10 @@ from verifiers.v1.serve.types import (
     InfoResponse,
     RunGroupRequest,
     RunGroupResponse,
-    RunRolloutRequest,
-    RunRolloutResponse,
+    RunRequest,
+    RunResponse,
 )
-from verifiers.v1.task import WireTaskData
-from verifiers.v1.trace import Trace
+from verifiers.v1.trace import WireTrace
 from verifiers.v1.types import SamplingConfig
 
 logger = logging.getLogger(__name__)
@@ -86,7 +86,7 @@ class EnvClient:
         )
         try:
             data = await asyncio.wait_for(future, timeout)
-        except (asyncio.TimeoutError, asyncio.CancelledError):
+        except (TimeoutError, asyncio.CancelledError):
             self._pending.pop(request_id, None)
             raise
         if response_type in (HealthResponse, InfoResponse):
@@ -119,7 +119,7 @@ class EnvClient:
             return (
                 await self._request(HealthRequest(), HealthResponse, timeout=timeout)
             ).success
-        except asyncio.TimeoutError:
+        except TimeoutError:
             return False
 
     async def wait_for_server_startup(
@@ -136,20 +136,33 @@ class EnvClient:
         )
 
     async def info(self) -> InfoResponse:
-        """Return the taskset `num_tasks` + whether its tasks group-score."""
+        """Return the taskset `num_tasks` + whether its tasks group-score (legacy v0 only)."""
         return await self._request(InfoRequest(), InfoResponse)
 
-    async def run_rollout(
-        self, task_idx: int, client: ClientConfig, model: str, sampling: SamplingConfig
-    ) -> Trace[WireTaskData]:
-        """Run one rollout for `task_idx`; return a typed `Trace[WireTaskData]`."""
+    async def run(
+        self,
+        client: ClientConfig,
+        model: str,
+        sampling: SamplingConfig,
+        task_data: dict | None = None,
+        # TODO: remove task_idx addressing once v0 (the legacy bridge) is deprecated.
+        task_idx: int | None = None,
+    ) -> WireEpisode:
+        """Run one rollout; return its episode record — flat traces (typed
+        `Trace[WireTaskData]`) plus the shared stamp. A v1 server takes the task
+        itself (`task_data`, its dumped `TaskData`); the legacy bridge addresses
+        its server-side dataset by `task_idx`."""
         response = await self._request(
-            RunRolloutRequest(
-                task_idx=task_idx, client=client, model=model, sampling=sampling
+            RunRequest(
+                task_data=task_data,
+                task_idx=task_idx,
+                client=client,
+                model=model,
+                sampling=sampling,
             ),
-            RunRolloutResponse,
+            RunResponse,
         )
-        return response.trace
+        return response.episode
 
     async def run_group(
         self,
@@ -158,8 +171,9 @@ class EnvClient:
         client: ClientConfig,
         model: str,
         sampling: SamplingConfig,
-    ) -> list[Trace[WireTaskData]]:
-        """Run `n` rollouts for `task_idx` as a scored group; return typed `Trace[WireTaskData]`s."""
+    ) -> list[WireTrace]:
+        """Run `n` rollouts for `task_idx` as a scored group — the legacy (v0) route;
+        a v1 server refuses it. Returns typed `WireTrace`s."""
         response = await self._request(
             RunGroupRequest(
                 task_idx=task_idx, n=n, client=client, model=model, sampling=sampling

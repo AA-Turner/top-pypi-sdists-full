@@ -9,6 +9,7 @@ from nameparser import Parser
 from nameparser._lexicon import (
     Lexicon, _VOCAB_FIELDS, _default_lexicon, _normalize, _title_key,
 )
+from nameparser._policy import Script, _SCRIPT_RANGES
 
 
 def test_entries_are_normalized_at_construction() -> None:
@@ -324,7 +325,9 @@ def test_given_name_titles_is_not_constrained_against_titles() -> None:
      "particles_ambiguous", "particles"),
     (lambda w: Lexicon(suffix_acronyms_ambiguous=w),
      "suffix_acronyms_ambiguous", "suffix_acronyms"),
-], ids=["particles_ambiguous", "suffix_acronyms_ambiguous"])
+    (lambda w: Lexicon(honorific_tails=w),
+     "honorific_tails", "suffix_words"),
+], ids=["particles_ambiguous", "suffix_acronyms_ambiguous", "honorific_tails"])
 def test_subset_error_names_the_fix(
     make: Callable[[frozenset[str]], Lexicon], marker: str, base: str
 ) -> None:
@@ -475,10 +478,12 @@ _PER_WORD_FIELDS = [f for f in _VOCAB_FIELDS if f != "given_name_titles"]
 def test_multiword_entry_warns_per_field(field: str) -> None:
     # Guard the whole family: every per-word field warns, not one.
     with pytest.warns(UserWarning, match="matched one word at a time"):
-        if field in ("particles_ambiguous", "suffix_acronyms_ambiguous"):
+        if field in ("particles_ambiguous", "suffix_acronyms_ambiguous",
+                     "honorific_tails"):
             # subset fields need their base populated to construct
             base = {"particles_ambiguous": "particles",
-                    "suffix_acronyms_ambiguous": "suffix_acronyms"}[field]
+                    "suffix_acronyms_ambiguous": "suffix_acronyms",
+                    "honorific_tails": "suffix_words"}[field]
             Lexicon.empty().add(**{base: ["zqx zqy"], field: ["zqx zqy"]})
         else:
             Lexicon.empty().add(**{field: ["zqx zqy"]})
@@ -556,3 +561,58 @@ def test_remove_of_a_stored_dead_entry_is_silent() -> None:
     with warnings.catch_warnings():
         warnings.simplefilter("error")
         dirty.remove(titles=["zqx zqy"])
+
+
+def test_surnames_is_a_vocab_field() -> None:
+    lex = Lexicon.empty().add(surnames={"毛", "欧阳"})
+    assert lex.surnames == frozenset({"毛", "欧阳"})
+    assert lex.remove(surnames={"毛"}).surnames == frozenset({"欧阳"})
+    merged = Lexicon(surnames=frozenset({"김"})) | Lexicon(surnames=frozenset({"박"}))
+    assert merged.surnames == frozenset({"김", "박"})
+
+
+def test_default_lexicon_ships_korean_surnames_only() -> None:
+    lex = Lexicon.default()
+    assert "김" in lex.surnames and "남궁" in lex.surnames
+    # Han surnames are locales.ZH's cargo (segmentation opt-in), so
+    # the DEFAULT set is wholly hangul -- structural check, not
+    # content-pinning. The spans come from the shared table rather than
+    # a second hand-copy of 0xAC00/0xD7A3 (test_locales.py's precedent).
+    hangul = _SCRIPT_RANGES[Script.HANGUL]
+    assert all(all(any(lo <= ord(c) <= hi for lo, hi in hangul) for c in s)
+               and 1 <= len(s) <= 2 for s in lex.surnames)
+
+
+def test_honorific_tails_is_a_vocab_field() -> None:
+    # every tail is also a suffix word -- the peeled piece is claimed
+    # by suffix classification -- so each construction carries both
+    lex = Lexicon.empty().add(honorific_tails={"씨", "さん"},
+                              suffix_words={"씨", "さん"})
+    assert lex.honorific_tails == frozenset({"씨", "さん"})
+    assert lex.remove(honorific_tails={"씨"}).honorific_tails == \
+        frozenset({"さん"})
+    merged = (Lexicon(honorific_tails=frozenset({"씨"}),
+                      suffix_words=frozenset({"씨"}))
+              | Lexicon(honorific_tails=frozenset({"様"}),
+                        suffix_words=frozenset({"様"})))
+    assert merged.honorific_tails == frozenset({"씨", "様"})
+
+
+def test_removing_a_honorific_tail_is_the_peels_off_switch() -> None:
+    # The off-switch docs/customize.rst documents, at parse level:
+    # dropping a tail leaves the glued name unsplit while the SPACED
+    # spelling still routes the honorific, since suffix_words is a
+    # separate field and only the peel consults honorific_tails.
+    # honorific_tails is the one marker field a caller can empty
+    # without a matching base edit -- an orphan is what raises, and a
+    # removal cannot make one.
+    lex = Lexicon.default().remove(honorific_tails={"さん"})
+    p = Parser(lexicon=lex)
+    glued = p.parse("田中さん")
+    assert (glued.family, glued.suffix) == ("田中さん", "")
+    spaced = p.parse("田中 さん")
+    assert (spaced.family, spaced.suffix) == ("田中", "さん")
+    # the baseline the removal is against, so the test cannot pass by
+    # the peel being broken outright
+    on = Parser().parse("田中さん")
+    assert (on.family, on.suffix) == ("田中", "さん")

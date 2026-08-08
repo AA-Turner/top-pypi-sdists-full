@@ -3081,6 +3081,18 @@ https://docs.chalk.ai/cli/apply
         """Instantly redeploy using this deployment's pre-built image."""
         return self._grpc_client.rollback_deployment(deployment_id=deployment_id)
 
+    def suspend_environment(self, environment_id: EnvironmentId) -> None:
+        """Suspend an environment, spinning down its cloud resources."""
+        if not environment_id:
+            raise ValueError("`environment_id` is required to avoid accidentally suspending the wrong environment.")
+        return self._get_grpc_client(environment_id).suspend_environment(environment_id)
+
+    def resume_environment(self, environment_id: EnvironmentId) -> None:
+        """Resume a suspended environment, spinning its cloud resources back up."""
+        if not environment_id:
+            raise ValueError("`environment_id` is required to avoid accidentally resuming the wrong environment.")
+        return self._get_grpc_client(environment_id).resume_environment(environment_id)
+
     def rebuild_deployment(
         self,
         deployment_id: str,

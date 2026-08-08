@@ -364,6 +364,9 @@ class RunCacheConfig:
             events.fire_debug_event(
                 "Unable to resolve a valid dbt platform oauth token: {}", str(e)
             )
+        # We require the project-id field configured as part of the dbt_project.yaml file if the user decides to use the state:* selector, but ONLY then and not in other cases.
+        if runtime_config.dbt_cloud:
+            config["dbt_project_id"] = str(runtime_config.dbt_cloud.get("project-id"))
 
         # third precedence for dbt platform tokens - dbt_cloud.yml
         # - note that if specific dbt State oauth credentials exist in the `state:` section,
@@ -382,16 +385,11 @@ class RunCacheConfig:
                     "Please ensure it's formatted correctly. For more information, see: https://docs.getdbt.com/docs/platform/configure-cloud-cli#configure-the-dbt-cli"
                 ) from e
 
-            project_details = _get_active_dbt_project_details(runtime_config, cloud_yml)
-            if project_details:
-                active_project_host, active_project_id = project_details
-                config["dbt_project_id"] = active_project_id
-
             # check for user personal access tokens
             if (
                 (projects := cloud_yml.get("projects", []))
                 and isinstance(projects, list)
-                and project_details
+                and (project_details := _get_active_dbt_project_details(runtime_config, cloud_yml))
             ):
                 # scrape credentials from the active project
                 # If no projects match, we dont fallback to any default, it's the same as no credentials being present at all

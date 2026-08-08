@@ -3,6 +3,7 @@
 
 #include <cerrno>
 #include <cstdio>
+#include <sstream>
 
 #include <arpa/inet.h>
 #include <fcntl.h>
@@ -13,6 +14,7 @@
 #include <utility>
 
 #include "exceptions.h"
+#include "logging.h"
 #include "lz4_stream.h"
 #include "sink.h"
 
@@ -53,6 +55,41 @@ removeSuffix(const std::string& s, const std::string& suffix)
     }
 
     return s.substr(0, s.size() - suffix.size());
+}
+
+void
+compressFile(const std::string& filename) noexcept
+{
+    std::ifstream in_file(filename);
+    std::string tmp_filename = filename + ".lz4.tmp";
+    std::ofstream out_file(tmp_filename);
+    bool success = true;
+    constexpr size_t bufsize = 4 * 1024;
+
+    // lz4_stream is using exceptions rather than failbit/badbit
+    try {
+        lz4_stream::ostream lz4_stream(out_file);
+        std::vector<char> buf(bufsize);
+        while (in_file) {
+            in_file.read(&buf[0], buf.size());
+            lz4_stream.write(&buf[0], in_file.gcount());
+        }
+    } catch (...) {
+        success = false;
+    }
+
+    out_file.close();
+    if (!in_file.eof() || !out_file) {
+        success = false;
+    }
+
+    if (!success) {
+        std::cerr << "Failed to compress input file" << std::endl;
+        ::unlink(tmp_filename.c_str());
+    } else if (0 != std::rename(tmp_filename.c_str(), filename.c_str())) {
+        std::perror("Error moving compressed file back to original name");
+        ::unlink(tmp_filename.c_str());
+    }
 }
 
 }  // unnamed namespace
@@ -100,6 +137,12 @@ FileSink::FileSink(const std::string& file_name, bool overwrite, bool compress)
         d_fd = ::open(file_name.c_str(), flags, 0644);
     } while (d_fd < 0 && errno == EINTR);
     if (d_fd < 0) {
+        if (errno == EEXIST) {
+            throw IoError{
+                    "Output file " + file_name
+                    + " already exists. Memray can overwrite it with the"
+                      " --force CLI argument or the overwrite=True API argument."};
+        }
         throw IoError{"Could not create output file " + file_name + ": " + std::string(strerror(errno))};
     }
 }
@@ -134,6 +177,15 @@ FileSink::seek(off_t offset, int whence)
     //       though not to write beyond the end.
     d_buffer = static_cast<char*>(mmap(d_buffer, BUFFER_SIZE, PROT_WRITE, MAP_SHARED, d_fd, offset));
     if (d_buffer == MAP_FAILED) {
+        std::ostringstream msg;
+        msg << "Failed to mmap " << BUFFER_SIZE << " bytes of output file " << d_filename
+            << " at offset " << offset << ": " << strerror(errno);
+        if (offset == 0) {
+            msg << ". The destination filesystem may not support shared writable mmap;"
+                   " try writing the capture file to a different location (e.g. /tmp)"
+                   " or run memray with the --buffered-file-io argument if you can't.";
+        }
+        LOG(ERROR) << msg.str();
         d_buffer = nullptr;
         return false;
     }
@@ -163,6 +215,20 @@ FileSink::grow(size_t needed)
     } while (rc == EINTR);
 
     if (rc != 0) {
+        std::ostringstream msg;
+        msg << "Failed to grow output file " << d_filename << " by " << delta
+            << " bytes: " << strerror(rc);
+#ifdef __APPLE__
+        const char what[] = "F_PREALLOCATE";
+#else
+        const char what[] = "posix_fallocate";
+#endif
+        if (d_fileSize == 0) {
+            msg << ". The destination filesystem may not support " << what
+                << "; try writing the capture file to a different location (e.g. /tmp)"
+                   " or run memray with the --buffered-file-io argument if you can't.";
+        }
+        LOG(ERROR) << msg.str();
         errno = rc;
         return false;
     }
@@ -191,36 +257,7 @@ FileSink::cloneInChildProcess()
 void
 FileSink::compress() noexcept
 {
-    std::ifstream in_file(d_filename);
-    std::string tmp_filename = d_filename + ".lz4.tmp";
-    std::ofstream out_file(tmp_filename);
-    bool success = true;
-    constexpr size_t bufsize = 4 * 1024;
-
-    // lz4_stream is using exceptions rather than failbit/badbit
-    try {
-        lz4_stream::ostream lz4_stream(out_file);
-        std::vector<char> buf(bufsize);
-        while (in_file) {
-            in_file.read(&buf[0], buf.size());
-            lz4_stream.write(&buf[0], in_file.gcount());
-        }
-    } catch (...) {
-        success = false;
-    }
-
-    out_file.close();
-    if (!in_file.eof() || !out_file) {
-        success = false;
-    }
-
-    if (!success) {
-        std::cerr << "Failed to compress input file" << std::endl;
-        ::unlink(tmp_filename.c_str());
-    } else if (0 != std::rename(tmp_filename.c_str(), d_filename.c_str())) {
-        std::perror("Error moving compressed file back to original name");
-        ::unlink(tmp_filename.c_str());
-    }
+    compressFile(d_filename);
 }
 
 FileSink::~FileSink()
@@ -240,23 +277,21 @@ FileSink::~FileSink()
     }
 }
 
-SocketSink::SocketSink(std::string host, uint16_t port)
-: d_host(std::move(host))
-, d_port(port)
+BufferedSink::BufferedSink(size_t bufferSize)
+: BUFFER_SIZE(bufferSize)
 , d_buffer(new char[BUFFER_SIZE])
 , d_bufferNeedle(d_buffer.get())
 {
-    open();
 }
 
 size_t
-SocketSink::freeSpaceInBuffer()
+BufferedSink::freeSpaceInBuffer()
 {
     return BUFFER_SIZE - (d_bufferNeedle - d_buffer.get());
 }
 
 bool
-SocketSink::writeAll(const char* data, size_t length)
+BufferedSink::writeAll(const char* data, size_t length)
 {
     while (freeSpaceInBuffer() < length) {
         size_t toWrite = freeSpaceInBuffer();
@@ -275,19 +310,27 @@ SocketSink::writeAll(const char* data, size_t length)
 }
 
 bool
-SocketSink::flush()
-{
-    return _flush();
-}
-
-bool
-SocketSink::_flush()
+BufferedSink::flush()
 {
     const char* data = d_buffer.get();
     size_t length = d_bufferNeedle - data;
 
     d_bufferNeedle = d_buffer.get();
 
+    return writeBufferedData(data, length);
+}
+
+SocketSink::SocketSink(std::string host, uint16_t port)
+: BufferedSink(PIPE_BUF)
+, d_host(std::move(host))
+, d_port(port)
+{
+    open();
+}
+
+bool
+SocketSink::writeBufferedData(const char* data, size_t length)
+{
     while (length) {
         ssize_t ret = ::send(d_socket_fd, data, length, 0);
         if (ret < 0 && errno != EINTR) {
@@ -319,7 +362,7 @@ SocketSink::cloneInChildProcess()
 SocketSink::~SocketSink()
 {
     if (d_socket_open) {
-        _flush();
+        flush();
         ::close(d_socket_fd);
         d_socket_open = false;
     }
@@ -356,8 +399,10 @@ SocketSink::open()
     }
 
     if (listen(sockfd, 1) == -1) {
+        std::string reason = strerror(errno);
         ::close(sockfd);
-        throw IoError{"Encountered error in listen call"};
+        LOG(ERROR) << "Encountered error in 'listen' call: " << reason;
+        throw IoError{"Failed to listen on socket: " + reason};
     }
 
     LOG(DEBUG) << "Waiting for connections";
@@ -381,6 +426,81 @@ SocketSink::open()
     }
 
     d_socket_open = true;
+}
+
+BufferedFileSink::BufferedFileSink(const std::string& file_name, bool overwrite, bool compress)
+: BufferedSink(FILE_BUFFER_SIZE)
+, d_filename(file_name)
+, d_fileNameStem(removeSuffix(file_name, "." + std::to_string(::getpid())))
+, d_compress(compress)
+{
+    int flags = O_CREAT | O_RDWR | O_TRUNC | O_CLOEXEC;
+    if (!overwrite) {
+        flags |= O_EXCL;
+    }
+    do {
+        d_fd = ::open(file_name.c_str(), flags, 0644);
+    } while (d_fd < 0 && errno == EINTR);
+    if (d_fd < 0) {
+        if (errno == EEXIST) {
+            throw IoError{
+                    "Output file " + file_name
+                    + " already exists. Memray can overwrite it with the"
+                      " --force CLI argument or the overwrite=True API argument."};
+        }
+        throw IoError{"Could not create output file " + file_name + ": " + std::string(strerror(errno))};
+    }
+}
+
+bool
+BufferedFileSink::writeBufferedData(const char* data, size_t length)
+{
+    while (length) {
+        ssize_t ret = ::write(d_fd, data, length);
+        if (ret < 0 && errno != EINTR) {
+            return false;
+        } else if (ret >= 0) {
+            data += ret;
+            length -= ret;
+        }
+    }
+    return true;
+}
+
+bool
+BufferedFileSink::seek(off_t offset, int whence)
+{
+    if (whence != SEEK_SET && whence != SEEK_END) {
+        errno = EINVAL;
+        return false;
+    }
+
+    // Any buffered data belongs at the current file offset; drain it before we
+    // move the offset out from under it.
+    if (!flush()) {
+        return false;
+    }
+
+    return ::lseek(d_fd, offset, whence) >= 0;
+}
+
+std::unique_ptr<Sink>
+BufferedFileSink::cloneInChildProcess()
+{
+    std::string file_name = d_fileNameStem + "." + std::to_string(::getpid());
+    return std::make_unique<BufferedFileSink>(file_name, true, d_compress);
+}
+
+BufferedFileSink::~BufferedFileSink()
+{
+    if (d_fd != -1) {
+        flush();
+        ::close(d_fd);
+    }
+
+    if (d_compress) {
+        compressFile(d_filename);
+    }
 }
 
 NullSink::~NullSink()

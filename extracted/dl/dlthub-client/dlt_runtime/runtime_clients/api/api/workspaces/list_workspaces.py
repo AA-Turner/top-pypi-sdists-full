@@ -120,7 +120,8 @@ def sync_detailed(
 
 
     Lists the workspaces under an organization visible to the caller. Organization owners
-    see every workspace; other members see only the workspaces they belong to.
+    see every workspace; other members see workspaces they belong to or have access to via the default
+    org-wide workspace role.
 
     Playground workspaces of other members are not included; the caller only sees their own.
 
@@ -170,7 +171,8 @@ def sync(
 
 
     Lists the workspaces under an organization visible to the caller. Organization owners
-    see every workspace; other members see only the workspaces they belong to.
+    see every workspace; other members see workspaces they belong to or have access to via the default
+    org-wide workspace role.
 
     Playground workspaces of other members are not included; the caller only sees their own.
 
@@ -214,7 +216,8 @@ async def asyncio_detailed(
 
 
     Lists the workspaces under an organization visible to the caller. Organization owners
-    see every workspace; other members see only the workspaces they belong to.
+    see every workspace; other members see workspaces they belong to or have access to via the default
+    org-wide workspace role.
 
     Playground workspaces of other members are not included; the caller only sees their own.
 
@@ -262,7 +265,8 @@ async def asyncio(
 
 
     Lists the workspaces under an organization visible to the caller. Organization owners
-    see every workspace; other members see only the workspaces they belong to.
+    see every workspace; other members see workspaces they belong to or have access to via the default
+    org-wide workspace role.
 
     Playground workspaces of other members are not included; the caller only sees their own.
 

@@ -26,7 +26,13 @@ from crawlee.events import (
     EventSystemInfoData,
 )
 
-from apify._charging import DEFAULT_DATASET_ITEM_EVENT, ChargeResult, ChargingManager, ChargingManagerImplementation
+from apify._charging import (
+    DEFAULT_DATASET_ITEM_EVENT,
+    ChargeResult,
+    ChargingManager,
+    ChargingManagerImplementation,
+    charge_lock_if_charging,
+)
 from apify._configuration import Configuration
 from apify._consts import EVENT_LISTENERS_TIMEOUT, EXIT_CODE_ERROR_USER_FUNCTION_THREW, ActorEnvVars, ApifyEnvVars
 from apify._crypto import decrypt_input_secrets, load_private_key
@@ -249,7 +255,8 @@ class _ActorType:
             self.exit_code = code if isinstance(code, int) else 0 if code is None else 1
         elif isinstance(exc_value, Exception) and not is_running_in_ipython():
             # In IPython we don't call `sys.exit()`, so the traceback prints on its own.
-            self.log.exception('Actor failed with an exception', exc_info=exc_value)
+            # `error(exc_info=...)` not `exception()`: there is no ambient exception outside an `except` block.
+            self.log.error('Actor failed with an exception', exc_info=exc_value)
             # Fall back to the error code only if the caller hasn't chosen one (e.g. via `fail(exit_code=...)`).
             if self.exit_code == 0:
                 self.exit_code = EXIT_CODE_ERROR_USER_FUNCTION_THREW
@@ -259,7 +266,10 @@ class _ActorType:
 
         async def finalize() -> None:
             if self.status_message is not None:
-                await self.set_status_message(self.status_message, is_terminal=True)
+                try:
+                    await self.set_status_message(self.status_message, is_terminal=True)
+                except Exception:
+                    self.log.exception('Failed to set terminal status message')
 
             # Sleep for a bit so that the listeners have a chance to trigger
             await asyncio.sleep(0.1)
@@ -686,9 +696,10 @@ class _ActorType:
 
         dataset = await self.open_dataset()
 
-        # Acquire the charge lock to prevent race conditions between concurrent
-        # push_data calls. We need to hold the lock for the entire push_data + charge sequence.
-        async with charging_manager.charge_lock():
+        # The whole push + charge sequence has to stay under the charge lock, so that a concurrent push cannot
+        # charge in between the limit reservation below and the charge that acts on it. Runs that charge nothing
+        # skip the lock and push concurrently.
+        async with charge_lock_if_charging():
             # Synthetic events are handled within dataset.push_data, only get data for `ChargeResult`.
             if charged_event_name is None:
                 before = charging_manager.get_charged_event_count(DEFAULT_DATASET_ITEM_EVENT)
@@ -909,7 +920,7 @@ class _ActorType:
         max_total_charge_usd: Decimal | None = None,
         restart_on_error: bool | None = None,
         memory_mbytes: int | None = None,
-        timeout: timedelta | None | Literal['inherit'] = None,
+        timeout: timedelta | Literal['inherit'] | None = None,
         force_permission_level: ActorPermissionLevel | None = None,
         webhooks: list[Webhook] | None = None,
     ) -> Run:
@@ -1015,11 +1026,11 @@ class _ActorType:
         max_total_charge_usd: Decimal | None = None,
         restart_on_error: bool | None = None,
         memory_mbytes: int | None = None,
-        timeout: timedelta | None | Literal['inherit'] = None,
+        timeout: timedelta | Literal['inherit'] | None = None,
         force_permission_level: ActorPermissionLevel | None = None,
         webhooks: list[Webhook] | None = None,
         wait: timedelta | None = None,
-        logger: logging.Logger | None | Literal['default'] = 'default',
+        logger: logging.Logger | Literal['default'] | None = 'default',
     ) -> Run:
         """Start an Actor on the Apify Platform and wait for it to finish before returning.
 
@@ -1093,7 +1104,7 @@ class _ActorType:
         build: str | None = None,
         restart_on_error: bool | None = None,
         memory_mbytes: int | None = None,
-        timeout: timedelta | None | Literal['inherit'] = None,
+        timeout: timedelta | Literal['inherit'] | None = None,
         webhooks: list[Webhook] | None = None,
         wait: timedelta | None = None,
         token: str | None = None,
@@ -1238,12 +1249,10 @@ class _ActorType:
             # the reboot. Typically, crawlers are listening for the MIGRATING event to stop processing new requests.
             # We can't just emit the events and wait for all listeners to finish,
             # because this method might be called from an event listener itself, and we would deadlock.
-            persist_state_listeners = flatten(
-                (self.event_manager._listeners_to_wrappers[Event.PERSIST_STATE] or {}).values()  # noqa: SLF001
-            )
-            migrating_listeners = flatten(
-                (self.event_manager._listeners_to_wrappers[Event.MIGRATING] or {}).values()  # noqa: SLF001
-            )
+            # Read the mapping with `get` - subscripting it would insert entries for events nobody listens to.
+            listeners_to_wrappers = self.event_manager._listeners_to_wrappers  # noqa: SLF001
+            persist_state_listeners = flatten(listeners_to_wrappers.get(Event.PERSIST_STATE, {}).values())
+            migrating_listeners = flatten(listeners_to_wrappers.get(Event.MIGRATING, {}).values())
 
             async def safe_dispatch(listener: Any, data: Any) -> None:
                 try:

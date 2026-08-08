@@ -14,12 +14,13 @@ PKG = pathlib.Path(nameparser.__file__).parent
 _MUST_EXIST = {"_types.py", "_lexicon.py", "_policy.py", "_locale.py",
                "_render.py", "_pipeline/_state.py", "_pipeline/__init__.py",
                "_pipeline/_extract.py", "_pipeline/_tokenize.py",
-               "_pipeline/_vocab.py", "_pipeline/_segment.py",
+               "_pipeline/_vocab.py", "_pipeline/_script_segment.py",
+               "_pipeline/_segment.py",
                "_pipeline/_classify.py", "_pipeline/_group.py",
                "_pipeline/_assign.py", "_pipeline/_post_rules.py",
                "_pipeline/_assemble.py", "_parser.py", "_facade.py",
-               "_config_shim.py", "locales/__init__.py", "locales/ru.py",
-               "locales/tr_az.py"}
+               "_config_shim.py", "locales/__init__.py", "locales/ja.py",
+               "locales/ru.py", "locales/tr_az.py", "locales/zh.py"}
 
 _PIPELINE_STAGE_ALLOWED = (
     "nameparser._types", "nameparser._lexicon", "nameparser._policy",
@@ -28,11 +29,16 @@ _PIPELINE_STAGE_ALLOWED = (
     "nameparser._pipeline.",
 )
 
-# a locale pack: pure data over the three base types, no pipeline or
-# config access (locales spec §2) -- one contract shared by every pack,
-# like _PIPELINE_STAGE_ALLOWED above, so tightening it is a one-line edit
+# a locale pack: pure data over the base types, no pipeline or config
+# access (locales spec §2) -- one contract shared by every pack, like
+# _PIPELINE_STAGE_ALLOWED above, so tightening it is a one-line edit.
+# _types joined the three in #272: the ja pack's segmenter factory
+# constructs a Segmentation, and _types is the bottom of the graph
+# (Locale itself imports it), so this widens the base types, not the
+# reach.
 _LOCALE_PACK_ALLOWED = (
     "nameparser._lexicon", "nameparser._locale", "nameparser._policy",
+    "nameparser._types",
 )
 
 # module -> prefixes it may import from within nameparser
@@ -59,6 +65,7 @@ ALLOWED = {
     "_pipeline/_vocab.py": _PIPELINE_STAGE_ALLOWED,
     "_pipeline/_extract.py": _PIPELINE_STAGE_ALLOWED,
     "_pipeline/_tokenize.py": _PIPELINE_STAGE_ALLOWED,
+    "_pipeline/_script_segment.py": _PIPELINE_STAGE_ALLOWED,
     "_pipeline/_segment.py": _PIPELINE_STAGE_ALLOWED,
     "_pipeline/_classify.py": _PIPELINE_STAGE_ALLOWED,
     "_pipeline/_group.py": _PIPELINE_STAGE_ALLOWED,
@@ -89,8 +96,10 @@ ALLOWED = {
     # "nameparser.locales." prefix documents that reach for humans even
     # though the walker never exercises it.
     "locales/__init__.py": ("nameparser._locale", "nameparser.locales."),
+    "locales/ja.py": _LOCALE_PACK_ALLOWED,
     "locales/ru.py": _LOCALE_PACK_ALLOWED,
     "locales/tr_az.py": _LOCALE_PACK_ALLOWED,
+    "locales/zh.py": _LOCALE_PACK_ALLOWED,
     # v1 import-path preservation: thin re-exports of the facade/shim
     "parser.py": ("nameparser._facade",),
     "config/__init__.py": ("nameparser._config_shim",),
@@ -165,9 +174,10 @@ def test_lexicon_never_imports_config_package_root_or_parser() -> None:
 def test_public_exports() -> None:
     expected = {
         "Span", "Role", "Token", "Ambiguity", "AmbiguityKind", "ParsedName",
-        "Lexicon", "Policy", "PolicyPatch", "PatronymicRule", "UNSET",
+        "Segmentation", "Segmenter",
+        "Lexicon", "Policy", "PolicyPatch", "PatronymicRule", "Script", "UNSET",
         "GIVEN_FIRST", "FAMILY_FIRST", "FAMILY_FIRST_GIVEN_LAST",
-        "DEFAULT_NICKNAME_DELIMITERS", "Locale",
+        "DEFAULT_NICKNAME_DELIMITERS", "DEFAULT_SCRIPT_ORDERS", "Locale",
         "Parser", "parse", "parser_for",
     }
     assert expected <= set(nameparser.__all__)

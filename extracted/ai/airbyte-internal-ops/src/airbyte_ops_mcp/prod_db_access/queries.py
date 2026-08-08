@@ -36,6 +36,7 @@ from airbyte_ops_mcp.prod_db_access.sql import (
     SELECT_CONNECTIONS_BY_SOURCE_CONNECTOR_AND_STREAM,
     SELECT_CONNECTIONS_BY_SOURCE_CONNECTOR_AND_STREAM_AND_ORG,
     SELECT_CONNECTOR_ROLLOUT_BY_ID,
+    SELECT_CONNECTOR_ROLLOUT_SIBLINGS,
     SELECT_CONNECTOR_ROLLOUTS,
     SELECT_CONNECTOR_VERSIONS,
     SELECT_DATAPLANES_LIST,
@@ -57,6 +58,8 @@ from airbyte_ops_mcp.prod_db_access.sql import (
     SELECT_RECENT_SUCCESSFUL_SYNCS_FOR_SOURCE_CONNECTOR,
     SELECT_RECENT_SYNCS_FOR_DESTINATION_CONNECTOR,
     SELECT_RECENT_SYNCS_FOR_SOURCE_CONNECTOR,
+    SELECT_ROLLOUT_PINNED_ACTOR_SYNC_PARAMETERIZED_DESTINATION,
+    SELECT_ROLLOUT_PINNED_ACTOR_SYNC_PARAMETERIZED_SOURCE,
     SELECT_SOURCE_ACTOR_POPULATION_BY_ORG,
     SELECT_SOURCE_CONNECTION_STATS,
     SELECT_SOURCE_SUCCESSFUL_SYNCS_FOR_VERSION,
@@ -443,6 +446,36 @@ def query_raw_pins_for_version(
         SELECT_RAW_PINS_FOR_VERSION,
         parameters={"actor_definition_version_id": connector_version_id},
         query_name="SELECT_RAW_PINS_FOR_VERSION",
+        gsm_client=gsm_client,
+    )
+
+
+def query_rollout_pinned_actor_sync_by_version(
+    actor_definition_id: str,
+    release_candidate_version_id: str,
+    rollout_created_at: datetime,
+    *,
+    is_destination: bool,
+    gsm_client: secretmanager.SecretManagerServiceClient | None = None,
+) -> list[dict[str, Any]]:
+    """Return the version-keyed sparse per-actor sync map for a rollout."""
+    query = (
+        SELECT_ROLLOUT_PINNED_ACTOR_SYNC_PARAMETERIZED_DESTINATION
+        if is_destination
+        else SELECT_ROLLOUT_PINNED_ACTOR_SYNC_PARAMETERIZED_SOURCE
+    )
+    return _run_sql_query(
+        query,
+        parameters={
+            "actor_definition_id": actor_definition_id,
+            "release_candidate_version_id": release_candidate_version_id,
+            "rollout_created_at": rollout_created_at,
+        },
+        query_name=(
+            "SELECT_ROLLOUT_PINNED_ACTOR_SYNC_PARAMETERIZED_DESTINATION"
+            if is_destination
+            else "SELECT_ROLLOUT_PINNED_ACTOR_SYNC_PARAMETERIZED_SOURCE"
+        ),
         gsm_client=gsm_client,
     )
 
@@ -1178,6 +1211,27 @@ def query_connector_rollouts_for_connector(
         actor_definition_id=actor_definition_id,
         active_only=active_only,
         limit=limit,
+        gsm_client=gsm_client,
+    )
+
+
+def query_connector_rollout_siblings(
+    pairs: list[tuple[str, str]],
+    *,
+    gsm_client: secretmanager.SecretManagerServiceClient | None = None,
+) -> list[dict[str, Any]]:
+    """Return all rollout rows for active connector/version pairs."""
+    if not pairs:
+        return []
+    return _run_sql_query(
+        SELECT_CONNECTOR_ROLLOUT_SIBLINGS,
+        parameters={
+            "actor_definition_ids": [
+                actor_definition_id for actor_definition_id, _ in pairs
+            ],
+            "release_candidate_version_ids": [version_id for _, version_id in pairs],
+        },
+        query_name="SELECT_CONNECTOR_ROLLOUT_SIBLINGS",
         gsm_client=gsm_client,
     )
 

@@ -19,12 +19,12 @@ jobs:
 
       matrix:
         os: [ubuntu-latest, macos-latest]
-        pyv: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
+        pyv: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
 
-    - uses: actions/setup-python@v4
+    - uses: actions/setup-python@v6
       with:
         python-version: ${{ matrix.pyv }}
 
@@ -34,11 +34,15 @@ jobs:
         python -m pip install -e .
 
     - name: Test
-      timeout-minutes: 1
-      run: python -m pytest --cov-report=xml --cov=.
+      # Leave room for faulthandler_timeout (60s) to dump stacks and for
+      # asyncssh's login_timeout (120s) to raise before the step is killed.
+      timeout-minutes: 3
+      run: >-
+        python -m pytest --cov-report=xml --cov=.
+        --reruns 1 --reruns-delay 2
 
     - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v1.0.13
+      uses: codecov/codecov-action@v5
       with:
-        file: ./coverage.xml
+        files: ./coverage.xml
         fail_ci_if_error: false

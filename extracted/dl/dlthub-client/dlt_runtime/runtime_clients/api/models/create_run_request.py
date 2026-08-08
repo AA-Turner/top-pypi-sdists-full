@@ -16,15 +16,13 @@ T = TypeVar("T", bound="CreateRunRequest")
 class CreateRunRequest:
     """
     Attributes:
-        script_id_or_ref_or_secret (str): The ID, job_ref, or public secret UUID of the script to run. The public secret
-            UUID allows unauthenticated access to run the script. When using public_secret, the profile parameter is ignored
-            and the default profile is used.
+        script_id_or_ref (str): The ID or job_ref of the script to run.
         trigger (str): The trigger that starts this run, must be one of the triggers defined in the job definition (e.g.
             manual:, schedule:0 8 * * *, tag:backfill).
         mode (RunMode | Unset): Run creation mode. 'always' creates a new run every time. 'when_not_running' returns an
             existing active run if one exists, otherwise creates a new one.
         profile (None | str | Unset): The name of the profile to use for the run, will default to the default profile of
-            the script. Ignored when using public_secret.
+            the script.
         refresh (bool | Unset): When true, eagerly clear the script's prev_completed_run and all transitive freshness-
             graph downstream, then ship a refresh signal to the launcher so the job performs a full reload instead of
             processing the interval window. Default: False.
@@ -33,7 +31,7 @@ class CreateRunRequest:
             Use this opt-in only when the caller explicitly wants to run regardless of upstream state. Default: False.
     """
 
-    script_id_or_ref_or_secret: str
+    script_id_or_ref: str
     trigger: str
     mode: RunMode | Unset = UNSET
     profile: None | str | Unset = UNSET
@@ -42,7 +40,7 @@ class CreateRunRequest:
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        script_id_or_ref_or_secret = self.script_id_or_ref_or_secret
+        script_id_or_ref = self.script_id_or_ref
 
         trigger = self.trigger
 
@@ -64,7 +62,7 @@ class CreateRunRequest:
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
-                "script_id_or_ref_or_secret": script_id_or_ref_or_secret,
+                "script_id_or_ref": script_id_or_ref,
                 "trigger": trigger,
             }
         )
@@ -82,7 +80,7 @@ class CreateRunRequest:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
-        script_id_or_ref_or_secret = d.pop("script_id_or_ref_or_secret")
+        script_id_or_ref = d.pop("script_id_or_ref")
 
         trigger = d.pop("trigger")
 
@@ -107,7 +105,7 @@ class CreateRunRequest:
         skip_freshness = d.pop("skip_freshness", UNSET)
 
         create_run_request = cls(
-            script_id_or_ref_or_secret=script_id_or_ref_or_secret,
+            script_id_or_ref=script_id_or_ref,
             trigger=trigger,
             mode=mode,
             profile=profile,

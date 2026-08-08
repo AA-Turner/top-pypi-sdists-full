@@ -3,7 +3,7 @@ from __future__ import annotations
 import dataclasses
 import datetime
 import functools
-import json
+import inspect
 import random as _random
 from collections.abc import AsyncIterator, Callable, Coroutine, Generator
 from typing import TYPE_CHECKING, Any, Generic, ParamSpec, TypeVar, overload
@@ -25,6 +25,76 @@ T = TypeVar("T")
 DEFAULT_MAX_RETRIES = 3
 
 
+def _bind_arguments(
+    signature: inspect.Signature,
+    qualname: str,
+    args: tuple[Any, ...],
+    kwargs: dict[str, Any],
+) -> tuple[tuple[Any, ...], dict[str, Any]]:
+    """Split a call by what the callee's parameters can be *named*.
+
+    A value whose parameter has a usable name is recorded by name; only a
+    parameter that cannot be named -- positional-only (before a `/`) or
+    `*args` -- is recorded by position. So against
+    `async def charge(amount=1, currency="usd", *, tier="basic")`:
+
+        charge(21)                  -> [{"amount": 21}]
+        charge(amount=21)           -> [{"amount": 21}]
+        charge(21, "eur")           -> [{"amount": 21, "currency": "eur"}]
+        charge(21, currency="eur")  -> [{"amount": 21, "currency": "eur"}]
+        charge(currency="eur")      -> [{"currency": "eur"}]
+
+    ...and against `async def notify(total, /, *rest)`:
+
+        notify(42)                  -> [42]
+        notify(42, "now")           -> [42, "now"]
+
+    So the same values record the same bytes however the call was spelled, which
+    matters because the step-input determinism check compares recorded bytes
+    against freshly encoded ones: rewriting `charge(21)` as `charge(amount=21)`
+    stays cosmetic instead of failing an in-flight run.
+
+    Recording by name also survives a reorder -- swapping two parameters cannot
+    silently swap the values of a run already in flight, and a rename fails
+    loudly. Recording by position gives that up in exchange for the shape
+    TypeScript writes, which is why it takes a `/` to ask for.
+
+    Defaults are deliberately not applied, so an omitted default stays off the
+    wire and adding a parameter with one remains replay-safe.
+
+    `bind` is here to resolve values to parameter names, and for its arity check,
+    which reports a bad call as an ordinary `TypeError` here rather than inside
+    the decoder or during replay. The split below is recomputed from each
+    parameter's kind rather than taken from `BoundArguments.args` / `.kwargs`,
+    which split on position instead.
+    """
+    try:
+        bound = signature.bind(*args, **kwargs)
+    except TypeError as error:
+        # `bind` phrases these as "missing a required argument: 'amount'"; the
+        # name is what the caller lacks, since `start(wf, ...)` and a step call
+        # both put the traceback frame somewhere other than the definition.
+        raise TypeError(f"{qualname}() {error}") from None
+
+    positional: list[Any] = []
+    keyword: dict[str, Any] = {}
+    # Signature order, so a positional-only parameter keeps its slot ahead of
+    # whatever `*args` contributes.
+    for name, param in signature.parameters.items():
+        if name not in bound.arguments:
+            continue
+        value = bound.arguments[name]
+        if param.kind is param.POSITIONAL_ONLY:
+            positional.append(value)
+        elif param.kind is param.VAR_POSITIONAL:
+            positional.extend(value)
+        elif param.kind is param.VAR_KEYWORD:
+            keyword.update(value)
+        else:
+            keyword[name] = value
+    return tuple(positional), keyword
+
+
 class Workflow(Generic[P, T]):
     def __init__(
         self,
@@ -37,6 +107,12 @@ class Workflow(Generic[P, T]):
         self.module = func.__module__
         self.qualname = func.__qualname__
         self.workflow_id = f"workflow//{self.module}//{self.qualname}"
+        self._signature = inspect.signature(func)
+
+    def bind_arguments(
+        self, args: tuple[Any, ...], kwargs: dict[str, Any]
+    ) -> tuple[tuple[Any, ...], dict[str, Any]]:
+        return _bind_arguments(self._signature, self.qualname, args, kwargs)
 
     def _resolve_queue_namespace(self) -> str | None:
         return self._registry.namespace
@@ -49,7 +125,13 @@ class Step(Generic[P, T]):
         self.func = func
         self.name = f"step//{func.__module__}//{func.__qualname__}"
         self.max_retries = max_retries
+        self._signature = inspect.signature(func)
         functools.update_wrapper(self, func)
+
+    def bind_arguments(
+        self, args: tuple[Any, ...], kwargs: dict[str, Any]
+    ) -> tuple[tuple[Any, ...], dict[str, Any]]:
+        return _bind_arguments(self._signature, self.func.__qualname__, args, kwargs)
 
     async def __call__(self, *args: P.args, **kwargs: P.kwargs) -> T:
         from . import runtime
@@ -174,14 +256,13 @@ class BaseHook:
             raise RuntimeError("cannot call resume() inside workflow")
 
         if isinstance(self, pydantic.BaseModel):
-            json_str = self.model_dump_json(**kwargs)
+            payload = self.model_dump(**{"mode": "python", **kwargs})
         elif dataclasses.is_dataclass(self):
-            obj = dataclasses.asdict(self, dict_factory=kwargs.pop("dict_factory", dict))
-            json_str = json.dumps(obj, **kwargs)
+            payload = dataclasses.asdict(self, **kwargs)
         else:
             raise TypeError("resume only supports pydantic models or dataclasses")
 
-        return await runtime.resume_hook(token_or_hook, json_str)
+        return await runtime.resume_hook(token_or_hook, payload)
 
 
 class Workflows:
@@ -204,7 +285,6 @@ class Workflows:
             from . import runtime
 
             runtime.workflow_entrypoint(self)
-            runtime.step_entrypoint(self)
 
     @property
     def namespace(self) -> str | None:

@@ -10,7 +10,9 @@ class F32ToI16:
     Parameters
     ----------
     scale : float, default 32768.0
-        Multiply factor applied before rounding and saturation (default: 32768.0f).  Use 32768.0 to convert a normalised `[-1, +1]` signal to full Q15 range.
+        Multiply factor applied before rounding and saturation (default:
+        32768.0f). Use 32768.0 to convert a normalised `[-1, +1]` signal to
+        full Q15 range.
 
     Examples
     --------
@@ -66,19 +68,23 @@ class F32ToI16:
         >>> c = F32ToI16(scale=32768.0)   # normalised float -> full-scale Q15
         >>> c.step(0.5)                    # 0.5 * 32768
         16384
-        >>> c.step(2.0)                    # beyond +1.0 -> saturates to int16 max
+        >>> c.step(2.0)                 # beyond +1.0 -> saturates to max
         32767
         >>> c.clipped                      # sticky flag latched by the clip
         True
 
         """
 
-    def steps(self, x: NDArray[np.float32], out: NDArray[np.int16] | None = None) -> NDArray[np.int16]:
+    def steps(
+        self,
+        x: NDArray[np.float32],
+        out: NDArray[np.int16] | None = None,
+    ) -> NDArray[np.int16]:
         """Process a block of float samples to int16.
 
         Applies step() to every element. The clipped flag is updated
-        cumulatively across the block — a single saturating sample raises it for
-        the entire call. Accepts an optional pre-allocated output array;
+        cumulatively across the block — a single saturating sample raises it
+        for the entire call. Accepts an optional pre-allocated output array;
         allocates a fresh one when output is NULL.
 
         Parameters
@@ -96,7 +102,7 @@ class F32ToI16:
         >>> from doppler.cvt import F32ToI16
         >>> import numpy as np
         >>> x = np.array([0.0, 0.5, -1.0, 0.999], dtype=np.float32)
-        >>> F32ToI16().steps(x).tolist()   # default scale=32768 -> full-scale int16
+        >>> F32ToI16().steps(x).tolist()   # scale=32768 -> full-scale i16
         [0, 16384, -32768, 32735]
 
         """
@@ -140,8 +146,9 @@ class F32ToI16:
         """Restore mutable state from a `get_state()` blob.
 
         Overwrites the live state in place; the object keeps the parameters it
-        was constructed with. Length is validated against `state_bytes()` before
-        the blob is handed to the C core, and the core may reject it as well.
+        was constructed with. Length is validated against `state_bytes()`
+        before the blob is handed to the C core, and the core may reject it as
+        well.
 
         Raises ``TypeError`` if *blob* is not bytes, ``ValueError`` if its
         length differs from `state_bytes()` or the core rejects it, and
@@ -162,10 +169,11 @@ class F32ToI16:
 
         Ordinarily unnecessary: the resources are freed when the object is
         garbage-collected. Call this to release them at a definite point
-        instead, or use the object as a context manager, which calls it on exit.
+        instead, or use the object as a context manager, which calls it on
+        exit.
 
-        Idempotent: calling it again on an already-released object does nothing.
-        Every other method raises ``RuntimeError`` once it has run.
+        Idempotent: calling it again on an already-released object does
+        nothing. Every other method raises ``RuntimeError`` once it has run.
         """
 
 
@@ -181,12 +189,17 @@ class F32ToI16:
             This same object, not a copy.
         """
 
-    def __exit__(self, exc_type: object | None = ..., exc: object | None = ..., tb: object | None = ...) -> None:
+    def __exit__(
+        self,
+        exc_type: object | None = ...,
+        exc: object | None = ...,
+        tb: object | None = ...,
+    ) -> None:
         """Exit a context manager, releasing the F32ToI16.
 
         Equivalent to calling `destroy()`. Returns ``None``, so an exception
-        raised inside the `with` body propagates normally; this never suppresses
-        one.
+        raised inside the `with` body propagates normally; this never
+        suppresses one.
 
         Parameters
         ----------
@@ -205,7 +218,9 @@ class I16ToF32:
     Parameters
     ----------
     scale : float, default 32768.0
-        Denominator scale; 1/scale is applied to each sample (default: 32768.0f).  Use 32768.0 to recover normalised `[-1, +1]` floats from a Q15 int16 stream.
+        Denominator scale; 1/scale is applied to each sample (default:
+        32768.0f). Use 32768.0 to recover normalised `[-1, +1]` floats from a
+        Q15 int16 stream.
 
     Examples
     --------
@@ -228,7 +243,7 @@ class I16ToF32:
         --------
         >>> from doppler.cvt import I16ToF32
         >>> c = I16ToF32()
-        >>> c.reset()             # stateless converter -> reset changes nothing
+        >>> c.reset()           # stateless converter -> reset is a no-op
         >>> round(c.step(-32768), 4)
         -1.0
 
@@ -263,7 +278,11 @@ class I16ToF32:
 
         """
 
-    def steps(self, x: NDArray[np.int16], out: NDArray[np.float32] | None = None) -> NDArray[np.float32]:
+    def steps(
+        self,
+        x: NDArray[np.int16],
+        out: NDArray[np.float32] | None = None,
+    ) -> NDArray[np.float32]:
         """Process a block of int16 samples to float32.
 
         Applies step() to every element. Accepts an optional pre-allocated
@@ -283,7 +302,8 @@ class I16ToF32:
         --------
         >>> from doppler.cvt import I16ToF32
         >>> import numpy as np
-        >>> I16ToF32().steps(np.array([0, 16384, -32768], dtype=np.int16)).tolist()
+        >>> I16ToF32().steps(
+        ...     np.array([0, 16384, -32768], dtype=np.int16)).tolist()
         [0.0, 0.5, -1.0]
 
         """
@@ -293,10 +313,11 @@ class I16ToF32:
 
         Ordinarily unnecessary: the resources are freed when the object is
         garbage-collected. Call this to release them at a definite point
-        instead, or use the object as a context manager, which calls it on exit.
+        instead, or use the object as a context manager, which calls it on
+        exit.
 
-        Idempotent: calling it again on an already-released object does nothing.
-        Every other method raises ``RuntimeError`` once it has run.
+        Idempotent: calling it again on an already-released object does
+        nothing. Every other method raises ``RuntimeError`` once it has run.
         """
 
 
@@ -312,12 +333,17 @@ class I16ToF32:
             This same object, not a copy.
         """
 
-    def __exit__(self, exc_type: object | None = ..., exc: object | None = ..., tb: object | None = ...) -> None:
+    def __exit__(
+        self,
+        exc_type: object | None = ...,
+        exc: object | None = ...,
+        tb: object | None = ...,
+    ) -> None:
         """Exit a context manager, releasing the I16ToF32.
 
         Equivalent to calling `destroy()`. Returns ``None``, so an exception
-        raised inside the `with` body propagates normally; this never suppresses
-        one.
+        raised inside the `with` body propagates normally; this never
+        suppresses one.
 
         Parameters
         ----------
@@ -336,7 +362,9 @@ class I32ToF32:
     Parameters
     ----------
     scale : float, default 2147483648.0
-        Denominator scale; 1/scale is applied to each sample (default: 2147483648.0f).  Use 2^31 to recover normalised floats from a full-range int32 stream.
+        Denominator scale; 1/scale is applied to each sample (default:
+        2147483648.0f). Use 2^31 to recover normalised floats from a full-range
+        int32 stream.
 
     Examples
     --------
@@ -351,15 +379,15 @@ class I32ToF32:
     def reset(self) -> None:
         """No-op reset, provided only for lifecycle symmetry.
 
-        No mutable state exists beyond the immutable iscale, so there is nothing
-        to clear; the method exists so every converter in the module presents
-        the same create / step / reset / destroy lifecycle.
+        No mutable state exists beyond the immutable iscale, so there is
+        nothing to clear; the method exists so every converter in the module
+        presents the same create / step / reset / destroy lifecycle.
 
         Examples
         --------
         >>> from doppler.cvt import I32ToF32
         >>> c = I32ToF32()
-        >>> c.reset()             # stateless converter -> reset changes nothing
+        >>> c.reset()           # stateless converter -> reset is a no-op
         >>> round(c.step(-2**31), 4)
         -1.0
 
@@ -386,7 +414,7 @@ class I32ToF32:
         Examples
         --------
         >>> from doppler.cvt import I32ToF32
-        >>> c = I32ToF32(scale=2147483648.0)  # 2**31: full-range int32 -> [-1, 1)
+        >>> c = I32ToF32(scale=2147483648.0)  # 2**31: int32 -> [-1, 1)
         >>> round(c.step(2**30), 4)            # quarter-scale code -> 0.5
         0.5
         >>> round(c.step(-2**31), 4)           # full-negative code -> -1.0
@@ -394,7 +422,11 @@ class I32ToF32:
 
         """
 
-    def steps(self, x: NDArray[np.int32], out: NDArray[np.float32] | None = None) -> NDArray[np.float32]:
+    def steps(
+        self,
+        x: NDArray[np.int32],
+        out: NDArray[np.float32] | None = None,
+    ) -> NDArray[np.float32]:
         """Process a block of int32 samples to float32.
 
         Applies step() to every element. Accepts an optional pre-allocated
@@ -414,7 +446,8 @@ class I32ToF32:
         --------
         >>> from doppler.cvt import I32ToF32
         >>> import numpy as np
-        >>> I32ToF32().steps(np.array([0, 2**30, -2**31], dtype=np.int32)).tolist()
+        >>> I32ToF32().steps(
+        ...     np.array([0, 2**30, -2**31], dtype=np.int32)).tolist()
         [0.0, 0.5, -1.0]
 
         """
@@ -424,10 +457,11 @@ class I32ToF32:
 
         Ordinarily unnecessary: the resources are freed when the object is
         garbage-collected. Call this to release them at a definite point
-        instead, or use the object as a context manager, which calls it on exit.
+        instead, or use the object as a context manager, which calls it on
+        exit.
 
-        Idempotent: calling it again on an already-released object does nothing.
-        Every other method raises ``RuntimeError`` once it has run.
+        Idempotent: calling it again on an already-released object does
+        nothing. Every other method raises ``RuntimeError`` once it has run.
         """
 
 
@@ -443,12 +477,17 @@ class I32ToF32:
             This same object, not a copy.
         """
 
-    def __exit__(self, exc_type: object | None = ..., exc: object | None = ..., tb: object | None = ...) -> None:
+    def __exit__(
+        self,
+        exc_type: object | None = ...,
+        exc: object | None = ...,
+        tb: object | None = ...,
+    ) -> None:
         """Exit a context manager, releasing the I32ToF32.
 
         Equivalent to calling `destroy()`. Returns ``None``, so an exception
-        raised inside the `with` body propagates normally; this never suppresses
-        one.
+        raised inside the `with` body propagates normally; this never
+        suppresses one.
 
         Parameters
         ----------
@@ -467,7 +506,8 @@ class I8ToF32:
     Parameters
     ----------
     scale : float, default 128.0
-        Denominator scale; 1/scale is applied to each sample (default: 128.0f).  Use 128.0 to recover normalised floats from a signed 8-bit stream.
+        Denominator scale; 1/scale is applied to each sample (default: 128.0f).
+        Use 128.0 to recover normalised floats from a signed 8-bit stream.
 
     Examples
     --------
@@ -482,15 +522,15 @@ class I8ToF32:
     def reset(self) -> None:
         """No-op reset, provided only for lifecycle symmetry.
 
-        No mutable state exists beyond the immutable iscale, so there is nothing
-        to clear; the method exists so every converter in the module presents
-        the same create / step / reset / destroy lifecycle.
+        No mutable state exists beyond the immutable iscale, so there is
+        nothing to clear; the method exists so every converter in the module
+        presents the same create / step / reset / destroy lifecycle.
 
         Examples
         --------
         >>> from doppler.cvt import I8ToF32
         >>> c = I8ToF32()
-        >>> c.reset()             # stateless converter -> reset changes nothing
+        >>> c.reset()           # stateless converter -> reset is a no-op
         >>> round(c.step(-128), 4)
         -1.0
 
@@ -525,7 +565,11 @@ class I8ToF32:
 
         """
 
-    def steps(self, x: NDArray[np.int8], out: NDArray[np.float32] | None = None) -> NDArray[np.float32]:
+    def steps(
+        self,
+        x: NDArray[np.int8],
+        out: NDArray[np.float32] | None = None,
+    ) -> NDArray[np.float32]:
         """Process a block of int8 samples to float32.
 
         Applies step() to every element. Accepts an optional pre-allocated
@@ -555,10 +599,11 @@ class I8ToF32:
 
         Ordinarily unnecessary: the resources are freed when the object is
         garbage-collected. Call this to release them at a definite point
-        instead, or use the object as a context manager, which calls it on exit.
+        instead, or use the object as a context manager, which calls it on
+        exit.
 
-        Idempotent: calling it again on an already-released object does nothing.
-        Every other method raises ``RuntimeError`` once it has run.
+        Idempotent: calling it again on an already-released object does
+        nothing. Every other method raises ``RuntimeError`` once it has run.
         """
 
 
@@ -574,12 +619,17 @@ class I8ToF32:
             This same object, not a copy.
         """
 
-    def __exit__(self, exc_type: object | None = ..., exc: object | None = ..., tb: object | None = ...) -> None:
+    def __exit__(
+        self,
+        exc_type: object | None = ...,
+        exc: object | None = ...,
+        tb: object | None = ...,
+    ) -> None:
         """Exit a context manager, releasing the I8ToF32.
 
         Equivalent to calling `destroy()`. Returns ``None``, so an exception
-        raised inside the `with` body propagates normally; this never suppresses
-        one.
+        raised inside the `with` body propagates normally; this never
+        suppresses one.
 
         Parameters
         ----------
@@ -598,7 +648,9 @@ class F32ToI16U32:
     Parameters
     ----------
     scale : float, default 32768.0
-        Multiply factor applied before quantisation and saturation (default: 32768.0f).  Use 32768.0 to convert normalised `[-1, +1]` samples to Q15 packed into a uint32.
+        Multiply factor applied before quantisation and saturation (default:
+        32768.0f). Use 32768.0 to convert normalised `[-1, +1]` samples to Q15
+        packed into a uint32.
 
     Examples
     --------
@@ -659,7 +711,11 @@ class F32ToI16U32:
 
         """
 
-    def steps(self, x: NDArray[np.float32], out: NDArray[np.uint32] | None = None) -> NDArray[np.uint32]:
+    def steps(
+        self,
+        x: NDArray[np.float32],
+        out: NDArray[np.uint32] | None = None,
+    ) -> NDArray[np.uint32]:
         """Process a block of float samples to Q15-in-uint32.
 
         Applies step() to every element. The clipped flag is updated
@@ -680,7 +736,8 @@ class F32ToI16U32:
         --------
         >>> from doppler.cvt import F32ToI16U32
         >>> import numpy as np
-        >>> F32ToI16U32().steps(np.array([0.0, 0.5], dtype=np.float32)).tolist()
+        >>> F32ToI16U32().steps(
+        ...     np.array([0.0, 0.5], dtype=np.float32)).tolist()
         [0, 16384]
 
         """
@@ -724,8 +781,9 @@ class F32ToI16U32:
         """Restore mutable state from a `get_state()` blob.
 
         Overwrites the live state in place; the object keeps the parameters it
-        was constructed with. Length is validated against `state_bytes()` before
-        the blob is handed to the C core, and the core may reject it as well.
+        was constructed with. Length is validated against `state_bytes()`
+        before the blob is handed to the C core, and the core may reject it as
+        well.
 
         Raises ``TypeError`` if *blob* is not bytes, ``ValueError`` if its
         length differs from `state_bytes()` or the core rejects it, and
@@ -746,10 +804,11 @@ class F32ToI16U32:
 
         Ordinarily unnecessary: the resources are freed when the object is
         garbage-collected. Call this to release them at a definite point
-        instead, or use the object as a context manager, which calls it on exit.
+        instead, or use the object as a context manager, which calls it on
+        exit.
 
-        Idempotent: calling it again on an already-released object does nothing.
-        Every other method raises ``RuntimeError`` once it has run.
+        Idempotent: calling it again on an already-released object does
+        nothing. Every other method raises ``RuntimeError`` once it has run.
         """
 
 
@@ -765,12 +824,17 @@ class F32ToI16U32:
             This same object, not a copy.
         """
 
-    def __exit__(self, exc_type: object | None = ..., exc: object | None = ..., tb: object | None = ...) -> None:
+    def __exit__(
+        self,
+        exc_type: object | None = ...,
+        exc: object | None = ...,
+        tb: object | None = ...,
+    ) -> None:
         """Exit a context manager, releasing the F32ToI16U32.
 
         Equivalent to calling `destroy()`. Returns ``None``, so an exception
-        raised inside the `with` body propagates normally; this never suppresses
-        one.
+        raised inside the `with` body propagates normally; this never
+        suppresses one.
 
         Parameters
         ----------
@@ -789,7 +853,9 @@ class F32ToI16U64:
     Parameters
     ----------
     scale : float, default 32768.0
-        Multiply factor applied before quantisation and saturation (default: 32768.0f).  Use 32768.0 to convert normalised `[-1, +1]` samples to Q15 packed into the low 16 bits of a uint64.
+        Multiply factor applied before quantisation and saturation (default:
+        32768.0f). Use 32768.0 to convert normalised `[-1, +1]` samples to Q15
+        packed into the low 16 bits of a uint64.
 
     Examples
     --------
@@ -850,7 +916,11 @@ class F32ToI16U64:
 
         """
 
-    def steps(self, x: NDArray[np.float32], out: NDArray[np.uint64] | None = None) -> NDArray[np.uint64]:
+    def steps(
+        self,
+        x: NDArray[np.float32],
+        out: NDArray[np.uint64] | None = None,
+    ) -> NDArray[np.uint64]:
         """Process a block of float samples to Q15-in-uint64.
 
         Applies step() to every element. The clipped flag is updated
@@ -871,7 +941,8 @@ class F32ToI16U64:
         --------
         >>> from doppler.cvt import F32ToI16U64
         >>> import numpy as np
-        >>> F32ToI16U64().steps(np.array([0.0, 0.5], dtype=np.float32)).tolist()
+        >>> F32ToI16U64().steps(
+        ...     np.array([0.0, 0.5], dtype=np.float32)).tolist()
         [0, 16384]
 
         """
@@ -915,8 +986,9 @@ class F32ToI16U64:
         """Restore mutable state from a `get_state()` blob.
 
         Overwrites the live state in place; the object keeps the parameters it
-        was constructed with. Length is validated against `state_bytes()` before
-        the blob is handed to the C core, and the core may reject it as well.
+        was constructed with. Length is validated against `state_bytes()`
+        before the blob is handed to the C core, and the core may reject it as
+        well.
 
         Raises ``TypeError`` if *blob* is not bytes, ``ValueError`` if its
         length differs from `state_bytes()` or the core rejects it, and
@@ -937,10 +1009,11 @@ class F32ToI16U64:
 
         Ordinarily unnecessary: the resources are freed when the object is
         garbage-collected. Call this to release them at a definite point
-        instead, or use the object as a context manager, which calls it on exit.
+        instead, or use the object as a context manager, which calls it on
+        exit.
 
-        Idempotent: calling it again on an already-released object does nothing.
-        Every other method raises ``RuntimeError`` once it has run.
+        Idempotent: calling it again on an already-released object does
+        nothing. Every other method raises ``RuntimeError`` once it has run.
         """
 
 
@@ -956,12 +1029,17 @@ class F32ToI16U64:
             This same object, not a copy.
         """
 
-    def __exit__(self, exc_type: object | None = ..., exc: object | None = ..., tb: object | None = ...) -> None:
+    def __exit__(
+        self,
+        exc_type: object | None = ...,
+        exc: object | None = ...,
+        tb: object | None = ...,
+    ) -> None:
         """Exit a context manager, releasing the F32ToI16U64.
 
         Equivalent to calling `destroy()`. Returns ``None``, so an exception
-        raised inside the `with` body propagates normally; this never suppresses
-        one.
+        raised inside the `with` body propagates normally; this never
+        suppresses one.
 
         Parameters
         ----------
@@ -980,7 +1058,8 @@ class I16U32ToF32:
     Parameters
     ----------
     scale : float, default 32768.0
-        Denominator scale; 1/scale is applied after sign-extension (default: 32768.0f).  Use 32768.0 to match F32ToI16U32 at its default scale.
+        Denominator scale; 1/scale is applied after sign-extension (default:
+        32768.0f). Use 32768.0 to match F32ToI16U32 at its default scale.
 
     Examples
     --------
@@ -995,15 +1074,15 @@ class I16U32ToF32:
     def reset(self) -> None:
         """No-op reset, provided only for lifecycle symmetry.
 
-        No mutable state exists beyond the immutable iscale, so there is nothing
-        to clear; the method exists so every converter in the module presents
-        the same create / step / reset / destroy lifecycle.
+        No mutable state exists beyond the immutable iscale, so there is
+        nothing to clear; the method exists so every converter in the module
+        presents the same create / step / reset / destroy lifecycle.
 
         Examples
         --------
         >>> from doppler.cvt import I16U32ToF32
         >>> c = I16U32ToF32()
-        >>> c.reset()             # stateless converter -> reset changes nothing
+        >>> c.reset()           # stateless converter -> reset is a no-op
         >>> round(c.step(16384), 4)
         0.5
 
@@ -1033,12 +1112,16 @@ class I16U32ToF32:
         >>> c = I16U32ToF32(scale=32768.0)
         >>> round(c.step(16384), 4)         # low-16 Q15 16384 -> 0.5
         0.5
-        >>> round(c.step(0x8000), 4)        # 0x8000 reinterpreted as -32768 -> -1.0
+        >>> round(c.step(0x8000), 4)     # 0x8000 read as -32768 -> -1.0
         -1.0
 
         """
 
-    def steps(self, x: NDArray[np.uint32], out: NDArray[np.float32] | None = None) -> NDArray[np.float32]:
+    def steps(
+        self,
+        x: NDArray[np.uint32],
+        out: NDArray[np.float32] | None = None,
+    ) -> NDArray[np.float32]:
         """Process a block of Q15-in-uint32 samples to float32.
 
         Applies step() to every element. Accepts an optional pre-allocated
@@ -1068,10 +1151,11 @@ class I16U32ToF32:
 
         Ordinarily unnecessary: the resources are freed when the object is
         garbage-collected. Call this to release them at a definite point
-        instead, or use the object as a context manager, which calls it on exit.
+        instead, or use the object as a context manager, which calls it on
+        exit.
 
-        Idempotent: calling it again on an already-released object does nothing.
-        Every other method raises ``RuntimeError`` once it has run.
+        Idempotent: calling it again on an already-released object does
+        nothing. Every other method raises ``RuntimeError`` once it has run.
         """
 
 
@@ -1087,12 +1171,17 @@ class I16U32ToF32:
             This same object, not a copy.
         """
 
-    def __exit__(self, exc_type: object | None = ..., exc: object | None = ..., tb: object | None = ...) -> None:
+    def __exit__(
+        self,
+        exc_type: object | None = ...,
+        exc: object | None = ...,
+        tb: object | None = ...,
+    ) -> None:
         """Exit a context manager, releasing the I16U32ToF32.
 
         Equivalent to calling `destroy()`. Returns ``None``, so an exception
-        raised inside the `with` body propagates normally; this never suppresses
-        one.
+        raised inside the `with` body propagates normally; this never
+        suppresses one.
 
         Parameters
         ----------
@@ -1111,7 +1200,8 @@ class I16U64ToF32:
     Parameters
     ----------
     scale : float, default 32768.0
-        Denominator scale; 1/scale is applied after sign-extension (default: 32768.0f).  Use 32768.0 to match F32ToI16U64 at its default scale.
+        Denominator scale; 1/scale is applied after sign-extension (default:
+        32768.0f). Use 32768.0 to match F32ToI16U64 at its default scale.
 
     Examples
     --------
@@ -1126,15 +1216,15 @@ class I16U64ToF32:
     def reset(self) -> None:
         """No-op reset, provided only for lifecycle symmetry.
 
-        No mutable state exists beyond the immutable iscale, so there is nothing
-        to clear; the method exists so every converter in the module presents
-        the same create / step / reset / destroy lifecycle.
+        No mutable state exists beyond the immutable iscale, so there is
+        nothing to clear; the method exists so every converter in the module
+        presents the same create / step / reset / destroy lifecycle.
 
         Examples
         --------
         >>> from doppler.cvt import I16U64ToF32
         >>> c = I16U64ToF32()
-        >>> c.reset()             # stateless converter -> reset changes nothing
+        >>> c.reset()           # stateless converter -> reset is a no-op
         >>> round(c.step(16384), 4)
         0.5
 
@@ -1164,12 +1254,16 @@ class I16U64ToF32:
         >>> c = I16U64ToF32(scale=32768.0)
         >>> round(c.step(16384), 4)         # low-16 Q15 16384 -> 0.5
         0.5
-        >>> round(c.step(0x8000), 4)        # 0x8000 reinterpreted as -32768 -> -1.0
+        >>> round(c.step(0x8000), 4)     # 0x8000 read as -32768 -> -1.0
         -1.0
 
         """
 
-    def steps(self, x: NDArray[np.uint64], out: NDArray[np.float32] | None = None) -> NDArray[np.float32]:
+    def steps(
+        self,
+        x: NDArray[np.uint64],
+        out: NDArray[np.float32] | None = None,
+    ) -> NDArray[np.float32]:
         """Process a block of Q15-in-uint64 samples to float32.
 
         Applies step() to every element. Accepts an optional pre-allocated
@@ -1199,10 +1293,11 @@ class I16U64ToF32:
 
         Ordinarily unnecessary: the resources are freed when the object is
         garbage-collected. Call this to release them at a definite point
-        instead, or use the object as a context manager, which calls it on exit.
+        instead, or use the object as a context manager, which calls it on
+        exit.
 
-        Idempotent: calling it again on an already-released object does nothing.
-        Every other method raises ``RuntimeError`` once it has run.
+        Idempotent: calling it again on an already-released object does
+        nothing. Every other method raises ``RuntimeError`` once it has run.
         """
 
 
@@ -1218,12 +1313,17 @@ class I16U64ToF32:
             This same object, not a copy.
         """
 
-    def __exit__(self, exc_type: object | None = ..., exc: object | None = ..., tb: object | None = ...) -> None:
+    def __exit__(
+        self,
+        exc_type: object | None = ...,
+        exc: object | None = ...,
+        tb: object | None = ...,
+    ) -> None:
         """Exit a context manager, releasing the I16U64ToF32.
 
         Equivalent to calling `destroy()`. Returns ``None``, so an exception
-        raised inside the `with` body propagates normally; this never suppresses
-        one.
+        raised inside the `with` body propagates normally; this never
+        suppresses one.
 
         Parameters
         ----------
@@ -1242,7 +1342,9 @@ class F32ToUQ15:
     Parameters
     ----------
     scale : float, default 32768.0
-        Multiply factor applied before quantisation and saturation (default: 32768.0f).  Use 32768.0 to convert normalised `[-1, +1]` floats to the full UQ15 range `[0, 65535]`. Must be > 0; returns NULL otherwise.
+        Multiply factor applied before quantisation and saturation (default:
+        32768.0f). Use 32768.0 to convert normalised `[-1, +1]` floats to the
+        full UQ15 range `[0, 65535]`. Must be > 0; returns NULL otherwise.
 
     Examples
     --------
@@ -1266,7 +1368,7 @@ class F32ToUQ15:
         --------
         >>> from doppler.cvt import F32ToUQ15
         >>> c = F32ToUQ15()
-        >>> c.step(2.0)          # out of range -> saturates to 0xFFFF, latches clip
+        >>> c.step(2.0)       # out of range -> saturates 0xFFFF, latches
         65535
         >>> c.reset()            # forget the clip history
         >>> c.clipped
@@ -1305,7 +1407,11 @@ class F32ToUQ15:
 
         """
 
-    def steps(self, x: NDArray[np.float32], out: NDArray[np.uint16] | None = None) -> NDArray[np.uint16]:
+    def steps(
+        self,
+        x: NDArray[np.float32],
+        out: NDArray[np.uint16] | None = None,
+    ) -> NDArray[np.uint16]:
         """Process a block of float samples to UQ15 uint16.
 
         Applies step() to every element. The clipped flag is updated
@@ -1326,7 +1432,8 @@ class F32ToUQ15:
         --------
         >>> from doppler.cvt import F32ToUQ15
         >>> import numpy as np
-        >>> F32ToUQ15().steps(np.array([-1.0, 0.0, 0.999], dtype=np.float32)).tolist()
+        >>> F32ToUQ15().steps(
+        ...     np.array([-1.0, 0.0, 0.999], dtype=np.float32)).tolist()
         [0, 32768, 65503]
 
         """
@@ -1370,8 +1477,9 @@ class F32ToUQ15:
         """Restore mutable state from a `get_state()` blob.
 
         Overwrites the live state in place; the object keeps the parameters it
-        was constructed with. Length is validated against `state_bytes()` before
-        the blob is handed to the C core, and the core may reject it as well.
+        was constructed with. Length is validated against `state_bytes()`
+        before the blob is handed to the C core, and the core may reject it as
+        well.
 
         Raises ``TypeError`` if *blob* is not bytes, ``ValueError`` if its
         length differs from `state_bytes()` or the core rejects it, and
@@ -1392,10 +1500,11 @@ class F32ToUQ15:
 
         Ordinarily unnecessary: the resources are freed when the object is
         garbage-collected. Call this to release them at a definite point
-        instead, or use the object as a context manager, which calls it on exit.
+        instead, or use the object as a context manager, which calls it on
+        exit.
 
-        Idempotent: calling it again on an already-released object does nothing.
-        Every other method raises ``RuntimeError`` once it has run.
+        Idempotent: calling it again on an already-released object does
+        nothing. Every other method raises ``RuntimeError`` once it has run.
         """
 
 
@@ -1411,12 +1520,17 @@ class F32ToUQ15:
             This same object, not a copy.
         """
 
-    def __exit__(self, exc_type: object | None = ..., exc: object | None = ..., tb: object | None = ...) -> None:
+    def __exit__(
+        self,
+        exc_type: object | None = ...,
+        exc: object | None = ...,
+        tb: object | None = ...,
+    ) -> None:
         """Exit a context manager, releasing the F32ToUQ15.
 
         Equivalent to calling `destroy()`. Returns ``None``, so an exception
-        raised inside the `with` body propagates normally; this never suppresses
-        one.
+        raised inside the `with` body propagates normally; this never
+        suppresses one.
 
         Parameters
         ----------
@@ -1435,7 +1549,9 @@ class UQ15ToF32:
     Parameters
     ----------
     scale : float, default 32768.0
-        Denominator applied after offset-binary bias removal (default: 32768.0f).  Use 32768.0 to recover normalised `[-1, +1]` floats from UQ15 data written by F32ToUQ15. Must be > 0; returns NULL otherwise.
+        Denominator applied after offset-binary bias removal (default:
+        32768.0f). Use 32768.0 to recover normalised `[-1, +1]` floats from
+        UQ15 data written by F32ToUQ15. Must be > 0; returns NULL otherwise.
 
     Examples
     --------
@@ -1450,15 +1566,15 @@ class UQ15ToF32:
     def reset(self) -> None:
         """No-op reset, provided only for lifecycle symmetry.
 
-        No mutable state exists beyond the immutable iscale, so there is nothing
-        to clear; the method exists so every converter in the module presents
-        the same create / step / reset / destroy lifecycle.
+        No mutable state exists beyond the immutable iscale, so there is
+        nothing to clear; the method exists so every converter in the module
+        presents the same create / step / reset / destroy lifecycle.
 
         Examples
         --------
         >>> from doppler.cvt import UQ15ToF32
         >>> c = UQ15ToF32()
-        >>> c.reset()             # stateless converter -> reset changes nothing
+        >>> c.reset()           # stateless converter -> reset is a no-op
         >>> round(c.step(32768), 4)
         0.0
 
@@ -1467,10 +1583,10 @@ class UQ15ToF32:
     def step(self, x: int) -> float:
         """Decode one offset-binary UQ15 uint16 code to a normalised float.
 
-        Computes ((int32_t)x - 32768) * iscale — removes the 32768 offset-binary
-        bias and applies 1/scale. The int32_t cast prevents signed overflow when
-        x is 0 (which yields -32768 after bias removal). Exact inverse of
-        F32ToUQ15 at the same scale.
+        Computes ((int32_t)x - 32768) * iscale — removes the 32768
+        offset-binary bias and applies 1/scale. The int32_t cast prevents
+        signed overflow when x is 0 (which yields -32768 after bias removal).
+        Exact inverse of F32ToUQ15 at the same scale.
 
         Parameters
         ----------
@@ -1494,12 +1610,16 @@ class UQ15ToF32:
 
         """
 
-    def steps(self, x: NDArray[np.uint16], out: NDArray[np.float32] | None = None) -> NDArray[np.float32]:
+    def steps(
+        self,
+        x: NDArray[np.uint16],
+        out: NDArray[np.float32] | None = None,
+    ) -> NDArray[np.float32]:
         """Process a block of UQ15 samples to float32.
 
-        Applies step() to every element. State is not mutated (no clipped flag).
-        Accepts an optional pre-allocated output array; allocates a fresh one
-        when output is NULL.
+        Applies step() to every element. State is not mutated (no clipped
+        flag). Accepts an optional pre-allocated output array; allocates a
+        fresh one when output is NULL.
 
         Parameters
         ----------
@@ -1525,10 +1645,11 @@ class UQ15ToF32:
 
         Ordinarily unnecessary: the resources are freed when the object is
         garbage-collected. Call this to release them at a definite point
-        instead, or use the object as a context manager, which calls it on exit.
+        instead, or use the object as a context manager, which calls it on
+        exit.
 
-        Idempotent: calling it again on an already-released object does nothing.
-        Every other method raises ``RuntimeError`` once it has run.
+        Idempotent: calling it again on an already-released object does
+        nothing. Every other method raises ``RuntimeError`` once it has run.
         """
 
 
@@ -1544,12 +1665,17 @@ class UQ15ToF32:
             This same object, not a copy.
         """
 
-    def __exit__(self, exc_type: object | None = ..., exc: object | None = ..., tb: object | None = ...) -> None:
+    def __exit__(
+        self,
+        exc_type: object | None = ...,
+        exc: object | None = ...,
+        tb: object | None = ...,
+    ) -> None:
         """Exit a context manager, releasing the UQ15ToF32.
 
         Equivalent to calling `destroy()`. Returns ``None``, so an exception
-        raised inside the `with` body propagates normally; this never suppresses
-        one.
+        raised inside the `with` body propagates normally; this never
+        suppresses one.
 
         Parameters
         ----------
@@ -1570,7 +1696,9 @@ class ADC:
     bits : int, default 16
         ADC resolution in bits (1..64).
     dbfs : float, default -10.0
-        Full-scale reference level in dBFS (typically negative, e.g. -10.0).  A signal with amplitude 10^(dbfs/20) fills the converter's integer range exactly.
+        Full-scale reference level in dBFS (typically negative, e.g. -10.0). A
+        signal with amplitude 10^(dbfs/20) fills the converter's integer range
+        exactly.
     dithering : int, default 0
         0 = no dither; non-zero = TPDF dither before rounding.
 
@@ -1582,10 +1710,16 @@ class ADC:
     >>> obj = ADC(bits=16, dbfs=-10.0, dithering=0)
 
     """
-    def __init__(self, bits: int = ..., dbfs: float = ..., dithering: int = ...) -> None: ...
+    def __init__(
+        self,
+        bits: int = ...,
+        dbfs: float = ...,
+        dithering: int = ...,
+    ) -> None: ...
 
     def reset(self) -> None:
-        """Clear the clip flag and re-seed the dither PRNG for a reproducible run.
+        """Clear the clip flag and re-seed the dither PRNG for a reproducible
+        run.
 
         Zeroes the sticky clipped flag and re-seeds the xorshift32 dither PRNG
         to its fixed initial value, so a dithered capture restarted after
@@ -1596,9 +1730,9 @@ class ADC:
         --------
         >>> from doppler.cvt import ADC
         >>> adc = ADC(bits=8, dbfs=0.0, dithering=0)
-        >>> adc.step(9.0)            # beyond full scale -> saturates, latches clip
+        >>> adc.step(9.0)          # beyond full scale -> saturates, clips
         127
-        >>> adc.reset()             # clear clip history and re-seed the dither PRNG
+        >>> adc.reset()           # clear clips, re-seed the dither PRNG
         >>> adc.clipped
         False
 
@@ -1607,9 +1741,9 @@ class ADC:
     def step(self, x: float) -> int:
         """Quantise one float sample to a signed N-bit ADC code.
 
-        Multiplies x by the pre-computed double-precision scale, optionally adds
-        TPDF dither (when the object was built with dithering enabled), rounds
-        with llround, and clamps to the signed integer range `[clip_min,
+        Multiplies x by the pre-computed double-precision scale, optionally
+        adds TPDF dither (when the object was built with dithering enabled),
+        rounds with llround, and clamps to the signed integer range `[clip_min,
         clip_max]`. Latches the sticky clipped flag if the sample saturated. A
         sample at amplitude 10^(dbfs/20) reaches full scale.
 
@@ -1626,7 +1760,7 @@ class ADC:
         Examples
         --------
         >>> from doppler.cvt import ADC
-        >>> adc = ADC(bits=8, dbfs=0.0, dithering=0)  # 8-bit, full scale at 0 dBFS
+        >>> adc = ADC(bits=8, dbfs=0.0, dithering=0)  # 8-bit, FS at 0 dBFS
         >>> adc.step(0.5)            # 0.5 * 128 codes
         64
         >>> adc.step(2.0)            # beyond full scale -> clamps to +127
@@ -1636,14 +1770,18 @@ class ADC:
 
         """
 
-    def steps(self, x: NDArray[np.float32], out: NDArray[np.int64] | None = None) -> NDArray[np.int64]:
+    def steps(
+        self,
+        x: NDArray[np.float32],
+        out: NDArray[np.int64] | None = None,
+    ) -> NDArray[np.int64]:
         """Process a block of float samples to int64.
 
         When dithering is disabled the float-to-double multiply can use SIMD
         widening (jm_simd.h); the int64_t conversion and clamp remain scalar.
-        When dithering is enabled the loop is scalar to preserve sequential PRNG
-        state. Accepts an optional pre-allocated output array; allocates a fresh
-        one when output is NULL.
+        When dithering is enabled the loop is scalar to preserve sequential
+        PRNG state. Accepts an optional pre-allocated output array; allocates a
+        fresh one when output is NULL.
 
         Parameters
         ----------
@@ -1705,8 +1843,9 @@ class ADC:
         """Restore mutable state from a `get_state()` blob.
 
         Overwrites the live state in place; the object keeps the parameters it
-        was constructed with. Length is validated against `state_bytes()` before
-        the blob is handed to the C core, and the core may reject it as well.
+        was constructed with. Length is validated against `state_bytes()`
+        before the blob is handed to the C core, and the core may reject it as
+        well.
 
         Raises ``TypeError`` if *blob* is not bytes, ``ValueError`` if its
         length differs from `state_bytes()` or the core rejects it, and
@@ -1735,18 +1874,19 @@ class ADC:
 
         Ordinarily unnecessary: the resources are freed when the object is
         garbage-collected. Call this to release them at a definite point
-        instead, or use the object as a context manager, which calls it on exit.
+        instead, or use the object as a context manager, which calls it on
+        exit.
 
-        Idempotent: calling it again on an already-released object does nothing.
-        Every other method raises ``RuntimeError`` once it has run.
+        Idempotent: calling it again on an already-released object does
+        nothing. Every other method raises ``RuntimeError`` once it has run.
         """
 
 
     def __enter__(self) -> "ADC":
         """Enter a context manager, returning this object.
 
-        Lets a ADC be used in a `with` statement so its C resources are released
-        deterministically on exit rather than at collection time.
+        Lets a ADC be used in a `with` statement so its C resources are
+        released deterministically on exit rather than at collection time.
 
         Returns
         -------
@@ -1754,12 +1894,17 @@ class ADC:
             This same object, not a copy.
         """
 
-    def __exit__(self, exc_type: object | None = ..., exc: object | None = ..., tb: object | None = ...) -> None:
+    def __exit__(
+        self,
+        exc_type: object | None = ...,
+        exc: object | None = ...,
+        tb: object | None = ...,
+    ) -> None:
         """Exit a context manager, releasing the ADC.
 
         Equivalent to calling `destroy()`. Returns ``None``, so an exception
-        raised inside the `with` body propagates normally; this never suppresses
-        one.
+        raised inside the `with` body propagates normally; this never
+        suppresses one.
 
         Parameters
         ----------

@@ -23,12 +23,27 @@ class DopplerChannel:
     Create with defaults:
 
     >>> from doppler.impairment import DopplerChannel
-    >>> obj = DopplerChannel(fs=1000000.0, carrier_hz=0.0, doppler_ppm=0.0, doppler_rate_ppm_s=0.0)
+    >>> obj = DopplerChannel(
+    ...     fs=1000000.0,
+    ...     carrier_hz=0.0,
+    ...     doppler_ppm=0.0,
+    ...     doppler_rate_ppm_s=0.0,
+    ... )
 
     """
-    def __init__(self, fs: float = ..., carrier_hz: float = ..., doppler_ppm: float = ..., doppler_rate_ppm_s: float = ...) -> None: ...
+    def __init__(
+        self,
+        fs: float = ...,
+        carrier_hz: float = ...,
+        doppler_ppm: float = ...,
+        doppler_rate_ppm_s: float = ...,
+    ) -> None: ...
 
-    def execute(self, x: NDArray[np.complex64], out: NDArray[np.complex64] | None = None) -> NDArray[np.complex64]:
+    def execute(
+        self,
+        x: NDArray[np.complex64],
+        out: NDArray[np.complex64] | None = None,
+    ) -> NDArray[np.complex64]:
         """Apply clock Doppler to a block of complex baseband.
 
         Resamples x by `1/(1+d(t))` and multiplies the result by the coherent
@@ -36,9 +51,9 @@ class DopplerChannel:
         feeding a stream in blocks gives the same samples as one large call
         (subject to `DOPPLER_CHANNEL_MAX_BLOCK`).
 
-        Output length is approximately `x_len/(1+d)` and varies by a sample from
-        call to call as the fractional resampling accumulator crosses — that
-        variation is the dilation itself, not a defect.
+        Output length is approximately `x_len/(1+d)` and varies by a sample
+        from call to call as the fractional resampling accumulator crosses —
+        that variation is the dilation itself, not a defect.
 
         Parameters
         ----------
@@ -56,25 +71,20 @@ class DopplerChannel:
         >>> from doppler.impairment import DopplerChannel
         >>> ch = DopplerChannel(fs=1e6, carrier_hz=2.5e9, doppler_ppm=20.0)
         >>> y = ch.execute(np.ones(1000, dtype=np.complex64))
-        >>> y.shape                   # ~ 1000 / (1 + 20e-6): the time-base dilation
+        >>> y.shape                   # ~ 1000 / (1 + 20e-6): time dilation
         (999,)
         >>> round(ch.offset_hz, 1)    # fc * d = 2.5e9 * 20e-6, in Hz
         50000.0
 
         """
 
-    def execute_max_out(self, x_len: int) -> int:
+    def execute_max_out(self) -> int:
         """Upper bound on the output of one execute() call.
 
         Assumes an input of at most `DOPPLER_CHANNEL_MAX_BLOCK` samples — see
         that
 
         macro for why the bound cannot depend on the actual input length.
-
-        Parameters
-        ----------
-        x_len : int
-            Input.
 
         Returns
         -------
@@ -145,8 +155,9 @@ class DopplerChannel:
         """Restore mutable state from a `get_state()` blob.
 
         Overwrites the live state in place; the object keeps the parameters it
-        was constructed with. Length is validated against `state_bytes()` before
-        the blob is handed to the C core, and the core may reject it as well.
+        was constructed with. Length is validated against `state_bytes()`
+        before the blob is handed to the C core, and the core may reject it as
+        well.
 
         Raises ``TypeError`` if *blob* is not bytes, ``ValueError`` if its
         length differs from `state_bytes()` or the core rejects it, and
@@ -176,21 +187,29 @@ class DopplerChannel:
 
     @property
     def elapsed_s(self) -> float:
-        """Receive time in seconds consumed so far, the `t` every Doppler quantity is evaluated at. Advances by `n/fs` per `execute(x)` call and is zeroed by `reset()`."""
+        """Receive time in seconds consumed so far, the `t` every Doppler
+        quantity is evaluated at. Advances by `n/fs` per `execute(x)` call and
+        is zeroed by `reset()`.
+        """
 
     @property
     def offset_hz(self) -> float:
-        """Instantaneous carrier offset `fc * d(t)` in Hz at the current `elapsed_s` -- the frequency a receiver would have to tune out right now. Read-only diagnostic; with a non-zero `doppler_rate_ppm_s` it ramps as the stream advances."""
+        """Instantaneous carrier offset `fc * d(t)` in Hz at the current
+        `elapsed_s` -- the frequency a receiver would have to tune out right
+        now. Read-only diagnostic; with a non-zero `doppler_rate_ppm_s` it
+        ramps as the stream advances.
+        """
 
     def destroy(self) -> None:
         """Release the underlying C resources immediately.
 
         Ordinarily unnecessary: the resources are freed when the object is
         garbage-collected. Call this to release them at a definite point
-        instead, or use the object as a context manager, which calls it on exit.
+        instead, or use the object as a context manager, which calls it on
+        exit.
 
-        Idempotent: calling it again on an already-released object does nothing.
-        Every other method raises ``RuntimeError`` once it has run.
+        Idempotent: calling it again on an already-released object does
+        nothing. Every other method raises ``RuntimeError`` once it has run.
         """
 
 
@@ -206,12 +225,17 @@ class DopplerChannel:
             This same object, not a copy.
         """
 
-    def __exit__(self, exc_type: object | None = ..., exc: object | None = ..., tb: object | None = ...) -> None:
+    def __exit__(
+        self,
+        exc_type: object | None = ...,
+        exc: object | None = ...,
+        tb: object | None = ...,
+    ) -> None:
         """Exit a context manager, releasing the DopplerChannel.
 
         Equivalent to calling `destroy()`. Returns ``None``, so an exception
-        raised inside the `with` body propagates normally; this never suppresses
-        one.
+        raised inside the `with` body propagates normally; this never
+        suppresses one.
 
         Parameters
         ----------

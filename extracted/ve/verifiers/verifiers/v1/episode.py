@@ -1,55 +1,83 @@
-"""Run and group-score all rollouts for one task."""
+"""The episode — one run's traces plus their shared standing, whole."""
 
-from __future__ import annotations
+import uuid
+from typing import Generic
 
-import asyncio
-from collections.abc import Awaitable, Callable
-from contextlib import nullcontext
-from typing import TYPE_CHECKING
+from pydantic import BaseModel, Field
 
-from verifiers.v1.decorators import discover_decorated
-from verifiers.v1.retries import run_with_retry
-from verifiers.v1.rollout import Phase, Rollout
-from verifiers.v1.trace import Trace
-from verifiers.v1.utils.memory import trim_memory_periodically
-
-if TYPE_CHECKING:
-    from verifiers.v1.retries import RolloutRetryConfig
+from verifiers.v1.configs.agent import WireAgentConfig
+from verifiers.v1.state import State, StateT
+from verifiers.v1.task import DataT, WireTaskData
+from verifiers.v1.trace import AgentConfigT, Error, Trace
+from verifiers.v1.types import Usage
 
 
-class Episode:
-    def __init__(self, rollouts: list[Rollout], retry: RolloutRetryConfig) -> None:
-        if not rollouts:
-            raise ValueError("an episode needs at least one rollout (n >= 1)")
-        self.rollouts = rollouts
-        self.task = rollouts[0].task
-        self.retry = retry
+class EnvInfo(BaseModel):
+    """The env that ran the episode, self-describing without the run's config."""
 
-    async def run(
-        self,
-        semaphore: asyncio.Semaphore | None = None,
-        on_complete: Callable[[Trace], Awaitable[None]] | None = None,
-    ) -> list[Trace]:
-        """Run rollouts; delay completion callbacks only when group scoring needs all of them."""
-        group_scored = bool(discover_decorated(self.task, "group_reward"))
+    id: str = ""
+    """`EnvConfig.env_id`, e.g. `agentic-judge+gsm8k-v1`."""
 
-        async def run_one(rollout: Rollout) -> Trace:
-            async with semaphore or nullcontext():
-                trace = await run_with_retry(rollout, self.retry)
-            if not group_scored:  # reward already final → don't wait for the group
-                rollout.phase = Phase.DONE
-                if on_complete is not None:
-                    await on_complete(trace)
-            # hand freed per-turn request bodies (base64 images) back to the OS
-            await trim_memory_periodically()
-            return trace
 
-        traces = await asyncio.gather(*(run_one(r) for r in self.rollouts))
-        if group_scored:
-            await self.task.score_group(traces)  # cross-rollout @group_rewards
-            for rollout in self.rollouts:
-                rollout.phase = Phase.DONE
-            for trace in traces:
-                if on_complete is not None:
-                    await on_complete(trace)
-        return traces
+class Episode(BaseModel, Generic[DataT, StateT, AgentConfigT]):
+    """The artifact Env.run produces. Contains multiple agents' traces."""
+
+    id: str = Field(default_factory=lambda: uuid.uuid4().hex)
+
+    env: EnvInfo = Field(default_factory=EnvInfo)
+    """The env that produced this episode."""
+    ok: bool = False
+    """Whether the episode completed successfully."""
+    errors: list[Error] = Field(default_factory=list)
+    """Every error captured across attempts, oldest to newest."""
+    traces: list[Trace[DataT, StateT, AgentConfigT]] = Field(default_factory=list)
+    """Every agent's trace, in completion order."""
+
+    @property
+    def last_error(self) -> Error | None:
+        """The last episode-level error captured across attempts."""
+        return self.errors[-1] if self.errors else None
+
+    @property
+    def usage(self) -> Usage | None:
+        """Provider-reported usage summed across every trace's model calls;
+        judge/off-graph usage stays on the traces (`Trace.extra_usage`)."""
+        return Usage.aggregate(u for t in self.traces if (u := t.usage) is not None)
+
+    @property
+    def num_input_tokens(self) -> int:
+        """Fed-in tokens (system + user + tool), summed across traces."""
+        return sum(t.num_input_tokens for t in self.traces)
+
+    @property
+    def num_output_tokens(self) -> int:
+        """Model-generated tokens across all turns, summed across traces."""
+        return sum(t.num_output_tokens for t in self.traces)
+
+    @property
+    def num_total_tokens(self) -> int:
+        """Final sequence lengths per branch, summed across traces."""
+        return sum(t.num_total_tokens for t in self.traces)
+
+    @property
+    def num_turns(self) -> int:
+        """Sampled turns, summed across traces."""
+        return sum(t.num_turns for t in self.traces)
+
+    @property
+    def by_agent(self) -> dict[str, list[Trace[DataT, StateT, AgentConfigT]]]:
+        """Traces grouped by agent name (e.g. n solvers), in completion order."""
+        grouped: dict[str, list[Trace[DataT, StateT, AgentConfigT]]] = {}
+        for trace in self.traces:
+            grouped.setdefault(trace.agent.name, []).append(trace)
+        return grouped
+
+    @classmethod
+    def of(cls, trace: Trace, env: str = "") -> "Episode":
+        """The single-agent record: one trace as its own episode."""
+        return cls(env=EnvInfo(id=env), traces=[trace], ok=trace.ok)
+
+
+WireEpisode = Episode[WireTaskData, State, WireAgentConfig]
+"""Record loader for consumers without the run's packages: unknown task fields
+survive in `task.model_extra`, agent configs parse loose (`WireAgentConfig`)."""

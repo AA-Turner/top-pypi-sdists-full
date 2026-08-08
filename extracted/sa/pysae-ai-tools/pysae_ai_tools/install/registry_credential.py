@@ -115,6 +115,29 @@ def _persist(token: str) -> None:
     cache.write(TOKEN_VAR, token)
 
 
+def _persist_resolved(cred: Credential) -> None:
+    """Cache a token GitLab has just validated, so the next run need not ask again.
+
+    The environment is a legitimate way in — the installer resolves the credential
+    before this package exists on the machine, then hands it over that way — but
+    :func:`resolve_token` returns an environment value untouched, and
+    ``try_auto_resolve`` only writes back what its *own* resolvers produced. Left
+    alone, a token that arrived through the environment would be prompted for
+    again on the very next command.
+
+    Three cases are deliberately skipped: a rotation has already written its
+    replacement, a credential GitLab rejected would serve a dead value to every
+    later run while hiding the real failure, and CI is excluded for the reason
+    :func:`rotation_blocked_reason` spells out — the value there is a shared
+    pipeline variable, which a persistent shell runner would end up keeping in its
+    own user cache.
+    """
+    if cred.rotated or not cred.usable or _in_ci():
+        return
+    if cred.token != _cached_token():
+        _persist(cred.token)
+
+
 def _journal_snapshot() -> journal.Journal:
     """The recorded instants as they stood when this process started working.
 
@@ -176,12 +199,18 @@ def credential() -> Credential | None:
     result.rotation_arbitrated = True
     if _rotation_due(result) and rotation_blocked_reason() is None:
         _rotate_and_repose(result)
+    _persist_resolved(result)
 
     return result
 
 
 def _rotation_due(cred: Credential) -> bool:
     return cred.info is not None and cred.info.needs_rotation() and cred.info.can_rotate
+
+
+def _in_ci() -> bool:
+    """True inside a pipeline, where the token is a shared variable we do not own."""
+    return bool(os.environ.get("CI"))
 
 
 def rotation_blocked_reason() -> str | None:
@@ -193,7 +222,7 @@ def rotation_blocked_reason() -> str | None:
     and every other project using it. Any command reaching a rotation — including
     a plain ``tools install`` on a runner — is covered by this single check.
     """
-    if os.environ.get("CI"):
+    if _in_ci():
         return "running in CI: the token comes from a shared pipeline variable this job cannot write back"
     return None
 

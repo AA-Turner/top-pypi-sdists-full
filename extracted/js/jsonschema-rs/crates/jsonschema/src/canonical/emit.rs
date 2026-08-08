@@ -10,7 +10,7 @@ use crate::{
             Divisors, ExcludedDivisors, IntegerLeaf, NumberLeaf, ObjectLeaf, ObjectViolation,
             Schema, SchemaKind, StringLeaf,
         },
-        DefinitionMap, CANONICAL_REFERENCE_PREFIX,
+        DefinitionMap, CANONICAL_REFERENCE_PREFIX, ROOT_DEFINITION_KEY,
     },
     JsonTypeSet,
 };
@@ -121,7 +121,7 @@ fn attach_definitions(mut value: Value, definitions: &DefinitionMap, draft: Draf
         if keyword == generated_keyword {
             for (uri, schema) in definitions {
                 if uri.starts_with(CANONICAL_REFERENCE_PREFIX) {
-                    entries.insert(uri.to_string(), emit(schema.kind(), draft));
+                    entries.insert(uri.as_ref().to_owned(), emit(schema.kind(), draft));
                 }
             }
         }
@@ -130,6 +130,93 @@ fn attach_definitions(mut value: Value, definitions: &DefinitionMap, draft: Draf
         }
     }
     value
+}
+
+/// The name the document root takes when a node below it is emitted on its own.
+const ROOT_DEFINITION_NAME: &str = "root";
+
+/// Instance data, not schemas: a `$ref` spelled inside one is a value that happens to look like a
+/// pointer.
+const VALUE_KEYWORDS: [&str; 2] = ["const", "enum"];
+
+/// Keyword values holding a name-to-schema map rather than a schema.
+const SCHEMA_MAP_KEYWORDS: [&str; 4] = ["properties", "patternProperties", "$defs", "definitions"];
+
+/// Give the document root a name of its own inside `value`, so the pointers a node carries keep
+/// naming that root once the node is read as a document. A node naming no root stands alone
+/// already and takes no copy of one.
+pub(crate) fn rebind_document_root(mut value: Value, root: &Schema, draft: Draft) -> Value {
+    let keyword = definition_keyword(draft);
+    let name = free_definition_name(value.get(keyword));
+    let pointer = format!("#/{keyword}/{name}");
+    if !rebind_root_pointers(&mut value, &pointer) {
+        return value;
+    }
+    let mut body = emit(root.kind(), draft);
+    rebind_root_pointers(&mut body, &pointer);
+    if let Value::Object(map) = &mut value {
+        if let Some(Value::Object(entries)) = map.get_mut(keyword) {
+            entries.insert(name, body);
+        } else {
+            map.insert(keyword.to_owned(), keyed(&name, body));
+        }
+    }
+    value
+}
+
+fn free_definition_name(entries: Option<&Value>) -> String {
+    let Some(entries) = entries.and_then(Value::as_object) else {
+        return ROOT_DEFINITION_NAME.to_owned();
+    };
+    if !entries.contains_key(ROOT_DEFINITION_NAME) {
+        return ROOT_DEFINITION_NAME.to_owned();
+    }
+    // One more name than the map holds leaves one of them free.
+    (0..=entries.len())
+        .map(|suffix| format!("{ROOT_DEFINITION_NAME}{suffix}"))
+        .find(|name| !entries.contains_key(name))
+        .expect("names outnumber the entries a map holds")
+}
+
+/// Point every root pointer in a schema at `pointer`, reporting whether it found one.
+fn rebind_root_pointers(value: &mut Value, pointer: &str) -> bool {
+    let Value::Object(map) = value else {
+        return false;
+    };
+    let mut found = false;
+    if map.get("$ref").and_then(Value::as_str) == Some(ROOT_DEFINITION_KEY) {
+        map.insert("$ref".to_owned(), Value::String(pointer.to_owned()));
+        found = true;
+    }
+    for (keyword, child) in map.iter_mut() {
+        if VALUE_KEYWORDS.contains(&keyword.as_str()) {
+            continue;
+        }
+        let children: Box<dyn Iterator<Item = &mut Value>> =
+            if SCHEMA_MAP_KEYWORDS.contains(&keyword.as_str()) {
+                match child {
+                    Value::Object(entries) => Box::new(entries.values_mut()),
+                    Value::Null
+                    | Value::Bool(_)
+                    | Value::Number(_)
+                    | Value::String(_)
+                    | Value::Array(_) => continue,
+                }
+            } else {
+                match child {
+                    Value::Array(items) => Box::new(items.iter_mut()),
+                    child @ (Value::Null
+                    | Value::Bool(_)
+                    | Value::Number(_)
+                    | Value::String(_)
+                    | Value::Object(_)) => Box::new(std::iter::once(child)),
+                }
+            };
+        for child in children {
+            found |= rebind_root_pointers(child, pointer);
+        }
+    }
+    found
 }
 
 fn definition_name(uri: &str, prefix: &str) -> Option<String> {
@@ -176,35 +263,35 @@ fn emit_string(leaf: &StringLeaf) -> Value {
     match leaf.patterns.as_slice() {
         [] => {}
         [pattern] => {
-            map.insert("pattern".into(), Value::String(pattern.to_string()));
+            map.insert("pattern".into(), Value::String(pattern.as_ref().to_owned()));
         }
         patterns => conjuncts.extend(
             patterns
                 .iter()
-                .map(|pattern| keyed("pattern", Value::String(pattern.to_string()))),
+                .map(|pattern| keyed("pattern", Value::String(pattern.as_ref().to_owned()))),
         ),
     }
     match leaf.formats.as_slice() {
         [] => {}
         [format] => {
-            map.insert("format".into(), Value::String(format.to_string()));
+            map.insert("format".into(), Value::String(format.as_str().to_owned()));
         }
         formats => conjuncts.extend(
             formats
                 .iter()
-                .map(|format| keyed("format", Value::String(format.to_string()))),
+                .map(|format| keyed("format", Value::String(format.as_str().to_owned()))),
         ),
     }
     // Every barred facet goes into its own `allOf` branch: the main object already spells what a
     // string must satisfy, and one `not` slot cannot hold several of them.
     conjuncts.extend(leaf.excluded_formats.iter().map(|format| {
         let mut inner = Map::new();
-        inner.insert("format".into(), Value::String(format.to_string()));
+        inner.insert("format".into(), Value::String(format.as_str().to_owned()));
         keyed("not", Value::Object(inner))
     }));
     conjuncts.extend(leaf.excluded_patterns.iter().map(|pattern| {
         let mut inner = Map::new();
-        inner.insert("pattern".into(), Value::String(pattern.to_string()));
+        inner.insert("pattern".into(), Value::String(pattern.as_ref().to_owned()));
         keyed("not", Value::Object(inner))
     }));
     // A media type and an encoding sharing one schema object decode-then-check under the runtime
@@ -218,35 +305,37 @@ fn emit_string(leaf: &StringLeaf) -> Value {
         [media_type] if !both_content_facets_present => {
             map.insert(
                 "contentMediaType".into(),
-                Value::String(media_type.to_string()),
+                Value::String(media_type.as_ref().to_owned()),
             );
         }
-        media_types => conjuncts.extend(
-            media_types
-                .iter()
-                .map(|media_type| keyed("contentMediaType", Value::String(media_type.to_string()))),
-        ),
+        media_types => conjuncts.extend(media_types.iter().map(|media_type| {
+            keyed(
+                "contentMediaType",
+                Value::String(media_type.as_ref().to_owned()),
+            )
+        })),
     }
     match leaf.content_encodings.as_slice() {
         [] => {}
         [encoding] if !both_content_facets_present => {
             map.insert(
                 "contentEncoding".into(),
-                Value::String(encoding.to_string()),
+                Value::String(encoding.as_ref().to_owned()),
             );
         }
-        encodings => conjuncts.extend(
-            encodings
-                .iter()
-                .map(|encoding| keyed("contentEncoding", Value::String(encoding.to_string()))),
-        ),
+        encodings => conjuncts.extend(encodings.iter().map(|encoding| {
+            keyed(
+                "contentEncoding",
+                Value::String(encoding.as_ref().to_owned()),
+            )
+        })),
     }
     // `enum` in every draft, so one spelling covers Draft 4 as well.
     if !leaf.excluded.is_empty() {
         let members = Value::Array(
             leaf.excluded
                 .iter()
-                .map(|value| Value::String(value.to_string()))
+                .map(|value| Value::String(value.as_ref().to_owned()))
                 .collect(),
         );
         let mut inner = Map::new();
@@ -451,7 +540,7 @@ fn emit_object(leaf: &ObjectLeaf, draft: Draft) -> Value {
             Value::Array(
                 leaf.required
                     .iter()
-                    .map(|key| Value::String(key.to_string()))
+                    .map(|key| Value::String(key.as_ref().to_owned()))
                     .collect(),
             ),
         );
@@ -484,7 +573,9 @@ fn emit_object(leaf: &ObjectLeaf, draft: Draft) -> Value {
                         Value::Object(
                             names
                                 .iter()
-                                .map(|name| (name.to_string(), emit(&SchemaKind::True, draft)))
+                                .map(|name| {
+                                    (name.as_ref().to_owned(), emit(&SchemaKind::True, draft))
+                                })
                                 .collect(),
                         ),
                     );
@@ -533,7 +624,7 @@ fn insert_fused_map(
     entries.extend(
         leaf.properties
             .iter()
-            .map(|(key, schema)| (key.to_string(), emit(schema.kind(), draft))),
+            .map(|(key, schema)| (key.as_ref().to_owned(), emit(schema.kind(), draft))),
     );
     if !entries.is_empty() {
         map.insert("properties".into(), Value::Object(entries));
@@ -546,7 +637,7 @@ fn insert_fused_map(
     patterns.extend(
         leaf.pattern_properties
             .iter()
-            .map(|(pattern, schema)| (pattern.to_string(), emit(schema.kind(), draft))),
+            .map(|(pattern, schema)| (pattern.as_ref().to_owned(), emit(schema.kind(), draft))),
     );
     if !patterns.is_empty() {
         map.insert("patternProperties".into(), Value::Object(patterns));
@@ -560,7 +651,7 @@ fn insert_entries(map: &mut Map<String, Value>, leaf: &ObjectLeaf, draft: Draft)
         let entries: Map<String, Value> = leaf
             .properties
             .iter()
-            .map(|(key, schema)| (key.to_string(), emit(schema.kind(), draft)))
+            .map(|(key, schema)| (key.as_ref().to_owned(), emit(schema.kind(), draft)))
             .collect();
         map.insert("properties".into(), Value::Object(entries));
     }
@@ -568,7 +659,7 @@ fn insert_entries(map: &mut Map<String, Value>, leaf: &ObjectLeaf, draft: Draft)
         let entries: Map<String, Value> = leaf
             .pattern_properties
             .iter()
-            .map(|(pattern, schema)| (pattern.to_string(), emit(schema.kind(), draft)))
+            .map(|(pattern, schema)| (pattern.as_ref().to_owned(), emit(schema.kind(), draft)))
             .collect();
         map.insert("patternProperties".into(), Value::Object(entries));
     }
@@ -698,13 +789,13 @@ fn draft4_key_spelling(leaf: &ObjectLeaf) -> Option<Draft4Keys> {
 fn draft4_key_clauses(names: &Schema) -> Option<Vec<KeyClause>> {
     match names.kind() {
         SchemaKind::Const(value) => Some(vec![KeyClause {
-            keys: vec![value.as_value().as_str()?.to_string()],
+            keys: vec![value.as_value().as_str()?.to_owned()],
             patterns: Vec::new(),
         }]),
         SchemaKind::Enum(values) => {
             let mut keys = Vec::with_capacity(values.as_slice().len());
             for value in values.as_slice() {
-                keys.push(value.as_value().as_str()?.to_string());
+                keys.push(value.as_value().as_str()?.to_owned());
             }
             keys.sort_unstable();
             keys.dedup();
@@ -738,7 +829,7 @@ fn draft4_key_clauses(names: &Schema) -> Option<Vec<KeyClause>> {
                     .iter()
                     .map(|pattern| KeyClause {
                         keys: Vec::new(),
-                        patterns: vec![pattern.to_string()],
+                        patterns: vec![pattern.as_ref().to_owned()],
                     })
                     .collect(),
             )

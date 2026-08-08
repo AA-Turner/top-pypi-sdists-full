@@ -1,5 +1,7 @@
+# Python internals
 from typing import Optional
 
+# Other libraries
 from dlt.common.configuration.resolve import resolve_configuration
 from dlt.common.configuration.specs import RuntimeConfiguration
 from dlt.common.runtime.anon_tracker import get_anonymous_id

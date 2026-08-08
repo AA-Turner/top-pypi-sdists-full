@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: jupyter_ai_router
-Version: 0.0.6
+Version: 0.0.7
 Summary: Core routing layer of Jupyter AI
 Project-URL: Homepage, https://github.com/jupyter-ai-contrib/jupyter-ai-router
 Project-URL: Bug Tracker, https://github.com/jupyter-ai-contrib/jupyter-ai-router/issues

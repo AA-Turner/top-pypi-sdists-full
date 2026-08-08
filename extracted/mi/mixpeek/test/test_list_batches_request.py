@@ -39,6 +39,7 @@ class TestListBatchesRequest(unittest.TestCase):
                 status = 'PENDING',
                 collection_id = '',
                 bucket_id = '',
+                namespace_id = '',
                 offset = 0.0,
                 limit = 1.0,
                 cursor = ''

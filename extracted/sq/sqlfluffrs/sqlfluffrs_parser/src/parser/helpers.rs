@@ -3,7 +3,6 @@
 //! This module contains utility methods used by both iterative and recursive parsers
 //! including token navigation, whitespace handling, and terminator checking.
 
-use hashbrown::HashSet;
 use smallvec::SmallVec;
 
 use super::core::Parser;
@@ -13,31 +12,6 @@ use sqlfluffrs_types::{GrammarId, ParseMode, Token};
 use crate::vdebug;
 
 impl<'a> Parser<'a> {
-    /// Combine parent and local terminators based on reset_terminators flag.
-    ///
-    /// This is a common pattern used by all handlers (AnySetOf, AnyNumberOf, OneOf, Sequence, etc.)
-    /// to determine which terminators to use for child parsing.
-    ///
-    /// If reset_terminators is true, only local_terminators are used.
-    /// If reset_terminators is false, both local and parent terminators are combined.
-    #[inline]
-    pub(crate) fn combine_table_terminators(
-        &self,
-        local_terminators: &[GrammarId],
-        parent_terminators: &[GrammarId],
-        reset_terminators: bool,
-    ) -> Vec<GrammarId> {
-        if reset_terminators {
-            local_terminators.to_vec()
-        } else {
-            local_terminators
-                .iter()
-                .cloned()
-                .chain(parent_terminators.iter().cloned())
-                .collect()
-        }
-    }
-
     /// Print cache statistics
     pub fn print_cache_stats(&self) {
         // Print table cache stats
@@ -50,12 +24,12 @@ impl<'a> Parser<'a> {
         println!();
 
         // Print pruning stats
-        let calls = self.pruning_calls.get();
-        let total = self.pruning_total.get();
-        let kept = self.pruning_kept.get();
+        let calls = self.metrics.pruning_calls.get();
+        let total = self.metrics.pruning_total.get();
+        let kept = self.metrics.pruning_kept.get();
         let pruned = total.saturating_sub(kept);
-        let hinted = self.pruning_hinted.get();
-        let complex = self.pruning_complex.get();
+        let hinted = self.metrics.pruning_hinted.get();
+        let complex = self.metrics.pruning_complex.get();
 
         if calls > 0 {
             println!("SimpleHint Pruning Statistics:");
@@ -146,10 +120,28 @@ impl<'a> Parser<'a> {
         max_idx
     }
 
+    /// Skip forward to the next code token, but only when `allow_gaps` is set;
+    /// otherwise return `pos` unchanged.
+    ///
+    /// Folds the `if allow_gaps { skip_start_index_forward_to_code(..) } else { pos }`
+    /// idiom that every compound handler repeats at child boundaries. `bound` is
+    /// the exclusive ceiling for the scan (callers pass either `max_idx` or
+    /// `self.tokens.len()` depending on whether their window is known yet).
+    #[inline]
+    pub(crate) fn skip_to_code_if_gaps(&self, pos: usize, bound: usize, allow_gaps: bool) -> usize {
+        if allow_gaps {
+            self.skip_start_index_forward_to_code(pos, bound)
+        } else {
+            pos
+        }
+    }
+
     /// Move an index backward through tokens until tokens[index - 1] is code or comment.
     /// Returns the index after the last code/comment token, or min_idx if none found.
     /// IMPORTANT: Comments are NOT skipped - they should be collected like code tokens!
-    pub(crate) fn skip_stop_index_backward_to_code(
+    /// Note: this keeps comments, unlike Python's `skip_stop_index_backward_to_code`,
+    /// so the name spells out what it actually keeps.
+    pub(crate) fn skip_stop_index_backward_to_code_or_comment(
         &self,
         stop_idx: usize,
         min_idx: usize,
@@ -157,6 +149,30 @@ impl<'a> Parser<'a> {
         for _idx in (min_idx..stop_idx).rev() {
             let tok = &self.tokens[_idx];
             if tok.is_code() || tok.is_comment() {
+                return _idx + 1;
+            }
+        }
+        min_idx
+    }
+
+    /// Move an index backward through tokens until tokens[index - 1] is code,
+    /// trimming trailing comments too. Matches Python's canonical
+    /// `skip_stop_index_backward_to_code` (src/sqlfluff/core/parser/
+    /// match_algorithms.py), which checks only `segments[_idx - 1].is_code`.
+    /// Use this (rather than `skip_stop_index_backward_to_code_or_comment` above,
+    /// which keeps comments for `calculate_max_idx`) when trimming a GREEDY-mode
+    /// "leftover content" span before wrapping it as UnparsableSegment (e.g.
+    /// Bracketed.match's gap/leftover handling): a trailing comment there
+    /// should stay outside the unparsable span as its own sibling, the same
+    /// as trailing whitespace.
+    /// Returns the index after the last code token, or `min_idx` if none found.
+    pub(crate) fn skip_stop_index_backward_to_code(
+        &self,
+        stop_idx: usize,
+        min_idx: usize,
+    ) -> usize {
+        for _idx in (min_idx..stop_idx).rev() {
+            if self.tokens[_idx].is_code() {
                 return _idx + 1;
             }
         }
@@ -185,15 +201,14 @@ impl<'a> Parser<'a> {
             return None;
         }
 
-        // Validate the token at matching_idx is actually the expected closing bracket
+        // Validate the token at matching_idx is actually the expected closing bracket.
         let close_tok = self.tokens.get(matching_idx)?;
         let open_raw = open_tok.raw();
-        let expected_close = match open_raw.as_str() {
-            "(" => ")",
-            "[" => "]",
-            "{" => "}",
-            _ => return None, // Not an opening bracket
-        };
+        let expected_close = self
+            .dialect
+            .get_bracket_pairs()
+            .find_by_open(open_raw)
+            .map(|p| p.close)?;
 
         if close_tok.raw() == expected_close {
             Some(matching_idx)
@@ -218,10 +233,12 @@ impl<'a> Parser<'a> {
 
     /// Combine parent and local terminators for table-driven parsing.
     ///
-    /// If reset_terminators is true, only local_terminators are used.
-    /// Otherwise, both local and parent terminators are combined.
+    /// The single source of truth for the reset-vs-combine rule, used by every compound
+    /// handler (Sequence, OneOf, Delimited, Bracketed, AnyNumberOf, Ref). If
+    /// `reset_terminators` is true only `local_terminators` are used; otherwise the local
+    /// and parent terminators are combined. Mirrors Python's terminator handling.
     #[inline]
-    pub(crate) fn combine_terminators_table_driven(
+    pub(crate) fn combine_terminators(
         local_terminators: &[GrammarId],
         parent_terminators: &[GrammarId],
         reset_terminators: bool,
@@ -241,7 +258,7 @@ impl<'a> Parser<'a> {
     ///
     /// This is the table-driven equivalent of calculate_max_idx().
     #[inline]
-    pub(crate) fn calculate_max_idx_table_driven(
+    pub(crate) fn calculate_max_idx(
         &mut self,
         start_idx: usize,
         terminators: &[GrammarId],
@@ -250,14 +267,14 @@ impl<'a> Parser<'a> {
     ) -> Result<usize, crate::parser::ParseError> {
         // Calculate initial max_idx based on parse_mode
         let mut max_idx = if parse_mode == ParseMode::Greedy {
-            self.trim_to_terminator_table_driven(start_idx, terminators)?
+            self.trim_to_terminator(start_idx, terminators)?
         } else {
             self.tokens.len()
         };
 
         // Trim backward to last code token
         if max_idx > 0 {
-            max_idx = self.skip_stop_index_backward_to_code(max_idx, start_idx);
+            max_idx = self.skip_stop_index_backward_to_code_or_comment(max_idx, start_idx);
         }
 
         // Apply parent's constraint
@@ -266,7 +283,7 @@ impl<'a> Parser<'a> {
         }
 
         vdebug!(
-            "calculate_max_idx_table_driven: start_idx={}, terminators.len()={}, parse_mode={:?}, parent_max_idx={:?}, final_max_idx={}",
+            "calculate_max_idx: start_idx={}, terminators.len()={}, parse_mode={:?}, parent_max_idx={:?}, final_max_idx={}",
             start_idx, terminators.len(), parse_mode, parent_max_idx, max_idx
         );
 
@@ -276,47 +293,61 @@ impl<'a> Parser<'a> {
     /// Prune options for table-driven parsing based on simple hints.
     ///
     /// This is the table-driven equivalent of prune_options().
-    pub(crate) fn prune_options_table_driven(&mut self, options: &[GrammarId]) -> Vec<GrammarId> {
+    pub(crate) fn prune_options(&mut self, options: &[GrammarId]) -> SmallVec<[GrammarId; 8]> {
         // Track stats
-        self.pruning_calls.set(self.pruning_calls.get() + 1);
-        self.pruning_total
-            .set(self.pruning_total.get() + options.len());
+        self.metrics
+            .pruning_calls
+            .set(self.metrics.pruning_calls.get() + 1);
+        self.metrics
+            .pruning_total
+            .set(self.metrics.pruning_total.get() + options.len());
 
         // Find first code token
         let first_code_token = self.tokens.iter().skip(self.pos).find(|t| t.is_code());
 
         // If no code token found, can't prune - return all options
         let Some(first_token) = first_code_token else {
-            self.pruning_kept
-                .set(self.pruning_kept.get() + options.len());
-            return options.to_vec();
+            self.metrics
+                .pruning_kept
+                .set(self.metrics.pruning_kept.get() + options.len());
+            return SmallVec::from_slice(options);
         };
 
         // Get token properties for matching
         let first_raw = first_token.raw_upper();
-        let first_types: HashSet<String> = first_token.get_all_types();
 
         vdebug!(
-            "Pruning {} options at pos {} (token: '{}', types: {:?})",
+            "Pruning {} options at pos {} (token: '{}')",
             options.len(),
             self.pos,
-            first_raw,
-            first_types
+            first_raw
         );
 
-        let mut available_options = Vec::new();
+        let mut available_options = SmallVec::<[GrammarId; 8]>::new();
 
         // Get grammar tables if available
         let tables = Some(self.grammar_ctx.tables());
 
         for &opt_id in options {
+            // Skip the NONCODE sentinel (not a real grammar id; handled by
+            // `is_terminated`). Indexing the grammar tables with it would panic.
+            if opt_id == GrammarId::NONCODE {
+                continue;
+            }
             // Try to get simple hint for this grammar from tables
             if let Some(tables) = tables {
                 if let Some(hint) = tables.get_simple_hint_for_grammar(opt_id) {
                     // We have a hint - track it
-                    self.pruning_hinted.set(self.pruning_hinted.get() + 1);
+                    self.metrics
+                        .pruning_hinted
+                        .set(self.metrics.pruning_hinted.get() + 1);
                     // Use hint to filter
-                    if tables.hint_can_match(hint, &first_raw, &first_types) {
+                    if tables.hint_can_match(
+                        hint,
+                        first_raw,
+                        &first_token.instance_types,
+                        &first_token.class_types,
+                    ) {
                         available_options.push(opt_id);
                     } else {
                         // Hint says no match possible - skip this option
@@ -324,12 +355,16 @@ impl<'a> Parser<'a> {
                     }
                 } else {
                     // No hint = complex grammar, must try it
-                    self.pruning_complex.set(self.pruning_complex.get() + 1);
+                    self.metrics
+                        .pruning_complex
+                        .set(self.metrics.pruning_complex.get() + 1);
                     available_options.push(opt_id);
                 }
             } else {
                 // No tables available - keep all options (conservative)
-                self.pruning_complex.set(self.pruning_complex.get() + 1);
+                self.metrics
+                    .pruning_complex
+                    .set(self.metrics.pruning_complex.get() + 1);
                 available_options.push(opt_id);
             }
         }
@@ -372,8 +407,9 @@ impl<'a> Parser<'a> {
             );
         }
 
-        self.pruning_kept
-            .set(self.pruning_kept.get() + available_options.len());
+        self.metrics
+            .pruning_kept
+            .set(self.metrics.pruning_kept.get() + available_options.len());
 
         available_options
     }
@@ -381,7 +417,10 @@ impl<'a> Parser<'a> {
     /// Check if we're at a terminator for table-driven parsing, considering elements.
     ///
     /// This is the table-driven equivalent of is_terminated_with_elements().
-    pub(crate) fn is_terminated_table_driven(&mut self, terminators: &[GrammarId]) -> bool {
+    pub(crate) fn is_terminated(&mut self, terminators: &[GrammarId]) -> bool {
+        self.metrics
+            .terminator_checks
+            .set(self.metrics.terminator_checks.get() + 1);
         let init_pos = self.pos;
 
         // CRITICAL: Check for GrammarId::NONCODE BEFORE skipping transparent tokens!
@@ -389,7 +428,7 @@ impl<'a> Parser<'a> {
         // not after skipping them. This is essential for allow_gaps=false behavior.
         let has_noncode_terminator = terminators.contains(&GrammarId::NONCODE);
         vdebug!(
-            "  is_terminated_table_driven at pos {}: has_noncode_terminator={}",
+            "  is_terminated at pos {}: has_noncode_terminator={}",
             init_pos,
             has_noncode_terminator
         );
@@ -397,13 +436,15 @@ impl<'a> Parser<'a> {
             if let Some(tok) = self.peek() {
                 let is_code = tok.is_code();
                 vdebug!(
-                    "  is_terminated_table_driven: current token is_code={}, type={}",
+                    "  is_terminated: current token is_code={}, type={}",
                     is_code,
                     tok.get_type()
                 );
                 if !is_code {
                     vdebug!("  TERMED NONCODE found non-code token at current position");
-                    self.terminator_hits.set(self.terminator_hits.get() + 1);
+                    self.metrics
+                        .terminator_hits
+                        .set(self.metrics.terminator_hits.get() + 1);
                     return true;
                 }
             }
@@ -431,7 +472,9 @@ impl<'a> Parser<'a> {
         if self.is_at_end() {
             vdebug!("  TERMED Reached end of file");
             self.pos = init_pos;
-            self.terminator_hits.set(self.terminator_hits.get() + 1);
+            self.metrics
+                .terminator_hits
+                .set(self.metrics.terminator_hits.get() + 1);
             return true;
         }
 
@@ -440,7 +483,9 @@ impl<'a> Parser<'a> {
             if tok.get_type() == "end_of_file" {
                 vdebug!("  TERMED Found end_of_file token");
                 self.pos = init_pos;
-                self.terminator_hits.set(self.terminator_hits.get() + 1);
+                self.metrics
+                    .terminator_hits
+                    .set(self.metrics.terminator_hits.get() + 1);
                 return true;
             }
         }
@@ -452,7 +497,7 @@ impl<'a> Parser<'a> {
             self.pos,
             terminators_without_noncode
         );
-        let pruned_terminators = self.prune_terminators_table_driven(terminators_without_noncode);
+        let pruned_terminators = self.prune_terminators(terminators_without_noncode);
         vdebug!(
             "  TERM Checking {} pruned terminators at pos {}",
             pruned_terminators.len(),
@@ -508,7 +553,7 @@ impl<'a> Parser<'a> {
 
             // Check terminator match cache first - key is (position after skipping transparent, grammar_id)
             let cache_key = (saved_pos, term_id.0);
-            if let Some(&cached_result) = self.terminator_match_cache.borrow().get(&cache_key) {
+            if let Some(&cached_result) = self.terminator_match_cache.get(&cache_key) {
                 vdebug!(
                     "  TERMCACHE HIT at pos {} for {:?}: {}",
                     saved_pos,
@@ -518,38 +563,25 @@ impl<'a> Parser<'a> {
                 if cached_result {
                     vdebug!("  TERMED Terminator matched (cached): {:?}", term_id);
                     self.pos = init_pos;
-                    self.terminator_hits.set(self.terminator_hits.get() + 1);
+                    self.metrics
+                        .terminator_hits
+                        .set(self.metrics.terminator_hits.get() + 1);
                     return true;
                 }
                 // Cached false - skip this terminator
                 continue;
             }
 
-            // Cache miss - do full parse
-            let check_pos = self.pos;
-            self.pos = saved_pos;
-
-            if let Ok(mr) = self.parse_table_iterative_match_result(*term_id, &[]) {
-                let is_empty = mr.is_empty();
-                self.pos = check_pos;
-
-                // Cache the result
-                self.terminator_match_cache
-                    .borrow_mut()
-                    .insert(cache_key, !is_empty);
-
-                if !is_empty {
-                    vdebug!("  TERMED Terminator matched (table-driven): {:?}", term_id);
-                    self.pos = init_pos;
-                    self.terminator_hits.set(self.terminator_hits.get() + 1);
-                    return true;
-                }
-            } else {
-                self.pos = check_pos;
-                // Cache the failure
-                self.terminator_match_cache
-                    .borrow_mut()
-                    .insert(cache_key, false);
+            // Cache miss - probe the terminator (frame-free for terminals).
+            let matched = self.terminator_matches_at(*term_id, saved_pos, &[]);
+            self.terminator_match_cache.insert(cache_key, matched);
+            if matched {
+                vdebug!("  TERMED Terminator matched (table-driven): {:?}", term_id);
+                self.pos = init_pos;
+                self.metrics
+                    .terminator_hits
+                    .set(self.metrics.terminator_hits.get() + 1);
+                return true;
             }
             vdebug!("  Terminator did not match (table-driven): {:?}", term_id);
         }
@@ -559,15 +591,44 @@ impl<'a> Parser<'a> {
         false
     }
 
+    /// Check whether a single terminator grammar matches at `pos`.
+    ///
+    /// Terminal terminators (keywords, symbols, typed/token matchers - the
+    /// overwhelming majority) are evaluated frame-free via
+    /// `try_terminal_inline`; compound terminators fall back to a full
+    /// sub-parse through `try_match_grammar`. The parser position is
+    /// restored afterwards. A probe that errors counts as "no match",
+    /// matching the previous call sites' behaviour.
+    #[inline]
+    pub(crate) fn terminator_matches_at(
+        &mut self,
+        term_id: GrammarId,
+        pos: usize,
+        sub_terminators: &[GrammarId],
+    ) -> bool {
+        let saved = self.pos;
+        self.pos = pos;
+        let matched = match self.try_terminal_inline(term_id, None) {
+            Ok(Some(mr)) => !mr.is_empty(),
+            Ok(None) => self
+                .try_match_grammar(term_id, pos, sub_terminators)
+                .map(|end_pos| end_pos > pos)
+                .unwrap_or(false),
+            Err(_) => false,
+        };
+        self.pos = saved;
+        matched
+    }
+
     /// Prune terminators for table-driven parsing based on simple matchers.
     ///
     /// This is the table-driven equivalent of prune_terminators().
-    fn prune_terminators_table_driven(&mut self, terminators: &[GrammarId]) -> Vec<GrammarId> {
-        // Reuse the same pruning logic as prune_options_table_driven
-        self.prune_options_table_driven(terminators)
+    fn prune_terminators(&mut self, terminators: &[GrammarId]) -> SmallVec<[GrammarId; 8]> {
+        // Reuse the same pruning logic as prune_options
+        self.prune_options(terminators)
     }
 
-    pub(crate) fn trim_to_terminator_table_driven(
+    pub(crate) fn trim_to_terminator(
         &mut self,
         start_idx: usize,
         terminators: &[GrammarId],
@@ -584,7 +645,7 @@ impl<'a> Parser<'a> {
             return Ok(segments.len());
         }
 
-        let pruned_terms = self.prune_options_table_driven(terminators);
+        let pruned_terms = self.prune_options(terminators);
         vdebug!(
             "[TRIM_TO_TERM_TABLE] Scanning for terminators from idx={}, pruned_terms={:?}",
             start_idx,
@@ -599,7 +660,7 @@ impl<'a> Parser<'a> {
                 grammar_name,
                 start_idx
             );
-            if let Ok(_m) = self.try_match_grammar_table_driven(*term, start_idx, &[]) {
+            if self.terminator_matches_at(*term, start_idx, &[]) {
                 vdebug!(
                     "[TRIM_TO_TERM_TABLE] Terminator {:?} (name: {}) matched immediately at idx={}, returning start_idx={}",
                     term,
@@ -621,13 +682,12 @@ impl<'a> Parser<'a> {
             }
         }
 
-        let term_match =
-            self.greedy_match_table_driven(start_idx, terminators, self.tokens.len())?;
+        let term_match = self.greedy_match(start_idx, terminators, self.tokens.len())?;
         vdebug!(
-            "[TRIM_TO_TERM_TABLE] greedy_match_table_driven returned {:?}",
+            "[TRIM_TO_TERM_TABLE] greedy_match returned {:?}",
             term_match
         );
-        // term_match.1 is already the last code index before the terminator (computed by greedy_match_table_driven)
+        // term_match.1 is already the last code index before the terminator (computed by greedy_match)
         let final_idx = term_match.1;
         vdebug!(
             "[TRIM_TO_TERM_TABLE] Using term_match.1 as final_idx: {}",

@@ -1791,7 +1791,15 @@ NotebookInstanceLifecycleConfigSortOrderType = Literal["Ascending", "Descending"
 NotebookInstanceSortKeyType = Literal["CreationTime", "Name", "Status"]
 NotebookInstanceSortOrderType = Literal["Ascending", "Descending"]
 NotebookInstanceStatusType = Literal[
-    "Deleting", "Failed", "InService", "Pending", "Stopped", "Stopping", "Updating"
+    "Deleting",
+    "Failed",
+    "InMaintenance",
+    "InService",
+    "Pending",
+    "PendingMaintenance",
+    "Stopped",
+    "Stopping",
+    "Updating",
 ]
 NotebookInstanceStoppedWaiterName = Literal["notebook_instance_stopped"]
 NotebookOutputOptionType = Literal["Allowed", "Disabled"]

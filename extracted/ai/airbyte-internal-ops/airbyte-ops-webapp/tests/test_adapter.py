@@ -2,12 +2,14 @@
 
 import json
 import urllib.parse
+from datetime import datetime
 from types import SimpleNamespace
 
 import google.auth.exceptions
 import pytest
 from airbyte.exceptions import PyAirbyteInputError
 from airbyte_ops_mcp.connector_ops.rollouts._helpers import RolloutConfiguration
+from airbyte_ops_mcp.connector_ops.rollouts.constants import CustomerTier
 
 from airbyte_ops_webapp import state as state_module
 from airbyte_ops_webapp.auth import mock_session as mock_session_module
@@ -132,6 +134,320 @@ def test_mock_adapter_list_yanked_versions() -> None:
         ("destination-snowflake", "3.2.0"),
     ]
     assert yanked[0].connector_id == "ef69ef6e-aa7f-4af1-a01d-ef775033524e"
+
+
+@pytest.fixture
+def rollout_sync_stubs(
+    monkeypatch: pytest.MonkeyPatch,
+) -> dict[str, list[dict[str, object]]]:
+    state: dict[str, list[dict[str, object]]] = {
+        "pinned_rows": [],
+        "rollout_rows": [
+            {
+                "actor_definition_id": "definition-id",
+                "release_candidate_version_id": "version-id",
+                "tag": None,
+                "filters": None,
+                "created_at": datetime(2026, 1, 1),
+                "earliest_created_at": datetime(2026, 1, 1),
+            }
+        ],
+    }
+    monkeypatch.setattr(
+        adapter_module,
+        "query_rollout_pinned_actor_sync_by_version",
+        lambda *args, **kwargs: state["pinned_rows"],
+    )
+    monkeypatch.setattr(
+        adapter_module,
+        "query_connector_rollouts",
+        lambda rollout_id: state["rollout_rows"],
+    )
+    monkeypatch.setattr(
+        adapter_module,
+        "get_gcp_credentials_for_tier_gcs_ro",
+        object,
+    )
+    monkeypatch.setattr(
+        adapter_module,
+        "enrich_rows_by_org",
+        lambda rows, credentials, allow_degraded: rows,
+    )
+    return state
+
+
+@pytest.mark.parametrize(
+    ("pinned_rows", "rollout_rows", "tier", "expected"),
+    [
+        pytest.param(
+            [
+                {
+                    "actor_id": "succeeded",
+                    "customer_tier": "TIER_2",
+                    "num_connections_succeeded": 1,
+                    "num_connections_failed": 0,
+                    "has_connection_on_rollout_version": True,
+                },
+                {
+                    "actor_id": "failed",
+                    "customer_tier": "TIER_2",
+                    "num_connections_succeeded": 0,
+                    "num_connections_failed": 1,
+                    "has_connection_on_rollout_version": True,
+                },
+                {
+                    "actor_id": "awaiting",
+                    "customer_tier": "TIER_2",
+                    "num_connections_succeeded": 0,
+                    "num_connections_failed": 0,
+                    "has_connection_on_rollout_version": True,
+                },
+                {
+                    "actor_id": "disabled",
+                    "customer_tier": "TIER_2",
+                    "num_connections_succeeded": 0,
+                    "num_connections_failed": 0,
+                    "has_connection_on_rollout_version": False,
+                },
+                {
+                    "actor_id": "other-tier",
+                    "customer_tier": "TIER_1",
+                    "num_connections_succeeded": 1,
+                    "num_connections_failed": 0,
+                    "has_connection_on_rollout_version": True,
+                },
+            ],
+            [],
+            "TIER_2",
+            {"TIER_2": (4, 1, 1, 1, 1)},
+            id="tagged-rollout-filters-declared-tier",
+        ),
+        pytest.param(
+            [
+                {
+                    "actor_id": "tier-2",
+                    "customer_tier": "TIER_2",
+                    "num_connections_succeeded": 1,
+                    "num_connections_failed": 0,
+                    "has_connection_on_rollout_version": True,
+                },
+                {
+                    "actor_id": "tier-1",
+                    "customer_tier": "TIER_1",
+                    "num_connections_succeeded": 0,
+                    "num_connections_failed": 1,
+                    "has_connection_on_rollout_version": True,
+                },
+                {
+                    "actor_id": "tier-0",
+                    "customer_tier": "TIER_0",
+                    "num_connections_succeeded": 0,
+                    "num_connections_failed": 0,
+                    "has_connection_on_rollout_version": False,
+                },
+            ],
+            [{"tag": None, "filters": None}],
+            None,
+            {
+                "TIER_2": (1, 1, 0, 0, 0),
+                "TIER_1": (1, 0, 1, 0, 0),
+                "TIER_0": (1, 0, 0, 0, 1),
+            },
+            id="untagged-rollout-groups-each-tier",
+        ),
+        pytest.param(
+            [
+                {
+                    "actor_id": "connectionless",
+                    "customer_tier": "TIER_2",
+                    "num_connections_succeeded": 0,
+                    "num_connections_failed": 0,
+                    "has_connection_on_rollout_version": False,
+                }
+            ],
+            [],
+            "TIER_2",
+            {"TIER_2": (1, 0, 0, 0, 1)},
+            id="connectionless-pinned-actor-is-disabled",
+        ),
+    ],
+)
+def test_rollout_sync_summary_buckets_health(
+    rollout_sync_stubs: dict[str, list[dict[str, object]]],
+    pinned_rows: list[dict[str, object]],
+    rollout_rows: list[dict[str, object]],
+    tier: str | None,
+    expected: dict[str, tuple[int, int, int, int, int]],
+) -> None:
+    rollout_sync_stubs["pinned_rows"].extend(pinned_rows)
+    rollout_sync_stubs["rollout_rows"].extend(rollout_rows)
+    adapter = OpsMcpAdapter()
+
+    if tier is None:
+        summaries = adapter.get_rollout_sync_summaries_by_tier(
+            "rollout-id",
+            is_destination=False,
+        )
+    else:
+        summaries = {
+            tier: adapter.get_rollout_sync_summary(
+                "rollout-id",
+                tier=tier,
+                is_destination=False,
+            )
+        }
+
+    assert set(summaries) == set(expected)
+    for summary_tier, (
+        pinned,
+        healthy,
+        unhealthy,
+        awaiting,
+        disabled,
+    ) in expected.items():
+        summary = summaries[summary_tier]
+        assert summary.num_pinned == pinned
+        assert summary.num_eligible is None
+        assert summary.num_healthy == healthy
+        assert summary.num_unhealthy == unhealthy
+        assert summary.health == (
+            f"{healthy} healthy | "
+            f"{unhealthy} unhealthy | "
+            f"{awaiting} awaiting | "
+            f"{disabled} disabled"
+        )
+
+
+@pytest.mark.parametrize(
+    ("is_destination",),
+    [(False,), (True,)],
+    ids=("source", "destination"),
+)
+def test_rollout_sync_summary_passes_connector_direction(
+    monkeypatch: pytest.MonkeyPatch,
+    is_destination: bool,
+) -> None:
+    directions: list[bool] = []
+
+    def query_rollout_pinned_actor_sync_by_version(
+        actor_definition_id: str,
+        release_candidate_version_id: str,
+        rollout_created_at: datetime,
+        *,
+        is_destination: bool,
+    ) -> list[dict[str, object]]:
+        directions.append(is_destination)
+        return []
+
+    monkeypatch.setattr(
+        adapter_module,
+        "query_rollout_pinned_actor_sync_by_version",
+        query_rollout_pinned_actor_sync_by_version,
+    )
+    monkeypatch.setattr(
+        adapter_module,
+        "query_connector_rollouts",
+        lambda rollout_id: [
+            {
+                "actor_definition_id": "definition-id",
+                "release_candidate_version_id": "version-id",
+                "earliest_created_at": datetime(2026, 1, 1),
+            }
+        ],
+    )
+    monkeypatch.setattr(adapter_module, "get_gcp_credentials_for_tier_gcs_ro", object)
+    monkeypatch.setattr(
+        adapter_module,
+        "enrich_rows_by_org",
+        lambda rows, credentials, allow_degraded: rows,
+    )
+
+    OpsMcpAdapter().get_rollout_sync_summary(
+        "rollout-id",
+        tier="ALL",
+        is_destination=is_destination,
+    )
+
+    assert directions == [is_destination]
+
+
+@pytest.mark.parametrize(
+    ("connector", "expected"),
+    [
+        (ConnectorOption("source-github", "GitHub", "source", "", ""), False),
+        (
+            ConnectorOption(
+                "destination-snowflake",
+                "Snowflake",
+                "destination",
+                "",
+                "",
+            ),
+            True,
+        ),
+        ({"connector_type": "destination"}, True),
+    ],
+)
+def test_connector_direction_resolution(
+    connector: object,
+    expected: bool,
+) -> None:
+    assert tools_module._connector_is_destination(connector) is expected
+
+
+def test_rollout_sync_summaries_by_tier_returns_empty_on_query_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def raise_query(
+        rollout_id: str,
+        **kwargs: object,
+    ) -> list[dict[str, object]]:
+        raise RuntimeError("replica unavailable")
+
+    monkeypatch.setattr(
+        adapter_module,
+        "query_rollout_pinned_actor_sync_by_version",
+        raise_query,
+    )
+
+    assert (
+        OpsMcpAdapter().get_rollout_sync_summaries_by_tier(
+            "rollout-id",
+            is_destination=False,
+        )
+        == {}
+    )
+
+
+def test_rollout_sync_summary_returns_empty_when_rollout_has_no_version(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    queried = False
+
+    monkeypatch.setattr(
+        adapter_module,
+        "query_connector_rollouts",
+        lambda rollout_id: [{"actor_definition_id": "definition-id"}],
+    )
+
+    def fail_if_queried(*args: object, **kwargs: object) -> None:
+        nonlocal queried
+        queried = True
+
+    monkeypatch.setattr(
+        adapter_module,
+        "query_rollout_pinned_actor_sync_by_version",
+        fail_if_queried,
+    )
+
+    assert (
+        OpsMcpAdapter().get_rollout_sync_summary(
+            "rollout-id",
+            is_destination=False,
+        )
+        == RolloutSyncSummary()
+    )
+    assert not queried
 
 
 @pytest.mark.parametrize(
@@ -790,7 +1106,9 @@ def test_progressive_rollout_rows_split_tier_displays(
     )
 
     class FakeAdapter:
-        def list_progressive_rollouts(self) -> tuple[ConnectorRollout, ...]:
+        def list_progressive_rollouts_with_siblings(
+            self,
+        ) -> tuple[ConnectorRollout, ...]:
             return rollouts
 
     monkeypatch.setattr(helpers_module, "get_adapter", lambda: FakeAdapter())
@@ -805,14 +1123,157 @@ def test_progressive_rollout_rows_split_tier_displays(
             "connector_id": "source-postgres-id",
             "connector_name": "source-postgres",
             "rc_docker_image_tag": "3.8.0-rc.1",
-            "tier_2_display": "🟢 100%",
-            "tier_1_display": "⚪ —",
-            "tier_0_display": "🔵 50%",
-            "state": "in_progress",
+            "tier_2_display": "☑️",
+            "tier_1_display": "☑️",
+            "tier_0_display": "🔵",
             "autopilot_display": "OFF",
             "rc_pin_count_display": "0",
+            "reason_display": "",
         }
     ]
+
+
+def test_progressive_rollout_rows_include_terminal_sibling_tier(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    rollouts = (
+        ConnectorRollout(
+            rollout_id="rollout-tier-2-canceled",
+            connector_id="destination-snowflake-id",
+            connector_name="destination-snowflake",
+            connector_type="destination",
+            docker_repository="airbyte/destination-snowflake",
+            state="canceled",
+            rc_docker_image_tag="4.0.49",
+            initial_docker_image_tag="4.0.48",
+            current_target_rollout_pct="100",
+            final_target_rollout_pct="100",
+            created_at="2026-08-07T01:04:10Z",
+            updated_at="2026-08-07T04:20:00Z",
+            tier="TIER_2",
+            error_msg="Failure threshold exceeded: 2 failures (threshold=1)",
+        ),
+        ConnectorRollout(
+            rollout_id="rollout-all-initialized",
+            connector_id="destination-snowflake-id",
+            connector_name="destination-snowflake",
+            connector_type="destination",
+            docker_repository="airbyte/destination-snowflake",
+            state="initialized",
+            rc_docker_image_tag="4.0.49",
+            initial_docker_image_tag="4.0.48",
+            current_target_rollout_pct="0",
+            final_target_rollout_pct="0",
+            created_at="2026-08-07T04:22:30Z",
+            updated_at="2026-08-07T04:22:30Z",
+            tier="TIER_0",
+        ),
+    )
+
+    class FakeAdapter:
+        def list_progressive_rollouts_with_siblings(
+            self,
+        ) -> tuple[ConnectorRollout, ...]:
+            return rollouts
+
+    monkeypatch.setattr(helpers_module, "get_adapter", lambda: FakeAdapter())
+    monkeypatch.setattr(
+        helpers_module, "_autopilot_display", lambda _connector_id, _rc_tag: "OFF"
+    )
+    row = helpers_module.progressive_rollout_rows()[0]
+
+    assert row["tier_2_display"] == "⚠️"
+    assert row["tier_1_display"] == "\u2796"
+    assert row["tier_0_display"] == "\u2796"
+
+
+@pytest.mark.parametrize(
+    ("rollout_specs", "expected"),
+    [
+        pytest.param(
+            (("ALL", "initialized", ""),),
+            ("\u2796", "\u2796", "\u2796"),
+            id="amazon-seller-partner-untargeted-initialized",
+        ),
+        pytest.param(
+            (
+                ("TIER_2", "canceled", "Failure threshold exceeded: 2 failures"),
+                ("TIER_1", "workflow_started", ""),
+            ),
+            ("⚠️", "🔵", "\u2796"),
+            id="clickhouse-failed-tier-two-running-tier-one",
+        ),
+        pytest.param(
+            (("TIER_2", "in_progress", ""), ("TIER_0", "workflow_started", "")),
+            ("☑️", "☑️", "🔵"),
+            id="pokeapi-tier-two-and-zero-running",
+        ),
+        pytest.param(
+            (
+                ("TIER_2", "canceled", "Failure threshold exceeded: 2 failures"),
+                ("ALL", "initialized", ""),
+            ),
+            ("⚠️", "\u2796", "\u2796"),
+            id="salesforce-failed-tier-two-untargeted-initialized",
+        ),
+        pytest.param(
+            (
+                ("TIER_2", "canceled", "Failure threshold exceeded: 2 failures"),
+                ("ALL", "initialized", ""),
+            ),
+            ("⚠️", "\u2796", "\u2796"),
+            id="snowflake-failed-tier-two-untargeted-initialized",
+        ),
+        pytest.param(
+            (("ALL", "in_progress", ""),),
+            ("☑️", "☑️", "🔵"),
+            id="zendesk-untargeted-in-progress",
+        ),
+    ],
+)
+def test_progressive_rollout_rows_apply_tier_ordering_inference(
+    monkeypatch: pytest.MonkeyPatch,
+    rollout_specs: tuple[tuple[str, str, str], ...],
+    expected: tuple[str, str, str],
+) -> None:
+    rollouts = tuple(
+        ConnectorRollout(
+            rollout_id=f"rollout-{index}",
+            connector_id="connector-id",
+            connector_name="connector",
+            connector_type="source",
+            docker_repository="airbyte/source-connector",
+            state=state,
+            rc_docker_image_tag="1.0.0-rc.1",
+            initial_docker_image_tag="1.0.0",
+            current_target_rollout_pct="100",
+            final_target_rollout_pct="100",
+            created_at="2026-08-07T00:00:00Z",
+            updated_at="2026-08-07T00:00:00Z",
+            tier=tier,
+            error_msg=error_msg,
+        )
+        for index, (tier, state, error_msg) in enumerate(rollout_specs)
+    )
+
+    class FakeAdapter:
+        def list_progressive_rollouts_with_siblings(
+            self,
+        ) -> tuple[ConnectorRollout, ...]:
+            return rollouts
+
+    monkeypatch.setattr(helpers_module, "get_adapter", lambda: FakeAdapter())
+    monkeypatch.setattr(
+        helpers_module, "_autopilot_display", lambda _connector_id, _rc_tag: "OFF"
+    )
+
+    row = helpers_module.progressive_rollout_rows()[0]
+
+    assert (
+        row["tier_2_display"],
+        row["tier_1_display"],
+        row["tier_0_display"],
+    ) == expected
 
 
 def test_connector_version_manager_initial_state_uses_resolved_context(
@@ -1445,7 +1906,6 @@ def test_build_rollout_summary_uses_active_only_total_and_tier_eligible() -> Non
             health="8 healthy | 0 unhealthy | 1 awaiting | 11 disabled",
             num_pinned=575,
             num_eligible=193,
-            num_actors=893,
             num_healthy=8,
             num_unhealthy=0,
         )
@@ -1465,7 +1925,7 @@ def test_build_rollout_summary_uses_active_only_total_and_tier_eligible() -> Non
     cards = {c["tier_value"]: c for c in summary["tier_cards"]}
     t2 = cards["TIER_2"]
     assert t2["started"] is True
-    assert t2["status_label"] == "Complete"
+    assert t2["status_label"] == "In progress"
     # Realized coverage from active-only counts (157/246 = 64%), never the scan's
     # inflated 575/193.
     assert t2["pinned_summary"] == "157 of 246 eligible (64%)"
@@ -1482,6 +1942,49 @@ def test_build_rollout_summary_uses_active_only_total_and_tier_eligible() -> Non
     assert cards["TIER_1"]["eligible_header"] == "6 Eligible Actors"
     assert cards["TIER_0"]["tier_label"] == "Tier 0"
     assert cards["TIER_0"]["eligible_header"] == "28 Eligible Actors"
+
+
+def test_build_rollout_summary_uses_terminal_sibling_for_card_only() -> None:
+    active_rollouts = [
+        {
+            "rollout_id": "r-t0",
+            "connector_id": "destination-snowflake-id",
+            "connector_name": "destination-snowflake",
+            "docker_repository": "airbyte/destination-snowflake",
+            "rc_docker_image_tag": "4.0.49",
+            "tier": "TIER_0",
+            "state": "initialized",
+            "current_target_rollout_pct": "0",
+        }
+    ]
+    terminal_sibling = {
+        "rollout_id": "r-t2",
+        "connector_id": "destination-snowflake-id",
+        "connector_name": "destination-snowflake",
+        "docker_repository": "airbyte/destination-snowflake",
+        "rc_docker_image_tag": "4.0.49",
+        "tier": "TIER_2",
+        "state": "canceled",
+        "current_target_rollout_pct": "100",
+        "error_msg": "Failure threshold exceeded: 2 failures (threshold=1)",
+    }
+
+    summary = helpers_module.build_rollout_summary(
+        active_rollouts,
+        rollout_context=[*active_rollouts, terminal_sibling],
+        eligible_by_tier={"TIER_2": 659, "TIER_0": 0},
+        pinned_by_tier={"TIER_2": 589, "TIER_0": 0},
+        factors_by_tier={"TIER_2": _factors(pinned=589, gate_pass=70)},
+    )
+
+    cards = {card["tier_value"]: card for card in summary["tier_cards"]}
+    assert cards["TIER_2"]["status_emoji"] == "⚠️"
+    assert cards["TIER_2"]["reason_display"] == "2 failures (threshold=1)"
+    assert cards["TIER_2"]["pinned_summary"] == "\u2014"
+    assert cards["TIER_2"]["eligible_header"] == "\u2014"
+    assert summary["highest_tier"] == "TIER_0"
+    assert summary["advance_rollout_id"] == "r-t0"
+    assert summary["promote_rollout_id"] == "r-t0"
 
 
 def test_build_rollout_summary_pinned_never_exceeds_eligible() -> None:
@@ -1501,7 +2004,6 @@ def test_build_rollout_summary_pinned_never_exceeds_eligible() -> None:
             health="2 healthy | 0 unhealthy | 0 awaiting | 573 disabled",
             num_pinned=575,
             num_eligible=575,
-            num_actors=575,
             num_healthy=2,
             num_unhealthy=0,
         )
@@ -1536,7 +2038,6 @@ def test_build_rollout_summary_health_reconciles_with_active_pinned() -> None:
             health="2 healthy | 0 unhealthy | 0 awaiting | 573 disabled",
             num_pinned=575,
             num_eligible=575,
-            num_actors=575,
             num_healthy=2,
             num_unhealthy=0,
         )
@@ -1586,7 +2087,6 @@ def test_build_rollout_summary_realized_coverage_is_pinned_over_eligible() -> No
             health="1 healthy | 0 unhealthy | 0 awaiting | 6 disabled",
             num_pinned=7,
             num_eligible=7,
-            num_actors=7,
             num_healthy=1,
             num_unhealthy=0,
         )
@@ -1820,7 +2320,7 @@ def test_get_connector_population_maps_eligible_by_tier(
     # addressable value is still carried for the fallback.
     assert t2.addressable == 18
     assert t2.addressable_gated == 13
-    # The rollout's RC version id is threaded through to the population query.
+    # The rollout version id is threaded through to the population query.
     assert captured["target_version_id"] == "rc-version-123"
     # Tier resolution runs under the runtime service-account (ADC) credentials.
     assert captured["creds_called"] is True
@@ -1878,35 +2378,129 @@ def test_format_ratio_pct_rounds_and_handles_edges() -> None:
     assert fr(0, 0, empty="0%") == "0%"
 
 
-def test_tier_rollout_status_maps_state_to_glyph() -> None:
-    """The status glyph reflects the rollout `state`: no/initialized rollout reads
-    Not started, paused reads Paused, failures win over deployed %, 100%-clean
-    reads Complete, otherwise In progress."""
-    status = helpers_module.tier_rollout_status
-    assert (
-        status(has_rollout=False, state="", deployed_pct=0, failing=0)[1]
-        == "Not started"
+@pytest.mark.parametrize(
+    ("kwargs", "expected"),
+    [
+        pytest.param(
+            {"has_rollout": False, "state": ""}, ("\u2796", "Not started"), id="missing"
+        ),
+        pytest.param(
+            {"has_rollout": True, "state": "initialized"},
+            ("\u2796", "Not started"),
+            id="initialized",
+        ),
+        pytest.param(
+            {"has_rollout": True, "state": "workflow_started"},
+            ("🔵", "In progress"),
+            id="workflow_started",
+        ),
+        pytest.param(
+            {"has_rollout": True, "state": "in_progress"},
+            ("🔵", "In progress"),
+            id="in_progress",
+        ),
+        pytest.param(
+            {"has_rollout": True, "state": "paused"}, ("⏸️", "Paused"), id="paused"
+        ),
+        pytest.param(
+            {"has_rollout": True, "state": "succeeded"},
+            ("☑️", "Complete"),
+            id="succeeded",
+        ),
+        pytest.param(
+            {
+                "has_rollout": True,
+                "state": "canceled",
+                "error_msg": "[No-op.] Nothing to do",
+            },
+            ("☑️", "Complete"),
+            id="canceled_empty_tier",
+        ),
+        pytest.param(
+            {"has_rollout": True, "state": "failed_rolled_back"},
+            ("⚠️", "Attention"),
+            id="failed_rolled_back",
+        ),
+        pytest.param(
+            {
+                "has_rollout": True,
+                "state": "canceled",
+                "error_msg": "Failure threshold exceeded: 2 failures",
+            },
+            ("⚠️", "Attention"),
+            id="canceled_failure_threshold",
+        ),
+        pytest.param(
+            {
+                "has_rollout": True,
+                "state": "canceled",
+                "failed_reason": "not_highest_candidate",
+            },
+            ("\u2796", "Closed"),
+            id="canceled_superseded",
+        ),
+        pytest.param(
+            {"has_rollout": True, "state": "canceled", "failed_reason": "already_ga"},
+            ("\u2796", "Closed"),
+            id="canceled_already_ga",
+        ),
+        pytest.param(
+            {
+                "has_rollout": True,
+                "state": "canceled",
+                "error_msg": "User canceled rollout",
+            },
+            ("\u2796", "Closed"),
+            id="canceled_user_cancel",
+        ),
+        pytest.param(
+            {"has_rollout": True, "state": "canceled", "error_msg": "Rollout expired"},
+            ("\u2796", "Closed"),
+            id="canceled_expired",
+        ),
+    ],
+)
+def test_tier_rollout_status_maps_state_and_reason(
+    kwargs: dict[str, object], expected: tuple[str, str]
+) -> None:
+    assert helpers_module.tier_rollout_status(**kwargs) == expected
+
+
+def test_null_filter_rollout_is_tier_zero_with_progressive_siblings() -> None:
+    row = {
+        "rollout_id": "rollout-tier-0",
+        "actor_definition_id": "connector-id",
+        "release_candidate_version_id": "version-id",
+        "filters": None,
+        "tag": None,
+    }
+    rollout = OpsMcpAdapter._rollout_from_row(
+        row,
+        sibling_rows=[
+            row,
+            {
+                "actor_definition_id": "connector-id",
+                "release_candidate_version_id": "version-id",
+                "filters": {
+                    "customerTierFilters": [{"name": "TIER", "value": ["TIER_2"]}]
+                },
+                "tag": "TIER_2",
+            },
+        ],
     )
-    assert (
-        status(has_rollout=True, state="initialized", deployed_pct=0, failing=0)[1]
-        == "Not started"
-    )
-    assert (
-        status(has_rollout=True, state="paused", deployed_pct=25, failing=0)[1]
-        == "Paused"
-    )
-    assert (
-        status(has_rollout=True, state="in_progress", deployed_pct=100, failing=1)[1]
-        == "Attention"
-    )
-    assert (
-        status(has_rollout=True, state="in_progress", deployed_pct=100, failing=0)[1]
-        == "Complete"
-    )
-    assert (
-        status(has_rollout=True, state="in_progress", deployed_pct=50, failing=0)[1]
-        == "In progress"
-    )
+    assert rollout.tier == "TIER_0"
+
+
+def test_null_filter_rollout_without_progressive_siblings_is_all_tiers() -> None:
+    row = {
+        "rollout_id": "rollout-all",
+        "actor_definition_id": "connector-id",
+        "release_candidate_version_id": "version-id",
+        "filters": None,
+        "tag": None,
+    }
+    rollout = OpsMcpAdapter._rollout_from_row(row, sibling_rows=[row])
+    assert rollout.tier == "ALL"
 
 
 def test_build_breakdown_columns_two_columns_reconcile() -> None:
@@ -1961,9 +2555,8 @@ def test_build_breakdown_columns_omits_health_subgroup_when_absent() -> None:
 
 
 def test_build_rollout_summary_card_fields() -> None:
-    """A started tier card exposes the status glyph, the compact Deployed/Pinned/
-    Failed line values, and the two-column breakdown headers. A 100%-deployed,
-    no-failure tier reads Complete."""
+    """A started tier card exposes the status glyph, target/pinned/failed values,
+    and the two-column breakdown headers."""
     factors = TierPopulationFactors(
         active=84,
         pinned_to_rollout=10,
@@ -1997,12 +2590,50 @@ def test_build_rollout_summary_card_fields() -> None:
     )
     t2 = {c["tier_value"]: c for c in summary["tier_cards"]}["TIER_2"]
     assert t2["started"] is True
-    assert t2["status_label"] == "Complete"
+    assert t2["status_label"] == "In progress"
     assert t2["deployed_display"] == "100%"
     assert t2["pinned_summary"] == "10 of 14 eligible (71%)"
     assert t2["failed_summary"] == "0 of 10 pinned (0%)"
     assert t2["eligible_header"] == "14 Eligible Actors"
     assert t2["ineligible_header"] == "70 Ineligible"
+
+
+@pytest.mark.parametrize(
+    ("reason_kwargs", "expected"),
+    [
+        pytest.param(
+            {"error_msg": "Failure threshold exceeded: 2 failures"},
+            "2 failures",
+            id="reason_present",
+        ),
+        pytest.param(
+            {},
+            "",
+            id="reason_absent",
+        ),
+        pytest.param(
+            {
+                "error_msg": "[No-op.] Nothing to do",
+                "failed_reason": "empty tier",
+            },
+            "empty tier",
+            id="markers_stripped",
+        ),
+    ],
+)
+def test_build_tier_card_reason_display(
+    reason_kwargs: dict[str, str], expected: str
+) -> None:
+    card = helpers_module.build_tier_card(
+        CustomerTier.TIER_2,
+        has_rollout=True,
+        state="canceled",
+        deployed_display="0%",
+        factors=None,
+        **reason_kwargs,
+    )
+
+    assert card["reason_display"] == expected
 
 
 def test_build_rollout_summary_not_started_tier_marked() -> None:

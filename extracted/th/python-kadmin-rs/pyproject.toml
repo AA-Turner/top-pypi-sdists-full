@@ -1,6 +1,6 @@
 [project]
 name = "python-kadmin-rs"
-version = "0.7.2"
+version = "0.7.3"
 description = "Python interface to the Kerberos administration interface (kadm5)"
 requires-python = ">=3.11,<3.15"
 readme = "README.md"
@@ -32,9 +32,9 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/authentik-community/kadmin-rs"
-Documentation = "https://github.com/authentik-community/kadmin-rs"
-Repository = "https://github.com/authentik-community/kadmin-rs.git"
+Homepage = "https://github.com/authentik-labs/kadmin-rs"
+Documentation = "https://github.com/authentik-labs/kadmin-rs"
+Repository = "https://github.com/authentik-labs/kadmin-rs.git"
 
 [build-system]
 requires = ["maturin >=1.0,<2.0"]
@@ -65,7 +65,7 @@ package = false
 k5test = { git = "https://github.com/pythongssapi/k5test.git", rev = "349b79ecdff9a3ec00441c467511ff03e92450c9" }
 
 [tool.cibuildwheel]
-enable = ["cpython-freethreading", "pypy"]
+enable = ["pypy"]
 skip = "*-musllinux_*"
 
 [tool.cibuildwheel.linux]

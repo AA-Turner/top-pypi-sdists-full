@@ -154,6 +154,9 @@ async def execute_kane_cli(objective: str, *, page):
             new_context = await new_browser.new_context()
             new_page = await new_context.new_page()
 
+        from testmu._session import _apply_page_timeouts
+        _apply_page_timeouts(new_page)
+
         _log.info("    [execute_kane_cli] reconnected — page URL: %s", new_page.url)
 
         # Re-wire LT reporter so step-end/test-end land on the live page.

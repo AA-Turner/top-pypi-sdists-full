@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ast_serialize
-Version: 0.7.0
+Version: 0.8.0
 Classifier: Development Status :: 3 - Alpha
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
@@ -11,6 +11,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Rust
 Classifier: Topic :: Software Development
 Classifier: Typing :: Typed

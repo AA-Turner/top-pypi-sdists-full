@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: arize
-Version: 8.44.0
+Version: 8.45.0
 Summary: A helper library to interact with Arize AI APIs
 Project-URL: Homepage, https://arize.com
 Project-URL: Documentation, https://docs.arize.com/arize
@@ -1016,14 +1016,14 @@ evaluator_list = resp.evaluators
 ### Create an Evaluator
 
 ```python
-from arize.evaluators.types import TemplateConfig
+from arize.evaluators.types import TemplateConfigInput
 
 evaluator = client.evaluators.create(
     name="<your-evaluator-name>",
     space="<space-id-or-name>",
     evaluator_type="template",
     commit_message="Initial version",
-    template_config=TemplateConfig(...),
+    template_config=TemplateConfigInput(...),
     description=..., # Optional
 )
 ```
@@ -1076,7 +1076,7 @@ new_version = client.evaluators.create_version(
     evaluator="<evaluator-id-or-name>",
     space=..., # Optional
     commit_message="Updated template",
-    template_config=TemplateConfig(...),
+    template_config=TemplateConfigInput(...),
 )
 ```
 

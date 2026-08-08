@@ -433,6 +433,12 @@ def scatter_obs_pred(df, title, dir_out, fname, color_by="year", yield_units="Mg
     rmse = np.sqrt(mean_squared_error(y_obs, y_pred))
     mape = mean_absolute_percentage_error(y_obs, y_pred)
     r2   = r2_score(y_obs, y_pred)
+    bias = float((y_pred - y_obs).mean())  # mean signed error (pred - obs)
+
+    metrics_text = (
+        f"RMSE: {rmse:.2f} {yield_units}\nMAPE: {mape:.2%}\n"
+        f"Bias: {bias:+.2f} {yield_units}\n$r^2$: {r2:.2f}\nN: {len(df)}"
+    )
 
     try:
         with _science_style_context():
@@ -454,7 +460,7 @@ def scatter_obs_pred(df, title, dir_out, fname, color_by="year", yield_units="Mg
     ax.set_ylim(lo, hi)
 
     ax.annotate(
-        f"RMSE: {rmse:.2f} {yield_units}\nMAPE: {mape:.2%}\n$r^2$: {r2:.2f}\nN: {len(df)}",
+        metrics_text,
         xy=(0.05, 0.95), xycoords="axes fraction",
         fontsize=9, verticalalignment="top",
     )
@@ -488,6 +494,40 @@ def scatter_obs_pred(df, title, dir_out, fname, color_by="year", yield_units="Mg
     Path(dir_out).mkdir(parents=True, exist_ok=True)
     fig.savefig(Path(dir_out) / fname, dpi=250, bbox_inches="tight")
     plt.close(fig)
+
+    # --- Hexbin density companion (same square axes, 1:1 line, metrics) ---
+    # Point scatters saturate when many (obs, pred) pairs overlap; the hexbin
+    # shows where the mass actually sits. Written alongside as "<fname>_hexbin".
+    hex_fname = fname[:-4] + "_hexbin.png" if fname.lower().endswith(".png") else fname + "_hexbin.png"
+    try:
+        try:
+            with _science_style_context():
+                fig2, ax2 = plt.subplots(figsize=(7, 5))
+        except OSError:
+            fig2, ax2 = plt.subplots(figsize=(7, 5))
+        ax2.grid(True, linestyle="--", alpha=0.5, zorder=0)
+        hb = ax2.hexbin(
+            y_obs, y_pred, gridsize=30, cmap="viridis", mincnt=1,
+            extent=(lo, hi, lo, hi), linewidths=0.2,
+        )
+        ax2.plot([lo, hi], [lo, hi], color="gray", linestyle="--", linewidth=0.8, zorder=3)
+        ax2.set_xlim(lo, hi)
+        ax2.set_ylim(lo, hi)
+        cb2 = fig2.colorbar(hb, ax=ax2, aspect=40, pad=0.02)
+        cb2.set_label("Count")
+        ax2.annotate(
+            metrics_text,
+            xy=(0.05, 0.95), xycoords="axes fraction",
+            fontsize=9, verticalalignment="top",
+        )
+        ax2.set_xlabel(f"Observed Yield ({yield_units})")
+        ax2.set_ylabel(f"Predicted Yield ({yield_units})")
+        ax2.set_title(f"{title} (hexbin density)" if title else "Hexbin density", fontsize=10)
+        plt.tight_layout()
+        fig2.savefig(Path(dir_out) / hex_fname, dpi=250, bbox_inches="tight")
+        plt.close(fig2)
+    except Exception as e:  # noqa: BLE001
+        logger.warning(f"hexbin scatter failed for {fname}: {type(e).__name__}: {e}")
 
 
 # ---------------------------------------------------------------------------
@@ -1504,14 +1544,16 @@ def mape_choropleth(dg, df, countries, annotate_regions, dir_out, fname):
         vmax=df[col].quantile(0.95) if df[col].dropna().shape[0] > 1 else df[col].max(),
         cmap=pal.scientific.sequential.Bamako_20_r,
         series="sequential",
-        annotate_regions=annotate_regions,
+        annotate_regions=True,
+        annotate_values=True,
+        value_fmt="{:.1f}",
         loc_legend="lower left",
     )
 
 
 def metric_choropleth(dg, df, countries, annotate_regions, dir_out, fname,
                       *, col, label, vmin=None, vmax=None,
-                      higher_is_better=False):
+                      higher_is_better=False, value_fmt="{:.2f}"):
     """Choropleth map of an arbitrary per-region metric via plot.plot_map().
 
     Generalises :func:`mape_choropleth` to any metric column (RMSE, R², …).
@@ -1565,7 +1607,9 @@ def metric_choropleth(dg, df, countries, annotate_regions, dir_out, fname,
         vmax=vmax,
         cmap=cmap,
         series="sequential",
-        annotate_regions=annotate_regions,
+        annotate_regions=True,
+        annotate_values=True,
+        value_fmt=value_fmt,
         loc_legend="lower left",
     )
 

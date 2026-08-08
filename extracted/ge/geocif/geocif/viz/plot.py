@@ -94,8 +94,14 @@ def _compute_norm(df, attribute_df, merge_col, name_col, series, vmin, vmax,
 
 def _draw_regions(ax, df_comb, merge_col, name_col, series, dict_lup, use_key,
                   cmap, norm, alpha_feature, do_borders, annotate_regions,
-                  annotate_region_column):
-    """Color each region polygon and optionally annotate."""
+                  annotate_region_column, annotate_values=False,
+                  value_fmt="{:.1f}"):
+    """Color each region polygon and optionally annotate.
+
+    When ``annotate_values`` is True, each polygon is labelled with the region
+    name AND its ``name_col`` value on a second line (used for admin-1 error
+    maps: state name + error value).
+    """
     import cartopy.crs as ccrs
     from cartopy.feature import ShapelyFeature
     for i, region in df_comb.iterrows():
@@ -149,7 +155,7 @@ def _draw_regions(ax, df_comb, merge_col, name_col, series, dict_lup, use_key,
             lw = 0.5 if do_borders else 0.0
             ax.add_feature(region_feature, linewidth=lw)
 
-            if annotate_regions:
+            if annotate_regions or annotate_values:
                 lon, lat = region["geometry"].centroid.x, region["geometry"].centroid.y
                 # Transform lat/lon centroid into the axes projection so labels
                 # land correctly under any projection (identity for PlateCarree,
@@ -159,14 +165,20 @@ def _draw_regions(ax, df_comb, merge_col, name_col, series, dict_lup, use_key,
                 except Exception:
                     xt, yt = lon, lat
                 if np.isfinite(xt) and np.isfinite(yt):
-                    plt.annotate(
-                        text=region[annotate_region_column].title(),
-                        xy=(xt, yt),
-                        ha="center",
-                        va="center",
-                        fontsize=3,
-                        bbox=dict(boxstyle="round,pad=0.3", fc="white", alpha=0.5, ec="b", lw=0),
-                    )
+                    parts = []
+                    if annotate_region_column in region and pd.notna(region[annotate_region_column]):
+                        parts.append(str(region[annotate_region_column]).title())
+                    if annotate_values and pd.notna(region[name_col]):
+                        parts.append(value_fmt.format(region[name_col]))
+                    if parts:
+                        plt.annotate(
+                            text="\n".join(parts),
+                            xy=(xt, yt),
+                            ha="center",
+                            va="center",
+                            fontsize=3,
+                            bbox=dict(boxstyle="round,pad=0.3", fc="white", alpha=0.5, ec="b", lw=0),
+                        )
 
 
 
@@ -430,6 +442,7 @@ def _plot_map_pygmt(
     dir_out, fname, title, label, vmin, vmax, cmap, series,
     do_borders, annotate_regions, annotate_region_column,
     continuous_colorbar, classify_by, fixed_range, use_key,
+    annotate_values=False, value_fmt="{:.1f}",
 ):
     """Render the same choropleth as ``plot_map`` using PyGMT.
 
@@ -487,9 +500,16 @@ def _plot_map_pygmt(
     gdf["geometry"] = gdf.geometry.simplify(0.01)
 
     cols_keep = ["_fill", "geometry"]
-    if annotate_regions and annotate_region_column in gdf.columns:
+    if (annotate_regions or annotate_values) and annotate_region_column in gdf.columns:
         gdf["_label"] = gdf[annotate_region_column].astype(str).str.title()
         cols_keep.insert(1, "_label")
+    if annotate_values and name_col in gdf.columns:
+        # Second annotation line: the region's metric value (e.g. error map ->
+        # error value under the state name).
+        gdf["_label_val"] = gdf[name_col].map(
+            lambda v: value_fmt.format(v) if pd.notna(v) else ""
+        )
+        cols_keep.insert(1, "_label_val")
 
     # --- extent + colorbar spec (same colors + label as the mpl path) ---
     minx, miny, maxx, maxy = gdf.total_bounds
@@ -520,7 +540,7 @@ def _plot_map_pygmt(
         "projection": _gmt_projection_for(name_country),
         "title": title or "", "label": label or "",
         "do_borders": bool(do_borders),
-        "annotate": bool(annotate_regions and "_label" in gdf.columns),
+        "annotate": bool((annotate_regions or annotate_values) and "_label" in gdf.columns),
         "colorbar": cbar,
     }
 
@@ -577,6 +597,8 @@ def plot_map(
     use_key=False,
     annotate_regions=False,
     annotate_region_column="ADM1_NAME",
+    annotate_values=False,
+    value_fmt="{:.1f}",
     legend_dividers=False,
     continuous_colorbar=True,
     classify_by="region",
@@ -628,6 +650,7 @@ def plot_map(
                 _resolve_cmap(cmap, series, vmax), series, do_borders,
                 annotate_regions, annotate_region_column, continuous_colorbar,
                 classify_by, fixed_range, use_key,
+                annotate_values=annotate_values, value_fmt=value_fmt,
             )
             return
         except Exception as e:  # noqa: BLE001
@@ -656,7 +679,7 @@ def plot_map(
     _draw_regions(
         ax, df_comb, merge_col, name_col, series, dict_lup, use_key,
         cmap, norm, alpha_feature, do_borders, annotate_regions,
-        annotate_region_column,
+        annotate_region_column, annotate_values, value_fmt,
     )
 
     if title:

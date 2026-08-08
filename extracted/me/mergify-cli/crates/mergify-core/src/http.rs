@@ -67,6 +67,19 @@ pub enum DeleteOutcome {
     NotFound,
 }
 
+/// One page of a cursor-paginated Mergify list endpoint.
+///
+/// `next_cursor` is the opaque cursor of the following page,
+/// extracted from the response's RFC 5988 `Link` header
+/// (`rel="next"`); `None` on the last page. The caller re-issues its
+/// own query with `("cursor", …)` appended — only the cursor is
+/// taken from the header, never the rest of the echoed URL, so a
+/// caller's query cannot be silently rewritten by the server.
+pub struct Page<T> {
+    pub body: T,
+    pub next_cursor: Option<String>,
+}
+
 /// Caller hook to remap a terminal non-2xx HTTP status to a domain
 /// error before the default flavor mapping. Receives the status as a
 /// `u16` (command crates never import `reqwest`) and the rendered
@@ -190,6 +203,28 @@ impl Client {
         self.decode_json(resp).await
     }
 
+    /// GET one page of a cursor-paginated endpoint: like
+    /// [`Self::get_with_query`], but also return the next page's
+    /// cursor from the response's `Link` header (see [`Page`]).
+    pub async fn get_page<T: DeserializeOwned>(
+        &self,
+        path: &str,
+        query: &[(&str, &str)],
+    ) -> Result<Page<T>, CliError> {
+        let mut url = self.join(path)?;
+        if !query.is_empty() {
+            url.query_pairs_mut().extend_pairs(query.iter().copied());
+        }
+        let resp = self.execute_request(self.inner.get(url)).await?;
+        let next_cursor = resp
+            .headers()
+            .get(reqwest::header::LINK)
+            .and_then(|value| value.to_str().ok())
+            .and_then(next_cursor_from_link);
+        let body = self.decode_json(resp).await?;
+        Ok(Page { body, next_cursor })
+    }
+
     /// POST `body` as JSON to `path` and deserialize the JSON
     /// response as `T`.
     pub async fn post<B: Serialize + ?Sized, T: DeserializeOwned>(
@@ -240,6 +275,26 @@ impl Client {
     ) -> Result<(), CliError> {
         let url = self.join(path)?;
         self.execute_request(self.inner.post(url).json(body))
+            .await
+            .map(drop)
+    }
+
+    /// POST to `path` with **no** request body, treating 404 as
+    /// success and discarding the response body.
+    ///
+    /// For "make sure this is off" endpoints that take no body and
+    /// answer with an empty 2xx — GitHub's `POST
+    /// /repos/{o}/{r}/stacks/{n}/unstack` is the first caller. A 404
+    /// means the resource is already gone, which is exactly the
+    /// postcondition the caller wanted, so it is not an error (same
+    /// reasoning as [`Self::delete_if_exists`]).
+    ///
+    /// Distinct from [`Self::post_no_response`], which serializes a
+    /// JSON body and treats 404 as a failure: an endpoint documented
+    /// as taking no body should be sent none, not a JSON `null`.
+    pub async fn post_empty_if_exists(&self, path: &str) -> Result<(), CliError> {
+        let url = self.join(path)?;
+        self.execute_with_retry(self.inner.post(url), true, None)
             .await
             .map(drop)
     }
@@ -502,6 +557,37 @@ fn is_transient(e: &reqwest::Error) -> bool {
     e.is_timeout() || e.is_connect()
 }
 
+/// Extract the next page's `cursor` from an RFC 5988 `Link` header
+/// value (`<url>; rel="next", <url>; rel="last", …`).
+///
+/// Only the `cursor` query parameter of the `rel="next"` target is
+/// returned — the pagination contract is "same query, new cursor",
+/// so the caller keeps building its own request rather than blindly
+/// following a server-echoed URL. `None` when there is no `next`
+/// link or its URL carries no cursor (both mean "last page").
+fn next_cursor_from_link(header: &str) -> Option<String> {
+    for part in header.split(',') {
+        let mut segments = part.split(';');
+        let target = segments.next()?.trim();
+        let is_next = segments.any(|param| {
+            let param = param.trim();
+            param
+                .strip_prefix("rel=")
+                .is_some_and(|rel| rel.trim_matches('"') == "next")
+        });
+        if !is_next {
+            continue;
+        }
+        let target = target.strip_prefix('<')?.strip_suffix('>')?;
+        let url = Url::parse(target).ok()?;
+        return url
+            .query_pairs()
+            .find(|(key, _)| key == "cursor")
+            .map(|(_, value)| value.into_owned());
+    }
+    None
+}
+
 /// The wait hinted by a rejection's rate-limit headers, if any.
 /// Prefers `Retry-After` (delta-seconds, as GitHub sends); falls back
 /// to `X-RateLimit-Reset` (epoch seconds) when `X-RateLimit-Remaining`
@@ -706,6 +792,53 @@ mod tests {
             .post_no_response("/empty", &Foo { bar: 1 })
             .await
             .unwrap();
+    }
+
+    #[tokio::test]
+    async fn post_empty_if_exists_sends_no_body_and_tolerates_404() {
+        // `POST .../unstack` is documented as taking no request body,
+        // so we must not send a JSON `null`; and a 404 (already
+        // dissolved) satisfies the caller's postcondition.
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/present"))
+            .respond_with(ResponseTemplate::new(204))
+            .expect(1)
+            .mount(&server)
+            .await;
+        Mock::given(method("POST"))
+            .and(path("/absent"))
+            .respond_with(ResponseTemplate::new(404).set_body_string("gone"))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let client = fast_client(&server, ApiFlavor::GitHub);
+        client.post_empty_if_exists("/present").await.unwrap();
+        client.post_empty_if_exists("/absent").await.unwrap();
+
+        let requests = server.received_requests().await.unwrap();
+        assert!(
+            requests.iter().all(|r| r.body.is_empty()),
+            "no request body may be sent",
+        );
+    }
+
+    #[tokio::test]
+    async fn post_empty_if_exists_propagates_other_4xx() {
+        // Only 404 is "already done"; a 403 is a real failure the
+        // caller must see.
+        let server = MockServer::start().await;
+        Mock::given(method("POST"))
+            .and(path("/denied"))
+            .respond_with(ResponseTemplate::new(403).set_body_string("forbidden"))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let client = fast_client(&server, ApiFlavor::GitHub);
+        let err = client.post_empty_if_exists("/denied").await.unwrap_err();
+        assert!(matches!(err, CliError::GitHubApi(_)), "got {err:?}");
     }
 
     #[tokio::test]
@@ -1167,6 +1300,76 @@ mod tests {
             "error message not bounded: len={}",
             msg.len()
         );
+    }
+
+    #[test]
+    fn next_cursor_from_link_finds_the_next_rel() {
+        let header = concat!(
+            "<https://api.example/v1/repos/o/r/logs?cursor=first&per_page=10>; rel=\"first\", ",
+            "<https://api.example/v1/repos/o/r/logs?cursor=abc123&per_page=10>; rel=\"next\", ",
+            "<https://api.example/v1/repos/o/r/logs?cursor=last&per_page=10>; rel=\"last\"",
+        );
+        assert_eq!(next_cursor_from_link(header), Some("abc123".to_string()));
+    }
+
+    #[test]
+    fn next_cursor_from_link_accepts_unquoted_rel() {
+        let header = "<https://api.example/logs?cursor=zzz>; rel=next";
+        assert_eq!(next_cursor_from_link(header), Some("zzz".to_string()));
+    }
+
+    #[test]
+    fn next_cursor_from_link_is_none_without_a_next_rel() {
+        let header = "<https://api.example/logs?cursor=first>; rel=\"first\"";
+        assert_eq!(next_cursor_from_link(header), None);
+    }
+
+    #[test]
+    fn next_cursor_from_link_is_none_when_the_next_url_has_no_cursor() {
+        let header = "<https://api.example/logs?per_page=10>; rel=\"next\"";
+        assert_eq!(next_cursor_from_link(header), None);
+    }
+
+    #[tokio::test]
+    async fn get_page_returns_body_and_next_cursor() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/paged"))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .insert_header(
+                        "link",
+                        "<https://api.example/paged?cursor=next-cursor>; rel=\"next\"",
+                    )
+                    .set_body_json(Foo { bar: 1 }),
+            )
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let client = fast_client(&server, ApiFlavor::Mergify);
+        let page: Page<Foo> = client
+            .get_page("/paged", &[("per_page", "10")])
+            .await
+            .unwrap();
+        assert_eq!(page.body, Foo { bar: 1 });
+        assert_eq!(page.next_cursor, Some("next-cursor".to_string()));
+    }
+
+    #[tokio::test]
+    async fn get_page_has_no_cursor_on_the_last_page() {
+        let server = MockServer::start().await;
+        Mock::given(method("GET"))
+            .and(path("/paged"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(Foo { bar: 2 }))
+            .expect(1)
+            .mount(&server)
+            .await;
+
+        let client = fast_client(&server, ApiFlavor::Mergify);
+        let page: Page<Foo> = client.get_page("/paged", &[]).await.unwrap();
+        assert_eq!(page.body, Foo { bar: 2 });
+        assert_eq!(page.next_cursor, None);
     }
 
     #[tokio::test]

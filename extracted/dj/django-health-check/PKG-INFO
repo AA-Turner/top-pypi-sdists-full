@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-health-check
-Version: 4.4.4
+Version: 4.5.0
 Summary: Monitor the health of your Django app and its connected services.
 Keywords: django,postgresql
 Author-email: Kristian Ollegaard <kristian@oellegaard.com>, Johannes Maron <johannes@maron.family>
@@ -10,6 +10,7 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Framework :: Django
 Classifier: Framework :: Django :: 5.2
 Classifier: Framework :: Django :: 6.0
+Classifier: Framework :: Django :: 6.1
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent

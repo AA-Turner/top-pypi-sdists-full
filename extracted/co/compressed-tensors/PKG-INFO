@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: compressed-tensors
-Version: 0.17.1
+Version: 0.18.0
 Summary: Library for utilization of compressed safetensors of neural network models
 Home-page: https://github.com/vllm-project/compressed-tensors
 Author: The vLLM Project
@@ -12,6 +12,7 @@ Requires-Dist: torch>=2.10.0
 Requires-Dist: transformers>=4.45.0
 Requires-Dist: pydantic>=2.0
 Requires-Dist: loguru
+Requires-Dist: psutil
 Provides-Extra: dev
 Requires-Dist: black==22.12.0; extra == "dev"
 Requires-Dist: isort==5.8.0; extra == "dev"

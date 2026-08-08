@@ -9,6 +9,7 @@ from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 from dateutil.parser import isoparse
 
+from ..models.instance_size import InstanceSize
 from ..models.script_type import ScriptType
 from ..types import UNSET, Unset
 
@@ -32,7 +33,8 @@ class ScriptVersionResponse:
         job_definition_hash (str): Hash of the job definition for change detection
         job_ref (str): Canonical job reference, unique per workspace
         max_run_time_seconds (int): Maximum allowed run duration in seconds for this script version
-        provider (str): Compute provider for runs using this script version (e.g. 'tower', 'modal')
+        profile (str): The profile the script runs under
+        provider (str): Run provider for runs using this script version (e.g. 'tower', 'modal', 'local')
         script_id (UUID): The ID of the script the script version belongs to
         script_type (ScriptType): The type of the script: batch, interactive, or stream
         version (int): The current version of the script
@@ -40,14 +42,17 @@ class ScriptVersionResponse:
         deployment_module (None | str | Unset): Deployment module name (e.g. __deployment__)
         description (None | str | Unset): The description of the script
         freshness (list[str] | None | Unset): Freshness constraint strings (computed from job_definition)
+        instance_size (InstanceSize | None | Unset): Instance size this version runs on; None on a provider without
+            instance sizing.
         interval_end (datetime.datetime | None | Unset): Upper bound of the bounded work window (from
             job_definition.interval.end). None means no upper bound; the schedule halts once the next tick would exceed it.
         interval_start (datetime.datetime | None | Unset): Lower bound of the bounded work window (from
             job_definition.interval.start). None means the job has no bounded window.
+        memory (int | None | Unset): Resolved memory in MiB; None when the version has no sized hardware.
         name (None | str | Unset): Display name for the job
         pipeline_name (None | str | Unset): Pipeline name this job operates on (computed from job_definition)
-        profile (None | str | Unset): The name of the profile to use for the script
         triggers (list[str] | None | Unset): Trigger strings for this job (computed from job_definition)
+        vcpu (float | None | Unset): Resolved virtual CPU cores; None when the version has no sized hardware.
     """
 
     created_by: UUID
@@ -59,6 +64,7 @@ class ScriptVersionResponse:
     job_definition_hash: str
     job_ref: str
     max_run_time_seconds: int
+    profile: str
     provider: str
     script_id: UUID
     script_type: ScriptType
@@ -67,12 +73,14 @@ class ScriptVersionResponse:
     deployment_module: None | str | Unset = UNSET
     description: None | str | Unset = UNSET
     freshness: list[str] | None | Unset = UNSET
+    instance_size: InstanceSize | None | Unset = UNSET
     interval_end: datetime.datetime | None | Unset = UNSET
     interval_start: datetime.datetime | None | Unset = UNSET
+    memory: int | None | Unset = UNSET
     name: None | str | Unset = UNSET
     pipeline_name: None | str | Unset = UNSET
-    profile: None | str | Unset = UNSET
     triggers: list[str] | None | Unset = UNSET
+    vcpu: float | None | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -93,6 +101,8 @@ class ScriptVersionResponse:
         job_ref = self.job_ref
 
         max_run_time_seconds = self.max_run_time_seconds
+
+        profile = self.profile
 
         provider = self.provider
 
@@ -129,6 +139,14 @@ class ScriptVersionResponse:
         else:
             freshness = self.freshness
 
+        instance_size: None | str | Unset
+        if isinstance(self.instance_size, Unset):
+            instance_size = UNSET
+        elif isinstance(self.instance_size, InstanceSize):
+            instance_size = self.instance_size.value
+        else:
+            instance_size = self.instance_size
+
         interval_end: None | str | Unset
         if isinstance(self.interval_end, Unset):
             interval_end = UNSET
@@ -145,6 +163,12 @@ class ScriptVersionResponse:
         else:
             interval_start = self.interval_start
 
+        memory: int | None | Unset
+        if isinstance(self.memory, Unset):
+            memory = UNSET
+        else:
+            memory = self.memory
+
         name: None | str | Unset
         if isinstance(self.name, Unset):
             name = UNSET
@@ -157,12 +181,6 @@ class ScriptVersionResponse:
         else:
             pipeline_name = self.pipeline_name
 
-        profile: None | str | Unset
-        if isinstance(self.profile, Unset):
-            profile = UNSET
-        else:
-            profile = self.profile
-
         triggers: list[str] | None | Unset
         if isinstance(self.triggers, Unset):
             triggers = UNSET
@@ -171,6 +189,12 @@ class ScriptVersionResponse:
 
         else:
             triggers = self.triggers
+
+        vcpu: float | None | Unset
+        if isinstance(self.vcpu, Unset):
+            vcpu = UNSET
+        else:
+            vcpu = self.vcpu
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -185,6 +209,7 @@ class ScriptVersionResponse:
                 "job_definition_hash": job_definition_hash,
                 "job_ref": job_ref,
                 "max_run_time_seconds": max_run_time_seconds,
+                "profile": profile,
                 "provider": provider,
                 "script_id": script_id,
                 "script_type": script_type,
@@ -199,18 +224,22 @@ class ScriptVersionResponse:
             field_dict["description"] = description
         if freshness is not UNSET:
             field_dict["freshness"] = freshness
+        if instance_size is not UNSET:
+            field_dict["instance_size"] = instance_size
         if interval_end is not UNSET:
             field_dict["interval_end"] = interval_end
         if interval_start is not UNSET:
             field_dict["interval_start"] = interval_start
+        if memory is not UNSET:
+            field_dict["memory"] = memory
         if name is not UNSET:
             field_dict["name"] = name
         if pipeline_name is not UNSET:
             field_dict["pipeline_name"] = pipeline_name
-        if profile is not UNSET:
-            field_dict["profile"] = profile
         if triggers is not UNSET:
             field_dict["triggers"] = triggers
+        if vcpu is not UNSET:
+            field_dict["vcpu"] = vcpu
 
         return field_dict
 
@@ -236,6 +265,8 @@ class ScriptVersionResponse:
         job_ref = d.pop("job_ref")
 
         max_run_time_seconds = d.pop("max_run_time_seconds")
+
+        profile = d.pop("profile")
 
         provider = d.pop("provider")
 
@@ -289,6 +320,23 @@ class ScriptVersionResponse:
 
         freshness = _parse_freshness(d.pop("freshness", UNSET))
 
+        def _parse_instance_size(data: object) -> InstanceSize | None | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            try:
+                if not isinstance(data, str):
+                    raise TypeError()
+                instance_size_type_0 = InstanceSize(data)
+
+                return instance_size_type_0
+            except (TypeError, ValueError, AttributeError, KeyError):
+                pass
+            return cast(InstanceSize | None | Unset, data)
+
+        instance_size = _parse_instance_size(d.pop("instance_size", UNSET))
+
         def _parse_interval_end(data: object) -> datetime.datetime | None | Unset:
             if data is None:
                 return data
@@ -323,6 +371,15 @@ class ScriptVersionResponse:
 
         interval_start = _parse_interval_start(d.pop("interval_start", UNSET))
 
+        def _parse_memory(data: object) -> int | None | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(int | None | Unset, data)
+
+        memory = _parse_memory(d.pop("memory", UNSET))
+
         def _parse_name(data: object) -> None | str | Unset:
             if data is None:
                 return data
@@ -341,15 +398,6 @@ class ScriptVersionResponse:
 
         pipeline_name = _parse_pipeline_name(d.pop("pipeline_name", UNSET))
 
-        def _parse_profile(data: object) -> None | str | Unset:
-            if data is None:
-                return data
-            if isinstance(data, Unset):
-                return data
-            return cast(None | str | Unset, data)
-
-        profile = _parse_profile(d.pop("profile", UNSET))
-
         def _parse_triggers(data: object) -> list[str] | None | Unset:
             if data is None:
                 return data
@@ -367,6 +415,15 @@ class ScriptVersionResponse:
 
         triggers = _parse_triggers(d.pop("triggers", UNSET))
 
+        def _parse_vcpu(data: object) -> float | None | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(float | None | Unset, data)
+
+        vcpu = _parse_vcpu(d.pop("vcpu", UNSET))
+
         script_version_response = cls(
             created_by=created_by,
             date_added=date_added,
@@ -377,6 +434,7 @@ class ScriptVersionResponse:
             job_definition_hash=job_definition_hash,
             job_ref=job_ref,
             max_run_time_seconds=max_run_time_seconds,
+            profile=profile,
             provider=provider,
             script_id=script_id,
             script_type=script_type,
@@ -385,12 +443,14 @@ class ScriptVersionResponse:
             deployment_module=deployment_module,
             description=description,
             freshness=freshness,
+            instance_size=instance_size,
             interval_end=interval_end,
             interval_start=interval_start,
+            memory=memory,
             name=name,
             pipeline_name=pipeline_name,
-            profile=profile,
             triggers=triggers,
+            vcpu=vcpu,
         )
 
         script_version_response.additional_properties = d

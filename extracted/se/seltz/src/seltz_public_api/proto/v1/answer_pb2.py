@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n&seltz_public_api/proto/v1/answer.proto\x12\x19seltz_public_api.proto.v1\"\x9d\x02\n\rAnswerRequest\x12\x14\n\x05query\x18\x01 \x01(\tR\x05query\x12\x1c\n\x07\x61pi_key\x18\x02 \x01(\tH\x00R\x06\x61piKey\x88\x01\x01\x12,\n\x0finclude_content\x18\x03 \x01(\x08H\x01R\x0eincludeContent\x88\x01\x01\x12\x19\n\x05scope\x18\x04 \x01(\tH\x02R\x05scope\x88\x01\x01\x12\x19\n\x05model\x18\x05 \x01(\tH\x03R\x05model\x88\x01\x01\x12,\n\x0fresponse_format\x18\x06 \x01(\tH\x04R\x0eresponseFormat\x88\x01\x01\x42\n\n\x08_api_keyB\x12\n\x10_include_contentB\x08\n\x06_scopeB\x08\n\x06_modelB\x12\n\x10_response_format\"\xa3\x02\n\x13\x41nswerStreamRequest\x12\x14\n\x05query\x18\x01 \x01(\tR\x05query\x12\x1c\n\x07\x61pi_key\x18\x02 \x01(\tH\x00R\x06\x61piKey\x88\x01\x01\x12,\n\x0finclude_content\x18\x03 \x01(\x08H\x01R\x0eincludeContent\x88\x01\x01\x12\x19\n\x05scope\x18\x04 \x01(\tH\x02R\x05scope\x88\x01\x01\x12\x19\n\x05model\x18\x05 \x01(\tH\x03R\x05model\x88\x01\x01\x12,\n\x0fresponse_format\x18\x06 \x01(\tH\x04R\x0eresponseFormat\x88\x01\x01\x42\n\n\x08_api_keyB\x12\n\x10_include_contentB\x08\n\x06_scopeB\x08\n\x06_modelB\x12\n\x10_response_format\"k\n\x0e\x41nswerResponse\x12\x16\n\x06\x61nswer\x18\x01 \x01(\tR\x06\x61nswer\x12\x41\n\tcitations\x18\x02 \x03(\x0b\x32#.seltz_public_api.proto.v1.CitationR\tcitations\"G\n\x08\x43itation\x12\x10\n\x03url\x18\x01 \x01(\tR\x03url\x12\x1d\n\x07\x63ontent\x18\x02 \x01(\tH\x00R\x07\x63ontent\x88\x01\x01\x42\n\n\x08_content\"\xad\x01\n\x14\x41nswerStreamResponse\x12\x44\n\tcitations\x18\x01 \x01(\x0b\x32$.seltz_public_api.proto.v1.CitationsH\x00R\tcitations\x12\x1f\n\ntext_delta\x18\x02 \x01(\tH\x00R\ttextDelta\x12%\n\rfinish_reason\x18\x03 \x01(\tH\x00R\x0c\x66inishReasonB\x07\n\x05\x65vent\"N\n\tCitations\x12\x41\n\tcitations\x18\x01 \x03(\x0b\x32#.seltz_public_api.proto.v1.CitationR\tcitations2\xe5\x01\n\rAnswerService\x12_\n\x06\x41nswer\x12(.seltz_public_api.proto.v1.AnswerRequest\x1a).seltz_public_api.proto.v1.AnswerResponse\"\x00\x12s\n\x0c\x41nswerStream\x12..seltz_public_api.proto.v1.AnswerStreamRequest\x1a/.seltz_public_api.proto.v1.AnswerStreamResponse\"\x00\x30\x01\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n&seltz_public_api/proto/v1/answer.proto\x12\x19seltz_public_api.proto.v1\"\xd9\x02\n\rAnswerRequest\x12\x14\n\x05query\x18\x01 \x01(\tR\x05query\x12\x1c\n\x07\x61pi_key\x18\x02 \x01(\tH\x00R\x06\x61piKey\x88\x01\x01\x12,\n\x0finclude_content\x18\x03 \x01(\x08H\x01R\x0eincludeContent\x88\x01\x01\x12\x19\n\x05scope\x18\x04 \x01(\tH\x02R\x05scope\x88\x01\x01\x12\x19\n\x05model\x18\x05 \x01(\tH\x03R\x05model\x88\x01\x01\x12,\n\x0fresponse_format\x18\x06 \x01(\tH\x04R\x0eresponseFormat\x88\x01\x01\x12(\n\rsystem_prompt\x18\x07 \x01(\tH\x05R\x0csystemPrompt\x88\x01\x01\x42\n\n\x08_api_keyB\x12\n\x10_include_contentB\x08\n\x06_scopeB\x08\n\x06_modelB\x12\n\x10_response_formatB\x10\n\x0e_system_prompt\"\xdf\x02\n\x13\x41nswerStreamRequest\x12\x14\n\x05query\x18\x01 \x01(\tR\x05query\x12\x1c\n\x07\x61pi_key\x18\x02 \x01(\tH\x00R\x06\x61piKey\x88\x01\x01\x12,\n\x0finclude_content\x18\x03 \x01(\x08H\x01R\x0eincludeContent\x88\x01\x01\x12\x19\n\x05scope\x18\x04 \x01(\tH\x02R\x05scope\x88\x01\x01\x12\x19\n\x05model\x18\x05 \x01(\tH\x03R\x05model\x88\x01\x01\x12,\n\x0fresponse_format\x18\x06 \x01(\tH\x04R\x0eresponseFormat\x88\x01\x01\x12(\n\rsystem_prompt\x18\x07 \x01(\tH\x05R\x0csystemPrompt\x88\x01\x01\x42\n\n\x08_api_keyB\x12\n\x10_include_contentB\x08\n\x06_scopeB\x08\n\x06_modelB\x12\n\x10_response_formatB\x10\n\x0e_system_prompt\"k\n\x0e\x41nswerResponse\x12\x16\n\x06\x61nswer\x18\x01 \x01(\tR\x06\x61nswer\x12\x41\n\tcitations\x18\x02 \x03(\x0b\x32#.seltz_public_api.proto.v1.CitationR\tcitations\"G\n\x08\x43itation\x12\x10\n\x03url\x18\x01 \x01(\tR\x03url\x12\x1d\n\x07\x63ontent\x18\x02 \x01(\tH\x00R\x07\x63ontent\x88\x01\x01\x42\n\n\x08_content\"\xad\x01\n\x14\x41nswerStreamResponse\x12\x44\n\tcitations\x18\x01 \x01(\x0b\x32$.seltz_public_api.proto.v1.CitationsH\x00R\tcitations\x12\x1f\n\ntext_delta\x18\x02 \x01(\tH\x00R\ttextDelta\x12%\n\rfinish_reason\x18\x03 \x01(\tH\x00R\x0c\x66inishReasonB\x07\n\x05\x65vent\"N\n\tCitations\x12\x41\n\tcitations\x18\x01 \x03(\x0b\x32#.seltz_public_api.proto.v1.CitationR\tcitations2\xe5\x01\n\rAnswerService\x12_\n\x06\x41nswer\x12(.seltz_public_api.proto.v1.AnswerRequest\x1a).seltz_public_api.proto.v1.AnswerResponse\"\x00\x12s\n\x0c\x41nswerStream\x12..seltz_public_api.proto.v1.AnswerStreamRequest\x1a/.seltz_public_api.proto.v1.AnswerStreamResponse\"\x00\x30\x01\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -32,17 +32,17 @@ _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'seltz_public_api.proto.v1.a
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
   _globals['_ANSWERREQUEST']._serialized_start=70
-  _globals['_ANSWERREQUEST']._serialized_end=355
-  _globals['_ANSWERSTREAMREQUEST']._serialized_start=358
-  _globals['_ANSWERSTREAMREQUEST']._serialized_end=649
-  _globals['_ANSWERRESPONSE']._serialized_start=651
-  _globals['_ANSWERRESPONSE']._serialized_end=758
-  _globals['_CITATION']._serialized_start=760
-  _globals['_CITATION']._serialized_end=831
-  _globals['_ANSWERSTREAMRESPONSE']._serialized_start=834
-  _globals['_ANSWERSTREAMRESPONSE']._serialized_end=1007
-  _globals['_CITATIONS']._serialized_start=1009
-  _globals['_CITATIONS']._serialized_end=1087
-  _globals['_ANSWERSERVICE']._serialized_start=1090
-  _globals['_ANSWERSERVICE']._serialized_end=1319
+  _globals['_ANSWERREQUEST']._serialized_end=415
+  _globals['_ANSWERSTREAMREQUEST']._serialized_start=418
+  _globals['_ANSWERSTREAMREQUEST']._serialized_end=769
+  _globals['_ANSWERRESPONSE']._serialized_start=771
+  _globals['_ANSWERRESPONSE']._serialized_end=878
+  _globals['_CITATION']._serialized_start=880
+  _globals['_CITATION']._serialized_end=951
+  _globals['_ANSWERSTREAMRESPONSE']._serialized_start=954
+  _globals['_ANSWERSTREAMRESPONSE']._serialized_end=1127
+  _globals['_CITATIONS']._serialized_start=1129
+  _globals['_CITATIONS']._serialized_end=1207
+  _globals['_ANSWERSERVICE']._serialized_start=1210
+  _globals['_ANSWERSERVICE']._serialized_end=1439
 # @@protoc_insertion_point(module_scope)

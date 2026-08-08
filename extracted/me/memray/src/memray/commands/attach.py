@@ -11,6 +11,7 @@ import signal
 import socket
 import subprocess
 import sys
+import sysconfig
 import tempfile
 import textwrap
 import threading
@@ -133,7 +134,16 @@ elif {mode!r} == "FOR_DURATION":
 
 def debugger_inject(debugger: str, pid: int, port: int, verbose: bool) -> str | None:
     """Execute a file in a running Python process using a debugger."""
-    injecter = pathlib.Path(memray.__file__).parent / "_inject.abi3.so"
+    # The injecter is a limited-API extension, so its filename carries an ABI
+    # tag. That tag is normally "abi3", but free-threaded builds get their own
+    # stable ABI ("abi3t") starting in 3.15 (PEP 803). Earlier free-threaded
+    # builds (e.g. 3.14t) still use "abi3".
+    free_threaded = bool(sysconfig.get_config_var("Py_GIL_DISABLED"))
+    if free_threaded and sys.version_info >= (3, 15):
+        abi = "abi3t"
+    else:
+        abi = "abi3"
+    injecter = pathlib.Path(memray._memray.__file__).parent / f"_inject.{abi}.so"
     assert injecter.exists()
 
     gdb_cmd = [
@@ -230,6 +240,13 @@ def debugger_inject(debugger: str, pid: int, port: int, verbose: bool) -> str | 
     if "MEMRAY: Checking if process is Python 3.7+." in output:
         if "MEMRAY: Process is Python 3.7+." not in output:
             return "The process does not seem to be running Python 3.7 or newer."
+
+    if "cannot open shared object file" in output:
+        return (
+            "The target process couldn't open the memray shared library.\n"
+            "This can occur if the memray installation is owned by a different user "
+            "and is inaccessible to the target process."
+        )
 
     return "An unexpected error occurred. Run with --verbose to debug the failure."
 
@@ -546,6 +563,11 @@ class AttachCommand(_DebuggerCommand):
                 raise MemrayCommandError(
                     f"Failed to start tracking in remote process: {err}",
                     exit_code=1,
+                )
+            if duration:
+                print(
+                    f"memray: tracking PID {args.pid} for {duration}s in the"
+                    f" background. Run `memray detach {args.pid}` to stop early."
                 )
             return
 

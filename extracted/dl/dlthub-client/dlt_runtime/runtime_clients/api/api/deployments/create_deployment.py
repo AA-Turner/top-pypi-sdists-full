@@ -100,8 +100,9 @@ def sync_detailed(
     """CreateDeployment
 
 
-    Mint a short-lived ``DataplaneUserJwt`` (carrying ``deployment:upload`` and
-    ``ws:read`` grants) and return the absolute DP API URL where the tarball +
+    Mint a short-lived ``DataplaneUserJwt`` (carrying a ``deployment:upload``
+    grant, with the workspace taken from its signed binding) and return the
+    absolute DP API URL where the tarball +
     requirements bytes are POSTed next. **No database row is created in this
     step** — the row is INSERTed by the DP API after vault store succeeds, via
     the ``dp-api → api DEPLOYMENTS_WRITE`` write-back edge.
@@ -145,8 +146,9 @@ def sync(
     """CreateDeployment
 
 
-    Mint a short-lived ``DataplaneUserJwt`` (carrying ``deployment:upload`` and
-    ``ws:read`` grants) and return the absolute DP API URL where the tarball +
+    Mint a short-lived ``DataplaneUserJwt`` (carrying a ``deployment:upload``
+    grant, with the workspace taken from its signed binding) and return the
+    absolute DP API URL where the tarball +
     requirements bytes are POSTed next. **No database row is created in this
     step** — the row is INSERTed by the DP API after vault store succeeds, via
     the ``dp-api → api DEPLOYMENTS_WRITE`` write-back edge.
@@ -184,8 +186,9 @@ async def asyncio_detailed(
     """CreateDeployment
 
 
-    Mint a short-lived ``DataplaneUserJwt`` (carrying ``deployment:upload`` and
-    ``ws:read`` grants) and return the absolute DP API URL where the tarball +
+    Mint a short-lived ``DataplaneUserJwt`` (carrying a ``deployment:upload``
+    grant, with the workspace taken from its signed binding) and return the
+    absolute DP API URL where the tarball +
     requirements bytes are POSTed next. **No database row is created in this
     step** — the row is INSERTed by the DP API after vault store succeeds, via
     the ``dp-api → api DEPLOYMENTS_WRITE`` write-back edge.
@@ -227,8 +230,9 @@ async def asyncio(
     """CreateDeployment
 
 
-    Mint a short-lived ``DataplaneUserJwt`` (carrying ``deployment:upload`` and
-    ``ws:read`` grants) and return the absolute DP API URL where the tarball +
+    Mint a short-lived ``DataplaneUserJwt`` (carrying a ``deployment:upload``
+    grant, with the workspace taken from its signed binding) and return the
+    absolute DP API URL where the tarball +
     requirements bytes are POSTed next. **No database row is created in this
     step** — the row is INSERTed by the DP API after vault store succeeds, via
     the ``dp-api → api DEPLOYMENTS_WRITE`` write-back edge.

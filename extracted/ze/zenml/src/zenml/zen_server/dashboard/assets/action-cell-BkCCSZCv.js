@@ -1,0 +1,1 @@
+import{D as e,E as t}from"./chunk-V7LPWEOD-_NoD23F_.js";var n=e();function r({children:e,className:r,...i}){return(0,n.jsx)(`div`,{className:t(`flex items-center justify-end`,r),...i,children:e})}export{r as t};

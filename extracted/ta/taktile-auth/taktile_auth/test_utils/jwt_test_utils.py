@@ -125,22 +125,26 @@ def mock_auth_api_failing(mocker: MockerFixture) -> None:
 
 
 @pytest.fixture
-def create_jwt() -> t.Callable[[t.List[str], uuid.UUID, int, int], str]:
+def create_jwt() -> t.Callable[..., str]:
     def create(
         roles: t.List[str] = [],
         user_id: uuid.UUID = uuid.uuid4(),
         exp: int = int(time.time()) + 100,
         iat: int = int(time.time()) - 10,
+        aud: str = settings.ENV,
+        act: t.Optional[t.Dict[str, t.Any]] = None,
     ) -> str:
-        token = {
+        token: t.Dict[str, t.Any] = {
             "iss": "iss",
             "sub": f"user:{user_id}",
-            "aud": settings.ENV,
+            "aud": aud,
             "exp": exp,
             "iat": iat,
             "roles": roles,
             "actor_name": f"actor_name_{user_id}",
         }
+        if act is not None:
+            token["act"] = act
 
         return jwt.encode(
             token,

@@ -21,7 +21,8 @@
 #include "lockdet/lockdet_core.h"
 #include "loop_filter/loop_filter_core.h"
 #include "nco/nco_core.h"
-#include "telemetry/telemetry.h"
+#include "dp_tlm/dp_tlm_core.h"
+#include "telemetry/telemetry_core.h"
 #ifdef __cplusplus
 extern "C"
 {
@@ -382,10 +383,10 @@ extern "C"
    * >>> from doppler.track import SymbolSync
    * >>> ss = SymbolSync(sps=4, bn=0.02, zeta=0.707)
    * >>> x = np.repeat([1.0, -1.0, 1.0, -1.0], 4 * 32).astype(np.complex64)
-   * >>> y = ss.steps(x)                # oversampled -> one sample per symbol
+   * >>> y = ss.steps(x)             # oversampled -> one sample/symbol
    * >>> y.shape[0]
    * 127
-   * >>> sorted(set(np.where(y.real >= 0, 1, -1).tolist()))   # recovered +/-1
+   * >>> sorted(set(np.where(y.real >= 0, 1, -1).tolist()))  # got +/-1
    * [-1, 1]
    * >>> round(ss.rate, 1)              # tracked samples/symbol
    * 4.0
@@ -410,7 +411,7 @@ extern "C"
    * @code
    * >>> from doppler.track import SymbolSync
    * >>> ss = SymbolSync(sps=4, bn=0.01, zeta=0.707)
-   * >>> ss.configure(bn=0.05, zeta=1.0)   # widen and over-damp for acquisition
+   * >>> ss.configure(bn=0.05, zeta=1.0)   # widen + over-damp, to acquire
    * >>> round(ss.bn, 3)
    * 0.05
    *
@@ -534,7 +535,7 @@ extern "C"
    * verify-counted lockdet decision, 0/1).
    * Passing NULL detaches.  Setup path, never hot: call before the
    * producer thread starts stepping; the context is borrowed and must
-   * outlive the attachment (SPSC rules in telemetry/telemetry.h).
+   * outlive the attachment (SPSC rules in dp_tlm/dp_tlm_core.h).
    * @param state  Must be non-NULL.
    * @param tlm    Telemetry context to attach, or NULL to detach.
    * @param prefix Probe-name prefix, e.g. "sync" or "rx.sync".
@@ -549,7 +550,7 @@ extern "C"
    * >>> tlm = Telemetry(1 << 12)
    * >>> ss = SymbolSync(sps=4, bn=0.01, zeta=0.707)
    * >>> ss.set_telemetry(tlm, "sync")
-   * >>> sorted(tlm.probe_names())
+   * >>> sorted(tlm.probe_names)
    * ['sync.e', 'sync.freq', 'sync.lock', 'sync.locked', 'sync.rate']
    * >>> x = np.repeat([1 + 1j, -1 - 1j], 4 * 64).astype(np.complex64)
    * >>> _ = ss.steps(x)

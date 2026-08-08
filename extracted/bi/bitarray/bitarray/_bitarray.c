@@ -3741,7 +3741,7 @@ binode_delete(binode *nd)
 static int
 binode_insert_symbol(binode *tree, bitarrayobject *a, PyObject *symbol)
 {
-    binode *nd = tree, *prev;
+    binode *nd = tree;
     Py_ssize_t i;
 
     if (a->nbits > MAX_CODE_LENGTH) {
@@ -3752,20 +3752,21 @@ binode_insert_symbol(binode *tree, bitarrayobject *a, PyObject *symbol)
 
     for (i = 0; i < a->nbits; i++) {
         int k = getbit(a, i);
+        binode *next = nd->child[k];
 
-        prev = nd;
-        nd = nd->child[k];
-
-        if (nd) {
-            if (nd->symbol)     /* we cannot have already a symbol */
+        if (next) {
+            if (next->symbol)  /* an existing code ends here */
                 goto ambiguity;
+            /* existing node without a symbol must be an internal node */
+            assert(next->child[0] || next->child[1]);
         }
         else {            /* if node does not exist, create new one */
-            nd = binode_new();
-            if (nd == NULL)
+            next = binode_new();
+            if (next == NULL)
                 return -1;
-            prev->child[k] = nd;
+            nd->child[k] = next;
         }
+        nd = next;  /* descend to the selected child */
     }
     /* the new leaf node cannot already have a symbol or children */
     if (nd->symbol || nd->child[0] || nd->child[1])
@@ -3831,34 +3832,37 @@ binode_make_tree(PyObject *codedict)
     return tree;
 }
 
-/* Traverse using the branches corresponding to bits in ba, starting
-   at *indexp.  Return the symbol at the leaf node, or NULL when the end
-   of the bitarray has been reached.  On error, set the appropriate exception
-   and also return NULL.
+/* Starting at *index, follow bits from a through tree until reaching a leaf.
+   Advance *index as valid tree edges are traversed, including when traversal
+   ultimately fails, and return the leaf's symbol as a borrowed reference.
+   Return NULL without an exception when called at the end of a; return NULL
+   with an exception for an invalid or incomplete code.
 */
 static PyObject *
-binode_traverse(binode *tree, bitarrayobject *ba, Py_ssize_t *indexp)
+binode_traverse(binode *tree, bitarrayobject *a, Py_ssize_t *index)
 {
     binode *nd = tree;
-    Py_ssize_t start = *indexp;
+    Py_ssize_t start = *index;
 
-    while (*indexp < ba->nbits) {
+    while (*index < a->nbits) {
         assert(nd);
-        nd = nd->child[getbit(ba, *indexp)];
+        nd = nd->child[getbit(a, *index)];
         if (nd == NULL)
             return PyErr_Format(PyExc_ValueError,
-                                "prefix code unrecognized in bitarray "
-                                "at position %zd .. %zd", start, *indexp);
-        (*indexp)++;
-        if (nd->symbol) {       /* leaf */
+                                "prefix code unrecognized in bitarray at "
+                                "position %zd .. %zd", start, *index);
+        (*index)++;
+        if (nd->symbol) {  /* leaf */
             assert(nd->child[0] == NULL && nd->child[1] == NULL);
             return nd->symbol;
         }
     }
-    if (nd != tree)
-        PyErr_Format(PyExc_ValueError,
-                     "incomplete prefix code at position %zd", start);
-    return NULL;
+
+    if (*index == start)
+        return NULL;  /* stop iteration */
+
+    return PyErr_Format(PyExc_ValueError,
+                        "incomplete prefix code at position %zd", start);
 }
 
 /* add the node's symbol to given dict */
@@ -3918,6 +3922,31 @@ binode_nodes(binode *nd, Py_ssize_t *n1, Py_ssize_t *n2, Py_ssize_t *ns)
     binode_nodes(nd->child[0], n1, n2, ns);
     binode_nodes(nd->child[1], n1, n2, ns);
 }
+
+static PyObject *
+binode_tuple_nodes(binode *nd)
+{
+    Py_ssize_t n1 = 0, n2 = 0, ns = 0;
+
+    binode_nodes(nd, &n1, &n2, &ns);
+    return Py_BuildValue("nnn", n1, n2, ns);
+}
+
+#ifndef NDEBUG
+static binode *
+binode_getnode(binode *tree, bitarrayobject *a)
+{
+    binode *nd = tree;
+    Py_ssize_t i;
+
+    for (i = 0; i < a->nbits; i++) {
+        nd = nd->child[getbit(a, i)];
+        if (nd == NULL)
+            return NULL;
+    }
+    return nd;
+}
+#endif  /* NDEBUG */
 
 /******************************** decodetree ******************************/
 
@@ -4014,9 +4043,7 @@ reconstruction of the code dict which the object was created with.");
 static PyObject *
 decodetree_nodes(decodetreeobject *self)
 {
-    Py_ssize_t n1 = 0, n2 = 0, ns = 0;
-    binode_nodes(self->tree, &n1, &n2, &ns);
-    return Py_BuildValue("nnn", n1, n2, ns);
+    return binode_tuple_nodes(self->tree);
 }
 
 PyDoc_STRVAR(nodes_doc,
@@ -4026,6 +4053,64 @@ Return tuple with number of:\n\n\
 0. incomplete nodes (pointing to a single child node)\n\
 1. complete nodes (pointing to two child nodes)\n\
 2. leaf nodes (pointing to a symbol)\n");
+
+
+#ifndef NDEBUG
+static PyObject *
+make_node_dict(binode *nd)
+{
+    const char *keys[] = {"left", "right"};
+    PyObject *dict;
+    int k;
+
+    assert(nd->symbol == NULL);
+
+    dict = PyDict_New();
+    if (dict == NULL)
+        return NULL;
+
+    for (k = 0; k < 2; k++) {
+        binode *child = nd->child[k];
+
+        if (child) {
+            PyObject *nodes = binode_tuple_nodes(child);
+
+            if (!nodes || PyDict_SetItemString(dict, keys[k], nodes) < 0) {
+                Py_DECREF(dict);
+                Py_XDECREF(nodes);
+                return NULL;
+            }
+            Py_DECREF(nodes);
+        }
+    }
+    return dict;
+}
+
+static PyObject *
+decodetree_getnode(decodetreeobject *self, PyObject *obj)
+{
+    binode *nd;
+
+    assert(bitarray_Check(obj));
+
+    Py_BEGIN_CRITICAL_SECTION(obj);
+    nd = binode_getnode(self->tree, (bitarrayobject *) obj);
+    Py_END_CRITICAL_SECTION();
+
+    if (nd == NULL) {
+        PyErr_SetString(PyExc_ValueError, "node does not exist");
+        return NULL;
+    }
+
+    if (nd->symbol) {
+        assert(nd->child[0] == NULL && nd->child[1] == NULL);
+        return Py_NewRef(nd->symbol);
+    }
+    else {
+        return make_node_dict(nd);
+    }
+}
+#endif  /* NDEBUG */
 
 
 static PyObject *
@@ -4047,12 +4132,13 @@ decodetree_dealloc(decodetreeobject *self)
 }
 
 static PyMethodDef decodetree_methods[] = {
-    {"nodes",      (PyCFunction) decodetree_nodes,    METH_NOARGS,
-     nodes_doc},
-    {"todict",     (PyCFunction) decodetree_todict,   METH_NOARGS,
-     todict_doc},
-    {"__sizeof__", (PyCFunction) decodetree_sizeof,   METH_NOARGS, 0},
-    {NULL,         NULL}  /* sentinel */
+    {"nodes",      (PyCFunction) decodetree_nodes,   METH_NOARGS, nodes_doc},
+    {"todict",     (PyCFunction) decodetree_todict,  METH_NOARGS, todict_doc},
+    {"__sizeof__", (PyCFunction) decodetree_sizeof,  METH_NOARGS, 0},
+#ifndef NDEBUG
+    {"_getnode",   (PyCFunction) decodetree_getnode, METH_O,      0},
+#endif
+    {NULL}  /* sentinel */
 };
 
 PyDoc_STRVAR(decodetree_doc,
@@ -4245,7 +4331,7 @@ Raises `ValueError` if count is out of range.");
 static PyMethodDef decodeiter_methods[] = {
     {"skipbits",    (PyCFunction) decodeiter_skipbits, METH_VARARGS,
      decodeiter_skipbits_doc},
-    {NULL}
+    {NULL}  /* sentinel */
 };
 
 
@@ -4565,7 +4651,7 @@ static PyMethodDef bitarray_methods[] = {
     {"_overlap",     (PyCFunction) bitarray_overlap,     METH_O,       0},
 #endif
 
-    {NULL,           NULL}  /* sentinel */
+    {NULL}  /* sentinel */
 };
 
 /* ------------------------ bitarray initialization -------------------- */
@@ -5194,7 +5280,7 @@ static PyMethodDef module_functions[] = {
      get_default_endian_doc},
     {"_sysinfo",            (PyCFunction) sysinfo,            METH_VARARGS,
      sysinfo_doc},
-    {NULL,                  NULL}  /* sentinel */
+    {NULL}  /* sentinel */
 };
 
 /******************************* Install Module ***************************/

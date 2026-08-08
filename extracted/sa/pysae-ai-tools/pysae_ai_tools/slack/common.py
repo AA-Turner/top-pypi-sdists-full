@@ -51,14 +51,23 @@ REVIEW_METADATA_EVENT_TYPE = "ai_tools_review_request"
 # matching the rendered header text by prefix.
 PRERELEASE_RECAP_METADATA_EVENT_TYPE = "ai_tools_prerelease_recap"
 
-# Substring uniquely identifying a message our tooling posted. It must be specific
-# enough that a human can't reproduce it incidentally: we key on the PyPI link the
-# ``--ai-footer`` attribution embeds (``<https://pypi.org/project/pysae-ai-tools|…>``),
-# NOT on the bare package name (which a teammate could type in a CLI snippet or quote).
-# Used as the legacy-fallback guard so the URL scan only ever matches *our* messages,
-# never a human's that happens to cite the same MR link. Must stay a substring of
-# ``post_message.AI_FOOTER_TEXT``.
-AI_TOOLS_FOOTER_MARKER = "pypi.org/project/pysae-ai-tools"
+# Substrings uniquely identifying a message our tooling posted — the first one
+# must stay a substring of ``post_message.AI_FOOTER_TEXT``; the others match
+# messages posted by older versions and are never removed while such messages
+# remain findable (the fallback scan covers 30 days of history).
+#
+# Each must be specific enough that a human can't reproduce it incidentally,
+# knowing the scan covers the *whole* message text, not just the footer. The
+# bare repo URL would fail that bar: any human message citing an ai-tools MR
+# link contains it. What a human can't produce is the mrkdwn ``<url|label>``
+# form with our exact label — Slack's composer never emits it from a pasted
+# link — hence the ``|pysae-ai-tools`` tail in the current marker. The legacy
+# marker keyed on the PyPI page link, gone with the move to the private
+# registry.
+AI_TOOLS_FOOTER_MARKERS = (
+    "gitlab.com/pysae/tools/ai-tools|pysae-ai-tools",
+    "pypi.org/project/pysae-ai-tools",
+)
 
 
 def resolve_channel(value: str) -> str:

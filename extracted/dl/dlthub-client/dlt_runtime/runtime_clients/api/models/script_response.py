@@ -31,6 +31,7 @@ class ScriptResponse:
         job_definition_engine_version (int): Manifest engine version for future migration
         job_definition_hash (str): Hash of the job definition for change detection
         job_ref (str): Canonical job reference, unique per workspace
+        profile (str): The profile the script runs under
         public_url (None | str): The public URL where the script can be accessed without authentication, is None if not
             enabled
         script_type (ScriptType): The type of the script: batch, interactive, or stream
@@ -49,8 +50,11 @@ class ScriptResponse:
         name (None | str | Unset): Display name for the job
         next_scheduled_run (datetime.datetime | None | Unset): The next scheduled run of the script, is None if no
             schedule is set
+        paused (bool | Unset): Whether the job's scheduled runs are paused. The scheduler skips it, both on its own
+            schedule and through a freshness cascade; manual runs, `trigger` and `job.success:`/`job.fail:` chains are
+            unaffected. Only a job with `next_scheduled_run` can be paused, and losing that schedule on a deploy clears the
+            pause. Default: False.
         pipeline_name (None | str | Unset): Pipeline name this job operates on (computed from job_definition)
-        profile (None | str | Unset): The name of the profile to use for the script
         public_secret (None | Unset | UUID): The secret UUID used to generate the public URL for this script
         triggers (list[str] | None | Unset): Trigger strings for this job (computed from job_definition)
     """
@@ -63,6 +67,7 @@ class ScriptResponse:
     job_definition_engine_version: int
     job_definition_hash: str
     job_ref: str
+    profile: str
     public_url: None | str
     script_type: ScriptType
     script_url: None | str
@@ -77,8 +82,8 @@ class ScriptResponse:
     interval_start: datetime.datetime | None | Unset = UNSET
     name: None | str | Unset = UNSET
     next_scheduled_run: datetime.datetime | None | Unset = UNSET
+    paused: bool | Unset = False
     pipeline_name: None | str | Unset = UNSET
-    profile: None | str | Unset = UNSET
     public_secret: None | Unset | UUID = UNSET
     triggers: list[str] | None | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -99,6 +104,8 @@ class ScriptResponse:
         job_definition_hash = self.job_definition_hash
 
         job_ref = self.job_ref
+
+        profile = self.profile
 
         public_url: None | str
         public_url = self.public_url
@@ -171,17 +178,13 @@ class ScriptResponse:
         else:
             next_scheduled_run = self.next_scheduled_run
 
+        paused = self.paused
+
         pipeline_name: None | str | Unset
         if isinstance(self.pipeline_name, Unset):
             pipeline_name = UNSET
         else:
             pipeline_name = self.pipeline_name
-
-        profile: None | str | Unset
-        if isinstance(self.profile, Unset):
-            profile = UNSET
-        else:
-            profile = self.profile
 
         public_secret: None | str | Unset
         if isinstance(self.public_secret, Unset):
@@ -212,6 +215,7 @@ class ScriptResponse:
                 "job_definition_engine_version": job_definition_engine_version,
                 "job_definition_hash": job_definition_hash,
                 "job_ref": job_ref,
+                "profile": profile,
                 "public_url": public_url,
                 "script_type": script_type,
                 "script_url": script_url,
@@ -237,10 +241,10 @@ class ScriptResponse:
             field_dict["name"] = name
         if next_scheduled_run is not UNSET:
             field_dict["next_scheduled_run"] = next_scheduled_run
+        if paused is not UNSET:
+            field_dict["paused"] = paused
         if pipeline_name is not UNSET:
             field_dict["pipeline_name"] = pipeline_name
-        if profile is not UNSET:
-            field_dict["profile"] = profile
         if public_secret is not UNSET:
             field_dict["public_secret"] = public_secret
         if triggers is not UNSET:
@@ -268,6 +272,8 @@ class ScriptResponse:
         job_definition_hash = d.pop("job_definition_hash")
 
         job_ref = d.pop("job_ref")
+
+        profile = d.pop("profile")
 
         def _parse_public_url(data: object) -> None | str:
             if data is None:
@@ -397,6 +403,8 @@ class ScriptResponse:
             d.pop("next_scheduled_run", UNSET)
         )
 
+        paused = d.pop("paused", UNSET)
+
         def _parse_pipeline_name(data: object) -> None | str | Unset:
             if data is None:
                 return data
@@ -405,15 +413,6 @@ class ScriptResponse:
             return cast(None | str | Unset, data)
 
         pipeline_name = _parse_pipeline_name(d.pop("pipeline_name", UNSET))
-
-        def _parse_profile(data: object) -> None | str | Unset:
-            if data is None:
-                return data
-            if isinstance(data, Unset):
-                return data
-            return cast(None | str | Unset, data)
-
-        profile = _parse_profile(d.pop("profile", UNSET))
 
         def _parse_public_secret(data: object) -> None | Unset | UUID:
             if data is None:
@@ -458,6 +457,7 @@ class ScriptResponse:
             job_definition_engine_version=job_definition_engine_version,
             job_definition_hash=job_definition_hash,
             job_ref=job_ref,
+            profile=profile,
             public_url=public_url,
             script_type=script_type,
             script_url=script_url,
@@ -472,8 +472,8 @@ class ScriptResponse:
             interval_start=interval_start,
             name=name,
             next_scheduled_run=next_scheduled_run,
+            paused=paused,
             pipeline_name=pipeline_name,
-            profile=profile,
             public_secret=public_secret,
             triggers=triggers,
         )

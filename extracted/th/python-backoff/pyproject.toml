@@ -1,10 +1,10 @@
 [project]
 name = "python-backoff"
-version = "2.3.1"
+version = "2.4.0"
 description = "Function decoration for backoff and retry"
 authors = [{ name = "Bob Green", email = "rgreen@aquent.com" }]
 maintainers = [{ name = "Edgar Ramírez-Mondragón", email = "edgarrm358@gmail.com" }]
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 readme = "README.rst"
 license = "MIT"
 keywords = [
@@ -15,12 +15,10 @@ keywords = [
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
     "Natural Language :: English",
     "Operating System :: OS Independent",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
@@ -45,14 +43,15 @@ dev = [
     { include-group = "typing" },
 ]
 docs = [
-    "mkdocstrings[python]>=0.22.0",
-    "zensical>=0.0.2",
+    "mkdocstrings[python]~=1.0.2",
+    "zensical==0.0.53",
 ]
 lint = [
-    "ruff>=0.12.9",
+    "ruff>=0.16.0",
 ]
 test = [
     "coverage>=7.2.7",
+    "dirty-equals>=0.11",
     "importlib-metadata>=8.5.0",
     "packaging>=25.0",
     "pytest>=7.1.2",
@@ -64,7 +63,9 @@ test = [
 typing = [
     { include-group = "test" },
     "mypy>=0.942",
-    "types-requests>=2.27.20",
+    "pyrefly>=1.1.1",
+    "ty>=0.0.59",
+    "typing-extensions>=4.1; python_version < '3.10'"
 ]
 
 [tool.hatch.build.targets.sdist]
@@ -74,42 +75,29 @@ include = ["backoff", "tests"]
 include = ["backoff"]
 
 [tool.tox]
-min_version = "4.22"
-requires = [ "tox", "tox-gh", "tox-uv" ]
+requires = [ "tox>=4.53", "tox-uv" ]
 env_list = [
   "format",
-  "3.8",
-  "3.9",
-  "3.10",
-  "3.11",
-  "3.12",
-  "3.13",
-  "3.14",
-  "3.15",
+  { product = [
+    { prefix = "3.", start = 9 },
+  ] },
   "coverage",
   "lint",
   "typing",
+  "docs",
 ]
 
 [tool.tox.env_run_base]
-description = "run unit tests"
+description = "run unit tests on Python {py_dot_ver}"
 dependency_groups = [ "test" ]
+uv_python_preference = "managed"
 commands = [
     [ "coverage", "run", "-m", "pytest", { replace = "posargs", default = [ "tests" ], extend = true } ],
 ]
 
 [tool.tox.env.coverage]
 description = "generate coverage report"
-depends = [
-  "3.8",
-  "3.9",
-  "3.10",
-  "3.11",
-  "3.12",
-  "3.13",
-  "3.14",
-  "3.15",
-]
+depends = ["3.*"]
 dependency_groups = [ "test" ]
 commands = [
   [ "coverage", "combine" ],
@@ -121,20 +109,34 @@ commands = [
 description = "format code"
 dependency_groups = [ "lint" ]
 commands = [
-    [ "ruff", "check", "--fix", { replace = "posargs", default = [ "backoff", "tests" ], extend = true } ],
-    # [ "ruff", "format", { replace = "posargs", default = [ "backoff", "tests" ], extend = true } ],
+    [ "ruff", "check", "--fix", { replace = "posargs", default = [ "backoff", "tests", "docs" ], extend = true } ],
+    [ "ruff", "format", { replace = "posargs", default = [ "backoff", "tests", "docs" ], extend = true } ],
 ]
 
 [tool.tox.env.lint]
 description = "lint code"
 dependency_groups = [ "lint" ]
+labels = [ "check" ]
 commands = [
-    [ "ruff", "check", { replace = "posargs", default = [ "backoff", "tests" ], extend = true } ],
+    [
+      "ruff",
+      "check",
+      { replace = "if", condition = "env.GITHUB_ACTIONS == 'true'", then = ["--output-format=github"], extend = true },
+      { replace = "posargs", default = [ "backoff", "tests", "docs" ], extend = true },
+    ],
+    [
+      "ruff",
+      "format",
+      "--check",
+      { replace = "if", condition = "env.GITHUB_ACTIONS == 'true'", then = ["--output-format=github"], extend = true },
+      { replace = "posargs", default = [ "backoff", "tests", "docs" ], extend = true },
+    ],
 ]
 
 [tool.tox.env.typing]
 description = "run type checking"
 dependency_groups = [ "typing" ]
+labels = [ "check" ]
 commands = [
   [
     "mypy",
@@ -144,17 +146,32 @@ commands = [
       "tests",
     ], extend = true },
   ],
+  [
+    "ty",
+    "check",
+    { replace = "if", condition = "env.GITHUB_ACTIONS == 'true'", then = [ "--output-format=github" ], else = [], extend = true },
+    { replace = "posargs", default = [
+      "backoff",
+      "tests",
+    ], extend = true },
+  ],
+  [
+    "pyrefly",
+    "check",
+    { replace = "if", condition = "env.GITHUB_ACTIONS == 'true'", then = [ "--output-format=github" ], else = [], extend = true },
+    { replace = "posargs", default = [
+      "backoff",
+      "tests",
+    ], extend = true },
+  ],
 ]
 
-[tool.tox.gh.python]
-"3.15" = ["3.15"]
-"3.14" = ["3.14", "lint", "typing"]
-"3.13" = ["3.13"]
-"3.12" = ["3.12"]
-"3.11" = ["3.11"]
-"3.10" = ["3.10"]
-"3.9" = ["3.9"]
-"3.8" = ["3.8"]
+[tool.tox.env.docs]
+description = "build the documentation"
+deps = [ "-r ./requirements/docs.requirements.txt" ]
+commands = [
+    [ "zensical", { replace = "posargs", default = [ "build", "--strict" ], extend = true } ],
+]
 
 [tool.pytest.ini_options]
 filterwarnings = [
@@ -169,6 +186,8 @@ package = [
 
 [tool.ruff]
 line-length = 88
+preview = true
+required-version = ">=0.16.0"
 
 [tool.ruff.format]
 docstring-code-format = true
@@ -176,19 +195,51 @@ docstring-code-line-length = 20
 
 [tool.ruff.lint]
 extend-select = [
-  "SIM",  # flake8-simplify
-  "UP",   # pyupgrade
+  "YTT",   # flake8-2020
+  "ASYNC", # flake8-async
+  "B",     # flake8-bugbear
+  "C4",    # flake8-comprehensions
+  "DTZ",   # flake8-datetimez
+  "FA",    # flake8-future-annotations
+  "ISC",   # flake8-implicit-str-concat
+  "ICN",   # flake8-import-conventions
+  "LOG",   # flake8-logging
+  "G",     # flake8-logging-format
+  "PIE",   # flake8-pie
+  "T20",   # flake8-print
+  "PT",    # flake8-pytest-style
+  "RET",   # flake8-return
+  "SIM",   # flake8-simplify
+  "TC",    # flake8-type-checking
+  "I",     # isort
+  "PERF",  # Perflint
+  "UP",    # pyupgrade
+  "FURB",  # refurb
+  "RUF",   # Ruff-specific rules
 ]
 ignore = [
   # converting to a `yield from` expression is not safe because this library sends values via `send`
   # https://docs.astral.sh/ruff/rules/yield-in-for-loop/#fix-safety
-  "UP028",
+  "yield-in-for-loop",
 ]
+
+[tool.mypy]
+check_untyped_defs = true
+follow_untyped_imports = true
+warn_unreachable = true
+warn_unused_configs = true
+warn_unused_ignores = true
 
 [tool.ruff.lint.per-file-ignores]
 "**/doccmd_*.py" = [
-  "F811",  # redefinition of unused
-  "F821",  # undefined name
+  "redefined-while-unused",
+  "undefined-name",
+  "print",
+  "unused-async",
+]
+"tests/**.py" = [
+  "assert",
+  "unused-async",
 ]
 
 [tool.coverage.report]
@@ -202,6 +253,9 @@ relative_files = true
 source = [
   "backoff",
 ]
+
+[tool.pyrefly]
+preset = "legacy"
 
 [build-system]
 requires = ["hatchling"]

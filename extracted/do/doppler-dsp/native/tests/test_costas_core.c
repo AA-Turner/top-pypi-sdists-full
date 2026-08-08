@@ -396,14 +396,14 @@ main (void)
     costas_state_t *c   = costas_create (0.05, 0.707, 0.0, TS, 0.0);
     CHECK (tlm != NULL && c != NULL);
     CHECK (costas_set_telemetry (c, tlm, "car", 1) == DP_OK);
-    CHECK (dp_tlm_lookup (tlm, "car.lock") == c->tlm.id_lock);
-    CHECK (dp_tlm_lookup (tlm, "car.e") == c->tlm.id_e);
-    CHECK (dp_tlm_lookup (tlm, "car.freq") == c->tlm.id_freq);
-    CHECK (dp_tlm_lookup (tlm, "car.locked") == c->tlm.id_locked);
+    CHECK (dp_tlm_probe_id (tlm, "car.lock") == c->tlm.id_lock);
+    CHECK (dp_tlm_probe_id (tlm, "car.e") == c->tlm.id_e);
+    CHECK (dp_tlm_probe_id (tlm, "car.freq") == c->tlm.id_freq);
+    CHECK (dp_tlm_probe_id (tlm, "car.locked") == c->tlm.id_locked);
 
     size_t k = costas_steps (c, rx, L, out, NS);
     CHECK (k == NS);
-    size_t n_rec = dp_tlm_read (tlm, recs, 512);
+    size_t n_rec = dp_tlm_read (tlm, 512, recs, 512);
     CHECK (n_rec == 4 * NS); /* lock + e + freq + locked per symbol */
     /* The last records mirror the tracked state (flush order:
      * lock, e, freq, locked). */
@@ -420,7 +420,7 @@ main (void)
     CHECK (costas_set_telemetry (d, tlm, "car2", 2) == DP_OK);
     CHECK (costas_set_state (d, b1) == DP_OK);
     CHECK (d->tlm.ctx == tlm);
-    CHECK (d->tlm.id_e == dp_tlm_lookup (tlm, "car2.e"));
+    CHECK (d->tlm.id_e == dp_tlm_probe_id (tlm, "car2.e"));
     costas_get_state (d, b2);
     CHECK (memcmp (b1, b2, sb) == 0); /* attachment-independent bytes */
     free (b1);
@@ -431,7 +431,7 @@ main (void)
     CHECK (costas_set_telemetry (c, NULL, "car", 1) == DP_OK);
     CHECK (c->tlm.ctx == NULL);
     (void)costas_steps (c, rx, L, out, NS);
-    CHECK (dp_tlm_read (tlm, recs, 512) == 0);
+    CHECK (dp_tlm_read (tlm, 512, recs, 512) == 0);
 
     /* A full probe table fails the attach whole. */
     char pname[DP_TLM_NAME_MAX];

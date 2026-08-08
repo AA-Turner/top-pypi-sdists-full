@@ -1,8 +1,8 @@
 Metadata-Version: 2.4
 Name: dbt-duckdb
-Version: 1.10.1
+Version: 1.11.0
 Summary: The duckdb adapter plugin for dbt (data build tool)
-Home-page: https://github.com/jwills/dbt-duckdb
+Home-page: https://github.com/duckdb/dbt-duckdb
 Author: Josh Wills
 Author-email: joshwills+dbt@gmail.com
 License: Apache-2
@@ -27,7 +27,7 @@ Provides-Extra: glue
 Requires-Dist: boto3; extra == "glue"
 Requires-Dist: mypy-boto3-glue; extra == "glue"
 Provides-Extra: md
-Requires-Dist: duckdb==1.4.4; extra == "md"
+Requires-Dist: duckdb==1.5.5; extra == "md"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -54,7 +54,7 @@ This project is hosted on PyPI, so you should be able to install it and the nece
 
 `pip3 install dbt-duckdb`
 
-The latest supported version targets `dbt-core` versions >= 1.8.x and `duckdb` version 1.1.x, but we work hard to ensure that newer
+The latest supported version targets `dbt-core` versions >= 1.8.x and `duckdb` version >= 1.0.0, but we work hard to ensure that newer
 versions of DuckDB will continue to work with the adapter as they are released.
 
 ### Configuring Your Profile
@@ -83,6 +83,21 @@ If the database doesn't exist at the specified `path`, DuckDB will automatically
 to the basename of the file in the `path` argument with the suffix removed. For example, if the `path` is `/tmp/a/dbfile.duckdb`, the `database`
 field will be set to `dbfile`. If you are running in in-memory mode, then the `database` property will be automatically set to `memory`.
 
+#### Persisting dbt Docs as Comments
+
+dbt model and column descriptions are not persisted to the database by default. If your project documents models in schema YAML files, enable
+`persist_docs` so dbt-duckdb writes those descriptions as DuckDB relation and column comments:
+
+```
+models:
+  +persist_docs:
+    relation: true
+    columns: true
+```
+
+Persisted comments are useful context for anyone exploring the database. They also help AI agents and other automated tools understand table
+purpose, column meaning, and expected grain before they generate queries.
+
 #### Using MotherDuck
 
 As of `dbt-duckdb` 1.5.2, you can connect to a DuckDB instance running on [MotherDuck](http://www.motherduck.com) by setting your `path` to use a [md:<database> connection string](https://motherduck.com/docs/getting-started/connect-query-from-python/installation-authentication), just as you would with the DuckDB CLI
@@ -90,7 +105,7 @@ or the Python API.
 
 MotherDuck databases generally work the same way as local DuckDB databases from the perspective of dbt, but
 there are a [few differences to be aware of](https://motherduck.com/docs/architecture-and-capabilities#considerations-and-limitations):
-1. MotherDuck is compatible with client DuckDB versions 0.10.2 and older.
+1. MotherDuck is compatible with client DuckDB versions 0.10.2 and newer.
 1. MotherDuck preloads a set of the most common DuckDB extensions for you, but does not support loading custom extensions or user-defined functions.
 
 As of `dbt-duckdb` 1.9.6, you can also connect to a DuckDB instance running [hosted DuckLake on MotherDuck](https://motherduck.com/blog/ducklake-motherduck/) by creating a DuckLake on MotherDuck and then setting `is_ducklake: true` in your `profiles.yml`.
@@ -101,7 +116,7 @@ CREATE DATABASE my_ducklake
   (TYPE ducklake, DATA_PATH 's3://...')
 ```
 
-An example profile is show below under "Attaching Additional Databases". DuckLake must be identified so that safe DDL operations are applied by dbt.
+An example profile is shown below under "Attaching Additional Databases". DuckLake must be identified so that safe DDL operations are applied by dbt.
 
 #### DuckDB Extensions, Settings, and Filesystems
 
@@ -336,6 +351,22 @@ modules may be initialized using an arbitrary set of key-value pairs that are de
 `config` dictionary. In this example, we initialize the `gsheet` plugin with the setting `method: oauth` and we
 initialize the `sqlalchemy` plugin (aliased as "sql") with a `connection_url` that is set via an environment variable.
 
+The `gsheet` plugin also accepts the following optional config keys when `method: service`:
+
+* `keyfile` — path to the service-account JSON key (defaults to gspread's `~/.config/gspread/service_account.json`).
+* `impersonate` — a Google Workspace user's email to impersonate via [domain-wide delegation](https://developers.google.com/identity/protocols/oauth2/service-account#delegatingauthority), so the service account can read sheets on that user's behalf without sharing each file with the service account. Requires DWD to be enabled for the service account's client id in the Workspace admin console.
+* `scopes` — the OAuth scopes granted to the impersonated credentials (defaults to read-only sheets + drive).
+
+```yaml
+      plugins:
+        - module: gsheet
+          config:
+            method: service
+            impersonate: analyst@your-workspace.com
+            scopes:
+              - https://www.googleapis.com/auth/drive.readonly
+```
+
 Please remember that using plugins may require you to add additional dependencies to the Python environment that your dbt-duckdb pipeline runs in:
 
 * `excel` depends on `pandas`, and `openpyxl` or `xlsxwriter` to perform writes
@@ -356,6 +387,32 @@ of paths on the filesystem that contain additional Python modules that should be
 `sys.path` property. This allows users to include additional helper Python modules in their dbt projects that
 can be accessed by the running dbt process and used to define custom dbt-duckdb Plugins or library code that is
 helpful for creating dbt Python models.
+
+#### Retrying database operations
+
+DuckDB operations can occasionally fail for transient reasons — for example, an `IOException` caused by a networking blip while reading remote files, or the database file being temporarily locked by another process. To make these failures recoverable instead of fatal to your dbt run, you can configure the `retries` field in your profile:
+
+```
+default:
+  outputs:
+    dev:
+      type: duckdb
+      path: /tmp/dbt.duckdb
+      retries:
+        connect_attempts: 5
+        query_attempts: 3
+        retryable_exceptions:
+          - "IOException"
+  target: dev
+```
+
+The `retries` block supports the following settings:
+
+| Setting | Default | Description |
+| --- | --- | --- |
+| `connect_attempts` | `1` | The number of times to attempt the initial `duckdb.connect` call, which is useful for waiting for another process to release its lock on the database file. |
+| `query_attempts` | `None` | The number of times to retry a query that fails with one of the `retryable_exceptions`. |
+| `retryable_exceptions` | `["IOException"]` | The list of DuckDB exception types that should trigger a retry. |
 
 ### Reading and Writing External Files
 
@@ -444,7 +501,7 @@ to parse the source in a dbt model. The `formatter` configuration option for the
 we should use `newstyle` string formatting (the default), `oldstyle` string formatting, or `template` string
 formatting. You can read up on the strategies the various string formatting techniques use at this
 [Stack Overflow answer](https://stackoverflow.com/questions/13451989/pythons-many-ways-of-string-formatting-are-the-older-ones-going-to-be-depre) and see examples of their use
-in this [dbt-duckdb integration test](https://github.com/jwills/dbt-duckdb/blob/master/tests/functional/adapter/test_sources.py).
+in this [dbt-duckdb integration test](https://github.com/duckdb/dbt-duckdb/blob/master/tests/functional/adapter/test_sources.py).
 
 #### Writing to external files
 
@@ -552,6 +609,46 @@ models:
 
 > [!TIP]
 > Microbatching might not always be best option from a performance perspective. Consider that DuckDB operates on row groups, not physical partitions (unless you have explicitly partitioned data in a DuckLake). While you can do batch processing in parallel, more threads with more batches in parallel does not always equal better performance as row groups might not align 1-1 with the batches. Be sure to test different amounts of threads to match your use case.
+
+#### DuckLake Partitioning and Sort Order
+
+For DuckLake-backed tables (including MotherDuck-managed DuckLake), you can configure the physical layout of `table` or `incremental` models with two settings:
+
+- `partitioned_by` (alias: `partition_by`) — physical partition keys
+- `sorted_by` (alias: `sort_by`) — sort keys applied at write time
+
+Either can be set on its own, or both together. Both settings only apply to DuckLake relations; on non-DuckLake targets they are ignored with a warning.
+
+```sql
+{{ config(
+    materialized='table',
+    partitioned_by=['event_day'],
+    sorted_by=['event_time']
+) }}
+
+select
+  *,
+  date_trunc('day', event_time) as event_day
+from {{ ref('upstream_model') }}
+```
+
+Each `partitioned_by` entry is rendered as written, so quote identifiers in the config when needed, for example `partitioned_by=['"field name"', 'day("event time")']`. DuckDB/DuckLake validates which partition functions and arguments are supported.
+
+DuckLake applies these via `ALTER TABLE ... SET PARTITIONED BY (...)` and `ALTER TABLE ... SET SORTED BY (...)`, and they only affect new data. For first builds and full refreshes, dbt-duckdb creates an empty table, sets partitioning and/or sort order, then inserts data so the initial load is laid out as configured. For incremental runs that only insert/update, no ALTER is issued. See the DuckLake docs for [partitioning](https://ducklake.select/docs/stable/duckdb/advanced_features/partitioning) and [sorted tables](https://ducklake.select/docs/stable/duckdb/advanced_features/sorted_tables).
+
+Example partitions (day, month, year, hour):
+
+```sql
+{{ config(materialized='table', partitioned_by=['event_day', 'event_month', 'event_year', 'event_hour']) }}
+
+select
+  *,
+  date_trunc('day', event_time) as event_day,
+  date_trunc('month', event_time) as event_month,
+  date_trunc('year', event_time) as event_year,
+  date_trunc('hour', event_time) as event_hour
+from {{ ref('upstream_model') }}
+```
 
 
 **Merge Strategy (DuckDB >= 1.4.0):**

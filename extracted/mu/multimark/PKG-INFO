@@ -1,15 +1,14 @@
 Metadata-Version: 2.4
 Name: multimark
-Version: 0.2.0
+Version: 0.3.2
 Summary: Python bindings to cmark: CommonMark parsing and rendering (HTML, LaTeX, man, XML)
 Author: Rich Iannone
-License: MIT AND BSD-2-Clause
+License-Expression: MIT AND BSD-2-Clause
 Project-URL: Homepage, https://github.com/posit-dev/multimark
 Project-URL: Issues, https://github.com/posit-dev/multimark/issues
 Keywords: markdown,commonmark,cmark-gfm,html,latex,gfm
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: C
 Classifier: Programming Language :: Python :: 3
@@ -18,6 +17,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Text Processing :: Markup :: Markdown
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown

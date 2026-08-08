@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: resfo-utilities
-Version: 1.0.0
+Version: 1.1.0
 Summary: A utility library for working with the output of reservoir simulators.
 Author-Email: Equinor <fg_sib-scout@equinor.com>
-Maintainer-Email: Eivind Jahren <ejah@equinor.com>, =?utf-8?q?H=C3=A5kon_Steinkopf_S=C3=B8hoel?= <hsoho@equinor.com>
+Maintainer-Email: Eivind Jahren <ejah@equinor.com>, Håkon Steinkopf Søhoel <hsoho@equinor.com>
 License-Expression: LGPL-3.0-or-later
 Classifier: Development Status :: 1 - Planning
 Classifier: Programming Language :: Python
@@ -31,6 +31,7 @@ Requires-Dist: pytest; extra == "dev"
 Requires-Dist: pre-commit; extra == "dev"
 Requires-Dist: mypy; extra == "dev"
 Requires-Dist: pytest-benchmark; extra == "dev"
+Requires-Dist: pytest-codspeed; extra == "dev"
 Requires-Dist: scipy-stubs; extra == "dev"
 Description-Content-Type: text/markdown
 

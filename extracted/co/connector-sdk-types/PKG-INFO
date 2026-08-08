@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: connector-sdk-types
-Version: 0.61.0
+Version: 0.62.0
 Summary: Generated types for the Lumos Connector SDK
 Author-email: teamlumos <security@lumos.com>
 License-Expression: Apache-2.0
@@ -15,7 +15,7 @@ Classifier: Programming Language :: Python :: Implementation :: PyPy
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
-Requires-Dist: pydantic~=2.9.2
+Requires-Dist: pydantic<3,>=2.9.2
 Requires-Dist: openapi-pydantic<1,>=0.5.1
 Provides-Extra: dev
 Requires-Dist: pytest<10,>=9.0.2; extra == "dev"

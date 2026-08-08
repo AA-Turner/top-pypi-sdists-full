@@ -4,13 +4,18 @@ from collections.abc import Iterable
 from datetime import date, datetime
 from decimal import Decimal
 from enum import StrEnum
-from typing import Any, Self, overload
+from typing import Annotated, Any, Self, overload
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, StringConstraints, field_validator, model_validator
 
 from tastytrade.order import InstrumentType, TradeableTastytradeData
 from tastytrade.session import Session
 from tastytrade.utils import TastytradeData
+
+#: Helper type for annotating equity options dxfeed symbols.
+DXF = Annotated[str, StringConstraints(pattern=r"^\.[A-Z0-9]+\d{6}[CP]\d+(\.\d+)?$")]
+#: Helper type for annotating equity options OCC symbols.
+OCC = Annotated[str, StringConstraints(pattern=r"^[A-Z][A-Z0-9 ]{5}\d{6}[CP]\d{8}$")]
 
 
 class OptionType(StrEnum):

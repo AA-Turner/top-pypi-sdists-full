@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sqlfluff
-Version: 4.2.2
+Version: 4.3.0
 Summary: The SQL Linter for Humans
 Author-email: Alan Cruickshank <alan@designingoverload.com>
 License: MIT License
@@ -57,7 +57,7 @@ Description-Content-Type: text/markdown
 License-File: LICENSE.md
 Requires-Dist: platformdirs
 Requires-Dist: chardet
-Requires-Dist: click<8.4.0
+Requires-Dist: click<8.5.0
 Requires-Dist: colorama>=0.3
 Requires-Dist: diff-cover>=2.5.0
 Requires-Dist: Jinja2
@@ -68,7 +68,7 @@ Requires-Dist: tblib
 Requires-Dist: tomli; python_version < "3.11"
 Requires-Dist: tqdm
 Provides-Extra: rs
-Requires-Dist: sqlfluffrs==4.2.2; extra == "rs"
+Requires-Dist: sqlfluffrs==4.3.0; extra == "rs"
 Provides-Extra: testutils
 Requires-Dist: pytest; extra == "testutils"
 Dynamic: license-file

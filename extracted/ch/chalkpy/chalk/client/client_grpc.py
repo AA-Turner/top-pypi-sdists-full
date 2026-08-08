@@ -59,8 +59,10 @@ from chalk._gen.chalk.server.v1.builder_pb2 import (
     IndexDeploymentRequest,
     RebuildDeploymentRequest,
     RedeployDeploymentRequest,
+    ResumeEnvironmentRequest,
     StartBranchResponse,
     StartShadowBuildFromDeploymentRequest,
+    SuspendEnvironmentRequest,
 )
 from chalk._gen.chalk.server.v1.builder_pb2_grpc import BuilderServiceStub
 from chalk._gen.chalk.server.v1.dataframe_pb2_grpc import DataFrameServiceStub as ApiDataFrameServiceStub
@@ -156,11 +158,16 @@ from chalk.client.client_headers import (
 from chalk.client.client_impl import _validate_context_dict  # pyright: ignore[reportPrivateUsage]
 from chalk.client.exc import ChalkCustomException
 from chalk.client.model_image import (
-    build_chalk_model_handler_image,
+    build_image_from_spec_bytes,
+    build_image_from_spec_with_files,
     build_inferred_image,
     chalk_handler_volume_name,
     generate_volume_name,
+    image_local_files,
+    image_spec_bakes_handler_shim,
     model_artifact_volume_name,
+    serialize_image_spec,
+    stage_chalk_model_handler_image,
     upload_chalk_handler_artifacts,
 )
 from chalk.client.models import (
@@ -2202,6 +2209,26 @@ class ChalkGRPCClient:
         except Exception as e:
             raise RuntimeError(f"Could not rollback deployment '{deployment_id}'. {e}") from e
 
+    def suspend_environment(self, environment_id: str) -> None:
+        """Suspend the environment this client is bound to, spinning down its cloud resources."""
+        bound_environment_id = self._stub_refresher.environment_id
+        if bound_environment_id != environment_id:
+            raise ValueError(f"Refusing to suspend '{environment_id}': client is bound to '{bound_environment_id}'.")
+        try:
+            self._stub_refresher.call_builder_stub(lambda x: x.SuspendEnvironment(SuspendEnvironmentRequest()))
+        except Exception as e:
+            raise RuntimeError(f"Could not suspend environment '{environment_id}'. {e}") from e
+
+    def resume_environment(self, environment_id: str) -> None:
+        """Resume the suspended environment this client is bound to, spinning its cloud resources back up."""
+        bound_environment_id = self._stub_refresher.environment_id
+        if bound_environment_id != environment_id:
+            raise ValueError(f"Refusing to resume '{environment_id}': client is bound to '{bound_environment_id}'.")
+        try:
+            self._stub_refresher.call_builder_stub(lambda x: x.ResumeEnvironment(ResumeEnvironmentRequest()))
+        except Exception as e:
+            raise RuntimeError(f"Could not resume environment '{environment_id}'. {e}") from e
+
     def rebuild_deployment(
         self,
         deployment_id: str,
@@ -3388,22 +3415,18 @@ class ChalkGRPCClient:
                 raise ValueError(
                     "`model_image=` cannot be combined with a @model_handler instance. chalkpy builds the image for you from the decorated class."
                 )
-            (
-                image_uri,
-                artifact_uploads,
-                _serialized_name,
-                owned_tmp_paths,
-                inferred_input_schema,
-                inferred_output_schema,
-            ) = build_chalk_model_handler_image(
+            staged = stage_chalk_model_handler_image(
                 handler_instance=model,
                 model_type=model_type,
                 dependencies=list(dependencies or []),
             )
-            if input_schema is None and inferred_input_schema is not None:
-                input_schema = inferred_input_schema
-            if output_schema is None and inferred_output_schema is not None:
-                output_schema = inferred_output_schema
+            artifact_uploads = staged.artifact_uploads
+            owned_tmp_paths = staged.owned_tmp_paths
+            if input_schema is None and staged.inferred_input_schema is not None:
+                input_schema = staged.inferred_input_schema
+            if output_schema is None and staged.inferred_output_schema is not None:
+                output_schema = staged.inferred_output_schema
+            image_spec_bytes = serialize_image_spec(staged.image)
             try:
                 artifact_basenames = [basename for _, basename in artifact_uploads] if artifact_uploads else []
                 presigned_s3_response: ModelUploadUrlResponse = self._get_model_artifact_presigned(
@@ -3431,7 +3454,7 @@ class ChalkGRPCClient:
                     )
                 response = self._register_model_with_image(
                     name=name,
-                    model_image=image_uri,
+                    model_image=None,
                     input_schema=input_schema,
                     output_schema=output_schema,
                     aliases=aliases,
@@ -3439,6 +3462,7 @@ class ChalkGRPCClient:
                     model_artifact_id=presigned_s3_response.model_artifact_id,
                     model_volume=volume_name,
                     model_files=uploaded_model_files,
+                    image_spec=image_spec_bytes,
                 )
                 return response
             finally:
@@ -3448,10 +3472,20 @@ class ChalkGRPCClient:
                     except OSError:
                         pass
 
+        image_spec: Optional[bytes] = None
+        image_additional_files: List[_model_artifact_pb2.ModelFile] = []
+        image_artifact_id: Optional[str] = None
         if model_image is not None and not isinstance(model_image, str):
-            model_image = self._build_model_image(model_image)
+            if model is not None or model_paths is not None:
+                raise ValueError(
+                    "`model_image=<chalkcompute Image>` cannot be combined with `model=` or `model_paths=` — "
+                    + "pass an Image to build and serve, or a model/paths to serialize, not both."
+                )
+            image_spec = serialize_image_spec(model_image)
+            image_additional_files, image_artifact_id = self._upload_image_local_files(model_image)
+            model_image = None
 
-        if model_image is not None and model is None and model_paths is None:
+        if (model_image is not None or image_spec is not None) and model is None and model_paths is None:
             # Image-only registration (for scaling group deployment)
             return self._register_model_with_image(
                 name=name,
@@ -3460,6 +3494,9 @@ class ChalkGRPCClient:
                 output_schema=output_schema,
                 aliases=aliases,
                 metadata=metadata,
+                model_artifact_id=image_artifact_id,
+                additional_files=image_additional_files,
+                image_spec=image_spec,
             )
         else:
             # Engine deployment path (model serialization)
@@ -3482,15 +3519,6 @@ class ChalkGRPCClient:
                 model_image=model_image,
                 skip_volume_upload=skip_volume_upload,
             )
-
-    def _build_model_image(self, image: Any) -> str:
-        """Build a ``chalkcompute.Image`` and return the resulting image URI."""
-        try:
-            from chalkcompute import build_image  # pyright: ignore[reportMissingImports]
-        except ImportError:
-            raise ImportError("Please install `chalkcompute` to enable model image builds.")
-
-        return build_image(image, chalk_client=self)
 
     def _try_upload_to_volume(
         self,
@@ -3522,10 +3550,85 @@ class ChalkGRPCClient:
                     return None
             raise
 
+    def _upload_image_local_files(self, image: Any) -> Tuple[List[_model_artifact_pb2.ModelFile], Optional[str]]:
+        """Upload an Image's strategy='volume' files as additional_files carrying mount_path/mode.
+
+        Returns (additional_files, model_artifact_id); the id ties the uploads to the registration.
+        """
+        triples = image_local_files(image)
+        if not triples:
+            return [], None
+        from chalk.client.serialization.model_serialization import ModelSerializer
+        from chalk.ml.model_file_transfer import ModelFileUploader
+
+        file_paths: Dict[str, str] = {}
+        meta: Dict[str, Tuple[str, Optional[int]]] = {}
+        for i, (src, dest, mode) in enumerate(triples):
+            upload_name = f"{i}_{os.path.basename(dest)}"
+            file_paths[upload_name] = src
+            meta[upload_name] = (dest, mode)
+
+        presigned = self._get_model_artifact_presigned(model_paths=list(file_paths.keys()))
+        _, additional = ModelFileUploader(source_config=None).upload_files(
+            file_paths,
+            model_file_names=[],
+            presigned_urls=presigned.upload_urls,
+            dir_allowlist=list(file_paths.values()),
+        )
+        files: List[_model_artifact_pb2.ModelFile] = []
+        for info in additional:
+            mf = ModelSerializer.fileinfo_to_protobuf(info)
+            dest, mode = meta[mf.name]
+            mf.mount_path = dest
+            if mode is not None:
+                mf.mode = mode
+            files.append(mf)
+        return files, presigned.model_artifact_id
+
+    def _download_image_local_files(
+        self, model_name: str, model_version: int, mount_files: List[_model_artifact_pb2.ModelFile]
+    ) -> List[Tuple[str, str, Optional[int]]]:
+        """Download additional_files carrying mount_path as (local_path, mount_path, mode) triples.
+
+        Fetches the additional-file URLs directly rather than via download_model_artifact, which
+        assumes a serialized model (its model_type conversion fails on a chalkcompute image artifact).
+        """
+        import tempfile
+
+        resp: DownloadModelArtifactResponse = self._stub_refresher.call_model_stub(
+            lambda x: x.DownloadModelArtifact(
+                DownloadModelArtifactRequest(
+                    model_version_key=ModelVersionKey(model_name=model_name, version=model_version)
+                )
+            )
+        )
+        tmpdir = tempfile.mkdtemp(prefix="chalk-image-files-")
+        ordered: List[str] = []
+        by_name: Dict[str, str] = {}
+        for item in resp.additional_file_urls:
+            base = os.path.basename(urlparse(item).path.rstrip("/")) or f"file_{len(ordered)}"
+            local = os.path.join(tmpdir, base)
+            r = requests.get(item, stream=True)
+            r.raise_for_status()
+            with open(local, "wb") as fh:
+                for chunk in r.iter_content(chunk_size=1024 * 1024):
+                    if chunk:
+                        fh.write(chunk)
+            by_name[base] = local
+            ordered.append(local)
+
+        out: List[Tuple[str, str, Optional[int]]] = []
+        for i, f in enumerate(mount_files):
+            local = by_name.get(f.name) or (ordered[i] if i < len(ordered) else None)
+            if local is None:
+                raise RuntimeError(f"deploy: could not locate downloaded file for {f.name!r}")
+            out.append((local, f.mount_path, f.mode if f.HasField("mode") else None))
+        return out
+
     def _register_model_with_image(
         self,
         name: str,
-        model_image: str,
+        model_image: Optional[str],
         input_schema: Optional[Any],
         output_schema: Optional[Any],
         aliases: Optional[List[str]],
@@ -3533,8 +3636,10 @@ class ChalkGRPCClient:
         model_artifact_id: Optional[str] = None,
         model_volume: Optional[str] = None,
         model_files: Optional[List[_model_artifact_pb2.ModelFile]] = None,
+        image_spec: Optional[bytes] = None,
+        additional_files: Optional[List[_model_artifact_pb2.ModelFile]] = None,
     ) -> RegisterModelVersionResponse:
-        """Register a model with a Docker image (no model serialization needed)."""
+        """Register a model with a serving image (prebuilt ``model_image`` URI or deferred ``image_spec``)."""
         if input_schema is None:
             raise ValueError(
                 "input_schema is required when registering with a model_image."
@@ -3566,21 +3671,26 @@ class ChalkGRPCClient:
             input_model_schema = ModelSerializer.convert_schema(input_schema)
             output_model_schema = ModelSerializer.convert_schema(output_schema)
 
+            artifact_spec = _model_artifact_pb2.ModelArtifactSpec(
+                model_files=model_files or [],
+                additional_files=additional_files or [],
+                model_signature=_model_artifact_pb2.ModelSignature(
+                    inputs=input_model_schema,
+                    outputs=output_model_schema,
+                ),
+                model_volume=model_volume,
+            )
+            if model_image:
+                artifact_spec.model_image = model_image
+            if image_spec is not None:
+                artifact_spec.image_spec = image_spec
+
             resp: CreateModelVersionResponse = self._stub_refresher.call_model_stub(
                 lambda x: x.CreateModelVersion(
                     CreateModelVersionRequest(
                         model_name=name,
                         model_artifact_id=model_artifact_id,
-                        model_artifact=_model_artifact_pb2.ModelArtifactSpec(
-                            model_files=model_files or [],
-                            additional_files=[],
-                            model_signature=_model_artifact_pb2.ModelSignature(
-                                inputs=input_model_schema,
-                                outputs=output_model_schema,
-                            ),
-                            model_image=model_image,
-                            model_volume=model_volume,
-                        ),
+                        model_artifact=artifact_spec,
                         aliases=aliases,
                         metadata=metadata_converted,
                     )
@@ -4549,11 +4659,11 @@ class ChalkGRPCClient:
 
     def _ensure_model_image(
         self, model_name: str, model_version: int, validate: bool = True
-    ) -> tuple[int, List[Dict[str, str]]]:
-        """If the model version has no model_image, create a new version with an inferred image.
+    ) -> tuple[int, List[Dict[str, str]], Optional[str], Optional[str]]:
+        """Resolve the image to deploy: returns (version, volume_mounts, image_uri, serving_handler).
 
-        Returns (version_number, volume_mounts) where volume_mounts is a list of
-        {"name": ..., "mount_path": ..., "type": "chalkfs"} dicts for the deploy request.
+        serving_handler is the chalk-shim entrypoint ("model_handler.handler") for handler/inferred
+        images, or None for chalkcompute/user images (the server default / user-supplied handler).
         """
         model_version_resp: GetModelVersionResponse = self._stub_refresher.call_model_stub(
             lambda x: x.GetModelVersion(
@@ -4564,16 +4674,53 @@ class ChalkGRPCClient:
             )
         )
         spec = model_version_resp.model_version.model_artifact.spec
-        if spec.HasField("model_image") and spec.model_image:
+        has_model_image = spec.HasField("model_image") and bool(spec.model_image)
+        has_build_spec = spec.HasField("image_spec") and bool(spec.image_spec)
+        if has_build_spec:
+            serving_handler = "model_handler.handler" if image_spec_bakes_handler_shim(spec.image_spec) else None
+        elif has_model_image:
+            serving_handler = "model_handler.handler" if (spec.HasField("model_volume") and spec.model_volume) else None
+        else:
+            serving_handler = "model_handler.handler"  # inferred images bake the chalk shim
+        if has_build_spec and not has_model_image:
+            mount_files = [f for f in spec.additional_files if f.HasField("mount_path") and f.mount_path]
+            if mount_files:
+                local_files = self._download_image_local_files(model_name, model_version, mount_files)
+                try:
+                    deploy_image, volume_mounts = build_image_from_spec_with_files(
+                        spec.image_spec, local_files, chalk_client=self
+                    )
+                finally:
+                    import shutil
+                    import tempfile
+
+                    tmp_root = tempfile.gettempdir()
+                    for d in {os.path.dirname(p) for p, _, _ in local_files}:
+                        if d.startswith(tmp_root):
+                            shutil.rmtree(d, ignore_errors=True)
+                return model_version, volume_mounts, deploy_image, serving_handler
+        if has_model_image or has_build_spec:
+            deploy_image = (
+                build_image_from_spec_bytes(spec.image_spec, chalk_client=self)
+                if has_build_spec and not has_model_image
+                else None
+            )
             # New path: model_volume is persisted on the spec at registration time.
             if spec.HasField("model_volume") and spec.model_volume:
                 volume_name = spec.model_volume
                 from chalkcompute import (  # pyright: ignore[reportMissingImports]
                     ConnectClient,
+                    VolumeError,
                     resolve_referenced_volume_type,
                 )
 
-                vol_type = resolve_referenced_volume_type(ConnectClient(chalk_client=self), volume_name)
+                try:
+                    vol_type = resolve_referenced_volume_type(ConnectClient(chalk_client=self), volume_name)
+                except VolumeError as e:
+                    raise ValueError(
+                        f"Model '{model_name}' v{model_version} references volume '{volume_name}', which no longer "
+                        + "exists. Restore the volume or re-register the model version before deploying."
+                    ) from e
                 volume_mounts: List[Dict[str, str]] = [
                     {
                         "name": volume_name,
@@ -4581,7 +4728,7 @@ class ChalkGRPCClient:
                         "type": vol_type,
                     }
                 ]
-                return model_version, volume_mounts
+                return model_version, volume_mounts, deploy_image, serving_handler
 
             # Legacy path: model_volume not set, derive volume name from (name, version).
             volume_name = chalk_handler_volume_name(model_name, model_version)
@@ -4600,8 +4747,7 @@ class ChalkGRPCClient:
                         "type": vol_type,
                     }
                 ]
-            except (VolumeError, Exception):
-                # Only artifact-backed models have files to mount; image-only models deploy as-is.
+            except VolumeError:
                 if spec.model_files:
                     model_files = self.download_model_artifact(model_name, model_version).downloaded_model_files
                 else:
@@ -4628,12 +4774,12 @@ class ChalkGRPCClient:
                             shutil.rmtree(download_dir)
                 else:
                     volume_mounts = []
-            return model_version, volume_mounts
+            return model_version, volume_mounts, deploy_image, serving_handler
 
         artifact_result = self.download_model_artifact(model_name, model_version)
         model_files = artifact_result.downloaded_model_files
         if not model_files:
-            return model_version, []
+            return model_version, [], None, None
 
         try:
             vol_name = generate_volume_name(model_name, model_version)
@@ -4648,30 +4794,10 @@ class ChalkGRPCClient:
                     )
                 )
 
-            presigned = self._get_model_artifact_presigned(model_paths=[])
-
-            new_spec = _model_artifact_pb2.ModelArtifactSpec()
-            new_spec.CopyFrom(spec)
-            new_spec.model_image = image_uri
-            new_spec.model_volume = vol_name
-
-            resp: CreateModelVersionResponse = self._stub_refresher.call_model_stub(
-                lambda x: x.CreateModelVersion(
-                    CreateModelVersionRequest(
-                        model_name=model_name,
-                        model_artifact_id=presigned.model_artifact_id,
-                        model_artifact=new_spec,
-                    )
-                )
-            )
-
-            new_version = resp.model_version.version
-            chalk_logger.info(
-                f"Inferred image for model '{model_name}': registered new model version {new_version} with image {image_uri}"
-            )
+            chalk_logger.info(f"Inferred image for model '{model_name}' v{model_version}: {image_uri}")
             Console().print(
                 Text(
-                    f"✓ Inferred image for model '{model_name}': registered new model version {new_version}",
+                    f"✓ Inferred image for model '{model_name}' v{model_version}",
                     style=Style(color=CHALK_WEBSITE_GREEN, bold=True),
                 )
             )
@@ -4689,7 +4815,7 @@ class ChalkGRPCClient:
                 shutil.rmtree(download_dir)
 
         volume_mounts = [{"name": vol_name, "mount_path": f"/volumes/{vol_name}", "type": "versioned_chalkfs"}]
-        return new_version, volume_mounts
+        return model_version, volume_mounts, image_uri, serving_handler
 
     def deploy_model_version_to_scaling_group(
         self,
@@ -4714,11 +4840,13 @@ class ChalkGRPCClient:
         Uses the authenticated gRPC channel with a raw unary call since
         Python scaling group proto stubs are not yet generated.
         """
-        model_version, inferred_volumes = self._ensure_model_image(model_name, model_version, validate=validate)
+        model_version, inferred_volumes, image_uri, serving_handler = self._ensure_model_image(
+            model_name, model_version, validate=validate
+        )
 
-        if inferred_volumes:
+        if serving_handler is not None:
             if handler is None:
-                handler = "model_handler.handler"
+                handler = serving_handler
             if env_vars is None:
                 env_vars = {}
             env_vars.setdefault("PYTHONPATH", "/app")
@@ -4792,11 +4920,14 @@ class ChalkGRPCClient:
                 grpc_startup_probe["method"] = startup_probe.method
             container_spec["startup_probe"] = {"grpc": grpc_startup_probe}
 
-        if container_spec:
-            request_data["container_spec"] = container_spec
+        # The server requires container_spec on every deploy, even when empty.
+        request_data["container_spec"] = container_spec
 
         if handler is not None:
             request_data["handler"] = handler
+
+        if image_uri is not None:
+            request_data["image"] = image_uri
 
         from google.protobuf import json_format
 

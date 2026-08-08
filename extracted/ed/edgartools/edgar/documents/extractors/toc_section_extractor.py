@@ -17,6 +17,7 @@ from lxml import html as lxml_html
 from edgar.documents.document import Document
 from edgar.documents.nodes import Node
 from edgar.documents.utils.anchor_targets import find_anchor_targets, is_anchor_match
+from edgar.documents.utils.tree_traversal import document_order_path, iterwalk_from, precedes
 from edgar.documents.utils.toc_analyzer import TOCAnalyzer
 
 logger = logging.getLogger(__name__)
@@ -153,8 +154,35 @@ class SECSectionExtractor:
         # Sort sections by their logical order
         sorted_sections = sorted(sec_sections.items(), key=lambda x: x[1]['order'])
 
+        # ...and, separately, by where they actually sit in the document. A
+        # section ends where the next one physically begins, and the two orders
+        # are not the same thing: item numbering is what the filer *calls* its
+        # sections, document order is where it *put* them (edgartools-4q74).
+        #
+        # Morgan Stanley's FY2024 10-K lays its items out as
+        #     1, 1A, 1C, 7, 7A, 8, 9, 9A, 9B, 9C, 1B, 2, 3, 4, 5, 10 … 15
+        # grouping Items 1B/2/3/4/5 behind the financial statements. Ending each
+        # section at the next *item number* there is wrong in both directions:
+        # Item 1A ran from Risk Factors all the way to Item 1B's anchor near the
+        # back of the filing (673,015 chars — MD&A, the financial statements and
+        # the controls items all filed under Risk Factors), while Item 1B's end
+        # resolved 75,978 elements *before* its own start and the section
+        # silently produced nothing. Taking the nearest following anchor instead
+        # gives Item 1A its 1,057 elements and Item 1B its paragraph.
+        #
+        # This is ordinary layout, not a malformed filing: ODP's Item 8 sits
+        # after the signature page, where the F-pages conventionally live, which
+        # is why `signatures` was absorbing 188,606 chars of financial
+        # statements.
+        #
+        # Document order is derived from the resolved anchor elements rather
+        # than a document walk — O(depth) per section against ~96k elements.
+        for section_data in sec_sections.values():
+            section_data['doc_path'] = document_order_path(section_data['element'])
+        by_document = sorted(sec_sections.values(), key=lambda d: d['doc_path'])
+
         # Calculate section boundaries
-        for i, (section_name, section_data) in enumerate(sorted_sections):
+        for section_name, section_data in sorted_sections:
             start_anchor = section_data['anchor_id']
 
             # End boundary is the start of the next section whose anchor
@@ -163,12 +191,14 @@ class SECSectionExtractor:
             # Item 1C both target the same div, GH #904); taking the immediate
             # next section there would make the end anchor equal the start
             # anchor, an empty span the slicer treats as unbounded — the
-            # section ran to end-of-document.
+            # section ran to end-of-document. Sections sharing an anchor also
+            # share a doc_path, so scanning past every equal anchor keeps that
+            # fix intact under document ordering.
             end_anchor = None
-            for j in range(i + 1, len(sorted_sections)):
-                next_anchor = sorted_sections[j][1]['anchor_id']
-                if next_anchor != start_anchor:
-                    end_anchor = next_anchor
+            for candidate in by_document:
+                if (candidate['doc_path'] > section_data['doc_path']
+                        and candidate['anchor_id'] != start_anchor):
+                    end_anchor = candidate['anchor_id']
                     break
 
             # Title-based forms (424B): tighten the end to the next *TOC entry*
@@ -750,6 +780,30 @@ class SECSectionExtractor:
         if not start_elements:
             return ""
 
+        # An end boundary that sits BEFORE the start anchor means the boundary
+        # pair is inverted, and this section yields nothing.
+        #
+        # The root walk got this for free: it tested the end anchor before
+        # `in_range` was ever set, so an inverted pair broke out on the first
+        # pass and returned "". Walking from the start anchor never meets that
+        # earlier element, so the section would instead run to the end of the
+        # document — 26,330 chars for a Morgan Stanley Item 1B that is a single
+        # paragraph, ending in the signature block, at confidence 0.95 with no
+        # warning. Silence is the better answer, so the check is now explicit.
+        #
+        # It used to fire on 4 sections across 3 of the 11 corpus documents, all
+        # of which were TOC boundaries ended at the next *item number* rather
+        # than the next section in document order (edgartools-4q74, fixed in
+        # _analyze_sections). Nothing in the corpus reaches it now, and it stays
+        # as a guard rather than an assertion because the rescue paths and the
+        # pattern extractor build boundaries by other routes: if one of those
+        # ever inverts a pair, silence is still the answer we want over text
+        # that runs to the end of the filing at confidence 0.95.
+        if boundary.end_element_id:
+            end_elements = find_anchor_targets(tree, boundary.end_element_id)
+            if end_elements and precedes(end_elements[0], start_elements[0]):
+                return ""
+
         # Use document-order traversal (iterwalk) to collect all text between anchors
         # This correctly handles multi-container sections where start and end anchors
         # are in different parent containers
@@ -760,7 +814,16 @@ class SECSectionExtractor:
         block_elements = {'p', 'div', 'table', 'tr', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
                          'blockquote', 'pre', 'section', 'article', 'header', 'footer'}
 
-        for event, el in etree.iterwalk(tree, events=('start', 'end')):
+        # Walk from the start anchor rather than the document root. iterwalk always
+        # begins at the root, so each section used to pay for every element ahead
+        # of its own anchor and discard it — 80% of the traversal on a 9.8MB 10-K,
+        # and worst for the last items in a filing (edgartools-llmp.8). The element
+        # is already resolved above, so starting there costs nothing extra.
+        #
+        # The loop body below is unchanged: iterwalk_from yields the identical
+        # event/element sequence the root walk would have produced from this point
+        # on, ancestor 'end' events included.
+        for event, el in iterwalk_from(start_elements[0]):
             # Skip non-element nodes (comments, etc.)
             if not hasattr(el, 'get'):
                 continue
@@ -838,15 +901,19 @@ class SECSectionExtractor:
     def _clean_section_text(self, text: str) -> str:
         """Clean extracted section text."""
         # Apply the same cleaning as the main document
-        from edgar.documents.utils.anchor_cache import filter_with_cached_patterns
+        from edgar.documents.utils.anchor_cache import filter_navigation_lines
 
         # Remove excessive whitespace
         text = re.sub(r'\n\s*\n\s*\n', '\n\n', text)
 
-        # Filter navigation links
+        # Filter navigation links. The patterns are resolved once per document
+        # and cached there: deriving them costs an md5 of the whole filing, and
+        # this runs once per section (edgartools-llmp.9). The guard stays — a
+        # document with no original HTML filters nothing here, where
+        # Document.text() falls back to the generic SEC pattern set.
         html_content = getattr(self.document.metadata, 'original_html', None)
         if html_content:
-            text = filter_with_cached_patterns(text, html_content)
+            text = filter_navigation_lines(text, self.document._get_navigation_patterns())
 
         return text.strip()
 

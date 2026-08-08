@@ -2180,6 +2180,7 @@ SELECT_ACTIVE_CONNECTOR_ROLLOUTS = sqlalchemy.text(
     SELECT
          cr.id AS rollout_id,
          cr.actor_definition_id,
+         cr.release_candidate_version_id,
          cr.state,
          cr.initial_rollout_pct,
          cr.current_target_rollout_pct,
@@ -2223,6 +2224,67 @@ SELECT_ACTIVE_CONNECTOR_ROLLOUTS = sqlalchemy.text(
     ORDER BY
          cr.created_at DESC
     LIMIT :limit
+    """
+)
+
+# List all rollout rows for connector/version pairs that have an active row.
+# The pair arrays are produced from one active-rollout query, so this remains a
+# single set-based sibling lookup rather than a connector-by-connector fanout.
+SELECT_CONNECTOR_ROLLOUT_SIBLINGS = sqlalchemy.text(
+    """
+    SELECT
+         cr.id AS rollout_id,
+         cr.actor_definition_id,
+         cr.release_candidate_version_id,
+         cr.state,
+         cr.initial_rollout_pct,
+         cr.current_target_rollout_pct,
+         cr.final_target_rollout_pct,
+         cr.has_breaking_changes,
+         cr.max_step_wait_time_mins,
+         cr.updated_by AS updated_by_user_id,
+         rollout_user.name AS updated_by_user_name,
+         rollout_user.email AS updated_by_user_email,
+         cr.rollout_strategy,
+         cr.workflow_run_id,
+         cr.error_msg,
+         cr.failed_reason,
+         cr.paused_reason,
+         cr.filters,
+         cr.tag,
+         cr.created_at,
+         cr.updated_at,
+         cr.completed_at,
+         cr.expires_at,
+         rc_version.docker_image_tag AS rc_docker_image_tag,
+         rc_version.docker_repository AS rc_docker_repository,
+         initial_version.docker_image_tag AS initial_docker_image_tag,
+         initial_version.docker_repository AS initial_docker_repository,
+         COALESCE(rc_pins.pin_count, 0) AS rc_pin_count
+    FROM connector_rollout cr
+    JOIN actor_definition_version rc_version
+      ON cr.release_candidate_version_id = rc_version.id
+    LEFT JOIN actor_definition_version initial_version
+      ON cr.initial_version_id = initial_version.id
+    LEFT JOIN "user" rollout_user
+      ON cr.updated_by = rollout_user.id
+    LEFT JOIN (
+        SELECT value::uuid AS version_id, COUNT(*) AS pin_count
+        FROM scoped_configuration
+        WHERE key = 'connector_version'
+        GROUP BY value::uuid
+    ) rc_pins ON rc_version.id = rc_pins.version_id
+    WHERE EXISTS (
+        SELECT 1
+        FROM unnest(
+            CAST(:actor_definition_ids AS uuid[]),
+            CAST(:release_candidate_version_ids AS uuid[])
+        ) AS requested(actor_definition_id, release_candidate_version_id)
+        WHERE requested.actor_definition_id = cr.actor_definition_id
+          AND requested.release_candidate_version_id =
+              cr.release_candidate_version_id
+    )
+    ORDER BY cr.created_at DESC
     """
 )
 
@@ -2287,6 +2349,7 @@ SELECT_CONNECTOR_ROLLOUT_BY_ID = sqlalchemy.text(
     SELECT
          cr.id AS rollout_id,
          cr.actor_definition_id,
+         cr.release_candidate_version_id,
          cr.state,
          cr.initial_rollout_pct,
          cr.current_target_rollout_pct,
@@ -2304,6 +2367,13 @@ SELECT_CONNECTOR_ROLLOUT_BY_ID = sqlalchemy.text(
          cr.filters,
          cr.tag,
          cr.created_at,
+         (
+             SELECT MIN(earliest_rollout.created_at)
+             FROM connector_rollout earliest_rollout
+             WHERE earliest_rollout.actor_definition_id = cr.actor_definition_id
+               AND earliest_rollout.release_candidate_version_id =
+                   cr.release_candidate_version_id
+         ) AS earliest_created_at,
          cr.updated_at,
          cr.completed_at,
          cr.expires_at,
@@ -2634,6 +2704,89 @@ SELECT_ACTORS_PINNED_TO_ROLLOUT = sqlalchemy.text(
     """
 )
 
+
+# Return the sparse per-actor sync map used by the platform endpoint. The
+# caller applies the customer-tier filter and computes the four display
+# buckets, matching the endpoint's two-stage implementation. The cohort is
+# defined by the pinned version, not by rollout ID: one rollout per tier and
+# version is expected, while multiple rollouts are an anomaly that does not
+# change the operator-facing version cohort. The earliest rollout timestamp is
+# passed as a pruning bound and was verified result-equivalent to no window;
+# it is not a semantic filter. Unlike the platform endpoint, this intentionally
+# excludes tombstoned actors, workspaces, and organizations because the
+# platform's omission is believed to be a bug. The rollout pin check found one
+# matching pin row per actor for the Snowflake and Salesforce rollouts, so plain
+# conditional counts preserve connection cardinality without a redundant
+# DISTINCT subquery.
+_ROLLOUT_PINNED_ACTOR_SYNC_PARAMETERIZED_SQL = """
+    SELECT
+         actor.id AS actor_id,
+         workspace.organization_id,
+         COUNT(CASE WHEN latest_job.is_rollout_version THEN 1 END)
+             AS num_connections_on_rollout_version,
+         COUNT(
+             CASE
+                 WHEN latest_job.is_rollout_version AND latest_job.status = 'succeeded'
+                 THEN 1
+             END
+         ) AS num_connections_succeeded,
+         COUNT(
+             CASE
+                 WHEN latest_job.is_rollout_version AND latest_job.status = 'failed'
+                 THEN 1
+             END
+         ) AS num_connections_failed,
+         COUNT(CASE WHEN latest_job.is_rollout_version THEN 1 END) > 0
+             AS has_connection_on_rollout_version
+    FROM actor
+    JOIN workspace
+      ON actor.workspace_id = workspace.id
+    JOIN organization
+      ON workspace.organization_id = organization.id
+    JOIN scoped_configuration AS configurations
+      -- Rollout-origin pins are always actor-scoped; workspace- and
+      -- organization-scope connector-version configurations also exist.
+      ON CAST(:release_candidate_version_id AS text) = configurations.value
+     AND actor.actor_definition_id = configurations.resource_id
+     AND actor.id = configurations.scope_id
+     AND configurations.scope_type = 'actor'
+     AND configurations.key = 'connector_version'
+     AND configurations.origin_type = 'connector_rollout'
+    LEFT JOIN connection
+      ON actor.id = connection.{connection_column}
+    LEFT JOIN LATERAL (
+        SELECT
+             latest_job.id AS job_id,
+             latest_job.status,
+             latest_job.config->'sync'->>'{version_key}'
+                 = CAST(:release_candidate_version_id AS text) AS is_rollout_version
+        FROM jobs AS latest_job
+        WHERE connection.id::text = latest_job.scope
+          AND latest_job.created_at >= CAST(:rollout_created_at AS timestamptz)
+          AND latest_job.config_type = 'sync'
+        ORDER BY latest_job.created_at DESC, latest_job.id DESC
+        LIMIT 1
+    ) latest_job ON true
+    WHERE actor.actor_definition_id = :actor_definition_id
+      AND actor.tombstone = false
+      AND workspace.tombstone = false
+      AND organization.tombstone = false
+    GROUP BY actor.id, workspace.organization_id
+    """
+
+SELECT_ROLLOUT_PINNED_ACTOR_SYNC_PARAMETERIZED_SOURCE = sqlalchemy.text(
+    _ROLLOUT_PINNED_ACTOR_SYNC_PARAMETERIZED_SQL.format(
+        connection_column="source_id",
+        version_key="sourceDefinitionVersionId",
+    )
+)
+
+SELECT_ROLLOUT_PINNED_ACTOR_SYNC_PARAMETERIZED_DESTINATION = sqlalchemy.text(
+    _ROLLOUT_PINNED_ACTOR_SYNC_PARAMETERIZED_SQL.format(
+        connection_column="destination_id",
+        version_key="destinationDefinitionVersionId",
+    )
+)
 
 # =============================================================================
 # Actor Population Summary Queries (per-org aggregate)

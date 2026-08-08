@@ -25,7 +25,7 @@ class OrganizationPlanResponse:
         plan (OrganizationPlanType): The plan type (trial, paid)
         max_concurrent_runs (int | None | Unset): Concurrent-run cap; null when unlimited.
         max_run_seconds (int | None | Unset): Per-run duration cap in seconds; null when unlimited.
-        seconds_limit (int | None | Unset): Monthly run-seconds budget; null when unlimited.
+        seconds_limit (int | None | Unset): Total lifetime run-seconds budget; null when unlimited.
         trial_days_remaining (int | None | Unset): Days remaining in trial. Positive when active, zero or negative when
             expired. Null for non-trial plans.
         trial_expires_at (datetime.datetime | None | Unset): When the trial expires; null for non-trial plans.

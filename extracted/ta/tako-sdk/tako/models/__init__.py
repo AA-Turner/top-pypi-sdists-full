@@ -65,6 +65,7 @@ from tako.models.metric_definition import MetricDefinition
 from tako.models.ner_label import NerLabel
 from tako.models.output_settings import OutputSettings
 from tako.models.reasoning_event import ReasoningEvent
+from tako.models.related_suggestion import RelatedSuggestion
 from tako.models.relation_kind import RelationKind
 from tako.models.result_content import ResultContent
 from tako.models.retrieval_agent_effort import RetrievalAgentEffort

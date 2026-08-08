@@ -34,7 +34,7 @@ dependencies = [
 ]
 urls."Bug tracker" = "https://github.com/pylint-dev/astroid/issues"
 urls."Discord server" = "https://discord.gg/Egy6P8AMB5"
-urls."Docs" = "https://pylint.readthedocs.io/projects/astroid/en/latest/"
+urls.Docs = "https://pylint.readthedocs.io/projects/astroid/en/latest/"
 urls."Source Code" = "https://github.com/pylint-dev/astroid"
 
 [tool.setuptools]
@@ -54,6 +54,7 @@ lint.select = [
   "F",   # pyflakes
   "I",   # isort
   "RUF", # ruff
+  "UP",  # pyupgrade
   "W",   # pycodestyle
 ]
 lint.ignore = [
@@ -69,6 +70,7 @@ lint.fixable = [
   "F",   # pyflakes
   "I",   # isort
   "RUF", # ruff
+  "UP",  # pyupgrade
   "W",   # pycodestyle
 ]
 lint.unfixable = [ "RUF001" ]
@@ -135,6 +137,7 @@ show_error_codes = true
 strict = true
 warn_redundant_casts = true
 warn_unreachable = true
+warn_unused_configs = false
 
 [[tool.mypy.overrides]]
 # Importlib typeshed stubs do not include the private functions we use

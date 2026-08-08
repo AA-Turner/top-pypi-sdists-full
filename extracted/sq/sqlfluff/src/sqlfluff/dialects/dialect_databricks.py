@@ -8,6 +8,7 @@ It also has some extensions.
 from sqlfluff.core.dialects import load_raw_dialect
 from sqlfluff.core.parser import (
     AnyNumberOf,
+    AnySetOf,
     Anything,
     BaseSegment,
     Bracketed,
@@ -18,6 +19,7 @@ from sqlfluff.core.parser import (
     IdentifierSegment,
     Indent,
     Matchable,
+    NewlineSegment,
     OneOf,
     OptionallyBracketed,
     Ref,
@@ -66,6 +68,18 @@ databricks_dialect.insert_lexer_matchers(
 
 
 databricks_dialect.insert_lexer_matchers(
+    # ?:: is the try_cast shorthand (an error-tolerating cast). It must be matched
+    # before the "?" (question) matcher so that "?::" lexes as a single token
+    # rather than as "?" followed by "::".
+    # https://docs.databricks.com/aws/en/sql/language-manual/functions/questiondoublecolonsign
+    [
+        StringLexer("try_casting_operator", "?::", CodeSegment),
+    ],
+    before="question",
+)
+
+
+databricks_dialect.insert_lexer_matchers(
     # Databricks Pipeline Parameters:
     # https://docs.databricks.com/en/delta-live-tables/parameters.html
     # Must come before dollar_quote since both start with $
@@ -90,6 +104,36 @@ databricks_dialect.insert_lexer_matchers(
 )
 
 databricks_dialect.insert_lexer_matchers(
+    # Bare notebook magic in the first cell must consume the notebook header,
+    # because the lexer only matches against the remaining string slice.
+    [
+        RegexLexer(
+            "notebook_start_bare_magic_sql",
+            r"-- Databricks notebook source(?:\r?\n)%sql\b[^\r\n]*",
+            CommentSegment,
+            subdivider=RegexLexer("newline", r"\r\n|\n", NewlineSegment),
+            trim_post_subdivide=RegexLexer(
+                "notebook_start", r"-- Databricks notebook source", CommentSegment
+            ),
+        ),
+        RegexLexer(
+            "notebook_start_bare_magic_cell",
+            r"(?s)-- Databricks notebook source(?:\r?\n)"
+            r"%(?:python|scala|r|sh|md|run|fs|pip|conda)\b[^\r\n]*"
+            r"(?:(?!(?:\r?\n){2}-- COMMAND ----------(?:\r?\n)).)*"
+            r"(?=(?:\r?\n){2}-- COMMAND ----------(?:\r?\n)|\Z)",
+            CodeSegment,
+            subdivider=RegexLexer("newline", r"\r\n|\n", NewlineSegment),
+            trim_post_subdivide=RegexLexer(
+                "notebook_start", r"-- Databricks notebook source", CommentSegment
+            ),
+        ),
+    ],
+    before="inline_comment",
+)
+
+
+databricks_dialect.insert_lexer_matchers(
     # Databricks Notebook Start:
     # needed to insert "so early" to avoid magic + notebook
     # start to be interpreted as inline comments
@@ -105,13 +149,40 @@ databricks_dialect.insert_lexer_matchers(
         ),
         RegexLexer("magic_line", r"(-- MAGIC)( [^%]{1})([^\n]*)", CodeSegment),
         RegexLexer("magic_start", r"(-- MAGIC %)([^\n]{2,})(\r?\n)", CodeSegment),
+        RegexLexer(
+            "bare_magic_sql",
+            r"(\r?\n)+-- COMMAND ----------(\r?\n)+%sql\b[^\r\n]*",
+            CommentSegment,
+            subdivider=RegexLexer("newline", r"\r\n|\n", NewlineSegment),
+            trim_post_subdivide=RegexLexer(
+                "command", r"-- COMMAND ----------", CodeSegment
+            ),
+        ),
+        RegexLexer(
+            "bare_magic_cell",
+            r"(?s)(\r?\n)+-- COMMAND ----------(\r?\n)+"
+            r"%(?:python|scala|r|sh|md|run|fs|pip|conda)\b[^\r\n]*"
+            r"(?:(?!(?:\r?\n){2}-- COMMAND ----------(?:\r?\n)).)*"
+            r"(?=(?:\r?\n){2}-- COMMAND ----------(?:\r?\n)|\Z)",
+            CodeSegment,
+            subdivider=RegexLexer("newline", r"\r\n|\n", NewlineSegment),
+            trim_post_subdivide=RegexLexer(
+                "command", r"-- COMMAND ----------", CodeSegment
+            ),
+        ),
+        RegexLexer(
+            "command",
+            r"(\r?\n){2}-- COMMAND ----------(\r?\n)",
+            CodeSegment,
+            subdivider=RegexLexer("newline", r"\r\n|\n", NewlineSegment),
+        ),
     ],
     before="inline_comment",
 )
 
 
 databricks_dialect.add(
-    CommandCellSegment=TypedParser("command", CodeSegment, type="statement_terminator"),
+    CommandCellSegment=TypedParser("command", CodeSegment, type="command_cell"),
     DoubleQuotedUDFBody=TypedParser(
         "double_quote",
         CodeSegment,
@@ -136,6 +207,9 @@ databricks_dialect.add(
         type="pipeline_parameter",
     ),
     RightArrowSegment=StringParser("=>", SymbolSegment, type="right_arrow"),
+    TryCastOperatorSegment=StringParser(
+        "?::", SymbolSegment, type="try_casting_operator"
+    ),
     # https://docs.databricks.com/en/sql/language-manual/sql-ref-principal.html
     PrincipalIdentifierSegment=OneOf(
         Ref("NakedIdentifierSegment"),
@@ -152,6 +226,7 @@ databricks_dialect.replace(
             Ref("ParameterizedSegment"),
         ]
     ),
+    CollateGrammar=Sequence("COLLATE", Ref("CollationReferenceSegment")),
 )
 
 databricks_dialect.add(
@@ -194,8 +269,10 @@ databricks_dialect.add(
     ),
     ForeignKeyOptionGrammar=Sequence(
         Sequence("MATCH", "FULL", optional=True),
-        Sequence("ON", "UPDATE", "NO", "ACTION", optional=True),
-        Sequence("ON", "DELETE", "NO", "ACTION", optional=True),
+        AnySetOf(
+            Sequence("ON", "UPDATE", "NO", "ACTION"),
+            Sequence("ON", "DELETE", "NO", "ACTION"),
+        ),
     ),
     DropConstraintGrammar=Sequence(
         "DROP",
@@ -282,6 +359,12 @@ databricks_dialect.add(
     ),
     MagicLineGrammar=TypedParser("magic_line", CodeSegment, type="magic_line"),
     MagicStartGrammar=TypedParser("magic_start", CodeSegment, type="magic_start"),
+    BareMagicCellGrammar=TypedParser(
+        "bare_magic_cell", CodeSegment, type="bare_magic_cell"
+    ),
+    NotebookStartBareMagicCellGrammar=TypedParser(
+        "notebook_start_bare_magic_cell", CodeSegment, type="bare_magic_cell"
+    ),
     VariableNameIdentifierSegment=OneOf(
         Ref("NakedIdentifierSegment"),
         Ref("BackQuotedIdentifierSegment"),
@@ -490,6 +573,30 @@ class WithinGroupClauseSegment(BaseSegment):
         "WITHIN",
         "GROUP",
         Bracketed(Ref("OrderByClauseSegment")),
+    )
+
+
+class ShorthandCastSegment(ansi.ShorthandCastSegment):
+    """A casting operation using '::' or '?::'.
+
+    '?::' is shorthand for try_cast (an error-tolerating cast).
+    https://docs.databricks.com/aws/en/sql/language-manual/functions/questiondoublecolonsign
+    """
+
+    match_grammar: Matchable = Sequence(
+        OneOf(
+            Ref("Expression_D_Grammar"),
+            Ref("CaseExpressionSegment"),
+        ),
+        AnyNumberOf(
+            Sequence(
+                OneOf(Ref("CastOperatorSegment"), Ref("TryCastOperatorSegment")),
+                Ref("DatatypeSegment"),
+                Ref("TimeZoneGrammar", optional=True),
+                allow_gaps=True,
+            ),
+            min_times=1,
+        ),
     )
 
 
@@ -802,7 +909,7 @@ class CreateViewStatementSegment(BaseSegment):
     )
 
     _view_clauses = AnyNumberOf(
-        Ref("CommentGrammar"),
+        Ref("CommentClauseSegment"),
         Sequence(
             "DEFAULT",
             "COLLATION",
@@ -816,7 +923,7 @@ class CreateViewStatementSegment(BaseSegment):
     match_grammar = Sequence(
         "CREATE",
         Ref("OrReplaceGrammar", optional=True),
-        Ref.keyword("TEMPORARY", optional=True),
+        Ref("TemporaryGrammar", optional=True),
         "VIEW",
         Ref("IfNotExistsGrammar", optional=True),
         Ref("TableReferenceSegment"),
@@ -825,7 +932,7 @@ class CreateViewStatementSegment(BaseSegment):
                 Delimited(
                     Sequence(
                         Ref("ColumnReferenceSegment"),
-                        Ref("CommentGrammar", optional=True),
+                        Ref("CommentClauseSegment", optional=True),
                     ),
                 ),
             ),
@@ -837,6 +944,28 @@ class CreateViewStatementSegment(BaseSegment):
             OptionallyBracketed(Ref("SelectableGrammar")),
             # YAML metric view definition: $$ yaml_string $$
             Ref("DollarQuotedUDFBody"),
+        ),
+    )
+
+
+class MaterializedViewExpectationConstraintSegment(BaseSegment):
+    """A data quality expectation for a materialized view."""
+
+    type = "constraint_statement"
+
+    match_grammar = Sequence(
+        "CONSTRAINT",
+        Ref("ObjectReferenceSegment"),
+        "EXPECT",
+        Bracketed(Ref("ExpressionSegment")),
+        Sequence(
+            "ON",
+            "VIOLATION",
+            OneOf(
+                Sequence("FAIL", "UPDATE"),
+                Sequence("DROP", "ROW"),
+            ),
+            optional=True,
         ),
     )
 
@@ -916,10 +1045,25 @@ class CreateMaterializedViewStatementSegment(BaseSegment):
         Ref("IfNotExistsGrammar", optional=True),
         Ref("TableReferenceSegment"),
         Bracketed(
-            Delimited(
-                OneOf(
-                    Ref("ColumnFieldDefinitionSegment"),
-                    Ref("TableConstraintSegment"),
+            Sequence(
+                Ref("ColumnFieldDefinitionSegment"),
+                AnyNumberOf(
+                    Sequence(
+                        Ref("CommaSegment"),
+                        Ref("ColumnFieldDefinitionSegment"),
+                    ),
+                ),
+                AnyNumberOf(
+                    Sequence(
+                        Ref("CommaSegment"),
+                        Ref("MaterializedViewExpectationConstraintSegment"),
+                    ),
+                ),
+                AnyNumberOf(
+                    Sequence(
+                        Ref("CommaSegment"),
+                        Ref("TableConstraintSegment"),
+                    ),
                 ),
             ),
             optional=True,
@@ -1446,54 +1590,6 @@ class LimitClauseSegment(sparksql.LimitClauseSegment):
     )
 
 
-class MergeMatchSegment(ansi.MergeMatchSegment):
-    """Contains Databricks-specific merge operations."""
-
-    match_grammar: Matchable = AnyNumberOf(
-        Ref("MergeMatchedClauseSegment"),
-        Ref("MergeNotMatchedClauseSegment"),
-        Ref("MergeNotMatchedBySourceClauseSegment"),
-        min_times=1,
-    )
-
-
-class MergeNotMatchedClauseSegment(ansi.MergeNotMatchedClauseSegment):
-    """The `WHEN NOT MATCHED [BY TARGET]` clause within a `MERGE` statement."""
-
-    match_grammar: Matchable = Sequence(
-        "WHEN",
-        "NOT",
-        "MATCHED",
-        Sequence("BY", "TARGET", optional=True),
-        Sequence("AND", Ref("ExpressionSegment"), optional=True),
-        "THEN",
-        Indent,
-        Ref("MergeInsertClauseSegment"),
-        Dedent,
-    )
-
-
-class MergeNotMatchedBySourceClauseSegment(BaseSegment):
-    """The `WHEN NOT MATCHED BY SOURCE` clause within a `MERGE` statement."""
-
-    type = "merge_when_not_matched_by_source_clause"
-    match_grammar: Matchable = Sequence(
-        "WHEN",
-        "NOT",
-        "MATCHED",
-        "BY",
-        "SOURCE",
-        Sequence("AND", Ref("ExpressionSegment"), optional=True),
-        "THEN",
-        Indent,
-        OneOf(
-            Ref("MergeUpdateClauseSegment"),
-            Ref("MergeDeleteClauseSegment"),
-        ),
-        Dedent,
-    )
-
-
 class MergeInsertClauseSegment(sparksql.MergeInsertClauseSegment):
     """`INSERT` clause within the `MERGE` statement.
 
@@ -1504,7 +1600,7 @@ class MergeInsertClauseSegment(sparksql.MergeInsertClauseSegment):
     match_grammar: Matchable = Sequence(
         "INSERT",
         OneOf(
-            Ref("WildcardIdentifierSegment"),
+            Ref("WildcardExpressionSegment"),
             Sequence(
                 Indent,
                 Ref("BracketedColumnReferenceListGrammar"),
@@ -1677,7 +1773,7 @@ class NamedArgumentSegment(BaseSegment):
 
     type = "named_argument"
     match_grammar = Sequence(
-        Ref("NakedIdentifierSegment"),
+        Ref("VariableNameIdentifierSegment"),
         Ref("RightArrowSegment"),
         Ref("ExpressionSegment"),
     )
@@ -1912,7 +2008,7 @@ class ColumnPropertiesSegment(BaseSegment):
             "DEFAULT",
             Ref("ColumnConstraintDefaultGrammar"),
         ),
-        Sequence("COLLATE", Ref("CollationReferenceSegment")),
+        Ref("CollateGrammar"),
         Ref("CommentGrammar"),
         Ref("ColumnConstraintSegment"),
         Ref("MaskStatementSegment"),
@@ -2047,6 +2143,13 @@ class MagicCellStatementSegment(BaseSegment):
                 AnyNumberOf(Ref("MagicLineGrammar"), optional=True),
             ),
             Ref("MagicSingleLineGrammar", optional=True),
+            # One `bare_magic_cell` token per line (see the lexer subdivider).
+            AnyNumberOf(
+                OneOf(
+                    Ref("BareMagicCellGrammar"),
+                    Ref("NotebookStartBareMagicCellGrammar"),
+                )
+            ),
         ),
         terminators=[Ref("CommandCellSegment", optional=True)],
         reset_terminators=True,

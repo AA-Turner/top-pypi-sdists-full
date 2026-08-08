@@ -13,6 +13,7 @@ namespace pdflib
     const static inline std::string FONTS_KEY = "/Font";
     const static inline std::string GRPHS_KEY = "/ExtGState";
     const static inline std::string COLORSPACES_KEY = "/ColorSpace";
+    const static inline std::string SHADINGS_KEY = "/Shading";
     const static inline std::string XOBJS_KEY = "/XObject";
     
   public:
@@ -35,11 +36,17 @@ namespace pdflib
     bool has_fonts() const;
     bool has_grphs() const;
     bool has_colorspaces() const;
+    bool has_shadings() const;
+
+    // True when the form is a transparency group XObject (11.6.6): its
+    // contents are meant to be composited as a unit rather than one at a time.
+    bool has_transparency_group() const;
     bool has_xobjects() const;
 
     QPDFObjectHandle get_fonts() const;
     QPDFObjectHandle get_grphs() const;
     QPDFObjectHandle get_colorspaces() const;
+    QPDFObjectHandle get_shadings() const;
     QPDFObjectHandle get_xobjects() const;
 
     std::vector<qpdf_stream_instruction> parse_stream() const;
@@ -137,6 +144,34 @@ namespace pdflib
            qpdf_xobject_dict_.getKey(RESOURCES_KEY).hasKey(COLORSPACES_KEY);
   }
 
+  bool pdf_resource<PAGE_XOBJECT_FORM>::has_transparency_group() const
+  {
+    // QPDFObjectHandle's accessors are non-const, so go through a copy the way
+    // the has_*() above do.
+    QPDFObjectHandle qpdf_xobject_dict_ = qpdf_xobject_dict;
+
+    if(not qpdf_xobject_dict_.isDictionary() or not qpdf_xobject_dict_.hasKey("/Group"))
+      {
+        return false;
+      }
+
+    QPDFObjectHandle group = qpdf_xobject_dict_.getKey("/Group");
+    if(not group.isDictionary() or not group.hasKey("/S"))
+      {
+        return false;
+      }
+
+    QPDFObjectHandle subtype = group.getKey("/S");
+    return subtype.isName() and subtype.getName() == "/Transparency";
+  }
+
+  bool pdf_resource<PAGE_XOBJECT_FORM>::has_shadings() const
+  {
+    QPDFObjectHandle qpdf_xobject_dict_ = qpdf_xobject_dict;
+    return qpdf_xobject_dict_.hasKey(RESOURCES_KEY) and
+           qpdf_xobject_dict_.getKey(RESOURCES_KEY).hasKey(SHADINGS_KEY);
+  }
+
   bool pdf_resource<PAGE_XOBJECT_FORM>::has_xobjects() const
   {
     QPDFObjectHandle qpdf_xobject_dict_ = qpdf_xobject_dict;
@@ -174,6 +209,17 @@ namespace pdflib
       {
         QPDFObjectHandle qpdf_xobject_dict_ = qpdf_xobject_dict;
 	return qpdf_xobject_dict_.getKey(RESOURCES_KEY).getKey(COLORSPACES_KEY);
+      }
+
+    return QPDFObjectHandle::newNull();
+  }
+
+  QPDFObjectHandle pdf_resource<PAGE_XOBJECT_FORM>::get_shadings() const
+  {
+    if(has_shadings())
+      {
+        QPDFObjectHandle qpdf_xobject_dict_ = qpdf_xobject_dict;
+	return qpdf_xobject_dict_.getKey(RESOURCES_KEY).getKey(SHADINGS_KEY);
       }
 
     return QPDFObjectHandle::newNull();

@@ -4,10 +4,10 @@ from typing import TYPE_CHECKING
 
 from pydantic_config import BaseConfig
 
-from verifiers.v1.decorators import discover_decorated
 from verifiers.v1.mcp.server import ConfigT, ServerBase
 from verifiers.v1.runtimes import RuntimeConfig, SubprocessConfig
 from verifiers.v1.state import StateT
+from verifiers.v1.utils.decorators import discover_decorated
 
 if TYPE_CHECKING:
     from mcp.server.fastmcp import FastMCP
@@ -25,7 +25,7 @@ class SharedToolsetConfig(BaseConfig):
 
 
 class Toolset(ServerBase[ConfigT, StateT]):
-    def _register(self, mcp: FastMCP) -> None:
+    def register(self, mcp: FastMCP) -> None:
         for fn in discover_decorated(self, "tool"):
             mcp.add_tool(
                 self._with_state(fn),

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: seltz
-Version: 1.7.0
+Version: 1.9.0
 Summary: Seltz Python SDK for AI-powered search
 Author-email: Seltz <support@seltz.ai>
 Project-URL: Homepage, https://seltz.ai
@@ -22,7 +22,7 @@ Classifier: Topic :: Internet :: WWW/HTTP :: Indexing/Search
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 Requires-Dist: grpcio>=1.76.0
-Requires-Dist: protobuf<6.0
+Requires-Dist: protobuf<7,>=5.29.5
 
 <div align="center">
   <img src="https://repository-images.githubusercontent.com/1108844600/672f4876-01a4-4fde-8ac2-ecab4c914c98">
@@ -115,6 +115,15 @@ response = client.answer(
 
 import json
 print(json.loads(response.answer)["summary"])
+```
+
+Pass `system_prompt` to steer how the answer is presented — tone, voice, format:
+
+```python
+response = client.answer(
+    "Who is Apple's next CEO?",
+    system_prompt="Answer in British English. Open with a one-line summary, then the detail.",
+)
 ```
 
 ### Answer (streaming)

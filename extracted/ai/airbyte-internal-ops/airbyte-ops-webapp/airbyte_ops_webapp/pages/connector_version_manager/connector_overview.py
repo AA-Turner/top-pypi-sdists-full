@@ -159,10 +159,10 @@ _BREAKDOWN_HEADER_CLASS = "text-[0.76rem] font-bold mb-0.5"
 _BREAKDOWN_LINE_CLASS = "text-[0.72rem] text-[#cbd5e1] whitespace-pre tabular-nums"
 _BREAKDOWN_COLUMN_CLASS = "min-w-[13rem]"
 
-# Explanatory hover text for the backend-reported "Deployed" percentage. Shown
+# Explanatory hover text for the backend-reported target percentage. Shown
 # only on hover behind the ⓘ affordance — never rendered inline.
 _DEPLOYED_TOOLTIP = (
-    '"Deployed %" is the rollout status reported by the backend rollout. '
+    '"Target (backend)" is the configured rollout target reported by the backend. '
     "May not match exactly due to time lag and other factors."
 )
 
@@ -184,10 +184,10 @@ def _render_tier_card(card: LoopItem) -> None:
 
     Layout, top to bottom:
 
-    - A header line pairing the status glyph (`⚪ Not started` / `🔵 In progress` /
-      `🟡 Attention` / `🟢 Complete`) with the tier label and status word, so the
+    - A header line pairing the status glyph (heavy minus / `🔵 In progress` /
+      `⚠️ Attention` / `☑️ Complete`) with the tier label and status word, so the
       rollout state is obvious before any numbers are read.
-    - A compact `Rollout Status` row: `Deployed` (backend-reported percentage,
+    - A compact `Rollout Status` row: `Target (backend)` (backend-reported target,
       with an ⓘ hover explaining it can lag), `Pinned` (realized coverage), and
       `Failed` (post-pin failure rate).
     - A two-column `Actor Breakdown`: `Eligible Actors` (pinned — subdivided by
@@ -201,7 +201,7 @@ def _render_tier_card(card: LoopItem) -> None:
             Span(content=card.status_label, css_class=_TIER_STATUS_LABEL_CLASS)
         with Row(gap=4, align="baseline", css_class="flex-wrap"):
             with Row(gap=1, align="baseline"):
-                Span("Deployed:", css_class=_STATUS_METRIC_LABEL_CLASS)
+                Span("Target (backend):", css_class=_STATUS_METRIC_LABEL_CLASS)
                 Text(
                     content=card.deployed_display, css_class=_STATUS_METRIC_VALUE_CLASS
                 )
@@ -219,6 +219,9 @@ def _render_tier_card(card: LoopItem) -> None:
                 Span(content=card.ineligible_header, css_class=_BREAKDOWN_HEADER_CLASS)
                 with ForEach(card.ineligible_rows) as line:
                     _render_breakdown_line(line)
+        with If(card.reason_display.__ne__("")):
+            AbFieldCaption("Reason")
+            Text(content=card.reason_display, css_class=_YANK_REASON_CLASS)
 
 
 def _render_active_rollout_row() -> None:

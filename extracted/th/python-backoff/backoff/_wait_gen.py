@@ -1,12 +1,17 @@
+from __future__ import annotations
+
 import itertools
 import math
-from typing import Any, Callable, Generator, Iterable, Optional, Union
+from typing import TYPE_CHECKING, Any, Callable
+
+if TYPE_CHECKING:
+    from collections.abc import Generator, Iterable
 
 
 def expo(
     base: float = 2,
     factor: float = 1,
-    max_value: Optional[float] = None,
+    max_value: float | None = None,
 ) -> Generator[float, Any, None]:
     """Generator for exponential decay.
 
@@ -18,21 +23,20 @@ def expo(
              of max_value will forever after be yielded.
     """
     # Advance past initial .send() call
-    yield  # type: ignore[misc]
-    base_n: float = 1
+    yield 0
+
+    a = factor
+    while max_value is None or a < max_value:
+        yield a
+        a *= base
     while True:
-        a = factor * base_n
-        if max_value is None or a < max_value:
-            yield a
-            base_n *= base
-        else:
-            yield max_value
+        yield max_value
 
 
 def decay(
     initial_value: float = 1,
     decay_factor: float = 1,
-    min_value: Optional[float] = None,
+    min_value: float | None = None,
 ) -> Generator[float, Any, None]:
     """Generator for exponential decay[1]:
 
@@ -46,18 +50,17 @@ def decay(
     [1] https://en.wikipedia.org/wiki/Exponential_decay
     """
     # Advance past initial .send() call
-    yield  # type: ignore[misc]
-    t = 0
+    yield 0
+    a = initial_value
+    min_value = min_value or 0.0
+    while a > min_value:
+        yield a
+        a *= math.exp(-decay_factor)
     while True:
-        a = initial_value * math.e ** (-t * decay_factor)
-        if min_value is None or a > min_value:
-            yield a
-            t += 1
-        else:
-            yield min_value
+        yield min_value
 
 
-def fibo(max_value: Optional[int] = None) -> Generator[int, None, None]:
+def fibo(max_value: int | None = None) -> Generator[int, Any, None]:
     """Generator for fibonaccial decay.
 
     Args:
@@ -66,42 +69,37 @@ def fibo(max_value: Optional[int] = None) -> Generator[int, None, None]:
              of max_value will forever after be yielded.
     """
     # Advance past initial .send() call
-    yield  # type: ignore[misc]
+    yield 0
 
     a = 1
     b = 1
+    while max_value is None or a < max_value:
+        yield a
+        a, b = b, a + b
     while True:
-        if max_value is None or a < max_value:
-            yield a
-            a, b = b, a + b
-        else:
-            yield max_value
+        yield max_value
 
 
-def constant(
-    interval: Union[int, Iterable[float]] = 1,
-) -> Generator[float, None, None]:
+def constant(interval: float | Iterable[float] = 1) -> Generator[float, Any, None]:
     """Generator for constant intervals.
 
     Args:
         interval: A constant value to yield or an iterable of such values.
     """
     # Advance past initial .send() call
-    yield  # type: ignore[misc]
+    yield 0
 
-    try:
-        itr = iter(interval)  # type: ignore
-    except TypeError:
-        itr = itertools.repeat(interval)  # type: ignore
+    itr = (
+        itertools.repeat(interval)
+        if isinstance(interval, (int, float))
+        else iter(interval)
+    )
 
     for val in itr:
         yield val
 
 
-def runtime(
-    *,
-    value: Callable[[Any], float],
-) -> Generator[float, None, None]:
+def runtime(*, value: Callable[[Any], float]) -> Generator[float, Any, None]:
     """Generator that is based on parsing the return value or thrown
         exception of the decorated method
 
@@ -110,6 +108,6 @@ def runtime(
             function's return value or thrown exception and
             determines how long to wait
     """
-    ret_or_exc = yield  # type: ignore[misc]
+    ret_or_exc = yield 0
     while True:
         ret_or_exc = yield value(ret_or_exc)

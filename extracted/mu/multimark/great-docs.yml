@@ -76,6 +76,16 @@ reference:
       - name: Options
         members: false
 
+  - title: Parsing
+    desc: Streaming parser, AST nodes, and tree traversal
+    contents:
+      - Parser
+      - parse
+      - Node
+      - NodeType
+      - ListType
+      - DelimType
+
   - title: Utility
     desc: Package information
     contents:
@@ -108,6 +118,8 @@ nav_icons:
     Security Considerations: shield
     Practical Recipes: chef-hat
     Performance: zap
+    Command-Line Interface: terminal
+    Parsing and AST: tree-deciduous
 
 # Tags
 # ----

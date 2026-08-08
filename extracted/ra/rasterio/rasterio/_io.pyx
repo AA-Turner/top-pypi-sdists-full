@@ -438,7 +438,7 @@ cdef class DatasetReaderBase(DatasetBase):
             return2d = True
 
             if out is not None and out.ndim == 2:
-                out.shape = (1,) + out.shape
+                out = np.expand_dims(out, axis=0)  # out.shape = (1,) + out.shape
 
         if not indexes:
             raise ValueError("No indexes to read")
@@ -657,7 +657,7 @@ cdef class DatasetReaderBase(DatasetBase):
                     out = np.ma.array(out, **kwds)
 
         if return2d:
-            out.shape = out.shape[1:]
+            out = np.squeeze(out, axis=0)  # out.shape = out.shape[1:]
 
         return out
 
@@ -731,7 +731,8 @@ cdef class DatasetReaderBase(DatasetBase):
             indexes = [indexes]
             return2d = True
             if out is not None and out.ndim == 2:
-                out.shape = (1,) + out.shape
+                out = np.expand_dims(out, axis=0)  # .shape = (1,) + out.shape
+
         if not indexes:
             raise ValueError("No indexes to read")
 
@@ -828,7 +829,7 @@ cdef class DatasetReaderBase(DatasetBase):
                         indexes, out, Window(0, 0, window.width, window.height), None, masks=True)
 
         if return2d:
-            out.shape = out.shape[1:]
+            out = np.squeeze(out, axis=0)  # out.shape = out.shape[1:]
 
         return out
 
@@ -1911,8 +1912,8 @@ cdef class DatasetWriterBase(DatasetReaderBase):
     def write_colormap(self, bidx, colormap):
         """Write a colormap for a band to the dataset.
 
-        A colormap maps pixel values of a single-band dataset to RGB or
-        RGBA colors.
+        A colormap maps pixel values of a dataset band to RGB or RGBA
+        colors.
 
         Parameters
         ----------
@@ -2327,8 +2328,8 @@ cdef class BufferedDatasetWriterBase(DatasetWriterBase):
                 gdal_dtype = _get_gdal_dtype(self._init_dtype)
 
             self._hds = exc_wrap_pointer(
-                GDALCreate(memdrv, "temp", self.width, self.height,
-                           self._count, gdal_dtype, options))
+                GDALCreate(memdrv, "temp", self.width, self.height, self._count, gdal_dtype, options)
+            )
 
             if self._init_nodata is not None:
                 for i in range(self._count):
@@ -2384,6 +2385,10 @@ cdef class BufferedDatasetWriterBase(DatasetWriterBase):
         cdef GDALDriverH drv = NULL
         cdef GDALDatasetH temp = NULL
         cdef const char *fname = NULL
+
+        # Bail out immediately if the GDALDatasetH is NULL.
+        if self._hds == NULL:
+            return
 
         name_b = self.name.encode('utf-8')
         fname = name_b

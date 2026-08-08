@@ -7,7 +7,7 @@ enabling section extraction for API filings with generated anchor IDs.
 import logging
 import re
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 
 from lxml import html as lxml_html
 
@@ -1897,10 +1897,48 @@ class TOCAnalyzer:
             # This handles TOCs where item number is not in the immediately adjacent cell
             # Example: ['Business', 'I', '1', '5'] where '1' is the item number
             if td_element is not None:
+                # In a two-column TOC both columns share one row, so scanning
+                # leftwards runs out of the link's own column and into its
+                # neighbour's — where the last cell before the gap is the other
+                # column's *page number*. Ambac's FY2022 10-K lays out a row as
+                # ['', 'Available Information', '10', '', '', 'Non-GAAP Financial
+                # Measures', '54']: the right column's title took "10" for its
+                # item label and produced a `part_ii_item_10` section sitting
+                # inside MD&A, truncating Item 7 at the Non-GAAP heading
+                # (edgartools-fhk1). Stop at the column boundary.
+                #
+                # Only on a TOC confirmed two-column. A single-column row is
+                # routinely ['Item', '1', 'Business', '5'] — the label cell is in
+                # the *other* half by the same midpoint test, so applying this
+                # unconditionally would discard the label it exists to find. Same
+                # scoping, and the same reason for gating it, as
+                # `_infer_part_from_row_context`.
+                #
+                # `foreign_cells` holds the row's cells that belong to the other
+                # column, split at the midpoint `_toc_cell_column` uses. Only a
+                # right-column link has any — nothing to a left-column link's
+                # left is foreign. `cells` outlives the set on purpose: a freed
+                # lxml proxy hands its id to an unrelated element.
+                foreign_cells: Set[int] = set()
+                if getattr(self, '_toc_two_column', False):
+                    row = td_element.getparent()
+                    if row is not None and row.tag == 'tr':
+                        cells = [c for c in row if c.tag in ('td', 'th')]
+                        try:
+                            own_index = cells.index(td_element)
+                        except ValueError:
+                            own_index = None
+                        if own_index is not None and own_index * 2 >= len(cells):
+                            midpoint = (len(cells) + 1) // 2
+                            foreign_cells = {id(c) for c in cells[:midpoint]}
+
                 # Check all preceding siblings (rightmost to leftmost)
                 prev_sibling = td_element.getprevious()
                 while prev_sibling is not None:
                     if prev_sibling.tag in ['td', 'th']:
+                        if id(prev_sibling) in foreign_cells:
+                            break
+
                         prev_text = (prev_sibling.text_content() or '').strip()
 
                         # Look for "Item X" or just "X" (bare number) pattern
@@ -1924,7 +1962,8 @@ class TOCAnalyzer:
                         # rather than allowing any `\d`.
                         max_item_num = self.schema.max_bare_item
                         bare_item_match = re.match(r'^([1-9]\d?)([A-Za-z]?)\.?\s*$', prev_text, re.IGNORECASE)
-                        if bare_item_match and 1 <= int(bare_item_match.group(1)) <= max_item_num:
+                        if (bare_item_match and 1 <= int(bare_item_match.group(1)) <= max_item_num
+                                and not self._cell_in_numbered_index(prev_sibling)):
                             item_num = bare_item_match.group(1)
                             item_letter = bare_item_match.group(2).upper()
                             return f"Item {item_num}{item_letter}"
@@ -1958,6 +1997,44 @@ class TOCAnalyzer:
             logger.debug("Preceding-item-label extraction failed", exc_info=True)
 
         return ''
+
+    # Column headers that name a table's numbering as something other than
+    # items. Exact cell match only — "Table of Contents" is not "Table".
+    _NUMBERED_INDEX_HEADERS = frozenset(
+        ('table', 'tables', 'figure', 'figures', 'chart', 'charts',
+         'exhibit', 'exhibits', 'note', 'notes'))
+
+    def _cell_in_numbered_index(self, cell) -> bool:
+        """Return True when ``cell`` belongs to a numbered table/figure index.
+
+        Freddie Mac's MD&A "List of Tables" (GH #918) has rows shaped exactly
+        like bare-number TOC rows — ``11 | Other Investments Portfolio | 18``
+        — but the numbers are table captions, and reading them as item numbers
+        mapped every Item 1–15 onto MD&A tables at full confidence. The index
+        is recognisable by its header row, which names the numbering:
+        "Table | Description | Page". A genuine TOC either heads its number
+        column "Item" (Morgan Stanley: "Table of Contents | Part | Item |
+        Page") or carries no header at all, so only a header row with an
+        exact "Table"/"Figure"/… cell and no "Item" cell disqualifies the
+        bare numbers. Validating each row's link target instead does not
+        work: many filers' TOC anchors land nowhere near the item heading,
+        so demanding per-row corroboration silently dropped real items
+        (MS 10-K: 19 item sections → 6).
+        """
+        try:
+            table = cell.getparent()
+            while table is not None and table.tag != 'table':
+                table = table.getparent()
+            if table is None:
+                return False
+            for header_row in table.xpath('./tr | ./thead/tr | ./tbody/tr')[:4]:
+                texts = [(c.text_content() or '').strip().rstrip(':').lower()
+                         for c in header_row.xpath('./td | ./th')]
+                if any(t in self._NUMBERED_INDEX_HEADERS for t in texts):
+                    return not any(t == 'item' for t in texts)
+        except Exception:
+            logger.debug("Numbered-index header check failed", exc_info=True)
+        return False
 
     def _extract_part_context(self, text: str) -> Optional[str]:
         """Extract normalized part label from text, e.g., "Part II"."""

@@ -65,7 +65,7 @@ from typing import Any, Callable, Dict, List, Mapping, Optional, Tuple
 
 
 from . import activity as activity_mod
-from . import aot_cells, aot_serve, cell_key
+from . import aot_cells, cell_key
 from . import boot_phases as boot_mod
 from . import compile_cache as cc
 from . import guard_closure
@@ -235,7 +235,7 @@ def finalized_in_process(key: str) -> Optional["SelfMint"]:
 
 
 # pgw#712 fence marker (see publish()): presence in metadata refuses
-# republication. Nothing in-tree stamps it post-ck5.
+# republication. Nothing in-tree stamps it under exact identity.
 ADOPTION_MARK = "equivalence_adopted"
 
 
@@ -319,6 +319,36 @@ _UNBOUNDED_ENVELOPE_BLOCKS = frozenset({
     "weight_contract",  # per-tensor weight rows
 })
 
+# pgw#988 — the OTHER half of this decision, asserted rather than assumed.
+#
+# What the declare carries and what the consumer verifies off it are two halves
+# of ONE contract, and until now they were two independent computations of it in
+# two modules. th#1645 dropped `entries` here — right about SIZE — while
+# `aot_cells._candidates` still refused any cell whose declare had no entries
+# map, so 100% of AOT cells published from that commit on were undiscoverable on
+# every pod. A pod that finds no cell mints its own, so the fleet paid a full
+# compile per cold boot and the failure presented as COST, never as an error.
+#
+# Checked at import, over two frozensets, so the next block that moves fails
+# every test run rather than a fleet.
+def assert_declare_contract(
+    dropped: "frozenset[str]" = _UNBOUNDED_ENVELOPE_BLOCKS,
+    read: "frozenset[str]" = aot_cells.DECLARE_CONTRACT_KEYS,
+) -> None:
+    """Raise when the declare strips a key its consumer still verifies."""
+    breach = sorted(dropped & read)
+    if breach:
+        raise RuntimeError(
+            f"cell declare contract broken (pgw#988): {breach!r} is stripped "
+            "from the publish declare but is still read off it by "
+            "aot_cells._candidates — every cell published this way would be "
+            "undiscoverable, and every pod would re-mint. Either keep the "
+            "block in the declare or stop verifying against it before the "
+            "download.")
+
+
+assert_declare_contract()
+
 # The stated ceiling on a cell's CONTROL-plane declare (§4.24). Measured
 # basis: the same real cell's metadata minus the blocks above is 285 KB, and
 # the AOT lane's phase table adds tens of KB — so 4 MiB is roughly an order
@@ -356,13 +386,6 @@ def control_plane_metadata(meta: Mapping[str, Any]) -> Dict[str, Any]:
         k: v for k, v in dict(meta).items()
         if v is not None and k not in _UNBOUNDED_ENVELOPE_BLOCKS
     }
-    # pgw#988: `entries` is stripped above because it is unbounded, but a
-    # consumer still has to filter on it BEFORE downloading 200 MB. The
-    # bounded stand-in goes in here, at the same seam that drops the map, so
-    # the two halves of the contract are written in one place and cannot drift
-    # again — dropping the map silently while the consumer kept verifying it
-    # made every published cell undiscoverable fleet-wide.
-    kept.update(aot_serve.entries_summary(meta))
     encoded = len(json.dumps(kept, sort_keys=True, default=str).encode())
     if encoded > CELL_DECLARE_MAX_BYTES:
         widest = max(
@@ -475,11 +498,11 @@ class CellPublisher:
         treats every raise as non-fatal to serving.
         """
 
-        # pgw#712 (kept under the ck5 exact-identity ruling as
+        # pgw#712 (kept under the exact-identity ruling as
         # defense-in-depth): a cell whose metadata carries a foreign
         # adoption provenance must never republish under this worker's
         # key. Nothing in-tree stamps the mark anymore (equivalence
-        # adoption was deleted with ck5); a marked cell can only be a
+        # adoption was deleted with exact identity); a marked cell can only be a
         # foreign/hand-copied artifact — refuse it.
         mark = meta.get(ADOPTION_MARK)
         if mark:
@@ -1028,6 +1051,8 @@ def _arming_policy(
             cache_dir=cache_dir,
         )
         if adopted is not None:
+            from . import aot_serve
+
             try:
                 aot_out, aot_row = _arm_candidate(
                     pipe, cfg, cache_dir, adopted.artifact,
@@ -1532,6 +1557,11 @@ def adopt_delegated_mint(
             os.replace(artifact, pending.target)
         except OSError:
             shutil.copy2(artifact, pending.target)
+    # pgw#999: (reason, detail) of the arm refusal, set by whichever branch
+    # refuses. Initialized to a NAMED unset rather than "" so a branch that
+    # forgets to classify is visible on the wire as a gap in this function
+    # instead of as an empty string that reads like "no reason exists".
+    refusal: Tuple[str, str] = ("unclassified_arm_refusal", "")
     try:
         if pending.recipe == RECIPE_AOT:
             # pgw#805: an exported cell arms through the AOT gates
@@ -1540,12 +1570,29 @@ def adopt_delegated_mint(
             # passes; `provision.enable_compiled` itself is not reusable here
             # because its pgw#709 receipts gate would drop a cell this pod
             # minted seconds ago and the hub has not countersigned yet.
-            armed = bool(provision.arm_aot(
+            # pgw#999: the outcome is KEPT. `arm_aot` returns a classified
+            # `AdoptOutcome` (`contract_invalid`, `constants_unbound`,
+            # `no_arm_for_mode`, `numerics_refused`, …) and this call site
+            # used to spend it on `bool(...)`. That discard cost attempt 26
+            # 2 h 45 m and $2.72: a 36/36 mint sealed, finalized, and was then
+            # refused by three events that all said "could not adopt".
+            outcome = provision.arm_aot(
                 pipe, pending.cfg, pending.cache_dir, pending.target,
-                int(getattr(pending.cfg, "lora_bucket", 0) or 0)))
+                int(getattr(pending.cfg, "lora_bucket", 0) or 0))
+            armed = bool(outcome)
+            if not armed:
+                refusal = (outcome.reason or "unclassified_arm_refusal",
+                           outcome.detail or outcome.identity)
         else:
             armed = bool(cc.enable(pipe, pending.cfg, pending.cache_dir,
                                    artifact=pending.target))
+            if not armed:
+                # `cc.enable` returns a bare bool and RAISES for the refusals
+                # it can name, so a falsy return genuinely carries no reason.
+                # Saying so by name beats inventing one.
+                refusal = ("jit_enable_declined",
+                           "compile_cache.enable declined without raising; it "
+                           "reports no classified reason on this path")
     except cc.CellSelectionBugError as exc:
         # th#883, delegated edition: the child's own cell, whose axes describe
         # exactly this runtime, refused to arm. Loud — it is a bug in the one
@@ -1555,18 +1602,30 @@ def adopt_delegated_mint(
             "mint (family=%s key=%s): %s",
             pending.family, pending.cell_key, exc)
         armed = False
+        refusal = ("cell_selection_bug", str(exc))
     except Exception as exc:  # noqa: BLE001 — adoption failure => eager
         logger.warning(
             "fleet-cells: delegated mint for %s did not adopt (%s)",
             pending.family, exc)
         armed = False
+        # An `AdoptError` already carries the token; anything else is named by
+        # its type rather than flattened into one word nobody can count.
+        refusal = (str(getattr(exc, "reason", "") or "") or type(exc).__name__,
+                   str(exc))
     if not armed:
+        reason, detail = refusal
+        # pgw#999: `phase` is the countable column, so it carries the CLASS —
+        # the same convention `self_mint_skipped` already uses. The old
+        # constant `delegated_adopt_failed` said only which call site fired,
+        # which every reader already knew from the event kind.
+        state["adopt_refusal"] = (reason, detail)
         activity_mod.emit_event(
             "self_mint_abort",
             f"family={pending.family} key={pending.cell_key}: the child "
-            "process produced a cell this runtime could not adopt; serving "
-            "stays eager and nothing is published",
-            phase="delegated_adopt_failed",
+            f"process produced a cell this runtime could not adopt "
+            f"({reason}{': ' + detail if detail else ''}); serving stays "
+            f"eager and nothing is published",
+            phase=reason,
         )
         mark_terminus(pending, TERMINUS_ABORTED)
         state["minted"] = None
@@ -1595,6 +1654,19 @@ def adopt_delegated_mint(
         "worker served eager throughout and now serves compiled",
         pending.family, key, pending.target.stat().st_size / 1e6)
     return minted
+
+
+def adopt_refusal(pending: "PendingSelfMint") -> Tuple[str, str]:
+    """Why :func:`adopt_delegated_mint` refused this pending's cell (pgw#999).
+
+    ``("", "")`` when it did not refuse — the mint adopted, or never got as
+    far as arming. The classification lives on the pending's own state rather
+    than being re-derived by the caller, so the abort event, the delegated
+    result and the executor's decline all quote ONE string that was produced
+    at the one place that knows it.
+    """
+    reason, detail = pending._state.get("adopt_refusal") or ("", "")
+    return str(reason), str(detail)
 
 
 def publish_self_mint(pending: "PendingSelfMint") -> None:
@@ -1826,9 +1898,10 @@ def _unregister(pending: "PendingSelfMint") -> None:
 #: off") that named two causes which were BOTH false on the measured pod while
 #: the true cause — the pipeline-side mandatory-lane misclassification — was
 #: not named at all. A refusal that cannot name its own cause is the defect.
+#: pgw#995 dropped `eager_first_disabled`: eager-first is unconditional, so
+#: that cause can no longer arise and a reason nobody can reach is dead prose.
 _DELEGATION_DECLINE_PHASE = {
     "mint_in_process_forced": "aot_mint_forced_in_process",
-    "eager_first_disabled": "aot_eager_first_disabled",
     "no_eager_tier": "aot_no_eager_tier",
     "caller_forced_in_process": "aot_mint_forced_in_process",
 }
@@ -1837,9 +1910,6 @@ _DELEGATION_DECLINE_DETAIL = {
         "GEN_WORKER_MINT_IN_PROCESS is set, which forces the in-process "
         "capture; an AOTI export has no eager tier to serve from while it "
         "compiles, so it cannot ride that shape",
-    "eager_first_disabled":
-        "GEN_WORKER_EAGER_FIRST_BOOT=0 turned eager-first off, and delegation "
-        "IS eager-first — there is no route to serve while a child compiles",
     "no_eager_tier":
         "an armed non-eager backend (AOTI cell or TRT engine) has replaced "
         "this pipeline's forward, so there is no eager tier to serve from",
@@ -1863,6 +1933,14 @@ def mint_recipe(
     Every decline here is NAMED on the wire. A silent decline is the defect
     class this issue exists to kill: five real L4 pods produced no mint and no
     refusal, which is indistinguishable from a crash.
+
+    pgw#996 split the branches by WHEN they are knowable. What is left asks
+    only questions a pod can answer and a build cannot: whether delegation is
+    available right now, whether this family declares an export at all, and
+    whether the declaration fits the pipeline this pod actually COMPOSED. The
+    image's own properties — C++ toolchain, torch floor, whether the
+    declaration module even imports — are refused at build time by
+    ``aot_preconditions``; reaching a pod is proof they hold.
     """
     family = str(getattr(cfg, "family", "") or "")
 
@@ -1900,6 +1978,12 @@ def mint_recipe(
     # arrives here — as a typed `self_mint_skipped` carrying every word of the
     # blocker text — instead of as an ImportError that takes the endpoint
     # down at boot. A refusal to MINT is not a refusal to IMPORT.
+    #
+    # pgw#996: the STATIC half of this refusal (unresolved MINT_BLOCKERS) is
+    # already recorded by the build gate, so no pod discovers it for the first
+    # time. The branch survives because the other half is genuinely a pod
+    # fact: ltx-2.3's thunk reads `LTX_SERVING_TIER` off the environment, and
+    # an unknown tier there is a MintRefused the image could not have known.
     try:
         decl = export_declaration(family)
     except Exception as exc:  # noqa: BLE001 — serving outranks compiling
@@ -1934,24 +2018,14 @@ def mint_recipe(
     # the one lane the mint admitted was the one lane no AUTO pod could be on.
     # Every check below answers "can this compile physically run", never
     # "should this lane exist".
-    refusal = aot_mint.lifted_torch_gap(spec)
-    if refusal:
-        return _decline("aot_lifted_torch_gap", refusal)
-
-    # pgw#823: AOTI links a real `.so`, so it needs a C++ compiler — and the
-    # endpoint images do not have one. The parent runs the SAME image as the
-    # child, so this is answerable here, for free, instead of after the child
-    # has loaded the pipeline and exported every graph class: measured, that
-    # cost 336 s of L4 time to arrive at `InvalidCxxCompiler`. Deliberately
-    # NOT `toolchain_present()` — that one passes on the image's C compiler,
-    # and tightening it would refuse the dynamo lane, which needs no C++.
-    if not cc.cxx_toolchain_present():
-        return _decline(
-            "no_cxx_toolchain",
-            "no C++ compiler on this image (torch._inductor would raise "
-            "InvalidCxxCompiler): AOTInductor forces the C++ wrapper and "
-            "links a shared object, unlike the dynamo lane's Triton + Python "
-            "wrapper — install g++/build-essential in the endpoint image")
+    # pgw#996: the C++ toolchain (pgw#823) and the lifted-LoRA torch floor
+    # (pgw#723) USED to be asked here. Both are properties of the IMAGE — apt
+    # installed g++, the pinned torch wheel — decided long before this pod was
+    # rented, and answering them here could only ever downgrade the recipe and
+    # bill the fleet for eager serving. They are now `aot_preconditions` rows
+    # that the image build refuses on (`discovery.validate_endpoint_lock`), so
+    # an image that reaches a pod has already proven them. What survives below
+    # is the residue that a build genuinely cannot know: the COMPOSED pipeline.
 
     # pgw#822: the LAST thing checkable without renting anything. Every
     # declared graph class's input names against its target module's own

@@ -67,6 +67,7 @@ async def tool_search_mental_models(
     tags_match: str = "any",
     tag_groups: "list | None" = None,
     exclude_ids: list[str] | None = None,
+    last_memory_write_at: datetime | None = None,
 ) -> dict[str, Any]:
     """
     Search user-curated mental models by semantic similarity.
@@ -83,11 +84,13 @@ async def tool_search_mental_models(
         tags: Optional tags to filter mental models
         tags_match: How to match tags - "any" (OR), "all" (AND)
         exclude_ids: Optional list of mental model IDs to exclude (e.g., when refreshing a mental model)
+        last_memory_write_at: The bank's newest memory write, resolved once per reflect. Skips the
+            per-model staleness query for any model refreshed at or after it.
 
     Returns:
         Dict with matching mental models including content and freshness info
     """
-    from ..memory_engine import fq_table
+    from ..memory_engine import _may_need_refresh, fq_table
     from ..search.tags import build_tag_groups_where_clause, build_tags_where_clause
 
     # Build filters dynamically
@@ -136,7 +139,16 @@ async def tool_search_mental_models(
             last_refreshed_at = last_refreshed_at.replace(tzinfo=timezone.utc)
 
         # Per-MM staleness: new in-scope memories since last refresh (includes pending).
-        is_stale = await memory_engine.compute_mental_model_is_stale(conn, bank_id, row)
+        # The scoped query has no index to use and scans the bank's memories in full, so
+        # skip it for a model the bank-wide watermark already proves current: nothing was
+        # written since it refreshed, so nothing in its scope was either. Every other
+        # model still gets the exact answer — the agent trusts a model without a verifying
+        # recall() only on `is_stale is False`, so guessing conservatively here would buy
+        # LLM turns to save a query. No watermark (absent, or an empty bank) → ask.
+        if last_memory_write_at is not None and not _may_need_refresh(last_refreshed_at, last_memory_write_at):
+            is_stale = False
+        else:
+            is_stale = await memory_engine.compute_mental_model_is_stale(conn, bank_id, row)
         staleness_reason = "new in-scope memories ingested since last refresh" if is_stale else None
 
         mental_models.append(
@@ -345,16 +357,37 @@ async def tool_expand(
 
     valid_uuids = list(uuid_by_id.values())
 
-    # Batch fetch all memory units
-    memories = await conn.fetch(
-        f"""
-        SELECT id, text, chunk_id, document_id, fact_type, context
-        FROM {fq_table("memory_units")}
-        WHERE id = ANY($1) AND bank_id = $2
-        """,
-        valid_uuids,
-        bank_id,
-    )
+    # Batch fetch all memory units. A store that keeps memories outside SQL answers by id
+    # through the store; normalize its records to the same UUID-keyed dict shape the SQL rows
+    # have so the result-building below stays store-agnostic.
+    from ..memories import get_memories
+
+    _store = get_memories()
+    if _store.writes_memory_rows_in_sql:
+        memories = await conn.fetch(
+            f"""
+            SELECT id, text, chunk_id, document_id, fact_type, context
+            FROM {fq_table("memory_units")}
+            WHERE id = ANY($1) AND bank_id = $2
+            """,
+            valid_uuids,
+            bank_id,
+        )
+    else:
+        stored = await _store.get_memories(
+            conn=conn, fq_table=fq_table, bank_id=bank_id, unit_ids=[str(u) for u in valid_uuids]
+        )
+        memories = [
+            {
+                "id": uuid.UUID(s.unit_id),
+                "text": s.text,
+                "chunk_id": s.chunk_id,
+                "document_id": s.document_id,
+                "fact_type": s.fact_type,
+                "context": s.context,
+            }
+            for s in stored
+        ]
     memory_map = {row["id"]: row for row in memories}
 
     # Collect chunk_ids and document_ids for batch fetching

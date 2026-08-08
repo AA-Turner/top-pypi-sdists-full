@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: apache-airflow-providers-postgres
-Version: 7.0.0
+Version: 7.0.1
 Summary: Provider package apache-airflow-providers-postgres for Apache Airflow
 Keywords: airflow-provider,postgres,airflow,integration
 Author-email: Apache Software Foundation <dev@airflow.apache.org>
@@ -43,8 +43,8 @@ Requires-Dist: psycopg2-binary>=2.9.9 ; extra == "psycopg2" and ( python_version
 Requires-Dist: psycopg2-binary>=2.9.10 ; extra == "psycopg2" and ( python_version >= '3.13')
 Requires-Dist: sqlalchemy>=1.4.54 ; extra == "sqlalchemy"
 Project-URL: Bug Tracker, https://github.com/apache/airflow/issues
-Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-postgres/7.0.0/changelog.html
-Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-postgres/7.0.0
+Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-postgres/7.0.1/changelog.html
+Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-postgres/7.0.1
 Project-URL: Mastodon, https://fosstodon.org/@airflow
 Project-URL: Slack Chat, https://s.apache.org/airflow-slack
 Project-URL: Source Code, https://github.com/apache/airflow
@@ -83,7 +83,7 @@ Provides-Extra: sqlalchemy
 
 Package ``apache-airflow-providers-postgres``
 
-Release: ``7.0.0``
+Release: ``7.0.1``
 
 
 `PostgreSQL <https://www.postgresql.org/>`__
@@ -96,7 +96,7 @@ This is a provider package for ``postgres`` provider. All classes for this provi
 are in ``airflow.providers.postgres`` python package.
 
 You can find package information and changelog for the provider
-in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-postgres/7.0.0/>`_.
+in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-postgres/7.0.1/>`_.
 
 Installation
 ------------
@@ -161,5 +161,5 @@ Extra                Dependencies
 ===================  ============================================================================================================================================================
 
 The changelog for the provider package can be found in the
-`changelog <https://airflow.apache.org/docs/apache-airflow-providers-postgres/7.0.0/changelog.html>`_.
+`changelog <https://airflow.apache.org/docs/apache-airflow-providers-postgres/7.0.1/changelog.html>`_.
 

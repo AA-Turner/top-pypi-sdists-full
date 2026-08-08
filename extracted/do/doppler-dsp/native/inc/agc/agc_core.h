@@ -81,7 +81,7 @@
 #include "clib_common.h"
 #include "jm_perf.h"
 #include "dp_state.h"
-#include "telemetry/telemetry.h"
+#include "dp_tlm/dp_tlm_core.h"
 #include "util/util_core.h"
 #include <math.h>
 
@@ -330,7 +330,7 @@ void agc_reset(agc_state_t *state);
    * >>> agc.gain_db           # loop already advanced from 0 dB
    * 0.0
    * >>> agc2 = AGC(ref_db=0.0, loop_bw=0.0025, alpha=0.05)
-   * >>> agc2.step(4.0+0.0j)  # 12 dB loud; first sample passes at unity gain
+   * >>> agc2.step(4.0+0.0j)  # 12 dB loud; first sample at unity gain
    * (4+0j)
    * >>> round(agc2.gain_db, 6)  # loop starts driving gain negative
    * -0.024276
@@ -449,7 +449,7 @@ double agc_get_applied_gain_db(const agc_state_t *state);
    * idempotent (same name -> same probe id).  Setup path, never hot: call
    * before the producer thread starts stepping, and keep every object
    * attached to one context on that one thread (the ring is SPSC — see
-   * telemetry/telemetry.h).  The context is borrowed, not owned: it must
+   * dp_tlm/dp_tlm_core.h).  The context is borrowed, not owned: it must
    * outlive the attachment.
    * @param state  Must be non-NULL.
    * @param tlm    Telemetry context to attach, or NULL to detach.
@@ -465,14 +465,14 @@ double agc_get_applied_gain_db(const agc_state_t *state);
    * >>> tlm = Telemetry(1 << 12)
    * >>> agc = AGC(ref_db=0.0, loop_bw=0.0025, alpha=0.05)
    * >>> agc.set_telemetry(tlm, "agc")
-   * >>> tlm.probe_names()
+   * >>> tlm.probe_names
    * {'agc.gain_db': 0}
    * >>> x = (0.5 + 0j) * np.ones(256, dtype=np.complex64)
    * >>> _ = agc.steps(x)
    * >>> recs = tlm.read()          # one record per decim-chunk update
    * >>> len(recs) == 256 // agc.decim
    * True
-   * >>> bool(recs["value"][-1] > recs["value"][0])  # gain rising toward ref
+   * >>> bool(recs["value"][-1] > recs["value"][0])  # gain rises to ref
    * True
    *
    * @endcode

@@ -1,13 +1,16 @@
 import dataclasses
 import pickle
+import unicodedata
 
 import pytest
 
-from nameparser import Lexicon, Locale, Parser, Policy, PolicyPatch, parse, parser_for
+from nameparser import (
+    Lexicon, Locale, Parser, Policy, PolicyPatch, locales, parse, parser_for,
+)
 from nameparser._policy import (
     FAMILY_FIRST, FAMILY_FIRST_GIVEN_LAST, PatronymicRule,
 )
-from nameparser._types import AmbiguityKind, Role
+from nameparser._types import AmbiguityKind, Role, Segmentation
 
 
 def test_parser_defaults_and_properties() -> None:
@@ -428,6 +431,22 @@ def test_revise_sub_parse_structural_behavior() -> None:
     assert p.revise(n, family="Smith (Jones").ambiguities == ()
 
 
+def test_revise_sub_parses_under_this_parsers_policy() -> None:
+    # the sub-parse runs on SELF, not on a default Parser: revise's
+    # docstring promises a marker LEADING a delimited value is
+    # consumed, and only a policy routing that pair to maiden makes
+    # the value delimited at all. Sub-parsing with Parser() instead
+    # leaves the rest of the suite green -- every other revise
+    # assertion uses a default parser, so nothing else can tell the
+    # two apart.
+    p = Parser(policy=Policy(maiden_delimiters=frozenset({("(", ")")})))
+    n = p.parse("John Smith")
+    assert p.revise(n, family="(née Jones)").family == "Jones"
+    # and the third leg: a leading marker in an UNDELIMITED value is
+    # no marker at all, so the same words keep it (#329)
+    assert p.revise(n, family="née Jones").family == "née Jones"
+
+
 def test_revise_forces_the_named_role_on_every_harvested_token() -> None:
     # the sub-parse reads "Dr." as a title and "Jr." as a suffix; the
     # named field's role must win for every token or the family view
@@ -436,3 +455,359 @@ def test_revise_forces_the_named_role_on_every_harvested_token() -> None:
     r = p.revise(p.parse("John Smith"), family="Dr. Vega Jr.")
     assert r.family == "Dr. Vega Jr."
     assert all(t.role is Role.FAMILY for t in r.tokens_for(Role.FAMILY))
+
+
+def test_wholly_cjk_names_read_family_first_by_default() -> None:
+    # the 2026-07-27 amendment: script determines the convention, so
+    # no pack is needed -- release-log-classified fix (#271)
+    n = parse("毛 泽东")
+    assert (n.family, n.given) == ("毛", "泽东")
+    n = parse("김 민준")
+    assert (n.family, n.given) == ("김", "민준")
+    # a lone wholly-CJK token takes the script order's first role: Han
+    # segmentation is opt-in (locales.ZH), so the default parser leaves
+    # this one token whole and reads it as the family name
+    assert parse("毛泽东").family == "毛泽东"
+
+
+def test_nfd_korean_input_still_reads_family_first() -> None:
+    # fix(#271) classification, landed via the #272 NFC-classification
+    # amendment: NFD decomposes each Hangul syllable onto bare jamo,
+    # entirely outside the HANGUL range, so raw NFD input used to miss
+    # script_orders' family-first rule and fall back to the positional
+    # default -- a live gap in #294's shipped behavior until
+    # single_script started classifying an NFC-normalized copy.
+    n = parse(unicodedata.normalize("NFD", "김 민준"))
+    # classification-only: the rendered text is exactly what was
+    # typed (still NFD, spans untouched), so compare NFC-normalized --
+    # the point under test is the ORDER (family first), not encoding
+    assert (unicodedata.normalize("NFC", n.family),
+            unicodedata.normalize("NFC", n.given)) == ("김", "민준")
+    # pinned, not just stated: a future tokenize-level normalize (the
+    # tempting over-fix, and an anti-#100 violation) must fail here
+    assert n.family == unicodedata.normalize("NFD", "김")
+
+
+def test_kana_licensed_names_read_family_first_by_default() -> None:
+    # the #272 amendment: hiragana identifies Japanese as certainly
+    # as hangul identifies Korean -- release-log-classified fix
+    n = parse("高橋 みなみ")
+    assert (n.family, n.given) == ("高橋", "みなみ")
+    n = parse("山田 エミ")    # kanji piece + katakana piece: native
+    assert (n.family, n.given) == ("山田", "エミ")
+    # lone kana-licensed token takes the family role, unsplit
+    assert parse("高橋みなみ").family == "高橋みなみ"
+
+
+def test_iteration_mark_counts_as_han() -> None:
+    # 々 (U+3005) repeats the preceding kanji. It is Script=Han under
+    # UAX #24 already, but it lives outside every CJK ideograph BLOCK,
+    # and the classifier is a block table -- so without its singleton
+    # entry a 佐々木 token was in no script at all: the name reversed,
+    # and the token never reached the segmentation gate. The Script
+    # property would have got this one right unaided; the block table
+    # is what needed the special case.
+    n = parse("佐々木 太郎")
+    assert (n.family, n.given) == ("佐々木", "太郎")
+    n = parse("野々村 真")
+    assert (n.family, n.given) == ("野々村", "真")
+    # and a lone one takes the family role like any other Han token
+    assert parse("奈々").family == "奈々"
+
+
+def test_pure_katakana_stays_positional() -> None:
+    # transcribed foreign names keep their original (usually Western)
+    # order; katakana alone licenses nothing
+    n = parse("マイケル ジャクソン")
+    assert (n.given, n.family) == ("マイケル", "ジャクソン")
+
+
+def test_katakana_transcription_parses_by_its_divider() -> None:
+    # the dot tells us where the parts meet; transcriptions keep the
+    # source language's order, which the positional default provides
+    n = parse("マイケル・ジャクソン")
+    assert (n.given, n.family) == ("マイケル", "ジャクソン")
+
+
+def test_nakaguro_split_han_tokens_take_the_han_order() -> None:
+    # different code path from the katakana case above: splitting on
+    # the dot here produces two PURE-HAN tokens (no kana involved), so
+    # script_orders' family-first HAN entry fires, same as any other
+    # two-token Han name -- the dot only decides where the split falls
+    n = parse("高橋・一郎")
+    assert (n.family, n.given) == ("高橋", "一郎")
+
+
+def test_halfwidth_nakaguro_splits_at_parse_level_too() -> None:
+    # decision, not accident: halfwidth kana classify as no script at
+    # all (_SCRIPT_RANGES only covers the fullwidth blocks), so this
+    # is order-agnostic positional fallback, not a script-order rule --
+    # the dot still divides the tokens regardless
+    text = "ﾏｲｹﾙ･ｼﾞｬｸｿﾝ"
+    n = parse(text)
+    assert (n.given, n.family) == (
+        "ﾏｲｹﾙ", "ｼﾞｬｸｿﾝ")
+
+
+def test_nakaguro_inside_a_nickname_still_splits() -> None:
+    # decision, not accident: delimited content tokenizes under the
+    # same separator rules as the main stream, so a dot inside a
+    # nickname still divides it -- and re-rendering a token stream
+    # necessarily uses the render join, so the dot comes back as a
+    # space, same as any other separator
+    n = parse("山田 太郎 (マイケル・ジャクソン)")
+    assert n.nickname == "マイケル ジャクソン"
+    assert (n.family, n.given) == ("山田", "太郎")
+
+
+def test_latin_names_are_untouched_by_script_orders() -> None:
+    n = parse("John Smith")
+    assert (n.given, n.family) == ("John", "Smith")
+    # mixed-script names fall back to name_order too
+    n = parse("John 王")
+    assert (n.given, n.family) == ("John", "王")
+
+
+def test_script_order_survives_latin_titles_and_suffixes() -> None:
+    # The script test runs on the NAME pieces, after both peels, so a
+    # Latin title or post-nominal cannot make the name look mixed.
+    n = parse("Dr. 毛 泽东")
+    assert (n.title, n.family, n.given) == ("Dr.", "毛", "泽东")
+    n = parse("毛 泽东, PhD")
+    assert (n.family, n.given, n.suffix) == ("毛", "泽东", "PhD")
+
+
+def test_a_comma_still_decides_the_family_name_for_cjk() -> None:
+    # The family-comma structure fixes the family before any positional
+    # read, so the table is never consulted -- same rule name_order has.
+    n = parse("泽东, 毛")
+    assert (n.family, n.given) == ("泽东", "毛")
+
+
+def test_three_cjk_pieces_take_the_script_order_middles() -> None:
+    n = parse("毛 泽东 泽民")
+    assert (n.family, n.given, n.middle) == ("毛", "泽东", "泽民")
+
+
+def test_two_cjk_scripts_fall_back_even_though_both_read_family_first() -> None:
+    # The rule is one script, or the Han/kana repertoire the #272
+    # license covers -- not "the entries agree": Han+Hangul is written
+    # in neither tradition, so it takes the positional default.
+    n = parse("毛 김")
+    assert (n.given, n.family) == ("毛", "김")
+
+
+def test_a_hyphen_in_a_name_piece_declines_the_script_order() -> None:
+    # Documenting the conservative direction, not proposing it: ANY
+    # non-CJK character in a name piece (here the hyphen) puts that
+    # piece in no script, so the piece set has two members and
+    # script_orders declines in favour of the positional default.
+    n = parse("毛 泽东-泽民")
+    assert (n.given, n.family) == ("毛", "泽东-泽民")
+
+
+def test_script_orders_opt_out_restores_positional_reading() -> None:
+    p = Parser(policy=Policy(script_orders={}))  # type: ignore[arg-type]
+    n = p.parse("毛 泽东")
+    assert (n.given, n.family) == ("毛", "泽东")
+
+
+def test_script_order_beats_explicit_global_name_order() -> None:
+    # the script entry is the more specific rule; opting out means
+    # script_orders={}, not a different name_order
+    p = Parser(policy=Policy(name_order=FAMILY_FIRST_GIVEN_LAST))
+    n = p.parse("김 민준")
+    assert (n.family, n.given) == ("김", "민준")
+
+
+def test_unspaced_korean_names_parse_by_default() -> None:
+    # the whole point of shipping the census list as default
+    # vocabulary (#271): no pack, no config
+    n = parse("김민준")
+    assert (n.family, n.given) == ("김", "민준")
+    n = parse("남궁민수")     # two-syllable surname beats single 남
+    assert (n.family, n.given) == ("남궁", "민수")
+
+
+# -- the segmenter hook (#272) ------------------------------------------
+
+
+def _module_level_decline(text: str) -> Segmentation | None:
+    return None   # module-level so pickle can find it
+
+
+# Inert sentinels for the plumbing tests below, which only ever compare
+# identity. Two of them, because the override test needs the loser and
+# the winner to be DISTINCT objects or its assertion is vacuous.
+def _decline_a(text: str) -> Segmentation | None:
+    return None
+
+
+def _decline_b(text: str) -> Segmentation | None:
+    return None
+
+
+def test_parser_segmenter_is_keyword_only_and_validated() -> None:
+    assert Parser().segmenter is None
+    with pytest.raises(TypeError, match="callable"):
+        Parser(segmenter=5)  # type: ignore[arg-type]
+    with pytest.raises(TypeError, match="positional"):
+        Parser(Lexicon.default(), Policy(), None)  # type: ignore[misc]  # positional: rejected
+
+
+def test_parser_for_carries_the_base_segmenter() -> None:
+    # not given: the base's carries through unchanged
+    p = parser_for(locales.get("zh"), base=Parser(segmenter=_decline_a))
+    assert p.segmenter is _decline_a
+
+
+def test_parser_for_rejects_a_non_parser_base() -> None:
+    with pytest.raises(TypeError, match="base must be a Parser"):
+        parser_for(locales.get("zh"), base=5)  # type: ignore[arg-type]
+
+
+def test_parser_for_takes_a_segmenter_keyword() -> None:
+    p = parser_for(locales.get("zh"), segmenter=_decline_a)
+    assert p.segmenter is _decline_a
+    assert parser_for(locales.get("zh")).segmenter is None
+
+
+def test_parser_for_segmenter_keyword_overrides_the_base() -> None:
+    # later wins, the same rule scalar policy fields follow
+    p = parser_for(locales.get("zh"), base=Parser(segmenter=_decline_a),
+                   segmenter=_decline_b)
+    assert p.segmenter is _decline_b
+
+
+def test_parser_for_segmenter_none_clears_the_base() -> None:
+    # the third state UNSET buys (#272 review): None is a VALUE here,
+    # not an absence, so passing it explicitly drops the base's
+    # segmenter instead of inheriting the very thing it was asked to
+    # remove. Omitting the keyword is what carries the base's through
+    # (the test above), and this is how you derive an unsegmented
+    # parser from a segmented one without rebuilding its lexicon and
+    # policy by hand.
+    base = Parser(segmenter=_decline_a)
+    pack = locales.get("zh")
+    assert parser_for(pack, base=base, segmenter=None).segmenter is None
+    # ...and the base is untouched: parser_for builds a fresh Parser
+    assert base.segmenter is _decline_a
+
+
+def test_parser_picklability_is_conditional_on_the_segmenter() -> None:
+    # declared contract (locales spec section 4): Parser pickles iff
+    # its segmenter does -- like any callable-holding object
+    p = pickle.loads(pickle.dumps(Parser(segmenter=_module_level_decline)))
+    assert p.segmenter is _module_level_decline
+    unpicklable = Parser(segmenter=lambda t: None)  # constructs fine
+    with pytest.raises(Exception):   # pickle's exception type varies
+        pickle.dumps(unpicklable)    # only pickling fails
+
+
+def test_segmenter_exceptions_propagate() -> None:
+    # the ONE exception to parse-totality (locales spec section 4,
+    # declared 2026-07-11): a user-supplied callable's own error is a
+    # user-code error, not a content error, and must not be swallowed
+    def boom(text: str) -> Segmentation | None:
+        raise RuntimeError("segmenter bug")
+
+    p = parser_for(locales.get("zh"), base=Parser(segmenter=boom))
+    with pytest.raises(RuntimeError, match="segmenter bug"):
+        p.parse("阿明")   # zh pack active, 阿 unmatched by vocabulary ->
+                          # the stage consults the segmenter
+
+
+def test_the_segmenter_sees_only_an_undivided_name() -> None:
+    # its precondition (#272 Task 5): a segmenter answers where an
+    # UNDIVIDED name divides, so a name part carrying a second
+    # script-written token is already divided and the segmenter is not
+    # consulted -- otherwise "山田 太郎" would have its family divided
+    # again. A Latin title/suffix is not such a boundary.
+    def always(text: str) -> Segmentation | None:
+        return Segmentation((1,), confidence=1.0)
+
+    p = parser_for(locales.get("zh"), base=Parser(segmenter=always))
+    assert p.parse("阿明").family == "阿"          # one token: consulted
+    n = p.parse("阿明 日月")                        # already divided
+    assert (n.family, n.given) == ("阿明", "日月")
+    assert p.parse("Dr 阿明").family == "阿"       # a title is not a split
+
+
+def test_a_segmenter_split_reaches_the_fields() -> None:
+    # end to end: the sub-slices the stage makes are ordinary tokens
+    # from there on, so the pack's family-first order reads them like
+    # any vocabulary split, and a low-confidence answer surfaces
+    def two(text: str) -> Segmentation | None:
+        return Segmentation((1,), confidence=0.5)
+
+    p = parser_for(locales.get("zh"), base=Parser(segmenter=two))
+    n = p.parse("阿明")
+    assert (n.family, n.given) == ("阿", "明")
+    assert [a.kind for a in n.ambiguities] == [AmbiguityKind.SEGMENTATION]
+
+    # two cuts, three pieces -- and the token indices the comma
+    # structure recorded still name the right words afterwards
+    def three(text: str) -> Segmentation | None:
+        return Segmentation((1, 2))
+
+    q = parser_for(locales.get("zh"), base=Parser(segmenter=three))
+    n3 = q.parse("Dr 阿明日, Jr.")
+    assert (n3.title, n3.family, n3.given, n3.middle, n3.suffix) == (
+        "Dr", "阿", "明", "日", "Jr.")
+
+
+def _noop_segmenter(text: str) -> None:
+    return None
+
+
+def test_segmenterless_activation_without_vocabulary_warns() -> None:
+    # The JA pack activates HAN and HIRAGANA segmentation but ships no
+    # vocabulary, and no bundled list could serve those scripts -- so
+    # without a segmenter, Japanese names can never divide. That is a
+    # CONFIGURATION gap, not a fact about any name, and it was silent:
+    # the misconfigured parser behaved identically to a working one
+    # minus the feature. Statically detectable at construction, so
+    # warn there.
+    with pytest.warns(UserWarning, match=r"ja_segmenter"):
+        parser_for(locales.JA)
+
+
+def test_the_activation_warning_offers_a_spelling_that_type_checks() -> None:
+    # The message's actionable half is the deactivation it offers, and
+    # a user pastes it verbatim. nameparser ships py.typed, so that
+    # paste has to survive a type checker: Policy(segment_scripts=())
+    # is an arg-type error, since the field is annotated with what it
+    # STORES (a frozenset) rather than everything the constructor
+    # accepts. Nothing pinned this half of the message before.
+    with pytest.warns(UserWarning) as caught:
+        parser_for(locales.JA)
+    message = str(caught[0].message)
+    assert "Policy(segment_scripts=frozenset())" in message
+    assert "Policy(segment_scripts=())" not in message
+
+
+def test_a_segmenter_silences_the_activation_warning() -> None:
+    # any segmenter counts: the gap is "nothing can divide these",
+    # not "you did not use namedivider"
+    parser_for(locales.JA, segmenter=_noop_segmenter)
+
+
+def test_covered_activation_does_not_warn() -> None:
+    # HANGUL is served by the census surnames; the zh pack ships the
+    # vocabulary its own activation needs
+    Parser()
+    parser_for(locales.ZH)
+
+
+def test_stacked_activation_warns_only_for_uncovered_scripts() -> None:
+    # zh covers HAN and the default vocabulary covers HANGUL; only
+    # HIRAGANA is left unservable, and the message must say WHICH
+    # scripts are dead rather than naming the whole activation set
+    with pytest.warns(UserWarning) as caught:
+        parser_for(locales.ZH, locales.JA)
+    # select by content: pack application can emit its own warnings
+    # ahead of construction, so positional indexing is order-fragile
+    message = next(str(w.message) for w in caught
+                   if "segment_scripts activates" in str(w.message))
+    assert "hiragana" in message
+    assert "hangul" not in message

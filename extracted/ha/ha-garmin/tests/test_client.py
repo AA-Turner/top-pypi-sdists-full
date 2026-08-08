@@ -1,12 +1,12 @@
 """Tests for GarminClient."""
 
 from datetime import UTC, date, datetime, timedelta
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import pytest
 
 from ha_garmin import GarminAuth, GarminClient
-from ha_garmin.exceptions import GarminAuthError
+from ha_garmin.exceptions import GarminAPIError, GarminAuthError
 
 
 def _make_auth(di_token: str = "fake_di_token") -> GarminAuth:
@@ -144,6 +144,102 @@ class TestGarminClient:
         assert data["lastActivity"]["eBikeBatteryUsage"] == 19
         assert data["lastActivity"]["eBikeMaxAssistModes"] == 7
         assert "eBikeAssistModeInfoDTOList" not in data["lastActivity"]
+
+    async def test_fetch_activity_data_ebike_fields_retry_after_empty_poll(self):
+        """Test an empty e-bike summary is not cached negatively forever (#527).
+
+        A new activity's summary can lag behind Garmin's backend, so the
+        first poll may come back without e-bike fields even though the
+        activity does have them. The next poll for the same activity must
+        retry the summary call and surface the fields once they appear,
+        instead of being stuck with the first, empty result.
+        """
+        auth = _make_auth()
+        client = GarminClient(auth)
+
+        ride = {
+            "activityId": 9,
+            "activityName": "E-Bike Ride",
+            "activityType": {"typeKey": "e_bike_fitness"},
+            "hasPolyline": False,
+        }
+        empty_summary = {"activityId": 9}
+        full_summary = {
+            "activityId": 9,
+            "eBikeBatteryRemaining": 55,
+            "eBikeBatteryUsage": 12,
+            "eBikeMaxAssistModes": 5,
+        }
+
+        with (
+            patch.object(client, "get_activities", new_callable=AsyncMock) as mock_acts,
+            patch.object(
+                client, "get_activity", new_callable=AsyncMock
+            ) as mock_summary,
+            patch.object(
+                client, "get_workouts", new_callable=AsyncMock
+            ) as mock_workouts,
+            patch.object(
+                client, "get_activity_hr_in_timezones", new_callable=AsyncMock
+            ) as mock_hr,
+        ):
+            mock_acts.return_value = [ride]
+            mock_workouts.return_value = []
+            mock_hr.return_value = []
+
+            mock_summary.return_value = empty_summary
+            first_poll = await client.fetch_activity_data()
+
+            mock_summary.return_value = full_summary
+            second_poll = await client.fetch_activity_data()
+
+        assert "eBikeBatteryRemaining" not in first_poll["lastActivity"]
+        assert second_poll["lastActivity"]["eBikeBatteryRemaining"] == 55
+        assert second_poll["lastActivity"]["eBikeBatteryUsage"] == 12
+        assert second_poll["lastActivity"]["eBikeMaxAssistModes"] == 5
+        assert mock_summary.await_count == 2
+
+    async def test_fetch_activity_data_ebike_fields_empty_retry_is_bounded(self):
+        """Test a genuinely e-bike-field-less ride stops being retried.
+
+        A regular (non ANT+ LEV) bike ride never gets e-bike fields from
+        the summary endpoint. After a few empty polls the cache should
+        stop calling the summary endpoint on every single poll, so a
+        normal bike isn't penalized with an extra API call forever.
+        """
+        auth = _make_auth()
+        client = GarminClient(auth)
+
+        ride = {
+            "activityId": 10,
+            "activityName": "Regular Bike Ride",
+            "activityType": {"typeKey": "cycling"},
+            "hasPolyline": False,
+        }
+
+        with (
+            patch.object(client, "get_activities", new_callable=AsyncMock) as mock_acts,
+            patch.object(
+                client, "get_activity", new_callable=AsyncMock
+            ) as mock_summary,
+            patch.object(
+                client, "get_workouts", new_callable=AsyncMock
+            ) as mock_workouts,
+            patch.object(
+                client, "get_activity_hr_in_timezones", new_callable=AsyncMock
+            ) as mock_hr,
+        ):
+            mock_acts.return_value = [ride]
+            mock_summary.return_value = {"activityId": 10}
+            mock_workouts.return_value = []
+            mock_hr.return_value = []
+
+            retry_limit = client._EBIKE_FIELDS_EMPTY_RETRY_LIMIT
+            for _ in range(retry_limit + 3):
+                data = await client.fetch_activity_data()
+
+        assert "eBikeBatteryRemaining" not in data["lastActivity"]
+        assert mock_summary.await_count == retry_limit
 
     async def test_fetch_activity_data_skips_summary_for_non_rides(self):
         """Test fetch_activity_data does not fetch the summary for non-ride activities."""
@@ -518,6 +614,96 @@ class TestGarminClient:
         assert data["optimalBedtime"] == datetime(2026, 4, 12, 20, 40, tzinfo=UTC)
         assert data["wakeTime"] == datetime(2026, 4, 12, 3, 57, 47, tzinfo=UTC)
         assert data["optimalWakeTime"] == datetime(2026, 4, 13, 4, 30, tzinfo=UTC)
+
+    async def test_fetch_core_data_transient_error_does_not_use_yesterday(self):
+        """Test a transient 502/503 does not get papered over with yesterday's summary.
+
+        Regression test for cyberjunky/home-assistant-garmin_connect#536: a
+        transient API failure while fetching today's summary must not be
+        treated the same as "today's data isn't ready yet", or fast-changing
+        fields like body battery briefly flip to a stale, day-old value.
+        """
+        auth = _make_auth()
+        client = GarminClient(auth)
+
+        yesterday_summary = {
+            "dailyStepGoal": 10000,
+            "bodyBatteryMostRecentValue": 33,
+        }
+
+        async def fake_get_summary(target_date):
+            if target_date == date(2026, 4, 12):
+                raise GarminAPIError("Server error 502 after 3 retries", 502)
+            return yesterday_summary
+
+        with (
+            patch.object(
+                client,
+                "_get_user_summary_raw",
+                new_callable=AsyncMock,
+                side_effect=fake_get_summary,
+            ) as mock_summary,
+            patch.object(
+                client, "get_daily_steps", new_callable=AsyncMock
+            ) as mock_steps,
+            patch.object(
+                client, "_get_sleep_data_raw", new_callable=AsyncMock
+            ) as mock_sleep,
+        ):
+            mock_steps.return_value = None
+            mock_sleep.return_value = None
+            data = await client.fetch_core_data(date(2026, 4, 12))
+
+        # Today's failed fetch must not be silently replaced by yesterday's
+        # full summary - the stale body battery value must not leak through.
+        mock_summary.assert_awaited_once_with(date(2026, 4, 12))
+        assert "bodyBatteryMostRecentValue" not in data
+        assert "dailyStepGoal" not in data
+
+    async def test_fetch_core_data_midnight_fallback_still_works(self):
+        """Test the legitimate "today not ready yet" fallback to yesterday still works.
+
+        When today's endpoint responds but has no data yet (e.g. right after
+        midnight, before Garmin rolls the calendar day over), falling back to
+        yesterday's summary is intentional and must keep working.
+        """
+        auth = _make_auth()
+        client = GarminClient(auth)
+
+        yesterday_summary = {
+            "dailyStepGoal": 10000,
+            "bodyBatteryMostRecentValue": 87,
+        }
+
+        async def fake_get_summary(target_date):
+            if target_date == date(2026, 4, 12):
+                return {}
+            return yesterday_summary
+
+        with (
+            patch.object(
+                client,
+                "_get_user_summary_raw",
+                new_callable=AsyncMock,
+                side_effect=fake_get_summary,
+            ) as mock_summary,
+            patch.object(
+                client, "get_daily_steps", new_callable=AsyncMock
+            ) as mock_steps,
+            patch.object(
+                client, "_get_sleep_data_raw", new_callable=AsyncMock
+            ) as mock_sleep,
+        ):
+            mock_steps.return_value = None
+            mock_sleep.return_value = None
+            data = await client.fetch_core_data(date(2026, 4, 12))
+
+        assert mock_summary.await_args_list == [
+            call(date(2026, 4, 12)),
+            call(date(2026, 4, 11)),
+        ]
+        assert data["bodyBatteryMostRecentValue"] == 87
+        assert data["dailyStepGoal"] == 10000
 
     async def test_request_returns_empty_on_204(self):
         """Test _request returns empty dict on 204 No Content."""

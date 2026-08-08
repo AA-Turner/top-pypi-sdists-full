@@ -40,8 +40,9 @@
 #include "lo/lo_core.h"
 #include "lockdet/lockdet_core.h"
 #include "loop_filter/loop_filter_core.h"
-#include "telemetry/telemetry.h"
+#include "dp_tlm/dp_tlm_core.h"
 #include <complex.h>
+#include "telemetry/telemetry_core.h"
 #ifdef __cplusplus
 extern "C"
 {
@@ -138,12 +139,12 @@ extern "C"
    * >>> from doppler.dsss import Despreader
    * >>> rng = np.random.default_rng(3)
    * >>> code = rng.integers(0, 2, 31).astype(np.uint8)   # one code period
-   * >>> chips = np.where(code & 1, -1.0, 1.0)             # 0 -> +1, 1 -> -1
-   * >>> bits = rng.integers(0, 2, 40).astype(np.uint8)   # 1 data bit/period
+   * >>> chips = np.where(code & 1, -1.0, 1.0)    # 0 -> +1, 1 -> -1
+   * >>> bits = rng.integers(0, 2, 40).astype(np.uint8)  # 1 bit/period
    * >>> syms = np.where(bits == 1, -1.0, 1.0)
    * >>> rx = np.concatenate(
    * ...     [s * np.repeat(chips, 4) for s in syms]).astype(np.complex64)
-   * >>> d = Despreader(code, sps=4)              # seed a fresh tracking loop
+   * >>> d = Despreader(code, sps=4)          # seed a fresh tracking loop
    * >>> data = d.bits(rx)                        # hard data bits, 1/period
    * >>> e = np.mean(data != bits[:data.size])    # up to a global BPSK flip
    * >>> round(float(min(e, 1.0 - e)), 4)
@@ -224,7 +225,7 @@ extern "C"
    * >>> rx = np.concatenate(
    * ...     [s * np.repeat(chips, 4) for s in syms]).astype(np.complex64)
    * >>> d = Despreader(code=code, sps=4)
-   * >>> prompt = d.steps(rx)                    # one prompt per code period
+   * >>> prompt = d.steps(rx)                 # one prompt per code period
    * >>> hard = (prompt.real < 0).astype(np.uint8)
    * >>> e = np.mean(hard != bits[:hard.size])   # payload recovered
    * >>> round(float(min(e, 1.0 - e)), 4)
@@ -363,7 +364,7 @@ extern "C"
    * emitted once per code period (the despreader flushes both loops at
    * its per-period update). Passing NULL detaches both loops.  Setup
    * path, never hot; the context is borrowed and must outlive the
-   * attachment (SPSC rules in telemetry/telemetry.h).
+   * attachment (SPSC rules in dp_tlm/dp_tlm_core.h).
    * @param state  Must be non-NULL.
    * @param tlm    Telemetry context to attach, or NULL to detach.
    * @param prefix Probe-name prefix, e.g. "ch0".
@@ -378,7 +379,7 @@ extern "C"
    * >>> code = (np.arange(31) % 2).astype(np.uint8)
    * >>> ch = Despreader(code=code, sps=4)
    * >>> ch.set_telemetry(tlm, "ch0")
-   * >>> names = sorted(tlm.probe_names())
+   * >>> names = sorted(tlm.probe_names)
    * >>> names[:4]
    * ['ch0.car.e', 'ch0.car.freq', 'ch0.car.lock', 'ch0.car.locked']
    * >>> names[4:]

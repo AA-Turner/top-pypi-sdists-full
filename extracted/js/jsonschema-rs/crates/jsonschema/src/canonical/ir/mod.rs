@@ -1,6 +1,5 @@
 use std::{
     cmp::Ordering,
-    collections::BTreeMap,
     hash::{Hash, Hasher},
     sync::Arc,
 };
@@ -8,7 +7,10 @@ use std::{
 use serde_json::{Number, Value};
 use strum::{EnumDiscriminants, IntoStaticStr};
 
-use crate::{JsonType, JsonTypeSet};
+use crate::{
+    keywords::format::{builtin_format, BuiltinFormat},
+    Draft, JsonType, JsonTypeSet,
+};
 
 mod array_leaves;
 mod bound_cardinality;
@@ -20,6 +22,7 @@ mod divisors;
 mod integer_leaves;
 mod number_leaves;
 mod object_leaves;
+mod property_map;
 mod raw;
 mod string_leaves;
 mod verdict;
@@ -34,9 +37,61 @@ pub(crate) use divisors::{Divisors, ExcludedDivisors};
 pub(crate) use integer_leaves::IntegerLeaves;
 pub(crate) use number_leaves::NumberLeaves;
 pub(crate) use object_leaves::ObjectLeaves;
+pub(crate) use property_map::PropertyMap;
 pub(crate) use raw::RawJson;
 pub(crate) use string_leaves::StringLeaves;
 pub(crate) use verdict::{UncheckableFacet, Verdict};
+
+/// A format name kept inline for the built-in set and shared only when the draft does not recognize
+/// it. Canonicalization preserves the latter because it cannot decide its assertion semantics.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub(crate) enum StringFormat {
+    Builtin(BuiltinFormat),
+    Unknown(Arc<str>),
+}
+
+impl StringFormat {
+    #[must_use]
+    pub(crate) fn from_name(draft: Draft, name: &str) -> Self {
+        builtin_format(draft, name).map_or_else(|| Self::Unknown(Arc::from(name)), Self::Builtin)
+    }
+
+    #[must_use]
+    pub(crate) fn as_str(&self) -> &str {
+        match self {
+            Self::Builtin(format) => format.as_str(),
+            Self::Unknown(name) => name,
+        }
+    }
+
+    #[must_use]
+    pub(crate) fn length_window(&self) -> Option<(u64, u64)> {
+        match self {
+            Self::Builtin(format) => format.length_window(),
+            Self::Unknown(_) => None,
+        }
+    }
+
+    #[must_use]
+    pub(crate) fn is_valid(&self, text: &str) -> Option<bool> {
+        match self {
+            Self::Builtin(format) => Some(format.is_valid(text)),
+            Self::Unknown(_) => None,
+        }
+    }
+}
+
+impl PartialOrd for StringFormat {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for StringFormat {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.as_str().cmp(other.as_str())
+    }
+}
 
 /// A `Const`/`Enum` member normalized at construction (`1.0` becomes `1`) so `Value` equality is value equality.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -135,6 +190,11 @@ pub(crate) fn normalized_number(number: &Number) -> Number {
     }
 }
 
+thread_local! {
+    static TRUE: Schema = Schema::nullary(SchemaKind::True);
+    static FALSE: Schema = Schema::nullary(SchemaKind::False);
+}
+
 /// Reference-counted canonical IR handle, passed throughout canonicalization.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(crate) struct Schema(Arc<SchemaData>);
@@ -146,10 +206,34 @@ impl Schema {
         Self(Arc::new(SchemaData { kind, hash }))
     }
 
+    fn nullary(kind: SchemaKind) -> Self {
+        let hash = structural_hash(&kind);
+        Self(Arc::new(SchemaData { kind, hash }))
+    }
+
+    /// Matches every value. Handed out from one node per thread: over half the tree is this, and no
+    /// two mentions of it differ.
+    #[must_use]
+    pub(crate) fn truthy() -> Self {
+        TRUE.with(Clone::clone)
+    }
+
+    /// Matches no value, shared for the same reason as [`Schema::truthy`].
+    #[must_use]
+    pub(crate) fn falsy() -> Self {
+        FALSE.with(Clone::clone)
+    }
+
     #[inline]
     #[must_use]
     pub(crate) fn kind(&self) -> &SchemaKind {
         &self.0.kind
+    }
+
+    #[inline]
+    #[must_use]
+    pub(crate) fn cached_hash(&self) -> u64 {
+        self.0.hash
     }
 
     /// Take the kind out, cloning only when the node is shared.
@@ -362,9 +446,9 @@ pub(crate) struct ObjectLeaf {
     /// Every key must satisfy this schema, which is narrowed to the string domain.
     pub(crate) property_names: Option<Schema>,
     /// The schema each named key must satisfy when the object carries it.
-    pub(crate) properties: BTreeMap<Arc<str>, Schema>,
+    pub(crate) properties: PropertyMap,
     /// The schema every key matching the pattern must satisfy when the object carries it.
-    pub(crate) pattern_properties: BTreeMap<Arc<str>, Schema>,
+    pub(crate) pattern_properties: PropertyMap,
     /// The schema every key `properties` does not name and no pattern in `pattern_properties`
     /// matches must satisfy; never `True` (normalized away).
     pub(crate) additional: Option<Schema>,
@@ -379,17 +463,16 @@ impl ObjectLeaf {
     #[must_use]
     pub(crate) fn admitted_key_count(&self) -> Option<BoundCardinality> {
         let values = self.property_names.as_ref()?.kind().finite_values()?;
-        let present = values
+        // Only a key whose own schema admits nothing drops out of the count. Those keys are the ones
+        // looked up in the name set, not the other way round: the property map hands them over in
+        // ascending order, so the set answers all of them in one pass.
+        let mut admitted = AscendingMembership::new(values);
+        let barred = self
+            .properties
             .iter()
-            .filter(|value| {
-                !matches!(value.as_value(), serde_json::Value::String(key)
-                    if self
-                        .properties
-                        .get(key.as_str())
-                        .is_some_and(|child| matches!(child.kind(), SchemaKind::False)))
-            })
+            .filter(|(key, child)| matches!(child.kind(), SchemaKind::False) && admitted.holds(key))
             .count();
-        Some(BoundCardinality::from(present as u64))
+        Some(BoundCardinality::from((values.len() - barred) as u64))
     }
 
     /// The size window with a finite set of admitted keys folded in as a ceiling: those keys are
@@ -452,10 +535,10 @@ pub(crate) struct StringLeaf {
     /// against `patterns` is decided, so a leaf can be spelled and still admit nothing.
     pub(crate) excluded_patterns: Vec<Arc<str>>,
     /// Sorted, deduplicated. A string must satisfy every format. Empty unless formats assert.
-    pub(crate) formats: Vec<Arc<str>>,
+    pub(crate) formats: Vec<StringFormat>,
     /// Sorted, deduplicated. A string must satisfy none of these formats. Empty unless formats
     /// assert.
-    pub(crate) excluded_formats: Vec<Arc<str>>,
+    pub(crate) excluded_formats: Vec<StringFormat>,
     /// Sorted, deduplicated. A string must satisfy every media type. Empty outside Draft 6/7, where
     /// `contentMediaType` is an annotation.
     pub(crate) content_media_types: Vec<Arc<str>>,
@@ -468,8 +551,42 @@ pub(crate) struct StringLeaf {
 }
 
 /// Sorted, deduplicated, and holding at least two elements; fewer collapses to a simpler node.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub(crate) struct AtLeastTwo<T>(Vec<T>);
+/// Two is what nearly every one of these holds, so that shape stays out of the allocator.
+#[derive(Debug, Clone)]
+pub(crate) enum AtLeastTwo<T> {
+    Two([T; 2]),
+    Many(Vec<T>),
+}
+
+/// String membership in a sorted value set, for strings handed over in ascending order: the cursor
+/// never goes back, so a whole run of queries costs one pass over the set instead of one scan each.
+pub(crate) struct AscendingMembership<'a> {
+    values: &'a [CanonicalJson],
+    cursor: usize,
+}
+
+impl<'a> AscendingMembership<'a> {
+    pub(crate) fn new(values: &'a [CanonicalJson]) -> Self {
+        Self { values, cursor: 0 }
+    }
+
+    pub(crate) fn holds(&mut self, text: &str) -> bool {
+        while self.values.get(self.cursor).is_some_and(|value| {
+            raw::compare_value_to_str(value.as_value(), text) == Ordering::Less
+        }) {
+            self.cursor += 1;
+        }
+        debug_assert!(
+            self.cursor == 0
+                || raw::compare_value_to_str(self.values[self.cursor - 1].as_value(), text)
+                    == Ordering::Less,
+            "a string arrived out of order, so the walk had already passed where it belongs"
+        );
+        self.values.get(self.cursor).is_some_and(|value| {
+            raw::compare_value_to_str(value.as_value(), text) == Ordering::Equal
+        })
+    }
+}
 
 impl<T: Ord> AtLeastTwo<T> {
     /// Sorts and deduplicates; the survivors come back in `Err` when fewer than two remain.
@@ -483,24 +600,71 @@ impl<T: Ord> AtLeastTwo<T> {
             items.windows(2).all(|pair| pair[0] < pair[1]),
             "items left unsorted or duplicated"
         );
-        Ok(Self(items))
+        Ok(Self::from_sorted(items))
+    }
+}
+
+impl<T> AtLeastTwo<T> {
+    fn from_sorted(mut items: Vec<T>) -> Self {
+        if items.len() == 2 {
+            let second = items.pop().expect("two elements");
+            let first = items.pop().expect("two elements");
+            return Self::Two([first, second]);
+        }
+        Self::Many(items)
     }
 }
 
 impl<T> AtLeastTwo<T> {
     pub(crate) fn as_slice(&self) -> &[T] {
-        &self.0
+        match self {
+            Self::Two(items) => items,
+            Self::Many(items) => items,
+        }
     }
 
     pub(crate) fn into_vec(self) -> Vec<T> {
-        self.0
+        match self {
+            Self::Two([first, second]) => vec![first, second],
+            Self::Many(items) => items,
+        }
     }
 
     /// Split the last element off; the remainder still holds at least one.
     pub(crate) fn split_last(self) -> (Vec<T>, T) {
-        let mut items = self.0;
-        let last = items.pop().expect("at least two elements");
-        (items, last)
+        match self {
+            Self::Two([first, second]) => (vec![first], second),
+            Self::Many(mut items) => {
+                let last = items.pop().expect("at least two elements");
+                (items, last)
+            }
+        }
+    }
+}
+
+impl<T: PartialEq> PartialEq for AtLeastTwo<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.as_slice() == other.as_slice()
+    }
+}
+
+impl<T: Eq> Eq for AtLeastTwo<T> {}
+
+impl<T: PartialOrd> PartialOrd for AtLeastTwo<T> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.as_slice().partial_cmp(other.as_slice())
+    }
+}
+
+impl<T: Ord> Ord for AtLeastTwo<T> {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.as_slice().cmp(other.as_slice())
+    }
+}
+
+impl<T: Hash> Hash for AtLeastTwo<T> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.as_slice().hash(state);
     }
 }
 
@@ -509,7 +673,7 @@ impl<T> IntoIterator for AtLeastTwo<T> {
     type IntoIter = std::vec::IntoIter<T>;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.0.into_iter()
+        self.into_vec().into_iter()
     }
 }
 

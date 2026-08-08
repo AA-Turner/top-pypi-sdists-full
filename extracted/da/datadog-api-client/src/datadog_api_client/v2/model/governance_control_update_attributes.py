@@ -27,10 +27,6 @@ class GovernanceControlUpdateAttributes(ModelNormal):
             "detection_parameters": (GovernanceControlParametersMap,),
             "mitigation_parameters": (GovernanceControlParametersMap,),
             "mitigation_type": (str,),
-            "name": (str,),
-            "notification_frequency": (str,),
-            "notification_parameters": (GovernanceControlParametersMap,),
-            "notification_type": (str,),
         }
 
     attribute_map = {
@@ -38,10 +34,6 @@ class GovernanceControlUpdateAttributes(ModelNormal):
         "detection_parameters": "detection_parameters",
         "mitigation_parameters": "mitigation_parameters",
         "mitigation_type": "mitigation_type",
-        "name": "name",
-        "notification_frequency": "notification_frequency",
-        "notification_parameters": "notification_parameters",
-        "notification_type": "notification_type",
     }
 
     def __init__(
@@ -50,10 +42,6 @@ class GovernanceControlUpdateAttributes(ModelNormal):
         detection_parameters: Union[GovernanceControlParametersMap, UnsetType] = unset,
         mitigation_parameters: Union[GovernanceControlParametersMap, UnsetType] = unset,
         mitigation_type: Union[str, UnsetType] = unset,
-        name: Union[str, UnsetType] = unset,
-        notification_frequency: Union[str, UnsetType] = unset,
-        notification_parameters: Union[GovernanceControlParametersMap, UnsetType] = unset,
-        notification_type: Union[str, UnsetType] = unset,
         **kwargs,
     ):
         """
@@ -70,18 +58,6 @@ class GovernanceControlUpdateAttributes(ModelNormal):
 
         :param mitigation_type: The mitigation type to configure for the control.
         :type mitigation_type: str, optional
-
-        :param name: A new human-readable name for the control.
-        :type name: str, optional
-
-        :param notification_frequency: The notification frequency to configure for the control.
-        :type notification_frequency: str, optional
-
-        :param notification_parameters: A free-form map of parameter names to their configured values.
-        :type notification_parameters: GovernanceControlParametersMap, optional
-
-        :param notification_type: The notification type to configure for the control.
-        :type notification_type: str, optional
         """
         if detection_frequency is not unset:
             kwargs["detection_frequency"] = detection_frequency
@@ -91,12 +67,4 @@ class GovernanceControlUpdateAttributes(ModelNormal):
             kwargs["mitigation_parameters"] = mitigation_parameters
         if mitigation_type is not unset:
             kwargs["mitigation_type"] = mitigation_type
-        if name is not unset:
-            kwargs["name"] = name
-        if notification_frequency is not unset:
-            kwargs["notification_frequency"] = notification_frequency
-        if notification_parameters is not unset:
-            kwargs["notification_parameters"] = notification_parameters
-        if notification_type is not unset:
-            kwargs["notification_type"] = notification_type
         super().__init__(kwargs)

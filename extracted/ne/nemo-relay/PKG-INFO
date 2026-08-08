@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: nemo-relay
-Version: 0.7.1
+Version: 0.7.2
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python :: 3
@@ -8,7 +8,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Rust
-Requires-Dist: nemo-relay-cli-bin==0.7.1 ; extra == 'cli'
+Requires-Dist: nemo-relay-cli-bin==0.7.2 ; extra == 'cli'
 Requires-Dist: nemo-relay[langgraph] ; extra == 'deepagents'
 Requires-Dist: deepagents>=0.6.12,<0.7.0 ; extra == 'deepagents'
 Requires-Dist: langchain-anthropic>=1.4.8,<2.0.0 ; extra == 'deepagents'

@@ -98,8 +98,9 @@
 #include "symsync/symsync_core.h"
 #include "agc/agc_core.h"
 #include "boxcar/boxcar_core.h"
-#include "telemetry/telemetry.h"
+#include "dp_tlm/dp_tlm_core.h"
 #include "ber/ber_core.h"
+#include "telemetry/telemetry_core.h"
 #ifdef __cplusplus
 extern "C"
 {
@@ -375,7 +376,8 @@ extern "C"
    * >>> b = rx.bits(tx)                                 # 1 hard bit/symbol
    * >>> b.size
    * 2997
-   * >>> # settled tail matches the payload up to the BPSK inversion ambiguity
+   * >>> # settled tail matches the payload, up to the BPSK
+   * >>> # inversion ambiguity
    * >>> tail = np.mean(b[1000:2000] != idx[1000:2000])
    * >>> round(float(min(tail, 1 - tail)), 3)
    * 0.0
@@ -425,7 +427,7 @@ extern "C"
    * >>> rx = MpskReceiver(m=4, sps=4, m_out=2, acq_to_track=1)
    * >>> rx.tracking
    * 0
-   * >>> rx.configure_lock(0.9, 0.72, 4, 16)   # tighter declare, faster drop
+   * >>> rx.configure_lock(0.9, 0.72, 4, 16)   # tighter declare, fast drop
    *
    * @endcode
    */
@@ -444,7 +446,7 @@ extern "C"
    * ".locked" / ".mu" -- eleven probes total, all thinned by @p decim and all
    * emitted once per recovered symbol.  Passing NULL detaches everything.
    * Setup path, never hot; the context is borrowed and must outlive the
-   * attachment (SPSC rules in telemetry/telemetry.h).
+   * attachment (SPSC rules in dp_tlm/dp_tlm_core.h).
    * @param state  Must be non-NULL.
    * @param tlm    Telemetry context to attach, or NULL to detach.
    * @param prefix Probe-name prefix, e.g. "rx".
@@ -455,10 +457,10 @@ extern "C"
    * >>> import numpy as np
    * >>> from doppler.track import MpskReceiver
    * >>> from doppler.telemetry import Telemetry
-   * >>> tlm = Telemetry(1 << 14)   # 11 probes x ~512 symbols, with headroom
+   * >>> tlm = Telemetry(1 << 14)   # 11 probes x ~512 syms + headroom
    * >>> rx = MpskReceiver(m=4, sps=4, m_out=2)
    * >>> rx.set_telemetry(tlm, "rx")
-   * >>> len(tlm.probe_names())
+   * >>> len(tlm.probe_names)
    * 11
    * >>> rng = np.random.default_rng(7)
    * >>> syms = (1 - 2 * rng.integers(0, 2, 512)).astype(np.complex64)

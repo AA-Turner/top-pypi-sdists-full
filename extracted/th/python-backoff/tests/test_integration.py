@@ -4,16 +4,16 @@ Higher-level tests integrating with 3rd party modules using iodiomatic
 backoff patterns.
 """
 
+import pytest
+import requests
+import responses
+from requests import HTTPError
+
 import backoff
 
 
-import requests
-from requests import HTTPError
-import responses
-
-
 @responses.activate
-def test_on_predicate_runtime(monkeypatch):
+def test_on_predicate_runtime(monkeypatch: pytest.MonkeyPatch) -> None:
     log = []
 
     def sleep(seconds):
@@ -44,7 +44,7 @@ def test_on_predicate_runtime(monkeypatch):
 
 
 @responses.activate
-def test_on_exception_runtime(monkeypatch):
+def test_on_exception_runtime(monkeypatch: pytest.MonkeyPatch) -> None:
     log = []
 
     def sleep(seconds):

@@ -25,8 +25,10 @@ def _build_answer_request(
     scope: Union[str, Omit],
     model: Union[str, Omit],
     response_format: Union[Dict[str, Any], Omit],
+    system_prompt: Union[str, Omit],
 ) -> AnswerRequest:
-    """Build an AnswerRequest, leaving scope, model, and response_format unset when passed as OMIT.
+    """Build an AnswerRequest, leaving scope, model, response_format, and system_prompt
+    unset when passed as OMIT.
 
     Args:
         query (str):
@@ -52,6 +54,10 @@ def _build_answer_request(
             ``{"type": "json_schema", "json_schema": {...}}``). JSON-encoded
             into the request's string field. Pass OMIT to leave it unset.
 
+        system_prompt (str, optional):
+            Caller-supplied system prompt, forwarded verbatim as a plain
+            string. Pass OMIT to leave it unset.
+
     Returns:
         AnswerRequest: The request message with any OMIT field left unset.
     """
@@ -71,6 +77,13 @@ def _build_answer_request(
     if not isinstance(response_format, Omit) and response_format is not None:
         fields["response_format"] = json.dumps(response_format)
 
+    if (
+        not isinstance(system_prompt, Omit)
+        and system_prompt is not None
+        and system_prompt.strip()
+    ):
+        fields["system_prompt"] = system_prompt
+
     return AnswerRequest(**fields)
 
 
@@ -82,8 +95,10 @@ def _build_answer_stream_request(
     scope: Union[str, Omit],
     model: Union[str, Omit],
     response_format: Union[Dict[str, Any], Omit],
+    system_prompt: Union[str, Omit],
 ) -> AnswerStreamRequest:
-    """Build an AnswerStreamRequest, leaving scope, model, and response_format unset when passed as OMIT.
+    """Build an AnswerStreamRequest, leaving scope, model, response_format, and system_prompt
+    unset when passed as OMIT.
 
     Mirrors :func:`_build_answer_request`; the streaming RPC takes a distinct
     request message with the same fields (the public gRPC API keeps one message
@@ -113,6 +128,10 @@ def _build_answer_stream_request(
             ``{"type": "json_schema", "json_schema": {...}}``). JSON-encoded
             into the request's string field. Pass OMIT to leave it unset.
 
+        system_prompt (str, optional):
+            Caller-supplied system prompt, forwarded verbatim as a plain
+            string. Pass OMIT to leave it unset.
+
     Returns:
         AnswerStreamRequest: The request message with any OMIT field left unset.
     """
@@ -131,6 +150,13 @@ def _build_answer_stream_request(
 
     if not isinstance(response_format, Omit) and response_format is not None:
         fields["response_format"] = json.dumps(response_format)
+
+    if (
+        not isinstance(system_prompt, Omit)
+        and system_prompt is not None
+        and system_prompt.strip()
+    ):
+        fields["system_prompt"] = system_prompt
 
     return AnswerStreamRequest(**fields)
 
@@ -159,6 +185,7 @@ class AnswerService:
         scope: Union[str, Omit] = OMIT,
         model: Union[str, Omit] = OMIT,
         response_format: Union[Dict[str, Any], Omit] = OMIT,
+        system_prompt: Union[str, Omit] = OMIT,
     ) -> AnswerResponse:
         """Generate a natural-language answer for a query.
 
@@ -186,6 +213,12 @@ class AnswerService:
                 ``citations`` are still returned. Omitted from the request when
                 not provided (the answer stays Markdown).
 
+            system_prompt (str, optional):
+                Instructions steering how the answer is presented — tone,
+                voice, format. Grounding and citations are unaffected.
+                Composes with ``response_format`` and applies at every tier.
+                Empty or whitespace-only is treated as absent.
+
         Raises:
             SeltzAuthenticationError: If the API key is invalid.
             SeltzConnectionError: If the connection to the API fails.
@@ -204,6 +237,7 @@ class AnswerService:
             scope=scope,
             model=model,
             response_format=response_format,
+            system_prompt=system_prompt,
         )
 
         try:
@@ -224,6 +258,7 @@ class AnswerService:
         scope: Union[str, Omit] = OMIT,
         model: Union[str, Omit] = OMIT,
         response_format: Union[Dict[str, Any], Omit] = OMIT,
+        system_prompt: Union[str, Omit] = OMIT,
     ) -> Iterator[AnswerStreamResponse]:
         """Stream a natural-language answer for a query as it is generated.
 
@@ -258,6 +293,12 @@ class AnswerService:
                 ``citations`` are still returned. Omitted from the request when
                 not provided (the answer stays Markdown).
 
+            system_prompt (str, optional):
+                Instructions steering how the answer is presented — tone,
+                voice, format. Grounding and citations are unaffected.
+                Composes with ``response_format`` and applies at every tier.
+                Empty or whitespace-only is treated as absent.
+
         Raises:
             SeltzAuthenticationError: If the API key is invalid.
             SeltzConnectionError: If the connection to the API fails.
@@ -277,6 +318,7 @@ class AnswerService:
             scope=scope,
             model=model,
             response_format=response_format,
+            system_prompt=system_prompt,
         )
 
         try:
@@ -314,6 +356,7 @@ class AsyncAnswerService:
         scope: Union[str, Omit] = OMIT,
         model: Union[str, Omit] = OMIT,
         response_format: Union[Dict[str, Any], Omit] = OMIT,
+        system_prompt: Union[str, Omit] = OMIT,
     ) -> AnswerResponse:
         """Generate a natural-language answer for a query.
 
@@ -341,6 +384,12 @@ class AsyncAnswerService:
                 ``citations`` are still returned. Omitted from the request when
                 not provided (the answer stays Markdown).
 
+            system_prompt (str, optional):
+                Instructions steering how the answer is presented — tone,
+                voice, format. Grounding and citations are unaffected.
+                Composes with ``response_format`` and applies at every tier.
+                Empty or whitespace-only is treated as absent.
+
         Raises:
             SeltzAuthenticationError: If the API key is invalid.
             SeltzConnectionError: If the connection to the API fails.
@@ -359,6 +408,7 @@ class AsyncAnswerService:
             scope=scope,
             model=model,
             response_format=response_format,
+            system_prompt=system_prompt,
         )
 
         try:
@@ -379,6 +429,7 @@ class AsyncAnswerService:
         scope: Union[str, Omit] = OMIT,
         model: Union[str, Omit] = OMIT,
         response_format: Union[Dict[str, Any], Omit] = OMIT,
+        system_prompt: Union[str, Omit] = OMIT,
     ) -> AsyncIterator[AnswerStreamResponse]:
         """Stream a natural-language answer for a query as it is generated.
 
@@ -413,6 +464,12 @@ class AsyncAnswerService:
                 ``citations`` are still returned. Omitted from the request when
                 not provided (the answer stays Markdown).
 
+            system_prompt (str, optional):
+                Instructions steering how the answer is presented — tone,
+                voice, format. Grounding and citations are unaffected.
+                Composes with ``response_format`` and applies at every tier.
+                Empty or whitespace-only is treated as absent.
+
         Raises:
             SeltzAuthenticationError: If the API key is invalid.
             SeltzConnectionError: If the connection to the API fails.
@@ -432,6 +489,7 @@ class AsyncAnswerService:
             scope=scope,
             model=model,
             response_format=response_format,
+            system_prompt=system_prompt,
         )
 
         try:

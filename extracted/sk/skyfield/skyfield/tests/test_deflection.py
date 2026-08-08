@@ -1,4 +1,4 @@
-"""Test that Skyfield implements NOVAS-compatible Earth deflection.
+"""Test that Skyfield computes NOVAS-compatible deflection from gravity.
 
 Run `design/measure_earth_deflection.py` to draw a quick graph.
 

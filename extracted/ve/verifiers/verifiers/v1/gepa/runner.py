@@ -11,18 +11,17 @@ import logging
 from gepa.api import optimize
 from gepa.core.result import GEPAResult
 
-from verifiers.v1.cli.output import append_trace, output_path, save_config
-from verifiers.v1.clients import ModelContext, resolve_client
-from verifiers.v1.env import Environment
+from verifiers.v1.cli.output import append_episode, output_path, save_config
+from verifiers.v1.clients import ModelContext
+from verifiers.v1.env import Env
+from verifiers.v1.episode import Episode
 from verifiers.v1.gepa.adapter import GEPAAdapter
 from verifiers.v1.gepa.config import GEPAConfig
 from verifiers.v1.gepa.dataset import (
-    reject_group_reward_tasksets,
     resolve_gepa_seed_prompt,
     split_tasks,
 )
 from verifiers.v1.gepa.reflection import build_reflection_lm
-from verifiers.v1.trace import Trace
 
 logger = logging.getLogger(__name__)
 
@@ -36,14 +35,14 @@ class _GEPALog:
         logger.info(message)
 
 
-def run_gepa(env: Environment, config: GEPAConfig) -> GEPAResult:
+def run_gepa(env: Env, config: GEPAConfig) -> GEPAResult:
     logger.info("gepa config:\n%s", config.model_dump_json(indent=2))
-    all_tasks = env.taskset.select(config.num_train + config.num_val, config.shuffle)
+    # Global shuffle: an infinite taskset raises here — run it with
+    # shuffle=false (there is no whole set to sample from).
+    taskset = env.taskset.shuffle() if config.shuffle else env.taskset
+    all_tasks = list(taskset.head(config.num_train + config.num_val))
     train_tasks, val_tasks = split_tasks(all_tasks, config.num_train, config.num_val)
     selected_tasks = [*train_tasks, *val_tasks]
-    reject_group_reward_tasksets(
-        selected_tasks
-    )  # GEPA scores n=1 per task; groups need >=2
     # Seed from the tasks GEPA actually evaluates (train ∪ val), not the full pre-split pool —
     # a taskset with per-task system prompts could otherwise seed from a task in neither split.
     seed_prompt = resolve_gepa_seed_prompt(selected_tasks, config.initial_prompt)
@@ -65,20 +64,19 @@ def run_gepa(env: Environment, config: GEPAConfig) -> GEPAResult:
     semaphore = (
         asyncio.Semaphore(config.max_concurrent) if config.max_concurrent else None
     )
-    # Stream every rollout's trace to traces.jsonl as it finalizes — the same persist hook
-    # run_eval passes to Episode.run (each trace records its candidate prompt).
+    # Stream every rollout's episode to traces.jsonl as it finalizes — the same persist hook
+    # run_eval passes to `env.run_slot` (each trace records its candidate prompt).
     write_lock = asyncio.Lock()
 
-    async def on_complete(trace: Trace) -> None:
+    async def on_complete(episode: Episode) -> None:
         if run_dir is not None:
-            await append_trace(run_dir, trace, write_lock)
+            await append_episode(run_dir, episode, write_lock)
 
-    # The client opens an httpx pool at construction, so build it inside the try that closes it —
-    # a failure while building ctx/reflection_lm must not leak the pool.
-    client = None
     try:
-        client = resolve_client(config.client)
-        ctx = ModelContext(client=client, model=config.model, sampling=config.sampling)
+        # The endpoint stays config: the interception server builds the live client.
+        ctx = ModelContext(
+            client=config.client, model=config.model, sampling=config.sampling
+        )
         reflection_lm = build_reflection_lm(config)
         serving = env.serving()
         loop.run_until_complete(serving.__aenter__())
@@ -95,24 +93,35 @@ def run_gepa(env: Environment, config: GEPAConfig) -> GEPAResult:
                 on_complete=on_complete,
                 reflection_columns=config.reflection_columns,
             )
-            optimize_kwargs: dict = dict(
-                seed_candidate={"system_prompt": seed_prompt},
-                trainset=[task.data.idx for task in train_tasks],
-                valset=[task.data.idx for task in val_tasks],
-                adapter=adapter,
-                reflection_lm=reflection_lm,
-                max_metric_calls=config.max_total_rollouts,
-                reflection_minibatch_size=config.reflection_minibatch_size,
-                run_dir=str(run_dir) if run_dir is not None else None,
-                seed=config.seed,
-                display_progress_bar=False,
-                skip_perfect_score=False,
-                logger=_GEPALog(),
-            )
-            return optimize(**optimize_kwargs)
+            optimize_kwargs: dict = {
+                "seed_candidate": {"system_prompt": seed_prompt},
+                "trainset": [task.data.idx for task in train_tasks],
+                "valset": [task.data.idx for task in val_tasks],
+                "adapter": adapter,
+                "reflection_lm": reflection_lm,
+                "max_metric_calls": config.max_total_rollouts,
+                "reflection_minibatch_size": config.reflection_minibatch_size,
+                "run_dir": str(run_dir) if run_dir is not None else None,
+                "seed": config.seed,
+                "display_progress_bar": False,
+                "skip_perfect_score": False,
+                "logger": _GEPALog(),
+            }
+            result = optimize(**optimize_kwargs)
+            if run_dir is not None:
+                # Persist the winning prompt as a plain file so it can be handed straight to
+                # eval/train via `--env.taskset.system-prompt` (see TasksetConfig).
+                candidate = result.best_candidate
+                best = (
+                    candidate.get("system_prompt", "")
+                    if isinstance(candidate, dict)
+                    else str(candidate)
+                )
+                best_path = run_dir / "best_system_prompt.txt"
+                best_path.write_text(best, encoding="utf-8")
+                logger.info("best system prompt: %s", best_path)
+            return result
         finally:
             loop.run_until_complete(serving.__aexit__(None, None, None))
     finally:
-        if client is not None:
-            loop.run_until_complete(client.close())
         loop.close()

@@ -15,12 +15,42 @@ use crate::{
         emit,
         error::OperandMismatch,
         ir::{Schema, SchemaKind, UncheckableFacet, Verdict},
-        negate, oracle, parse, CanonicalizationError,
+        negate, oracle, parse, CanonicalizationError, ROOT_DEFINITION_KEY,
     },
     options::PatternEngineOptions,
 };
 
 pub(crate) type DefinitionMap = BTreeMap<Arc<str>, Schema>;
+
+/// What a handle's pointers name: `#` its root, every other pointer an entry of its map. The two
+/// travel together, or a handle read on its own binds `#` to itself.
+#[derive(Clone, Debug, Eq)]
+struct Document {
+    root: Schema,
+    definitions: Arc<DefinitionMap>,
+}
+
+impl PartialEq for Document {
+    fn eq(&self, other: &Self) -> bool {
+        self.root == other.root
+            && (Arc::ptr_eq(&self.definitions, &other.definitions)
+                || self.definitions == other.definitions)
+    }
+}
+
+impl Ord for Document {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.definitions
+            .cmp(&other.definitions)
+            .then_with(|| self.root.cmp(&other.root))
+    }
+}
+
+impl PartialOrd for Document {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
 
 /// Canonical JSON Schema IR handle.
 #[derive(Clone, Debug)]
@@ -29,8 +59,8 @@ pub struct CanonicalSchema {
     draft: Draft,
     pattern_options: PatternEngineOptions,
     validate_formats: bool,
-    /// Shared `$ref` resolution table; every child handle shares this `Arc`.
-    definitions: Arc<DefinitionMap>,
+    /// Shared with every child handle.
+    document: Document,
 }
 
 // Draft and format-assertion policy are part of a schema's identity, not just its IR.
@@ -39,8 +69,7 @@ impl PartialEq for CanonicalSchema {
         self.validate_formats == other.validate_formats
             && self.draft == other.draft
             && self.inner == other.inner
-            && (Arc::ptr_eq(&self.definitions, &other.definitions)
-                || self.definitions == other.definitions)
+            && self.document == other.document
     }
 }
 
@@ -58,7 +87,7 @@ impl Ord for CanonicalSchema {
             .cmp(&other.inner)
             .then_with(|| self.draft.cmp(&other.draft))
             .then_with(|| self.validate_formats.cmp(&other.validate_formats))
-            .then_with(|| self.definitions.cmp(&other.definitions))
+            .then_with(|| self.document.cmp(&other.document))
     }
 }
 
@@ -73,6 +102,7 @@ impl Hash for CanonicalSchema {
 }
 
 impl CanonicalSchema {
+    /// A handle whose node is the document root, so `#` names that node.
     pub(crate) fn new(
         inner: Schema,
         draft: Draft,
@@ -80,19 +110,44 @@ impl CanonicalSchema {
         validate_formats: bool,
         definitions: Arc<DefinitionMap>,
     ) -> Self {
+        let document = Document {
+            root: inner.clone(),
+            definitions,
+        };
         Self {
             inner,
             draft,
             pattern_options,
             validate_formats,
-            definitions,
+            document,
+        }
+    }
+
+    /// A handle for a node read against `document`, which keeps naming whatever it named there.
+    fn within(
+        inner: Schema,
+        draft: Draft,
+        pattern_options: PatternEngineOptions,
+        validate_formats: bool,
+        document: Document,
+    ) -> Self {
+        Self {
+            inner,
+            draft,
+            pattern_options,
+            validate_formats,
+            document,
         }
     }
 
     /// Emit this canonical schema back to JSON Schema.
     #[must_use]
     pub fn to_json_schema(&self) -> Value {
-        emit::to_json_schema(&self.inner, self.draft, &self.definitions)
+        let value = emit::to_json_schema(&self.inner, self.draft, &self.document.definitions);
+        if self.inner == self.document.root {
+            return value;
+        }
+        emit::rebind_document_root(value, &self.document.root, self.draft)
     }
 
     /// Return `false` when this schema provably admits no instances.
@@ -116,27 +171,37 @@ impl CanonicalSchema {
         self.draft
     }
 
-    /// Wrap a child IR node in a handle sharing this schema's draft, options, and definitions.
+    /// Wrap a child IR node in a handle sharing this schema's draft, options, and document.
     pub(crate) fn wrap_child(&self, child: &Schema) -> Self {
-        Self::new(
+        Self::within(
             child.clone(),
             self.draft,
             self.pattern_options,
             self.validate_formats,
-            Arc::clone(&self.definitions),
+            self.document.clone(),
         )
     }
 
-    /// The reference target registered under `uri`.
+    /// The reference target registered under `uri`, or the document itself under `#`.
+    ///
+    /// The target keeps the document it was written in, so a `#` inside it names that document and
+    /// not the target standing in for it.
     #[must_use]
     pub fn definition(&self, uri: &str) -> Option<CanonicalSchema> {
-        self.definitions.get(uri).map(|body| self.wrap_child(body))
+        if uri == ROOT_DEFINITION_KEY {
+            return Some(self.wrap_child(&self.document.root));
+        }
+        self.document
+            .definitions
+            .get(uri)
+            .map(|body| self.wrap_child(body))
     }
 
     /// Every reachable reference target known to this document, keyed by its URI.
     #[must_use]
     pub fn definitions(&self) -> impl ExactSizeIterator<Item = (String, CanonicalSchema)> + '_ {
-        self.definitions
+        self.document
+            .definitions
             .iter()
             .map(|(uri, body)| (uri.to_string(), self.wrap_child(body)))
     }
@@ -157,12 +222,22 @@ impl CanonicalSchema {
         if context.saw_unspellable_meet() {
             return Err(CanonicalizationError::UnmodeledOperand);
         }
-        Ok(Self::new(
+        // Two nodes of one document meet inside it, so `#` keeps its target there. Nodes of
+        // different documents meet in neither, and the meet is a root of its own.
+        let document = if self.document == other.document {
+            self.document.clone()
+        } else {
+            Document {
+                root: inner.clone(),
+                definitions,
+            }
+        };
+        Ok(Self::within(
             inner,
             self.draft,
             self.pattern_options,
             self.validate_formats,
-            definitions,
+            document,
         ))
     }
 
@@ -204,10 +279,11 @@ impl CanonicalSchema {
     pub fn negate(&self) -> Option<Self> {
         let context =
             CanonicalizationContext::new(self.draft, self.pattern_options, self.validate_formats);
-        let inner = negate::negate_with_definitions(&self.inner, &self.definitions, &context)?;
+        let inner =
+            negate::negate_with_definitions(&self.inner, &self.document.definitions, &context)?;
         // A resolved complement may name fewer targets than the source; carrying the dead ones
         // would emit unreferenced definitions and block combination with other documents.
-        let mut definitions = (*self.definitions).clone();
+        let mut definitions = (*self.document.definitions).clone();
         parse::prune_unreachable_definitions(&inner, &mut definitions);
         Some(Self::new(
             inner,
@@ -246,11 +322,13 @@ impl CanonicalSchema {
         &self,
         other: &Self,
     ) -> Result<Arc<DefinitionMap>, CanonicalizationError> {
-        if Arc::ptr_eq(&self.definitions, &other.definitions) || other.definitions.is_empty() {
-            return Ok(Arc::clone(&self.definitions));
+        if Arc::ptr_eq(&self.document.definitions, &other.document.definitions)
+            || other.document.definitions.is_empty()
+        {
+            return Ok(Arc::clone(&self.document.definitions));
         }
-        if self.definitions.is_empty() {
-            return Ok(Arc::clone(&other.definitions));
+        if self.document.definitions.is_empty() {
+            return Ok(Arc::clone(&other.document.definitions));
         }
         Err(CanonicalizationError::IncompatibleOperands(
             OperandMismatch::Definitions,

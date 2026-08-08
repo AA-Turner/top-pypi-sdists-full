@@ -19,6 +19,7 @@ import json
 
 from pydantic import BaseModel, ConfigDict, Field, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
+from typing_extensions import Annotated
 from tako.aio.models.geo_location import GeoLocation
 from tako.aio.models.output_settings import OutputSettings
 from tako.aio.models.search_effort_level import SearchEffortLevel
@@ -39,7 +40,8 @@ class SearchRequest(BaseModel):
     locale: Optional[StrictStr] = Field(default='en-US', description="BCP-47 locale tag for language and formatting.")
     timezone: Optional[StrictStr] = Field(default=None, description="IANA timezone (for example, 'America/New_York').")
     output_settings: Optional[OutputSettings] = Field(default=None, description="Settings that control the response shape.")
-    __properties: ClassVar[List[str]] = ["query", "effort", "sources", "location", "country_code", "locale", "timezone", "output_settings"]
+    include_related: Optional[Annotated[int, Field(le=20, strict=True, ge=1)]] = Field(default=None, description="Applies to POST /v3/search only. Return follow-up query suggestions in `related`. Omit this field to disable them. The value sets the maximum number of suggestions, from 1 to 20. POST /v1/answer accepts this field but ignores it: the answer response has no `related` field.")
+    __properties: ClassVar[List[str]] = ["query", "effort", "sources", "location", "country_code", "locale", "timezone", "output_settings", "include_related"]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -104,6 +106,11 @@ class SearchRequest(BaseModel):
         if self.output_settings is None and "output_settings" in self.model_fields_set:
             _dict['output_settings'] = None
 
+        # set to None if include_related (nullable) is None
+        # and model_fields_set contains the field
+        if self.include_related is None and "include_related" in self.model_fields_set:
+            _dict['include_related'] = None
+
         return _dict
 
     @classmethod
@@ -123,7 +130,8 @@ class SearchRequest(BaseModel):
             "country_code": obj.get("country_code") if obj.get("country_code") is not None else 'US',
             "locale": obj.get("locale") if obj.get("locale") is not None else 'en-US',
             "timezone": obj.get("timezone"),
-            "output_settings": OutputSettings.from_dict(obj["output_settings"]) if obj.get("output_settings") is not None else None
+            "output_settings": OutputSettings.from_dict(obj["output_settings"]) if obj.get("output_settings") is not None else None,
+            "include_related": obj.get("include_related")
         })
         return _obj
 

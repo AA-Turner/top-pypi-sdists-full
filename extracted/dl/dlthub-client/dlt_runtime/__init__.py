@@ -1,3 +1,4 @@
+# Current package
 from dlt_runtime.version import __version__
 
 __all__ = ["__version__"]

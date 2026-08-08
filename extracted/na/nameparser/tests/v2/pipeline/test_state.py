@@ -15,7 +15,9 @@ def test_state_defaults_are_empty() -> None:
     assert s.tokens == () and s.segments == () and s.pieces == ()
     assert s.structure is Structure.NO_COMMA
     assert s.ambiguities == () and s.extracted == () and s.masked == ()
-    assert s.comma_offsets == () and s.dropped == () and s.piece_tags == ()
+    assert s.comma_offsets == () and s.interpunct_offsets == ()
+    assert s.dropped == () and s.piece_tags == ()
+    assert s.segmenter is None
 
 
 def test_state_is_frozen_and_replace_works() -> None:
@@ -49,8 +51,19 @@ def test_stage_field_ownership() -> None:
         # tokenize also rewrites ambiguities: extract_delimited runs
         # before tokens exist, so its UNBALANCED_DELIMITER entries carry
         # a character offset that tokenize resolves to a token index
-        "tokenize": {"tokens", "comma_offsets", "ambiguities"},
+        "tokenize": {"tokens", "comma_offsets", "interpunct_offsets",
+                     "ambiguities"},
         "segment": {"segments", "structure", "ambiguities"},
+        # script_segment splits one unspaced CJK token into n+1 pieces
+        # (n = 1 from the vocabulary, any n from a segmenter), so it
+        # rewrites tokens and shifts every later index the earlier
+        # stages recorded -- the segment runs included. It is
+        # deliberately absent from token_ownership below, whose
+        # token-count assert is the one contract this stage is exempt
+        # from. structure and segmenter it only READS (the
+        # FAMILY_COMMA opt-out, and the hook it consults on a
+        # vocabulary decline).
+        "script_segment": {"tokens", "segments", "ambiguities"},
         # classify also emits SUFFIX_OR_NICKNAME: the delimiter escape
         # that decides it lives in extract_delimited, which has no token
         # index to point at, so the report is raised here instead

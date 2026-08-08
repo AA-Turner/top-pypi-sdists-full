@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.1
 Name: pystack
-Version: 1.7.0
+Version: 1.7.1
 Summary: Analysis of the stack of remote python processes
 Author: Pablo Galindo Salgado
 License: Apache-2.0

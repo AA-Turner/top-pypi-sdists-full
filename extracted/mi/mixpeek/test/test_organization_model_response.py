@@ -65,7 +65,8 @@ class TestOrganizationModelResponse(unittest.TestCase):
                     'key' : ''
                     },
                 api_url = '',
-                requires_plan = True
+                requires_plan = True,
+                is_internal = True
             )
         else:
             return OrganizationModelResponse(

@@ -77,7 +77,7 @@ def test_add_keyword_rejects_non_blue(tmp_path):
     non-BLUE writer.
     """
     with (
-        Writer(tmp_path / "c.raw") as w,  # raw, not blue
+        Writer(tmp_path / "c.raw", fs=1e6) as w,  # raw, not blue
         pytest.raises(ValueError, match="add_keyword failed"),
     ):
         w.add_keyword("X", "D", 1.0)
@@ -91,7 +91,7 @@ def test_add_keyword_type_validation(tmp_path):
     ``unsupported code`` ValueError, and an ``A`` with a non-str value is a
     ``value must be a str`` TypeError.
     """
-    with Writer(tmp_path / "c.blue", file_type="blue") as w:
+    with Writer(tmp_path / "c.blue", fs=1e6, file_type="blue") as w:
         with pytest.raises(TypeError, match="unicode character"):
             w.add_keyword("X", "DD", 1.0)  # 'C' format wants exactly one char
         with pytest.raises(ValueError, match="unsupported code"):
@@ -112,7 +112,7 @@ def test_accepts_pathlike_and_round_trips(tmp_path, scene):
 def test_track_clipping_defaults_to_on(tmp_path, scene):
     """`track_clipping()` takes no argument -- the documented spelling."""
     p = tmp_path / "cap.ci16"
-    with Writer(p, sample_type="ci16") as w:
+    with Writer(p, fs=1e6, sample_type="ci16") as w:
         w.track_clipping()  # no argument
         w.write(scene)
         assert w.clip_fraction == 0.0
@@ -129,7 +129,7 @@ def test_writer_has_no_reset(tmp_path):
     a new capture. (Previously this raised ``NotImplementedError`` from a
     hand-written stub; the stub is gone with the whole method.)
     """
-    with Writer(tmp_path / "c.cf32") as w:
+    with Writer(tmp_path / "c.cf32", fs=1e6) as w:
         assert not hasattr(w, "reset")
         with pytest.raises(AttributeError):
             w.reset()
@@ -137,7 +137,7 @@ def test_writer_has_no_reset(tmp_path):
 
 def test_close_is_idempotent_and_destroy_agrees(tmp_path, scene):
     """`close()` survived the migration and stays idempotent."""
-    w = Writer(tmp_path / "c.cf32")
+    w = Writer(tmp_path / "c.cf32", fs=1e6)
     w.write(scene)
     w.close()
     w.close()  # idempotent
@@ -275,12 +275,88 @@ def test_sigmf_requires_the_sigmf_data_extension(tmp_path):
     assert not (tmp_path / "other.sigmf-meta").exists()
 
 
-def test_no_sidecar_is_left_behind_by_a_non_sigmf_writer(tmp_path):
-    """The sidecar is a SigMF thing, not a Writer thing."""
+# ── the raw/CSV sidecar ──────────────────────────────────────────────────────
+#
+# Raw and CSV take `fs`, `fc` and `t0` like every other file type and have
+# nowhere to store them, so they used to throw them away -- the caller's own
+# metadata, discarded by the library that asked for it, leaving a file nobody
+# (its author included) could interpret afterwards. The containers have no
+# room; a sidecar is room.
+
+
+@pytest.mark.parametrize("suffix", ["raw", "csv"])
+def test_raw_and_csv_keep_their_metadata_in_a_sidecar(tmp_path, suffix):
+    p = tmp_path / f"cap.{suffix}"
+    with Writer(p, fs=2.4e6, file_type=suffix, fc=1.2e9, t0=1785903330.0) as w:
+        w.write(np.zeros(4, dtype=np.complex64))
+
+    # APPENDED, not swapped: `cap.raw.sigmf-meta`, so it is 1:1 with the file
+    # it describes and cannot collide with a real pair's `cap.sigmf-meta`.
+    meta = tmp_path / f"cap.{suffix}.sigmf-meta"
+    assert meta.exists()
+    assert not (tmp_path / "cap.sigmf-meta").exists()
+
+    doc = json.loads(meta.read_text())
+    assert doc["global"]["core:sample_rate"] == 2.4e6
+    assert doc["captures"][0]["core:frequency"] == 1.2e9
+    assert doc["captures"][0]["core:datetime"] == "2026-08-05T04:15:30.000000Z"
+
+
+def test_the_sidecar_claims_only_what_was_stated(tmp_path):
+    """Silence stays silence. An undeclared rate, centre frequency or capture
+    time is an ABSENT key, not a confident zero -- the whole point of writing
+    the file is to stop it asserting things nobody said."""
+    p = tmp_path / "bare.raw"
+    with Writer(p, fs=0.0) as w:  # nothing known but the datatype
+        w.write(np.zeros(4, dtype=np.complex64))
+
+    doc = json.loads((tmp_path / "bare.raw.sigmf-meta").read_text())
+    assert "core:sample_rate" not in doc["global"]
+    assert "core:frequency" not in doc["captures"][0]
+    assert "core:datetime" not in doc["captures"][0]
+    # ...but it is still a valid document: SigMF 1.0.0 requires exactly these.
+    assert doc["global"]["core:datatype"] == "cf32_le"
+    assert doc["global"]["core:version"] == "1.0.0"
+
+
+def test_sidecar_can_be_turned_off(tmp_path):
+    """An extra file beside the capture can break a downstream glob, so it is
+    a choice -- just a choice whose default is "keep the metadata"."""
     p = tmp_path / "plain.raw"
-    with Writer(p, file_type="raw", fs=1e6, fc=1e9) as w:
+    with Writer(p, fs=1e6, fc=1e9, sidecar=False) as w:
         w.write(np.zeros(4, dtype=np.complex64))
     assert list(tmp_path.iterdir()) == [p]
+
+
+def test_blue_never_gets_a_sidecar(tmp_path):
+    """Its header already carries fs, fc and the timecode. A second copy is
+    only somewhere for them to drift."""
+    p = tmp_path / "cap.blue"
+    with Writer(p, fs=1e6, file_type="blue", fc=1e9, sidecar=True) as w:
+        w.write(np.zeros(4, dtype=np.complex64))
+    assert list(tmp_path.iterdir()) == [p]
+
+
+def test_a_raw_capture_cannot_clobber_a_sigmf_pairs_metadata(tmp_path):
+    """Why the name is appended rather than swapped. Two captures sharing a
+    base name must not share a sidecar: with the swapped spelling, writing
+    `cap.raw` would silently retype the `cap.sigmf-data` beside it."""
+    x = np.zeros(4, dtype=np.complex64)
+    with Writer(
+        tmp_path / "cap.sigmf-data",
+        fs=5e6,
+        file_type="sigmf",
+        sample_type="ci16",
+    ) as w:
+        w.write(x)
+    with Writer(tmp_path / "cap.raw", fs=7e6) as w:
+        w.write(x)
+
+    pair = json.loads((tmp_path / "cap.sigmf-meta").read_text())
+    assert pair["global"]["core:sample_rate"] == 5e6
+    assert pair["global"]["core:datatype"] == "ci16_le", "not retyped"
+    raw = json.loads((tmp_path / "cap.raw.sigmf-meta").read_text())
+    assert raw["global"]["core:sample_rate"] == 7e6
 
 
 # ── centre frequency on the BLUE write side ──────────────────────────────────
@@ -296,7 +372,9 @@ def test_blue_fc_is_written_to_both_keyword_blocks(tmp_path):
     double precision, so it is the one that survives.
     """
     p = tmp_path / "rf.blue"
-    with Writer(p, file_type="blue", sample_type="cf32", fc=2.4e9) as w:
+    with Writer(
+        p, fs=1e6, file_type="blue", sample_type="cf32", fc=2.4e9
+    ) as w:
         w.write(np.zeros(8, dtype=np.complex64))
     raw = p.read_bytes()
 
@@ -312,7 +390,7 @@ def test_blue_without_fc_adds_no_keyword(tmp_path):
     indistinguishable here -- so nothing is written and the capture stays as
     empty as it was before this feature existed."""
     p = tmp_path / "bb.blue"
-    with Writer(p, file_type="blue", sample_type="cf32") as w:
+    with Writer(p, fs=1e6, file_type="blue", sample_type="cf32") as w:
         w.write(np.zeros(8, dtype=np.complex64))
     assert struct.unpack_from("<i", p.read_bytes(), 160)[0] == 0  # keylength
     with Reader(p) as r:
@@ -327,7 +405,7 @@ def test_fc_survives_a_close_time_hcb_keyword_patch(tmp_path):
     is the path on which it could be silently overwritten away.
     """
     p = tmp_path / "both.blue"
-    w = Writer(p, file_type="blue", sample_type="cf32", fc=915e6)
+    w = Writer(p, fs=1e6, file_type="blue", sample_type="cf32", fc=915e6)
     w.add_keyword("VER", "A", "1.1")  # standard -> the same HCB area
     w.write(np.zeros(8, dtype=np.complex64))
     w.close()

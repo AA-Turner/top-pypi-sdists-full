@@ -35,6 +35,7 @@ from astroid.const import (
     PY312_PLUS,
     PY313_PLUS,
     PY314_PLUS,
+    PY315_PLUS,
     Context,
 )
 from astroid.context import InferenceContext
@@ -427,11 +428,22 @@ class IfNodeTest(_NodeTest):
             pass
         else:
             raise
+
+        if 1:
+            print()
+        elif (
+            2
+            and 3
+        ):
+            print()
+        else:
+            # This is using else in a comment
+            raise
     """
 
     def test_if_elif_else_node(self) -> None:
         """Test transformation for If node."""
-        self.assertEqual(len(self.astroid.body), 4)
+        self.assertEqual(len(self.astroid.body), 5)
         for stmt in self.astroid.body:
             self.assertIsInstance(stmt, nodes.If)
         self.assertFalse(self.astroid.body[0].orelse)  # simple If
@@ -440,13 +452,50 @@ class IfNodeTest(_NodeTest):
         self.assertIsInstance(self.astroid.body[3].orelse[0].orelse[0], nodes.If)
 
     def test_block_range(self) -> None:
-        # XXX ensure expected values
-        self.assertEqual(self.astroid.block_range(1), (0, 22))
-        self.assertEqual(self.astroid.block_range(10), (0, 22))  # XXX (10, 22) ?
+        """Test block_range of various scope constructs"""
+        # Module
+        self.assertEqual(self.astroid.block_range(1), (0, 33))
+        # NOTE: Module does not consider the lineno argument. It would be more consistent to make
+        # this return (10, 33) but without a use case it seems better to not change behaviour.
+        self.assertEqual(self.astroid.block_range(10), (0, 33))
+
+        # if
+        self.assertEqual(self.astroid.body[0].block_range(2), (2, 3))
+        self.assertEqual(self.astroid.body[0].block_range(3), (3, 3))
+
+        # if ... else
         self.assertEqual(self.astroid.body[1].block_range(5), (5, 6))
         self.assertEqual(self.astroid.body[1].block_range(6), (6, 6))
-        self.assertEqual(self.astroid.body[1].orelse[0].block_range(7), (7, 8))
-        self.assertEqual(self.astroid.body[1].orelse[0].block_range(8), (8, 8))
+        self.assertEqual(self.astroid.body[1].block_range(7), (7, 8))
+        self.assertEqual(self.astroid.body[1].block_range(8), (8, 8))
+
+        # if ... elif
+        self.assertEqual(self.astroid.body[2].block_range(10), (10, 11))
+        self.assertEqual(self.astroid.body[2].block_range(11), (11, 11))
+        self.assertEqual(self.astroid.body[2].block_range(12), (12, 13))
+        self.assertEqual(self.astroid.body[2].block_range(13), (13, 13))
+
+        # if ... elif ... elif ... else
+        self.assertEqual(self.astroid.body[3].block_range(15), (15, 16))
+        self.assertEqual(self.astroid.body[3].block_range(16), (16, 16))
+        self.assertEqual(self.astroid.body[3].block_range(17), (17, 18))
+        self.assertEqual(self.astroid.body[3].block_range(18), (18, 18))
+        self.assertEqual(self.astroid.body[3].block_range(19), (19, 20))
+        self.assertEqual(self.astroid.body[3].block_range(20), (20, 20))
+        self.assertEqual(self.astroid.body[3].block_range(21), (21, 22))
+        self.assertEqual(self.astroid.body[3].block_range(22), (22, 22))
+
+        # if ... elif ... else
+        self.assertEqual(self.astroid.body[4].block_range(24), (24, 25))
+        self.assertEqual(self.astroid.body[4].block_range(25), (25, 25))
+        self.assertEqual(self.astroid.body[4].block_range(26), (26, 30))
+        self.assertEqual(self.astroid.body[4].block_range(27), (27, 30))
+        self.assertEqual(self.astroid.body[4].block_range(28), (28, 30))
+        self.assertEqual(self.astroid.body[4].block_range(29), (29, 30))
+        self.assertEqual(self.astroid.body[4].block_range(30), (30, 30))
+        self.assertEqual(self.astroid.body[4].block_range(31), (31, 33))
+        self.assertEqual(self.astroid.body[4].block_range(32), (32, 33))
+        self.assertEqual(self.astroid.body[4].block_range(33), (33, 33))
 
 
 class TryNodeTest(_NodeTest):
@@ -466,79 +515,16 @@ class TryNodeTest(_NodeTest):
     def test_block_range(self) -> None:
         try_node = self.astroid.body[0]
         assert try_node.block_range(1) == (1, 11)
-        assert try_node.block_range(2) == (2, 2)
+        assert try_node.block_range(2) == (2, 3)
         assert try_node.block_range(3) == (3, 3)
-        assert try_node.block_range(4) == (4, 4)
+        assert try_node.block_range(4) == (4, 5)
         assert try_node.block_range(5) == (5, 5)
-        assert try_node.block_range(6) == (6, 6)
+        assert try_node.block_range(6) == (6, 7)
         assert try_node.block_range(7) == (7, 7)
-        assert try_node.block_range(8) == (8, 8)
+        assert try_node.block_range(8) == (8, 9)
         assert try_node.block_range(9) == (9, 9)
-        assert try_node.block_range(10) == (10, 10)
+        assert try_node.block_range(10) == (10, 11)
         assert try_node.block_range(11) == (11, 11)
-
-
-class TryExceptNodeTest(_NodeTest):
-    CODE = """
-        try:
-            print ('pouet')
-        except IOError:
-            pass
-        except UnicodeError:
-            print()
-        else:
-            print()
-    """
-
-    def test_block_range(self) -> None:
-        # XXX ensure expected values
-        self.assertEqual(self.astroid.body[0].block_range(1), (1, 9))
-        self.assertEqual(self.astroid.body[0].block_range(2), (2, 2))
-        self.assertEqual(self.astroid.body[0].block_range(3), (3, 3))
-        self.assertEqual(self.astroid.body[0].block_range(4), (4, 4))
-        self.assertEqual(self.astroid.body[0].block_range(5), (5, 5))
-        self.assertEqual(self.astroid.body[0].block_range(6), (6, 6))
-        self.assertEqual(self.astroid.body[0].block_range(7), (7, 7))
-        self.assertEqual(self.astroid.body[0].block_range(8), (8, 8))
-        self.assertEqual(self.astroid.body[0].block_range(9), (9, 9))
-
-
-class TryFinallyNodeTest(_NodeTest):
-    CODE = """
-        try:
-            print ('pouet')
-        finally:
-            print ('pouet')
-    """
-
-    def test_block_range(self) -> None:
-        # XXX ensure expected values
-        self.assertEqual(self.astroid.body[0].block_range(1), (1, 5))
-        self.assertEqual(self.astroid.body[0].block_range(2), (2, 2))
-        self.assertEqual(self.astroid.body[0].block_range(3), (3, 3))
-        self.assertEqual(self.astroid.body[0].block_range(4), (4, 4))
-        self.assertEqual(self.astroid.body[0].block_range(5), (5, 5))
-
-
-class TryExceptFinallyNodeTest(_NodeTest):
-    CODE = """
-        try:
-            print('pouet')
-        except Exception:
-            print ('oops')
-        finally:
-            print ('pouet')
-    """
-
-    def test_block_range(self) -> None:
-        # XXX ensure expected values
-        self.assertEqual(self.astroid.body[0].block_range(1), (1, 7))
-        self.assertEqual(self.astroid.body[0].block_range(2), (2, 2))
-        self.assertEqual(self.astroid.body[0].block_range(3), (3, 3))
-        self.assertEqual(self.astroid.body[0].block_range(4), (4, 4))
-        self.assertEqual(self.astroid.body[0].block_range(5), (5, 5))
-        self.assertEqual(self.astroid.body[0].block_range(6), (6, 6))
-        self.assertEqual(self.astroid.body[0].block_range(7), (7, 7))
 
 
 class ImportNodeTest(resources.SysPathSetup, unittest.TestCase):
@@ -546,6 +532,25 @@ class ImportNodeTest(resources.SysPathSetup, unittest.TestCase):
         super().setUp()
         self.module = resources.build_file("data/module.py", "data.module")
         self.module2 = resources.build_file("data/module2.py", "data.module2")
+
+    @pytest.mark.skipif(not PY315_PLUS, reason="PEP 810 lazy imports, new in 3.15")
+    def test_lazy_import(self) -> None:
+        node = extract_node("lazy import json")
+        assert isinstance(node, nodes.Import)
+        assert node.is_lazy == 1
+        self.assertEqual(node.as_string(), "lazy import json")
+
+    @pytest.mark.skipif(not PY315_PLUS, reason="PEP 810 lazy imports, new in 3.15")
+    def test_lazy_import_from(self) -> None:
+        node = extract_node("lazy from pathlib import Path")
+        assert isinstance(node, nodes.ImportFrom)
+        assert node.is_lazy == 1
+        self.assertEqual(node.as_string(), "lazy from pathlib import Path")
+
+    def test_eager_import_is_not_lazy(self) -> None:
+        # The ``is_lazy`` flag defaults to 0 on every supported version.
+        assert extract_node("import json").is_lazy == 0
+        assert extract_node("from pathlib import Path").is_lazy == 0
 
     def test_import_self_resolve(self) -> None:
         myos = next(self.module2.igetattr("myos"))
@@ -1529,6 +1534,26 @@ def test_type_comments_invalid_function_comments() -> None:
         assert node.type_comment_args is None
 
 
+def test_type_comments_pathological_assign() -> None:
+    """Regression test for issue #2993.
+
+    A type comment with deeply nested braces causes ``ast.parse`` to raise
+    ``MemoryError`` (or ``ValueError`` on some interpreters). astroid should
+    treat the type comment as invalid instead of crashing.
+    """
+    code = "a = b # type:i" + "{" * 200
+    module = builder.parse(code)
+    assert module.body[0].type_annotation is None
+
+
+def test_type_comments_pathological_function() -> None:
+    """Regression test for issue #2993 covering function type comments."""
+    code = "def func():\n    # type: i" + "{" * 200 + "\n    pass\n"
+    module = builder.parse(code)
+    assert module.body[0].type_comment_returns is None
+    assert module.body[0].type_comment_args is None
+
+
 def test_type_comments_function() -> None:
     module = builder.parse("""
     def func():
@@ -1698,13 +1723,31 @@ def test_assignment_expression() -> None:
     assert first.target.name == "a"
     assert isinstance(first.value, nodes.Const)
     assert first.value.value == 1
-    assert first.as_string() == "a := 1"
+    assert first.as_string() == "(a := 1)"
 
     assert isinstance(second.target, nodes.AssignName)
     assert second.target.name == "b"
     assert isinstance(second.value, nodes.Name)
     assert second.value.name == "test"
-    assert second.as_string() == "b := test"
+    assert second.as_string() == "(b := test)"
+
+
+def test_assignment_expression_as_string() -> None:
+    """Regression test for https://github.com/pylint-dev/astroid/issues/2668."""
+    code = "if attn_output.size() != (size := (1, 2, 3, 4)):\n    pass"
+    rendered = astroid.extract_node(code).as_string()
+    assert "(size := (1, 2, 3, 4))" in rendered
+    compile(rendered, "<astroid-as-string>", "exec")
+
+
+def test_assignment_expression_compare_operands_as_string() -> None:
+    """NamedExpr operands always render with their own parens."""
+    compare = astroid.parse("if (a := 10) != (a := 10):\n    pass").body[0].test
+
+    assert isinstance(compare, nodes.Compare)
+    assert compare.left.as_string() == "a := 10"
+    assert compare.ops[0][1].as_string() == "a := 10"
+    assert compare.as_string() == "(a := 10) != (a := 10)"
 
 
 def test_assignment_expression_in_functiondef() -> None:
@@ -2293,3 +2336,78 @@ def test_str_large_int_getitem_no_crash() -> None:
     # Trigger the error path that formats the value
     with pytest.raises(AstroidTypeError, match=r"too large to display|int"):
         inferred.getitem(nodes.Const(0))
+
+
+def test_slice_qname() -> None:
+    """Test that Slice node has a qname method returning 'builtins.slice'."""
+    node = extract_node("f[1:2]")
+    assert isinstance(node, nodes.Subscript)
+    assert isinstance(node.slice, nodes.Slice)
+    assert node.slice.qname() == "builtins.slice"
+
+
+@pytest.mark.skipif(not PY312_PLUS, reason="Uses 3.12 type param nodes")
+@pytest.mark.parametrize(
+    "source,node_type,qname",
+    [
+        ("class Basket[T]: pass", nodes.TypeVar, "typing.TypeVar"),
+        ("def peel[**P](): pass", nodes.ParamSpec, "typing.ParamSpec"),
+        ("def peel[*Ts](): pass", nodes.TypeVarTuple, "typing.TypeVarTuple"),
+    ],
+)
+def test_type_param_qname(
+    source: str, node_type: type[nodes.NodeNG], qname: str
+) -> None:
+    """Type parameters are inferred as themselves, so they need a qname."""
+    node = extract_node(source)
+    type_param = node.type_params[0]
+    assert isinstance(type_param, node_type)
+    assert next(type_param.infer()) is type_param
+    assert type_param.qname() == qname
+    assert type_param.pytype() == qname
+
+
+@pytest.mark.skipif(not PY312_PLUS, reason="Uses 3.12 type alias nodes")
+def test_type_alias_qname() -> None:
+    """A type alias is inferred as itself, so it needs a qname."""
+    node = extract_node("type Basket = int")
+    assert isinstance(node, nodes.TypeAlias)
+    assert next(node.infer()) is node
+    assert node.qname() == "typing.TypeAliasType"
+    assert node.pytype() == "typing.TypeAliasType"
+
+
+def test_self_inferring_nodes_have_a_type() -> None:
+    """A node inferred as itself is a value, so callers ask it for its type.
+
+    Without ``qname()`` and ``pytype()`` they crash with an ``AttributeError``
+    instead, as ``FunctionDef.decoratornames()`` used to for ``@T``. Nodes are
+    found by their ``_infer`` return annotation, so this only covers the usual
+    spelling, ``Iterator[TheNodeClass]``.
+    """
+    node_classes = set()
+    to_visit = [nodes.NodeNG]
+    while to_visit:
+        for subclass in to_visit.pop().__subclasses__():
+            if subclass not in node_classes:
+                node_classes.add(subclass)
+                to_visit.append(subclass)
+
+    missing = []
+    for node_class in node_classes:
+        infer = node_class.__dict__.get("_infer")
+        if infer is None:
+            continue
+        returns = str(infer.__annotations__.get("return", ""))
+        if returns not in (f"Iterator[{node_class.__name__}]", "Iterator[Self]"):
+            continue
+        if issubclass(node_class, bases.Proxy):
+            # Proxies answer both from the class they proxy, e.g. Const.
+            continue
+        missing += [
+            f"{node_class.__name__}.{name}"
+            for name in ("qname", "pytype")
+            if not hasattr(node_class, name)
+        ]
+
+    assert not missing

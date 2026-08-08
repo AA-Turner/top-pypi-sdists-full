@@ -60508,6 +60508,141 @@ class KavoutCompositeFactorBundle(QuantConnect.Data.BaseData):
         ...
 
 
+class FamaFrench(QuantConnect.Data.BaseData):
+    """
+    Fama-French factor returns for the US equity market, built to the definitions published by the
+    Kenneth R. French Data Library. One row per date with the five-factor model returns plus momentum:
+    market excess return (Mkt-RF), size (SMB), value (HML), profitability (RMW), investment (CMA),
+    momentum (Mom), and the risk-free rate (RF). Returns are expressed as decimals.
+    """
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """
+        Date the data point became available, the day after the observation date. The series is daily,
+        so this is derived from Time rather than stored in the file.
+        """
+        ...
+
+    @end_time.setter
+    def end_time(self, value: datetime.datetime) -> None:
+        ...
+
+    @property
+    def market_excess_return(self) -> typing.Optional[float]:
+        """Market excess return (Mkt-RF): value-weighted market return minus the risk-free rate."""
+        ...
+
+    @market_excess_return.setter
+    def market_excess_return(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def smb(self) -> typing.Optional[float]:
+        """Size factor (SMB, Small Minus Big): return of small-cap portfolios minus large-cap portfolios."""
+        ...
+
+    @smb.setter
+    def smb(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def hml(self) -> typing.Optional[float]:
+        """Value factor (HML, High Minus Low): return of high book-to-market stocks minus low book-to-market stocks. This is also the data point's Value."""
+        ...
+
+    @property
+    def rmw(self) -> typing.Optional[float]:
+        """Profitability factor (RMW, Robust Minus Weak): return of high operating-profitability stocks minus low."""
+        ...
+
+    @rmw.setter
+    def rmw(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def cma(self) -> typing.Optional[float]:
+        """Investment factor (CMA, Conservative Minus Aggressive): return of low-investment stocks minus high."""
+        ...
+
+    @cma.setter
+    def cma(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def momentum(self) -> typing.Optional[float]:
+        """Momentum factor (Mom): return of high prior-return stocks minus low prior-return stocks."""
+        ...
+
+    @momentum.setter
+    def momentum(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def risk_free_rate(self) -> typing.Optional[float]:
+        """Risk-free rate (RF): one-month Treasury bill return."""
+        ...
+
+    @risk_free_rate.setter
+    def risk_free_rate(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def is_estimate(self) -> bool:
+        """True when the value was computed by QuantConnect rather than published by the Kenneth R. French Data Library. A computed value is never rewritten afterwards, not even once the library covers that date."""
+        ...
+
+    @is_estimate.setter
+    def is_estimate(self, value: bool) -> None:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Default constructor required by LEAN."""
+        ...
+
+    @overload
+    def __init__(self, line: str) -> None:
+        """Parses one CSV line into a data point."""
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """Creates a copy of the instance."""
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """Data time zone (Eastern - US market data)."""
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Default resolution."""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """Location of the source file: alternative/quantconnect/famafrench/ff.csv"""
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """Dense daily series."""
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """Parses the data from the line provided and loads it into LEAN."""
+        ...
+
+    def requires_mapping(self) -> bool:
+        """Unlinked (a single market-wide series, not a mapped equity)."""
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Supported resolutions (Daily only)."""
+        ...
+
+    def to_string(self) -> str:
+        """String representation for debugging."""
+        ...
+
+
 class NullData(QuantConnect.Data.BaseData):
     """Represents a custom data type place holder"""
 

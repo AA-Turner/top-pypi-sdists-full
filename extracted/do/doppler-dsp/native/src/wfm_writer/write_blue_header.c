@@ -16,16 +16,20 @@
 #include <stddef.h>
 #include <stdio.h>
 
+/* `fs` sits second because it is REQUIRED, and jm declares required params
+   ahead of defaulted ones — the same shape as Writer(path, fs, ...). This
+   signature is jm's to decide (it generates the call positionally and injects
+   the prototype); the shim follows it. */
 int
-write_blue_header (const char *path, int sample_type, int endian, double fs,
+write_blue_header (const char *path, double fs, int sample_type, int endian,
                    double fc, double data_start, size_t total_samples,
-                   int detached)
+                   int detached, double t0)
 {
   FILE *fp = fopen (path, "wb");
   if (!fp)
     return -1;
   int rc = wfm_blue_write_hcb (fp, sample_type, endian, fs, fc, data_start,
-                               total_samples, detached);
+                               total_samples, detached, t0);
   /* Success needs both a full write and a clean close (fclose is where a
      full-disk error finally surfaces); either failing is the nonzero status
      the binding's check_return raises on. */

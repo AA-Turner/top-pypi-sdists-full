@@ -40,6 +40,9 @@ class DuckDBConnectionWrapper:
     def cursor(self):
         return self._cursor
 
+    def rollback(self):
+        return self._cursor.rollback()
+
 
 class LocalEnvironment(Environment):
     def __init__(self, credentials: credentials.DuckDBCredentials):
@@ -61,6 +64,7 @@ class LocalEnvironment(Environment):
             if self.handle_count == 0 and not self._keep_open:
                 self.close()
 
+    @classmethod
     def is_cancelable(cls):
         return True
 

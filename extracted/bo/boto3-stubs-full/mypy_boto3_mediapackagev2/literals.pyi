@@ -58,6 +58,7 @@ __all__ = (
     "ScteInManifestsType",
     "ScteInSegmentsType",
     "ServiceName",
+    "StreamNameOutputModeType",
     "TsEncryptionMethodType",
     "UriPathTypeType",
     "UriSeparatorType",
@@ -134,6 +135,7 @@ ScteFilterType = Literal[
 ]
 ScteInManifestsType = Literal["ALL", "MATCHES_FILTER"]
 ScteInSegmentsType = Literal["ALL", "MATCHES_FILTER", "NONE"]
+StreamNameOutputModeType = Literal["INDEX", "PASSTHROUGH_NAME"]
 TsEncryptionMethodType = Literal["AES_128", "SAMPLE_AES"]
 UriPathTypeType = Literal["LEAF", "ROOT"]
 UriSeparatorType = Literal["HYPHEN", "UNDERSCORE"]

@@ -1,8 +1,8 @@
 Metadata-Version: 2.4
 Name: rasterio
-Version: 1.5.0
+Version: 1.5.1
 Summary: Fast and direct raster I/O for use with NumPy
-Author-email: Sean Gillies <sean@mapbox.com>
+Author-email: Sean Gillies <sean.gillies@gmail.com>
 Maintainer: Rasterio contributors
 License-Expression: BSD-3-Clause
 Project-URL: Documentation, https://rasterio.readthedocs.io/
@@ -28,9 +28,8 @@ Requires-Dist: affine
 Requires-Dist: attrs
 Requires-Dist: certifi
 Requires-Dist: click!=8.2.*,>=4.0
-Requires-Dist: cligj>=0.5
 Requires-Dist: numpy>=2
-Requires-Dist: pyparsing
+Requires-Dist: pyparsing>=3.0
 Provides-Extra: all
 Requires-Dist: rasterio[docs,ipython,plot,s3,test]; extra == "all"
 Provides-Extra: docs

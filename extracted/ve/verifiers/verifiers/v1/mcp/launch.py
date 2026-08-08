@@ -2,52 +2,55 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
-import importlib.metadata
-import io
-import json
 import logging
+import secrets
 import shlex
+import subprocess
 import sys
-import tarfile
+import tempfile
 import uuid
-from collections.abc import AsyncIterator, Awaitable, Callable
-from dataclasses import dataclass
-from functools import cache, partial
-from pathlib import Path
+from collections.abc import AsyncIterator
+from dataclasses import dataclass, field
+from functools import cache
+from pathlib import Path, PurePosixPath
 from typing import TYPE_CHECKING
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
-import httpx
-
-from verifiers.v1.errors import RolloutError, ToolsetError, UserError
+from verifiers.v1.errors import ToolsetError
 from verifiers.v1.interception.tunnel import PrimeTunnel
-from verifiers.v1.mcp.server import STATE_SECRET_PARAM, STATE_URL_PARAM, ServerBase
+from verifiers.v1.mcp.server import (
+    STATE_ROUTE_PARAM,
+    STATE_SIGNATURE_PARAM,
+    STATE_URL_PARAM,
+    ServerBase,
+    state_signature,
+)
 from verifiers.v1.runtimes import (
+    NetworkPolicyConfig,
     Runtime,
     make_runtime,
-    runtime_is_local,
 )
 from verifiers.v1.runtimes.base import _ENSURE_UV
-from verifiers.v1.types import Messages
+from verifiers.v1.state import State
 
 if TYPE_CHECKING:
-    from mcp import ClientSession
-
     from verifiers.v1.mcp.toolset import Toolset
-    from verifiers.v1.mcp.user import User
 
 logger = logging.getLogger(__name__)
 
-# Sandboxed servers install the working tree, so only wheel inputs need to cross the boundary.
-VF_BUILD_INPUTS = ("pyproject.toml", "README.md", "LICENSE", "verifiers")
+_SDIST_BUILD_TIMEOUT_SECONDS = 300
 
-# One user turn: (message, seq) -> user messages; `seq` is the conversation position that
-# replayed turns dedup on.
-Respond = Callable[[str, int], Awaitable[Messages]]
 
-MCP_CALL_RETRIES = 5
-MCP_TIMEOUT = httpx.Timeout(600.0, connect=5.0)  # the OpenAI SDK client defaults
+@dataclass
+class _SdistBuildState:
+    lock: asyncio.Lock = field(default_factory=asyncio.Lock)
+    build: asyncio.Task[tuple[str, bytes]] | None = None
+    users: int = 0
 
+
+# Coordination and caching are process-local. Spawned env-server workers each
+# build once; within an event loop, concurrent rollouts share the completed artifact.
+_SDIST_BUILD_STATES: dict[tuple[Path, asyncio.AbstractEventLoop], _SdistBuildState] = {}
 
 # Any HTTP response, including MCP's 406 to a bare GET, proves the server is listening.
 _PROBE = """
@@ -74,30 +77,88 @@ def _source_dir(cls: type) -> str | None:
     return None
 
 
-# These can be gigabytes and are not package source, so uploading them can stall startup.
-_TAR_EXCLUDE = {
-    "__pycache__",
-    ".venv",
-    ".git",
-    ".pytest_cache",
-    ".mypy_cache",
-    ".ruff_cache",
-    "node_modules",
-}
-
-
 @cache
-def _tar_source(src: Path, members: tuple[str, ...] = ()) -> bytes:
-    def keep(info: tarfile.TarInfo) -> tarfile.TarInfo | None:
-        return None if _TAR_EXCLUDE & set(info.name.split("/")) else info
+def _build_sdist(src: Path) -> tuple[str, bytes]:
+    """Build a project's source distribution through its declared PEP 517 backend."""
+    with tempfile.TemporaryDirectory(prefix="vf-sdist-") as directory:
+        out = Path(directory)
+        command = [
+            "uv",
+            "build",
+            "--sdist",
+            "--no-create-gitignore",
+            "--color",
+            "never",
+            "--out-dir",
+            str(out),
+            ".",
+        ]
+        try:
+            # Run from the source root so uv discovers this project's workspace,
+            # uv.toml, indexes, constraints, and Python configuration rather than
+            # inheriting configuration from the launcher's working directory.
+            result = subprocess.run(
+                command,
+                cwd=src,
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=_SDIST_BUILD_TIMEOUT_SECONDS,
+            )
+        except FileNotFoundError as e:
+            raise ToolsetError(
+                f"cannot build source distribution for {src}: uv is not installed"
+            ) from e
+        except subprocess.TimeoutExpired as e:
+            raise ToolsetError(
+                "source distribution build timed out after "
+                f"{_SDIST_BUILD_TIMEOUT_SECONDS}s for {src}"
+            ) from e
+        if result.returncode != 0:
+            detail = "\n".join(
+                part.strip() for part in (result.stdout, result.stderr) if part.strip()
+            )
+            raise ToolsetError(
+                f"source distribution build failed for {src}: {detail[-2000:]}"
+            )
+        artifacts = [path for path in out.iterdir() if path.is_file()]
+        if len(artifacts) != 1:
+            names = ", ".join(sorted(path.name for path in artifacts)) or "none"
+            raise ToolsetError(
+                f"build backend for {src} produced {len(artifacts)} source distributions: {names}"
+            )
+        artifact = artifacts[0]
+        return artifact.name, artifact.read_bytes()
 
-    buf = io.BytesIO()
-    with tarfile.open(fileobj=buf, mode="w:gz") as tar:
-        for member in members or ("",):
-            path = src / member if member else src
-            if path.exists():
-                tar.add(path, arcname=f"{src.name}/{member}".rstrip("/"), filter=keep)
-    return buf.getvalue()
+
+async def _cached_sdist(src: Path) -> tuple[str, bytes]:
+    """Build once per source without parking waiters in the thread pool."""
+    src = src.resolve()
+    key = (src, asyncio.get_running_loop())
+    state = _SDIST_BUILD_STATES.get(key)
+    if state is None:
+        state = _SdistBuildState()
+        _SDIST_BUILD_STATES[key] = state
+    state.users += 1
+    try:
+        async with state.lock:
+            # Coordinate before entering the default executor so concurrent
+            # same-source waiters do not occupy executor threads.
+            if state.build is None:
+                state.build = asyncio.create_task(asyncio.to_thread(_build_sdist, src))
+            build = state.build
+            try:
+                return await asyncio.shield(build)
+            except asyncio.CancelledError:
+                # Cancelling to_thread does not stop its worker. Keep the lock until
+                # that worker exits so a replacement caller cannot overlap the build.
+                with contextlib.suppress(Exception):
+                    await build
+                raise
+    finally:
+        state.users -= 1
+        if state.users == 0 and _SDIST_BUILD_STATES.get(key) is state:
+            del _SDIST_BUILD_STATES[key]
 
 
 def _verifiers_root() -> Path:
@@ -119,25 +180,37 @@ async def _install_in_sandbox(server: ServerBase, runtime: Runtime) -> str:
             f"server {server.server_name!r} runs in a {runtime.type} runtime but its module is not "
             "a local package (no pyproject) — sandbox launch needs a local env package to upload"
         )
-    root = "/tmp/vf-src"
+    # Prime VMs mount /tmp as a small tmpfs, while the runtime workdir lives on
+    # the VM's root disk. Keep source, build scratch space, and uv's cache on the
+    # durable runtime filesystem so ordinary dependency installs cannot exhaust
+    # the tmpfs.
+    workdir = str(PurePosixPath(runtime.config.workdir))
+    root = str(PurePosixPath(workdir) / ".vf-src")
+    temp = str(PurePosixPath(workdir) / ".vf-tmp")
+    cache = str(PurePosixPath(workdir) / ".vf-uv-cache")
     vf, env = _verifiers_root(), Path(source_dir)
-    await runtime.write(f"{root}/{vf.name}.tar.gz", _tar_source(vf, VF_BUILD_INPUTS))
-    await runtime.write(f"{root}/{env.name}.tar.gz", _tar_source(env))
-    venv = "/tmp/vf-venv"
-    # The upload carries no .git, so hatch-vcs falls back to version 0.0.0 — an env
-    # package's `verifiers>=...` floor would then resolve PyPI verifiers OVER the local
-    # build, silently running the server against a released (older) API. Pretend the
-    # local version so the floor is satisfied by the build we uploaded.
-    vf_version = importlib.metadata.version("verifiers")
+    vf_name, vf_data = await _cached_sdist(vf)
+    if env == vf:
+        env_name, env_data = vf_name, vf_data
+    else:
+        env_name, env_data = await _cached_sdist(env)
+    vf_remote = f"{root}/{vf_name}"
+    env_remote = f"{root}/{env_name}"
+    await runtime.write(vf_remote, vf_data)
+    if env_remote != vf_remote:
+        await runtime.write(env_remote, env_data)
+    venv = str(PurePosixPath(workdir) / ".vf-venv")
+    root_q, temp_q, cache_q, venv_q = map(shlex.quote, (root, temp, cache, venv))
     extras = ",".join(type(server).EXTRAS)
+    vf_source = shlex.quote(vf_remote)
+    env_source = shlex.quote(env_remote + (f"[{extras}]" if extras else ""))
     setup = (
-        f"{_ENSURE_UV}; set -e; "
-        f'for t in {root}/*.tar.gz; do tar -xzf "$t" -C {root}; done && '
-        f"uv venv {venv} && "
-        f"SETUPTOOLS_SCM_PRETEND_VERSION={shlex.quote(vf_version)} "
-        f"uv pip install --python {venv} {root}/{shlex.quote(vf.name)} && "
-        f"uv pip install --python {venv} "
-        f"{shlex.quote(f'{root}/{env.name}' + (f'[{extras}]' if extras else ''))}"
+        f"set -e; mkdir -p {root_q} {temp_q} {cache_q}; "
+        f"export TMPDIR={temp_q} UV_CACHE_DIR={cache_q}; "
+        f"{_ENSURE_UV}; "
+        f"uv venv {venv_q} && "
+        f"uv pip install --python {venv_q} {vf_source} && "
+        f"uv pip install --python {venv_q} {env_source}"
     )
     result = await runtime.run(["sh", "-c", setup], {})
     if result.exit_code != 0:
@@ -160,11 +233,10 @@ async def log_tail(runtime: Runtime, log: str, limit: int = 2000) -> str:
 
 
 async def _read_back_port(runtime: Runtime, path: str) -> int:
-    """Poll the server's port file without stacking the runtime's own read retries."""
-    reader = getattr(runtime, "inner", runtime)
+    """Poll the server's port file until the server writes it."""
     for _ in range(180):
         with contextlib.suppress(Exception):
-            data = (await reader.read(path)).decode().strip()
+            data = (await runtime.read(path)).decode().strip()
             if data.isdigit():
                 return int(data)
         await asyncio.sleep(1)
@@ -185,14 +257,17 @@ async def serve_in_runtime(
     the OS choose and report the result through a file. With a state channel, the server fetches
     the current rollout task from the adjacent `/task` endpoint rather than a launch argument.
     """
-    env = {"VF_CONFIG": server.config.model_dump_json()}
+    # A shared server has a private service secret but no fixed state URL. Set
+    # both controls explicitly so a subprocess cannot inherit stale host values.
+    env = {
+        "VF_CONFIG": server.config.model_dump_json(),
+        "VF_STATE_URL": state_url or "",
+        "VF_STATE_SECRET": state_secret,
+    }
     if runtime.type == "subprocess":
         # Keep provider temp files in the runtime workdir so cleanup removes them.
         assert runtime.info.id is not None
         env["TMPDIR"] = runtime.info.id
-    if state_url:
-        env["VF_STATE_URL"] = state_url
-        env["VF_STATE_SECRET"] = state_secret
     if runtime.published_port is not None:
         env["MCP_HOST"] = "0.0.0.0"
     fixed = runtime.published_port if exposed else None
@@ -239,35 +314,54 @@ async def reachable_url(
     """Yield the URL a consumer uses to reach the server at (`service`, `port`), over two
     primitives: `Runtime.expose` (publish a port out of a sandbox) and a host `Tunnel` (reach
     into the host from a remote runtime). `colocated` = the server shares the consumer's
-    runtime; `consumer_is_local` = the consumer is on the host network.
+    runtime; `consumer_is_local` = the consumer can use a host-local URL without a tunnel.
 
     - `colocated` -> localhost (same runtime, in-sandbox or host loopback);
     - the server runs in a remote sandbox -> its own published URL (`expose`), reachable anywhere;
-    - else it's on the host network -> localhost to a local consumer, a host tunnel to a remote one."""
+    - else it's host-local -> localhost to a local consumer, a host tunnel to a remote one."""
     if colocated:
         yield f"http://127.0.0.1:{port}"
     elif not service.is_local:  # in a remote sandbox → it publishes its own port
         yield await service.expose(port)
-    elif consumer_is_local:  # host network, local consumer → localhost, no tunnel
+    elif consumer_is_local:  # local consumer → localhost, no public tunnel
         yield f"http://127.0.0.1:{port}"
-    else:  # host network, remote consumer → a host tunnel publishes the port outward
+    else:  # remote consumer → a host tunnel publishes the port outward
         async with PrimeTunnel().expose(port) as url:
             yield url
 
 
+@dataclass(frozen=True)
+class _ServedServer:
+    url: str
+    runtime: Runtime
+
+
 @contextlib.asynccontextmanager
-async def serve(
+async def _serve(
     server: ServerBase,
     harness_runtime: Runtime | None = None,
-    for_host: bool = False,
     harness_is_local: bool = True,
     *,
     state_secret: str = "",
     state_base: str | None = None,
 ):
     cfg = server.config
+    colocated = getattr(cfg, "colocated", False)
     async with contextlib.AsyncExitStack() as stack:
-        if getattr(cfg, "colocated", False) and harness_runtime is not None:
+        # Colocated servers inherit the harness cut. A separately provisioned filtered
+        # server has neither that lifecycle nor a published port after isolation;
+        # reject it instead of silently leaving its requested policy unenforced.
+        if (
+            isinstance(cfg.runtime, NetworkPolicyConfig)
+            and cfg.runtime.network_restricted
+            and not (colocated and harness_runtime is not None)
+        ):
+            raise ToolsetError(
+                "Runtime network policies are supported on the harness runtime; "
+                f"server {server.server_name!r} must be colocated or use an "
+                "unrestricted runtime"
+            )
+        if colocated and harness_runtime is not None:
             runtime = harness_runtime
         else:
             runtime = make_runtime(cfg.runtime)
@@ -275,7 +369,7 @@ async def serve(
             stack.push_async_callback(runtime.stop)
         # Only consumers outside the server runtime need its fixed published port. Colocated tools
         # use independent OS-assigned ports, avoiding clashes on the runtime's service port.
-        exposed = for_host or runtime is not harness_runtime
+        exposed = runtime is not harness_runtime
         # The shared-state channel: every server reaches the interception at the rollout's
         # `state_base`, which is universally reachable (the interception is exposed via a tunnel
         # whenever any consumer is remote). Eval-level shared servers get no per-rollout channel
@@ -290,27 +384,46 @@ async def serve(
             state_url=state_url,
             state_secret=state_secret,
         )
-        # Who consumes the server decides reachability: a user sim is reached by the HOST
-        # (`for_host`, always local, never colocated with it); a tool by the harness — colocated
-        # when it shares the harness's runtime, reached with the harness's locality (read off the
-        # harness runtime when there is one, else `harness_is_local` for an eval-level shared tool).
-        if for_host:
-            colocated, consumer_is_local = False, True
-        else:
-            colocated = runtime is harness_runtime
-            consumer_is_local = (
-                harness_runtime.is_local
-                if harness_runtime is not None
-                else harness_is_local
-            )
+        # The harness consumes the server, and decides reachability: colocated when the
+        # server shares the harness's runtime, reached with the harness's locality (read
+        # off the harness runtime when there is one, else `harness_is_local` for an
+        # eval-level shared tool).
+        colocated = runtime is harness_runtime
+        consumer_is_local = (
+            harness_runtime.is_local
+            if harness_runtime is not None
+            else harness_is_local
+        )
         base = await stack.enter_async_context(
             reachable_url(
                 runtime, port, colocated=colocated, consumer_is_local=consumer_is_local
             )
         )
-        if not for_host and not colocated and harness_runtime is not None:
+        if colocated and harness_runtime is not None and runtime.network_restricted:
+            base = base.replace("127.0.0.1", "localhost", 1)
+        elif not colocated and harness_runtime is not None:
             base = harness_runtime.host_url(base)
-        yield f"{base.rstrip('/')}/mcp"
+        yield _ServedServer(f"{base.rstrip('/')}/mcp", runtime)
+
+
+@contextlib.asynccontextmanager
+async def serve(
+    server: ServerBase,
+    harness_runtime: Runtime | None = None,
+    harness_is_local: bool = True,
+    *,
+    state_secret: str = "",
+    state_base: str | None = None,
+):
+    """Serve one MCP server and yield the URL visible to its consumer."""
+    async with _serve(
+        server,
+        harness_runtime,
+        harness_is_local,
+        state_secret=state_secret,
+        state_base=state_base,
+    ) as served:
+        yield served.url
 
 
 @dataclass(frozen=True)
@@ -318,7 +431,8 @@ class SharedToolServer:
     """One live taskset-scoped (shared) server, as the rollouts see it: its eval-level
     `url` plus whether its runtime is `local` (host-reachable) — a remote one is an
     interception consumer, so the interception must be exposed for it to reach the
-    `/state` channel (see `Environment._requires_tunnel`). An `external` server (a
+    `/state` channel (see `Env._requires_tunnel`). `runtime` is retained for translating
+    that channel into the server's network. An `external` server (a
     config-`url` endpoint) was not launched by the framework and sits outside its state
     machinery entirely: rollouts get its URL bare — no state tag (and no per-rollout
     secret sent to a third party)."""
@@ -326,6 +440,8 @@ class SharedToolServer:
     url: str
     local: bool
     external: bool = False
+    runtime: Runtime | None = field(default=None, repr=False)
+    state_secret: str = field(default="", repr=False)
 
 
 @contextlib.asynccontextmanager
@@ -333,7 +449,7 @@ async def serve_shared(toolsets: list[Toolset], harness_is_local: bool = True):
     """Start the taskset-scoped (shared) tool servers ONCE for a whole eval, each in its OWN
     `runtime`, and yield `{name: SharedToolServer}` reachable by every rollout's harness.
     Reachability mirrors a per-rollout tool, but there's no single harness runtime to read
-    locality off — the caller (`Environment.shared_tools`) passes the harness runtime's
+    locality off — the caller (`Env.shared_tools`) passes the harness runtime's
     `harness_is_local`, so a host tool gets one host bridge (tunnel) when the harness runs
     remotely, and a remote tool runtime publishes its own URL. Torn down when the eval ends.
     A shared server is task-agnostic — the taskset carries no per-row data — so its `setup`
@@ -346,7 +462,7 @@ async def serve_shared(toolsets: list[Toolset], harness_is_local: bool = True):
             name = toolset.server_name
             if name in servers:
                 raise ToolsetError(
-                    f"duplicate shared tool server name '{name}' in Taskset.tools — "
+                    f"duplicate shared tool server name '{name}' in Taskset.toolsets — "
                     f"give one a distinct TOOL_PREFIX"
                 )
             if type(toolset).setup_task is not ServerBase.setup_task:
@@ -354,7 +470,7 @@ async def serve_shared(toolsets: list[Toolset], harness_is_local: bool = True):
                     "shared server %r overrides `setup_task`, but `setup_task` is NEVER "
                     "called for a taskset-scoped server (it's built once, task-agnostic) — "
                     "its per-task logic will not run. Move task-agnostic work into `setup`, "
-                    "or declare it on `Task.tools` to run it per-rollout.",
+                    "or construct it in `Task.toolsets` to run it per-rollout.",
                     name,
                 )
             if cfg.url:  # already running remotely; nothing launched, nothing to bridge
@@ -362,24 +478,45 @@ async def serve_shared(toolsets: list[Toolset], harness_is_local: bool = True):
                     url=cfg.url, local=False, external=True
                 )
             else:
-                url = await stack.enter_async_context(
-                    serve(toolset, harness_is_local=harness_is_local)
+                state_secret = (
+                    secrets.token_urlsafe(24) if toolset._state_cls is not State else ""
+                )
+                served = await stack.enter_async_context(
+                    _serve(
+                        toolset,
+                        harness_is_local=harness_is_local,
+                        state_secret=state_secret,
+                    )
                 )
                 servers[name] = SharedToolServer(
-                    url=url, local=runtime_is_local(cfg.runtime)
+                    url=served.url,
+                    local=served.runtime.is_local,
+                    runtime=served.runtime,
+                    state_secret=state_secret,
                 )
             logger.info("shared tool server '%s': %s", name, servers[name].url)
         yield servers
 
 
-def _shared_url_for_rollout(url: str, state_base: str | None, state_secret: str) -> str:
-    """Attach one rollout's state bridge to a shared server URL."""
-    if not state_base:
-        return url
-    parts = urlsplit(url)
+def _shared_url_for_rollout(
+    server: SharedToolServer,
+    visible_url: str,
+    state_base: str | None,
+    state_route: str,
+) -> str:
+    """Attach signed state coordinates; the shared server keeps its bearer private."""
+    if not state_base or not server.state_secret:
+        return visible_url
+    state_url = f"{state_base.rstrip('/')}/state"
+    if server.runtime is not None:
+        state_url = server.runtime.host_url(state_url)
+    parts = urlsplit(visible_url)
     query = dict(parse_qsl(parts.query))
-    query[STATE_URL_PARAM] = f"{state_base.rstrip('/')}/state"
-    query[STATE_SECRET_PARAM] = state_secret
+    query[STATE_URL_PARAM] = state_url
+    query[STATE_ROUTE_PARAM] = state_route
+    query[STATE_SIGNATURE_PARAM] = state_signature(
+        server.state_secret, state_url, state_route
+    )
     return urlunsplit(parts._replace(query=urlencode(query)))
 
 
@@ -390,6 +527,7 @@ async def serve_tools(
     shared: dict[str, SharedToolServer] | None = None,
     *,
     state_secret: str = "",
+    state_route: str = "",
     state_base: str | None = None,
 ):
     """Bring up a rollout's tool servers and yield `{name: url}` the harness reaches: the
@@ -397,9 +535,9 @@ async def serve_tools(
     server fetches its task over the interception `/task` channel), and the
     taskset-scoped `shared` servers — already
     running eval-level (see `serve_shared`) — join under their per-rollout state tag.
-    `state_base`/`state_secret` wire each server to the interception server's shared-state
-    channel — `state_base` is universally reachable, so every server (per-rollout or
-    `shared`, any runtime) uses it directly."""
+    `state_secret` is private to task-scoped servers; shared servers keep an
+    eval-level service secret and receive only signed `state_route` coordinates.
+    `state_base` is universally reachable from either placement."""
     urls: dict[str, str] = {}
     async with contextlib.AsyncExitStack() as stack:
         for name, server in (shared or {}).items():
@@ -407,12 +545,11 @@ async def serve_tools(
                 # Not ours: a pre-existing endpoint with no vf state channel. Pass the URL
                 # through bare — a state tag would be useless, and the per-rollout secret
                 # must not ride the query string to a third-party host.
-                urls[name] = server.url
+                urls[name] = harness_runtime.host_url(server.url)
                 logger.info("tool server '%s' (shared, external): %s", name, server.url)
                 continue
             url = harness_runtime.host_url(server.url) if server.local else server.url
-            urls[name] = _shared_url_for_rollout(url, state_base, state_secret)
-            # The tagged URL contains the bearer secret; log only the untagged base URL.
+            urls[name] = _shared_url_for_rollout(server, url, state_base, state_route)
             logger.info("tool server '%s' (shared): %s", name, server.url)
         for toolset in toolsets:
             name = toolset.server_name
@@ -423,7 +560,7 @@ async def serve_tools(
                 )
             cfg = toolset.config
             if cfg.url:
-                urls[name] = cfg.url
+                urls[name] = harness_runtime.host_url(cfg.url)
                 logger.info("tool server '%s' (remote): %s", name, cfg.url)
             else:
                 urls[name] = await stack.enter_async_context(
@@ -436,89 +573,3 @@ async def serve_tools(
                 )
                 logger.info("tool server '%s': %s", name, urls[name])
         yield urls
-
-
-@contextlib.asynccontextmanager
-async def user_session(url: str) -> AsyncIterator[ClientSession]:
-    """One fresh session to the user server, opened and closed within the caller's task so AnyIO
-    cancellation scopes stay correctly nested. A teardown failure after the body completed is
-    suppressed — the result is already in hand, and closing noise must not fail (or replay) an
-    already-answered call."""
-    from mcp import ClientSession
-    from mcp.client.streamable_http import (
-        create_mcp_http_client,
-        streamable_http_client,
-    )
-
-    stack = contextlib.AsyncExitStack()
-    try:
-        http_client = await stack.enter_async_context(
-            create_mcp_http_client(timeout=MCP_TIMEOUT)
-        )
-        read, write, *_ = await stack.enter_async_context(
-            streamable_http_client(url, http_client=http_client)
-        )
-        session = await stack.enter_async_context(ClientSession(read, write))
-        await session.initialize()
-        yield session
-    finally:
-        with contextlib.suppress(Exception):
-            await stack.aclose()
-
-
-async def user_respond(url: str, message: str, seq: int) -> Messages:
-    """One `respond` turn against the user server, on a fresh session per attempt. A retried turn
-    whose response was lost would advance the simulator twice, so the server dedups on
-    (`seq`, `message`) and replays the recorded turn — making the retry effectively exactly-once.
-    The payload is parsed outside the retry so a parse failure fails once."""
-    from verifiers.v1.dialects import parse_message
-    from verifiers.v1.retries import retrying
-
-    try:
-        result = None
-        async for attempt in retrying(
-            give_up=RolloutError,
-            retries=MCP_CALL_RETRIES,
-            label=f"user respond ({url})",
-        ):
-            with attempt:
-                async with user_session(url) as session:
-                    result = await session.call_tool(
-                        "respond", {"message": message, "seq": seq}
-                    )
-        assert result is not None
-        texts = [b.text for b in result.content if getattr(b, "type", None) == "text"]
-        data = json.loads("\n".join(texts))
-        return [parse_message(m) for m in data["messages"]]
-    except RolloutError:
-        raise
-    except Exception as e:
-        raise UserError(f"user server at {url} respond failed: {e!r}") from e
-
-
-@contextlib.asynccontextmanager
-async def serve_user(
-    user: User | None,
-    harness_runtime: Runtime | None = None,
-    *,
-    state_secret: str = "",
-    state_base: str | None = None,
-) -> AsyncIterator[Respond | None]:
-    """Bring a rollout's user server up (via the shared `serve` launcher, `for_host=True` since
-    the framework drives the user from the HOST) and yield the async `respond` the interception
-    server drives — or `None` when the task has no user server. Placement is the user's
-    `config` (colocated in the harness's runtime, or its own); the server fetches its task
-    over the interception `/task` channel. `state_base`/`state_secret` wire it to the shared-state
-    channel — how the user sim's `respond` reads/writes `self.state` (and ends the trajectory via
-    a flag a task `@vf.stop` checks)."""
-    if user is None:
-        yield None
-        return
-    async with serve(
-        user,
-        harness_runtime,
-        for_host=True,
-        state_secret=state_secret,
-        state_base=state_base,
-    ) as url:
-        yield partial(user_respond, url)

@@ -59,6 +59,7 @@ __all__ = (
     "ScteInManifestsType",
     "ScteInSegmentsType",
     "ServiceName",
+    "StreamNameOutputModeType",
     "TsEncryptionMethodType",
     "UriPathTypeType",
     "UriSeparatorType",
@@ -136,6 +137,7 @@ ScteFilterType = Literal[
 ]
 ScteInManifestsType = Literal["ALL", "MATCHES_FILTER"]
 ScteInSegmentsType = Literal["ALL", "MATCHES_FILTER", "NONE"]
+StreamNameOutputModeType = Literal["INDEX", "PASSTHROUGH_NAME"]
 TsEncryptionMethodType = Literal["AES_128", "SAMPLE_AES"]
 UriPathTypeType = Literal["LEAF", "ROOT"]
 UriSeparatorType = Literal["HYPHEN", "UNDERSCORE"]
@@ -145,6 +147,8 @@ ServiceName = Literal[
     "account",
     "acm",
     "acm-pca",
+    "agent-registry",
+    "agent-registry-control",
     "aiops",
     "amp",
     "amplify",
@@ -449,6 +453,7 @@ ServiceName = Literal[
     "pipes",
     "polly",
     "pricing",
+    "pricing-plan-manager",
     "proton",
     "qapps",
     "qbusiness",

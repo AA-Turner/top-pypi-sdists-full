@@ -4,9 +4,11 @@ TypedDicts here are returned by loaders (helpers) and consumed by views.
 They carry no display logic — views decide how to render them.
 """
 
+# Python internals
 from datetime import datetime
 from typing import Any, Literal, Optional
 
+# Other libraries
 from dlt._workspace.deployment._run_typing import TRunBannerInfo as _OSSRunBannerInfo
 from dlt.common.typing import NotRequired, TypedDict
 

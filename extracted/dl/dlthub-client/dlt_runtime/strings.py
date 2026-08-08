@@ -1,7 +1,7 @@
 """Reusable user-facing copy for the dlt runtime CLI."""
 
+# Python internals
 from typing import Final
-
 
 # Friendly one-liner per TriggerJob status.
 # See `dlt_runtime_common.schemas.TriggerStatus` for the canonical enum.
@@ -16,8 +16,8 @@ TRIGGER_STATUS_MESSAGES: Final[dict[str, str]] = {
         " Cancel another run or upgrade your plan."
     ),
     "skipped_minutes_limit": (
-        "Your organization has reached its compute-minutes limit for this billing"
-        " period. Upgrade your plan to continue."
+        "Your organization has used all available runtime minutes."
+        " Upgrade your plan to continue."
     ),
     "skipped_trial_expired": (
         "Your organization's trial has ended. Upgrade your plan to keep running jobs."
@@ -35,6 +35,10 @@ TRIGGER_STATUS_MESSAGES: Final[dict[str, str]] = {
         " (interval_start / interval_end)."
     ),
     "skipped_already_covered": "A previous run already covers this interval.",
+    "skipped_paused": (
+        "This schedule is paused, so the scheduler did not start this run."
+        " Resume the schedule to let it run again."
+    ),
 }
 
 
@@ -42,6 +46,27 @@ TRIGGER_STATUS_MESSAGES: Final[dict[str, str]] = {
 # statement than the generic "concurrency limit reached" copy.
 TRIGGER_CONCURRENCY_ONE_MESSAGE: Final[str] = (
     "An instance of this job is already running."
+)
+
+
+# Pause / resume of a job's schedule. Mirrors the web copy in
+# `clients/web/src/lib/strings.ts` — keep them consistent.
+JOB_PAUSED_LIST_TAG: Final[str] = "paused"
+JOB_PAUSE_MESSAGE: Final[str] = (
+    "Scheduled runs for job `{job_ref}` are paused until you resume schedule"
+)
+JOB_RESUME_MESSAGE: Final[str] = (
+    "Scheduled runs for job `{job_ref}` are resumed. The first run covers the whole period it"
+    " was paused for."
+)
+# The API is idempotent, so a no-op is reported rather than failed.
+JOB_ALREADY_PAUSED_MESSAGE: Final[str] = (
+    "Scheduled runs for job `{job_ref}` are already paused"
+)
+JOB_NOT_PAUSED_MESSAGE: Final[str] = "Scheduled runs for job `{job_ref}` are not paused"
+JOB_NO_SELECTOR_MATCH: Final[str] = "No jobs matched the selector(s)"
+JOB_SCHEDULE_TOGGLE_FAILED: Final[str] = (
+    "Failed to {action} scheduled runs for: {job_refs}"
 )
 
 

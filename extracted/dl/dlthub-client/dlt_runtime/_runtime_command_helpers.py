@@ -6,15 +6,17 @@ Pure helpers (no service deps) and service-dependent loaders (no display).
 # Python internals
 import json
 import tarfile
-from datetime import datetime
+from contextlib import contextmanager
+from datetime import datetime, timedelta, timezone
+from functools import wraps
 from io import BytesIO
 from pathlib import Path
-from functools import wraps
 from typing import (
     TYPE_CHECKING,
     Any,
     Callable,
     Generator,
+    Iterator,
     Literal,
     NoReturn,
     Optional,
@@ -28,7 +30,6 @@ import yaml
 from dlt._workspace._workspace_context import active
 from dlt._workspace.cli import echo as fmt
 from dlt._workspace.cli.exceptions import CliCommandInnerException
-from dlt._workspace.exceptions import WorkspaceRunContextNotAvailable
 from dlt._workspace.deployment import (
     DEFAULT_DEPLOYMENT_MODULE,
     MANIFEST_ENGINE_VERSION,
@@ -44,11 +45,6 @@ from dlt._workspace.deployment.exceptions import (
     InvalidJobRef,
     JobRefNotFound,
 )
-from dlt._workspace.deployment.typing import (
-    TJobRef,
-    TJobsDeploymentManifest,
-    TTrigger,
-)
 from dlt._workspace.deployment.file_selector import (
     ConfigurationFileSelector,
     WorkspaceFileSelector,
@@ -59,6 +55,11 @@ from dlt._workspace.deployment.requirements import (
     export_workspace_requirements,
     save_requirements,
 )
+from dlt._workspace.deployment.typing import TJobRef, TJobsDeploymentManifest, TTrigger
+from dlt._workspace.exceptions import WorkspaceRunContextNotAvailable
+
+# Current package
+from dlt_runtime import runtime as _runtime_module, urls
 from dlt_runtime.exceptions import (
     AmbiguousWorkspaceName,
     NoRunsFound,
@@ -68,62 +69,56 @@ from dlt_runtime.exceptions import (
     exception_from_response,
     handle_client_exceptions,
 )
-from dlt_runtime import runtime as _runtime_module
-from dlt_runtime import urls
-from dlt_runtime.runtime import (
-    RuntimeAuthService,
-    _tls_verify,
-)
+from dlt_runtime.runtime import RuntimeAuthService, _tls_verify
 from dlt_runtime.runtime_clients.api.api.configurations import (
     create_configuration,
     get_configuration,
     get_latest_configuration,
     list_configurations,
 )
+from dlt_runtime.runtime_clients.api.api.dataplanes import list_dataplanes
 from dlt_runtime.runtime_clients.api.api.deployments import (
     create_deployment,
     get_deployment,
     get_latest_deployment,
     list_deployments,
 )
-from dlt_runtime.runtime_clients.api.api.dataplanes import list_dataplanes
-from dlt_runtime.runtime_clients.api.api.runs import (
-    get_run,
-    list_runs,
-)
-from dlt_runtime.runtime_clients.api.api.scripts import (
-    get_script,
-    list_scripts,
-)
+from dlt_runtime.runtime_clients.api.api.runs import get_run, list_runs
+from dlt_runtime.runtime_clients.api.api.scripts import get_script, list_scripts
 from dlt_runtime.runtime_clients.api.api.workspaces import (
     deploy as deploy_manifest,
     get_workspace as get_workspace_api,
     get_workspace_dataplane_access_token,
 )
-from dlt_runtime.runtime_clients.api.models.deploy_manifest_request import (
-    DeployManifestRequest,
-)
 from dlt_runtime.runtime_clients.api.client import Client as ApiClient
-from dlt_runtime.runtime_clients.api.models.dataplane_access_token_response import (
+from dlt_runtime.runtime_clients.api.models import (
     DataplaneAccessTokenResponse,
-)
-from dlt_runtime.runtime_clients.api.models.dataplane_info import DataplaneInfo
-from dlt_runtime.runtime_clients.api.models.detailed_run_response import (
+    DataplaneInfo,
+    DeployManifestRequest,
     DetailedRunResponse,
-)
-from dlt_runtime.runtime_clients.api.models.list_scripts_archived import (
     ListScriptsArchived,
-)
-from dlt_runtime.runtime_clients.api.models.run_status import RunStatus
-from dlt_runtime.runtime_clients.api.models.t_job_definition import (
+    RunStatus,
     TJobDefinition as ApiTJobDefinition,
-)
-from dlt_runtime.runtime_clients.api.models.upload_initiated_response import (
     UploadInitiatedResponse,
+    WorkspaceResponse,
 )
-from dlt_runtime.runtime_clients.api.models.workspace_response import WorkspaceResponse
 from dlt_runtime.runtime_clients.api.types import Unset
-from dlt_runtime.runtime_clients.logs.models.log_line import LogLine
+from dlt_runtime.runtime_clients.dataplane_api.api.variables import (
+    change_workspace_variables,
+    list_workspace_variables,
+)
+from dlt_runtime.runtime_clients.dataplane_api.client import (
+    Client as DataplaneApiClient,
+)
+from dlt_runtime.runtime_clients.dataplane_api.models import (
+    ScopeVariablesResponse,
+    VariablesChange,
+    VariablesChangeResponse,
+    VariableUpsert,
+    WorkspaceVariablesResponse,
+)
+from dlt_runtime.runtime_clients.dataplane_api.types import UNSET
+from dlt_runtime.runtime_clients.logs.models import LogLine
 from dlt_runtime.strings import (
     JOB_SELECTOR_NOT_FOUND,
     ORG_ID_CONFLICTS_WITH_PIN,
@@ -144,20 +139,19 @@ from dlt_runtime.typing import (
 from dlt_runtime.version import __version__
 
 if TYPE_CHECKING:
-    from dlt_runtime.runtime_clients.api.models.deploy_manifest_response import (
-        DeployManifestResponse,
-    )
+    # Current package
+    from dlt_runtime.runtime_clients.api.models import DeployManifestResponse
 
 # Re-export view constants needed by loaders
+# Current package
 from dlt_runtime._runtime_command_views import (  # noqa: F401
-    DEPLOYMENT_HEADERS,
     CONFIGURATION_HEADERS,
+    DEPLOYMENT_HEADERS,
     _extract_keys,
     _format_log_line,
     _preprocess_run_output,
+    format_job_selector,
 )
-from dlt_runtime._runtime_command_views import format_job_selector
-
 
 NON_TERMINAL_RUN_STATUSES = frozenset(
     {RunStatus.PENDING, RunStatus.STARTING, RunStatus.RUNNING, RunStatus.CANCELLING}
@@ -586,6 +580,7 @@ def requires_login(
                         inner_exc=e,
                     ) from e
                 # Late import: helpers → _runtime_command would otherwise cycle.
+                # Current package
                 from dlt_runtime._runtime_command import login as login_cmd
 
                 result = login_cmd(minimal_logging=True, not_logged_in_hint=True)
@@ -622,6 +617,7 @@ def requires_workspace(
                             "Run 'dlthub workspace connect <name>' first."
                         ),
                     )
+                # Current package
                 from dlt_runtime._runtime_command import _connect_workspace_with_picker
 
                 _connect_workspace_with_picker(auth)
@@ -1039,16 +1035,30 @@ def _fetch_runtime_info(
 
 LogStreamEvent = tuple[Literal["log", "warning", "error"], str]
 
+# Window after completion in which persisted logs may still be flushing to blob storage.
+RECENTLY_FINISHED_LOG_WINDOW = timedelta(minutes=3)
 
-def _resolve_dataplane_logs_endpoint(
+
+def _is_recently_finished_terminal(time_ended: datetime | None) -> bool:
+    """Return True when a terminal run ended within RECENTLY_FINISHED_LOG_WINDOW."""
+    if time_ended is None:
+        return False
+    ended = (
+        time_ended.replace(tzinfo=timezone.utc)
+        if time_ended.tzinfo is None
+        else time_ended.astimezone(timezone.utc)
+    )
+    return datetime.now(timezone.utc) - ended < RECENTLY_FINISHED_LOG_WINDOW
+
+
+def _resolve_dataplane_endpoint(
     api_client: ApiClient,
     workspace_id: UUID,
 ) -> tuple[str, str]:
     """Return ``(dataplane_base_url, dataplane_user_jwt)`` for the workspace.
 
-    Reads the workspace to get its ``dataplane_url`` and mints a fresh
-    DataplaneUserJwt — used by the logs service for both the static fetch and
-    the SSE stream.
+    The minted token carries every capability the caller's workspace role
+    allows, so one resolver serves logs, variables and any later surface.
     """
     with handle_client_exceptions("Failed to read workspace"):
         ws_resp = get_workspace_api.sync_detailed(
@@ -1069,6 +1079,68 @@ def _resolve_dataplane_logs_endpoint(
     return ws_resp.parsed.dataplane_url.rstrip("/"), token_resp.parsed.token
 
 
+def _dataplane_client(
+    api_client: ApiClient,
+    workspace_id: UUID,
+) -> DataplaneApiClient:
+    """A data-plane client bound to this workspace, carrying a freshly minted token."""
+    base_url, token = _resolve_dataplane_endpoint(api_client, workspace_id)
+    return DataplaneApiClient(
+        base_url=base_url,
+        verify_ssl=_tls_verify(),
+        headers={
+            "User-Agent": f"dlt-runtime-cli/{__version__}",
+            "Authorization": f"Bearer {token}",
+        },
+        raise_on_unexpected_status=True,
+    )
+
+
+def _fetch_workspace_variables(
+    api_client: ApiClient,
+    workspace_id: UUID,
+    *,
+    profile: Optional[str] = None,
+    workspace_only: bool = False,
+) -> list[ScopeVariablesResponse]:
+    """Every scope unless a selector narrows it to one."""
+    with handle_client_exceptions("Failed to list variables"):
+        resp = list_workspace_variables.sync_detailed(
+            client=_dataplane_client(api_client, workspace_id),
+            workspace_id=workspace_id,
+            profile=profile if profile is not None else UNSET,
+            workspace=True if workspace_only else UNSET,
+        )
+    if not isinstance(resp.parsed, WorkspaceVariablesResponse):
+        raise exception_from_response("Failed to list variables", resp)
+    return resp.parsed.scopes
+
+
+def _change_workspace_variables(
+    api_client: ApiClient,
+    workspace_id: UUID,
+    *,
+    profile: Optional[str],
+    upserts: Optional[list[VariableUpsert]] = None,
+    deletes: Optional[list[str]] = None,
+) -> VariablesChangeResponse:
+    """One atomic batch against a single scope; ``profile=None`` is workspace-wide."""
+    body = VariablesChange(
+        profile=profile,
+        upserts=upserts if upserts is not None else UNSET,
+        deletes=deletes if deletes is not None else UNSET,
+    )
+    with handle_client_exceptions("Failed to change variables"):
+        resp = change_workspace_variables.sync_detailed(
+            client=_dataplane_client(api_client, workspace_id),
+            workspace_id=workspace_id,
+            body=body,
+        )
+    if not isinstance(resp.parsed, VariablesChangeResponse):
+        raise exception_from_response("Failed to change variables", resp)
+    return resp.parsed
+
+
 def _build_logs_request(
     suffix: str,
     accept: str,
@@ -1079,7 +1151,7 @@ def _build_logs_request(
 ) -> tuple[str, dict[str, str]]:
     """Resolve the dataplane logs endpoint and build the request URL + auth headers."""
     workspace_id = _to_uuid(auth_service.workspace_id)
-    dataplane_url, dataplane_token = _resolve_dataplane_logs_endpoint(
+    dataplane_url, dataplane_token = _resolve_dataplane_endpoint(
         api_client, workspace_id
     )
     url = f"{dataplane_url}/logs/v1/workspaces/{workspace_id}/runs/{run_id}{suffix}"
@@ -1108,13 +1180,18 @@ def _parse_log_line_event(json_str: str) -> Optional[LogStreamEvent]:
     return ("log", _format_log_line(log))
 
 
-def _iter_run_logs_historical(
+@contextmanager
+def _open_historical_run_logs(
     run_id: UUID,
     *,
     auth_service: RuntimeAuthService,
     api_client: ApiClient,
-) -> Generator[LogStreamEvent, None, None]:
-    """Yield ``(level, message)`` for each NDJSON log line of a terminal run."""
+) -> Iterator[tuple[int, Generator[LogStreamEvent, None, None]]]:
+    """Open persisted run logs once, yielding ``(status, events)``.
+
+    The connection stays open for the ``with`` block so the caller can branch on the
+    status (e.g. 404 → logs not consolidated yet) before consuming the events.
+    """
     url, headers = _build_logs_request(
         "/logs",
         "application/x-ndjson",
@@ -1126,20 +1203,21 @@ def _iter_run_logs_historical(
         with httpx.stream(
             "GET", url, headers=headers, verify=_tls_verify()
         ) as response:
-            if response.status_code == 404:
-                yield ("error", "Run logs not found.")
-                return
-            if response.status_code != 200:
-                yield ("error", f"Failed to fetch run logs: {response.status_code}")
-                return
-            for line in response.iter_lines():
-                if not line:
-                    continue
-                event = _parse_log_line_event(line)
-                if event is not None:
-                    yield event
+
+            def _events() -> Generator[LogStreamEvent, None, None]:
+                try:
+                    for line in response.iter_lines():
+                        if not line:
+                            continue
+                        event = _parse_log_line_event(line)
+                        if event is not None:
+                            yield event
+                except httpx.HTTPError as e:
+                    yield ("error", f"HTTP error while fetching logs: {e}")
+
+            yield response.status_code, _events()
     except httpx.HTTPError as e:
-        yield ("error", f"HTTP error while fetching logs: {e}")
+        raise ConnectionError(f"Error fetching run logs. Underlying error: {e}") from e
 
 
 def _iter_run_log_stream(
@@ -1486,6 +1564,12 @@ def _fetch_job_info(
     if isinstance(res.parsed, get_script.DetailedScriptResponse):
         return res.parsed
     raise exception_from_response("Failed to get job info", res)
+
+
+def _job_is_paused(job: Any) -> bool:
+    """Whether the job's schedule is paused, treating an absent field as not paused."""
+    paused = getattr(job, "paused", False)
+    return not isinstance(paused, Unset) and bool(paused)
 
 
 def _do_deploy_manifest(

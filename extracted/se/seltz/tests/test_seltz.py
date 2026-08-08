@@ -14,7 +14,11 @@ from seltz import (
     SearchResponse,
     Seltz,
 )
-from seltz.exceptions import SeltzAuthenticationError, SeltzConfigurationError
+from seltz.exceptions import (
+    SeltzAPIError,
+    SeltzAuthenticationError,
+    SeltzConfigurationError,
+)
 from seltz.services.answer_service import AnswerService
 
 load_dotenv()
@@ -436,6 +440,206 @@ def test_answer_stream_builds_request_with_response_format():
     assert json.loads(captured["req"].response_format) == response_format
 
 
+def test_answer_builds_request_with_system_prompt():
+    """A system_prompt is set verbatim on the request (no encoding)."""
+    channel = MagicMock()
+    service = AnswerService(channel, api_key="test-key")
+
+    captured = {}
+
+    def fake_answer(req, metadata=None, timeout=None):
+        captured["req"] = req
+        return AnswerResponse(answer="An answer.", citations=[])
+
+    service._stub.Answer = fake_answer
+
+    system_prompt = "Answer in British English.\n\nBe terse."
+    service.answer("AI news", system_prompt=system_prompt)
+
+    assert captured["req"].HasField("system_prompt")
+    # Plain string field — forwarded byte-for-byte, interior formatting intact.
+    assert captured["req"].system_prompt == system_prompt
+
+
+def test_answer_omits_system_prompt_when_not_provided():
+    """When system_prompt is not provided, the field is left unset (the system
+    prompt stays exactly the operator's)."""
+    channel = MagicMock()
+    service = AnswerService(channel, api_key="test-key")
+
+    captured = {}
+
+    def fake_answer(req, metadata=None, timeout=None):
+        captured["req"] = req
+        return AnswerResponse(answer="An answer.", citations=[])
+
+    service._stub.Answer = fake_answer
+
+    service.answer("AI news")
+
+    assert not captured["req"].HasField("system_prompt")
+
+
+def test_answer_leaves_system_prompt_unset_when_none():
+    """system_prompt=None behaves like "not provided".
+
+    Parity with the response_format nit: there the value is JSON-encoded, so
+    None became the *string* "null" and set the field. system_prompt is passed
+    through unencoded, so protobuf treats None as absent on its own — pinned
+    here so a future encoding step cannot reintroduce the bug silently.
+    """
+    channel = MagicMock()
+    service = AnswerService(channel, api_key="test-key")
+
+    captured = {}
+
+    def fake_answer(req, metadata=None, timeout=None):
+        captured["req"] = req
+        return AnswerResponse(answer="An answer.", citations=[])
+
+    service._stub.Answer = fake_answer
+
+    service.answer("AI news", system_prompt=None)
+
+    assert not captured["req"].HasField("system_prompt")
+
+
+def test_answer_leaves_system_prompt_unset_when_whitespace_only():
+    """A whitespace-only system_prompt is treated as absent.
+
+    The docstring promises "empty or whitespace-only is treated as absent," so
+    the builder guard drops it client-side rather than sending a present-but-
+    empty field and relying on server normalization.
+    """
+    channel = MagicMock()
+    service = AnswerService(channel, api_key="test-key")
+
+    captured = {}
+
+    def fake_answer(req, metadata=None, timeout=None):
+        captured["req"] = req
+        return AnswerResponse(answer="An answer.", citations=[])
+
+    service._stub.Answer = fake_answer
+
+    service.answer("AI news", system_prompt="   \n\t ")
+
+    assert not captured["req"].HasField("system_prompt")
+
+
+def test_answer_leaves_system_prompt_unset_when_empty():
+    """An empty-string system_prompt is treated as absent, like whitespace."""
+    channel = MagicMock()
+    service = AnswerService(channel, api_key="test-key")
+
+    captured = {}
+
+    def fake_answer(req, metadata=None, timeout=None):
+        captured["req"] = req
+        return AnswerResponse(answer="An answer.", citations=[])
+
+    service._stub.Answer = fake_answer
+
+    service.answer("AI news", system_prompt="")
+
+    assert not captured["req"].HasField("system_prompt")
+
+
+def test_answer_stream_leaves_system_prompt_unset_when_whitespace_only():
+    """The streaming builder drops whitespace-only the same way."""
+    channel = MagicMock()
+    service = AnswerService(channel, api_key="test-key")
+
+    captured = {}
+
+    def fake_answer_stream(req, metadata=None):
+        captured["req"] = req
+        return iter([AnswerStreamResponse(text_delta="An ")])
+
+    service._stub.AnswerStream = fake_answer_stream
+
+    list(service.answer_stream("AI news", system_prompt="   "))
+
+    assert not captured["req"].HasField("system_prompt")
+
+
+def test_answer_stream_leaves_system_prompt_unset_when_none():
+    """The streaming builder drops None the same way."""
+    channel = MagicMock()
+    service = AnswerService(channel, api_key="test-key")
+
+    captured = {}
+
+    def fake_answer_stream(req, metadata=None):
+        captured["req"] = req
+        return iter([AnswerStreamResponse(text_delta="An ")])
+
+    service._stub.AnswerStream = fake_answer_stream
+
+    list(service.answer_stream("AI news", system_prompt=None))
+
+    assert not captured["req"].HasField("system_prompt")
+
+
+def test_answer_forwards_system_prompt(monkeypatch):
+    """system_prompt is forwarded from Seltz.answer() to AnswerService.answer()."""
+    captured = {}
+
+    def fake_answer(*args, **kwargs):
+        captured.update(kwargs)
+
+    monkeypatch.setattr(
+        "seltz.services.answer_service.AnswerService.answer", fake_answer
+    )
+    client = Seltz(api_key="test-key")
+    client.answer("AI news", system_prompt="Answer in British English.")
+
+    assert captured["system_prompt"] == "Answer in British English."
+
+
+def test_answer_builds_request_with_system_prompt_and_response_format():
+    """system_prompt and response_format compose on the same request."""
+    channel = MagicMock()
+    service = AnswerService(channel, api_key="test-key")
+
+    captured = {}
+
+    def fake_answer(req, metadata=None, timeout=None):
+        captured["req"] = req
+        return AnswerResponse(answer='{"summary": "x"}', citations=[])
+
+    service._stub.Answer = fake_answer
+
+    response_format = {"type": "json_object"}
+    service.answer(
+        "AI news",
+        system_prompt="Answer in British English.",
+        response_format=response_format,
+    )
+
+    assert captured["req"].system_prompt == "Answer in British English."
+    assert json.loads(captured["req"].response_format) == response_format
+
+
+def test_answer_stream_builds_request_with_system_prompt():
+    """system_prompt is set on the AnswerStreamRequest as well."""
+    channel = MagicMock()
+    service = AnswerService(channel, api_key="test-key")
+
+    captured = {}
+
+    def fake_answer_stream(req, metadata=None):
+        captured["req"] = req
+        return iter([AnswerStreamResponse(text_delta="An ")])
+
+    service._stub.AnswerStream = fake_answer_stream
+
+    list(service.answer_stream("AI news", system_prompt="Answer in British English."))
+
+    assert captured["req"].HasField("system_prompt")
+    assert captured["req"].system_prompt == "Answer in British English."
+
+
 def test_answer_stream_builds_request_and_yields_events():
     """answer_stream() builds an AnswerStreamRequest with Bearer metadata and no
     deadline, then yields each event from the stub stream."""
@@ -721,4 +925,106 @@ def test_answer_with_response_format_returns_json():
     assert isinstance(response, AnswerResponse)
     payload = json.loads(response.answer)
     assert isinstance(payload["summary"], str)
+    assert len(response.citations) > 0
+
+
+@pytest.mark.integration
+@needs_api_key
+def test_answer_with_system_prompt_honours_the_instruction():
+    """A system_prompt visibly steers presentation, and grounding survives.
+
+    The instruction is a literal opening line rather than a stylistic ask so
+    the assertion is mechanical. Citations are asserted alongside it: the
+    customer section must not cost us the grounding contract.
+    """
+    client = Seltz()
+    response = client.answer(
+        "Who is Apple's next CEO?",
+        system_prompt=(
+            'Begin your reply with the exact line "BRIEFING:" before anything else.'
+        ),
+    )
+    assert isinstance(response, AnswerResponse)
+    assert response.answer.lstrip().upper().startswith("BRIEFING:")
+    assert len(response.citations) > 0
+
+
+@pytest.mark.integration
+@needs_api_key
+def test_answer_without_system_prompt_is_unaffected():
+    """The same query without a system_prompt carries no injected prefix.
+
+    The contrast is what makes the test above meaningful — it proves the
+    prefix came from the caller rather than from the shipped prompt.
+    """
+    client = Seltz()
+    response = client.answer("Who is Apple's next CEO?")
+    assert not response.answer.lstrip().upper().startswith("BRIEFING:")
+    assert len(response.citations) > 0
+
+
+@pytest.mark.integration
+@needs_api_key
+def test_answer_stream_with_system_prompt_honours_the_instruction():
+    """system_prompt applies on the streaming surface too."""
+    client = Seltz()
+    text = ""
+    for event in client.answer_stream(
+        "Who is Apple's next CEO?",
+        system_prompt=(
+            'Begin your reply with the exact line "BRIEFING:" before anything else.'
+        ),
+    ):
+        if event.WhichOneof("event") == "text_delta":
+            text += event.text_delta
+    assert text.lstrip().upper().startswith("BRIEFING:")
+
+
+@pytest.mark.integration
+@needs_api_key
+def test_answer_with_system_prompt_and_response_format_compose():
+    """system_prompt and response_format apply together, schema still honoured."""
+    client = Seltz()
+    response = client.answer(
+        "Who is Apple's next CEO?",
+        system_prompt="Write the summary in British English.",
+        response_format={
+            "type": "json_schema",
+            "json_schema": {
+                "name": "ceo_answer",
+                "schema": {
+                    "type": "object",
+                    "properties": {"summary": {"type": "string"}},
+                    "required": ["summary"],
+                    "additionalProperties": False,
+                },
+                "strict": True,
+            },
+        },
+    )
+    payload = json.loads(response.answer)
+    assert isinstance(payload["summary"], str) and payload["summary"]
+    assert len(response.citations) > 0
+
+
+@pytest.mark.integration
+@needs_api_key
+def test_answer_oversized_system_prompt_is_rejected():
+    """Over the 8 KiB cap the server rejects before billing.
+
+    INVALID_ARGUMENT is not specially mapped, so it surfaces as SeltzAPIError.
+    """
+    client = Seltz()
+    with pytest.raises(SeltzAPIError) as excinfo:
+        client.answer("Who is Apple's next CEO?", system_prompt="A" * 8193)
+    assert "system_prompt" in str(excinfo.value)
+
+
+@pytest.mark.integration
+@needs_api_key
+def test_answer_none_system_prompt_is_accepted_as_absent():
+    """system_prompt=None reaches the server as an omitted field, not "None"."""
+    client = Seltz()
+    response = client.answer("Who is Apple's next CEO?", system_prompt=None)
+    assert isinstance(response, AnswerResponse)
     assert len(response.citations) > 0

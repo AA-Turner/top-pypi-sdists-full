@@ -22,6 +22,10 @@ public sealed partial class HumanizedPage : IPage
     private readonly HumanPage _human;
     private readonly HumanizedMouse _mouse;
     private readonly HumanizedKeyboard _keyboard;
+    private readonly object _frameEventLock = new();
+    private readonly Dictionary<EventHandler<IFrame>, Stack<EventHandler<IFrame>>> _frameAttachedHandlers = new();
+    private readonly Dictionary<EventHandler<IFrame>, Stack<EventHandler<IFrame>>> _frameDetachedHandlers = new();
+    private readonly Dictionary<EventHandler<IFrame>, Stack<EventHandler<IFrame>>> _frameNavigatedHandlers = new();
 
     internal HumanizedPage(IPage inner, HumanCursor cursor, HumanConfig cfg)
     {
@@ -46,7 +50,44 @@ public sealed partial class HumanizedPage : IPage
     };
 
     private ILocator Wrap(ILocator l) => Humanize.WrapLocator(l, _cursor, _cfg);
+    private ILocator Wrap(ILocator l, string? selector) => Humanize.WrapLocator(l, _cursor, _cfg, selector);
     private IFrame Wrap(IFrame f) => Humanize.WrapFrame(f, _cursor, _cfg);
+
+    private void AddFrameEventHandler(
+        Dictionary<EventHandler<IFrame>, Stack<EventHandler<IFrame>>> handlersBySubscriber,
+        EventHandler<IFrame> subscriber,
+        Action<EventHandler<IFrame>> subscribe)
+    {
+        EventHandler<IFrame> wrapped = (_, frame) => subscriber(this, Wrap(frame));
+        lock (_frameEventLock)
+        {
+            subscribe(wrapped);
+            if (!handlersBySubscriber.TryGetValue(subscriber, out var handlers))
+            {
+                handlers = new Stack<EventHandler<IFrame>>();
+                handlersBySubscriber[subscriber] = handlers;
+            }
+            handlers.Push(wrapped);
+        }
+    }
+
+    private void RemoveFrameEventHandler(
+        Dictionary<EventHandler<IFrame>, Stack<EventHandler<IFrame>>> handlersBySubscriber,
+        EventHandler<IFrame> subscriber,
+        Action<EventHandler<IFrame>> unsubscribe)
+    {
+        lock (_frameEventLock)
+        {
+            if (!handlersBySubscriber.TryGetValue(subscriber, out var handlers) || handlers.Count == 0)
+                return;
+
+            var wrapped = handlers.Peek();
+            unsubscribe(wrapped);
+            handlers.Pop();
+            if (handlers.Count == 0)
+                handlersBySubscriber.Remove(subscriber);
+        }
+    }
 
     // -----------------------------------------------------------------------
     // Humanized wrappers for nested objects
@@ -54,6 +95,10 @@ public sealed partial class HumanizedPage : IPage
 
     public IMouse Mouse => _mouse;
     public IKeyboard Keyboard => _keyboard;
+
+    // Re-wrap the owning context so pages/CDP sessions obtained via page.Context stay
+    // humanized (the generator would otherwise forward the raw Playwright context).
+    public IBrowserContext Context => Humanize.Context(_inner.Context, _cfg);
 
     // -----------------------------------------------------------------------
     // Humanized selector actions
@@ -133,7 +178,7 @@ public sealed partial class HumanizedPage : IPage
     // Locator-returning members - re-wrap.
     // -----------------------------------------------------------------------
 
-    public ILocator Locator(string selector, PageLocatorOptions? options = null) => Wrap(_inner.Locator(selector, options));
+    public ILocator Locator(string selector, PageLocatorOptions? options = null) => Wrap(_inner.Locator(selector, options), selector);
     public ILocator GetByAltText(string text, PageGetByAltTextOptions? options = null) => Wrap(_inner.GetByAltText(text, options));
     public ILocator GetByAltText(Regex text, PageGetByAltTextOptions? options = null) => Wrap(_inner.GetByAltText(text, options));
     public ILocator GetByLabel(string text, PageGetByLabelOptions? options = null) => Wrap(_inner.GetByLabel(text, options));
@@ -154,6 +199,27 @@ public sealed partial class HumanizedPage : IPage
 
     public IReadOnlyList<IFrame> Frames => Humanize.WrapFrames(_inner.Frames, _cursor, _cfg);
     public IFrame MainFrame => Wrap(_inner.MainFrame);
+
+    // Generated event delegates would expose Playwright's raw frames. Adapt every
+    // frame-event payload so dynamic, detached, and navigated frames stay wrapped.
+    public event EventHandler<IFrame> FrameAttached
+    {
+        add => AddFrameEventHandler(_frameAttachedHandlers, value, handler => _inner.FrameAttached += handler);
+        remove => RemoveFrameEventHandler(_frameAttachedHandlers, value, handler => _inner.FrameAttached -= handler);
+    }
+
+    public event EventHandler<IFrame> FrameDetached
+    {
+        add => AddFrameEventHandler(_frameDetachedHandlers, value, handler => _inner.FrameDetached += handler);
+        remove => RemoveFrameEventHandler(_frameDetachedHandlers, value, handler => _inner.FrameDetached -= handler);
+    }
+
+    public event EventHandler<IFrame> FrameNavigated
+    {
+        add => AddFrameEventHandler(_frameNavigatedHandlers, value, handler => _inner.FrameNavigated += handler);
+        remove => RemoveFrameEventHandler(_frameNavigatedHandlers, value, handler => _inner.FrameNavigated -= handler);
+    }
+
     public IFrame? Frame(string name) { var f = _inner.Frame(name); return f == null ? null : Wrap(f); }
     public IFrame? FrameByUrl(string url) { var f = _inner.FrameByUrl(url); return f == null ? null : Wrap(f); }
     public IFrame? FrameByUrl(Regex url) { var f = _inner.FrameByUrl(url); return f == null ? null : Wrap(f); }

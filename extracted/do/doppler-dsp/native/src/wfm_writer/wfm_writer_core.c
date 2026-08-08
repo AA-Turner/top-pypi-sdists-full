@@ -6,8 +6,10 @@
  */
 #include "wfm_writer/wfm_writer_core.h"
 
+#include "dp_isotime.h" /* SigMF core:datetime is extended ISO 8601 */
 #include "wfm/wfm_keywords.h"
 #include "wfm/wfm_path.h"
+#include "wfm/wfm_time.h" /* J1950 <-> UNIX, WFM_TIMECODE_UNSET */
 
 #include <complex.h>
 #include <math.h>
@@ -49,12 +51,19 @@ struct wfm_writer_state
      header where its type survives the round trip. */
   char   hcbkw[92];
   size_t hcbkwlen;
-  /* Kept for the SigMF sidecar, which cannot be written until close() knows
-     the capture completed. A SIGMF writer opened by path also remembers that
-     path, because the sidecar's name is derived from it -- an fp-only writer
-     has no name to derive from and leaves the sidecar to its caller. */
+  /* Kept for the metadata sidecar, which cannot be written until close()
+     knows the capture completed. */
   double fs, fc;
-  char  *sigmf_path;
+  /* Capture start in UNIX seconds, or WFM_TIMECODE_UNSET (0.0). Kept for the
+     same reason as fs/fc: the sidecar is written at close, long after the
+     ctor argument that carried it. */
+  double t0;
+  /* The capture's own path, and the ONLY signal that this writer owes a
+     sidecar: it is stored exactly when one is wanted, and the sidecar's name
+     is derived from it (wfm_meta_path). An fp-only writer (wfm_writer_open)
+     has no name to derive from, so it never has one and leaves the metadata
+     to its caller -- which is why the sidecar is a create()-only guarantee. */
+  char *path;
 };
 
 /* Update the running peak (always) and, when opted in for an integer wire
@@ -140,7 +149,7 @@ fc_hcb_pair (char *out, size_t cap, double fc)
 int
 wfm_blue_write_hcb (FILE *fp, int sample_type, int endian, double fs,
                     double fc, double data_start, size_t total_samples,
-                    int detached)
+                    int detached, double t0_unix_sec)
 {
   if (!fp || sample_type < 0 || sample_type > 4)
     return -1;
@@ -163,11 +172,22 @@ wfm_blue_write_hcb (FILE *fp, int sample_type, int endian, double fs,
   put_at (h, 48, &i32, 4, be); /* type = 1000 (1-D vector) */
   h[52] = 'C';                 /* format mode: complex */
   h[53] = FMTCH[sample_type];  /* format type: B/I/L/F/D */
-  /* flagmask (54), timecode (56), inlet (64), outlets (66), outmask (68),
-     pipeloc (72), pipesize (76), in_byte (80), out_byte (88),
-     outbytes[8] (96) = 0. keylength (160) / keywords (164) start with the
-     centre frequency, if there is one, and are patched again by
-     wfm_writer_close once the caller's own keywords are known. */
+  /* timecode (56): seconds since J1950, which is what BLUE counts from.
+     An UNSET t0 leaves the field at its zeroed default rather than writing
+     the J1950 value of the UNIX epoch -- a reader tests the field against
+     zero to decide whether a capture time is present at all (see
+     wfm_time.h), so writing 1970 through would claim a capture time nobody
+     supplied. This is the write half of wfm_reader's t0_source. */
+  if (wfm_timecode_is_set (t0_unix_sec))
+    {
+      f64 = wfm_unix_to_j1950_sec (t0_unix_sec);
+      put_at (h, 56, &f64, 8, be);
+    }
+  /* flagmask (54), inlet (64), outlets (66), outmask (68), pipeloc (72),
+     pipesize (76), in_byte (80), out_byte (88), outbytes[8] (96) = 0.
+     keylength (160) / keywords (164) start with the centre frequency, if
+     there is one, and are patched again by wfm_writer_close once the
+     caller's own keywords are known. */
   char   kwarea[92];
   size_t klen = fc_hcb_pair (kwarea, sizeof kwarea, fc);
   if (klen)
@@ -248,7 +268,8 @@ emit_fc_keyword (wfm_writer_state_t *w, double fc)
 
 wfm_writer_state_t *
 wfm_writer_open (FILE *fp, wfm_filetype_t ft, int sample_type, int endian,
-                 double fs, double fc, size_t total_samples)
+                 double fs, double fc, size_t total_samples,
+                 double t0_unix_sec)
 {
   if (!fp || sample_type < 0 || sample_type > 4 || ft < 0 || ft > 3)
     return NULL;
@@ -262,9 +283,10 @@ wfm_writer_open (FILE *fp, wfm_filetype_t ft, int sample_type, int endian,
   w->gain  = 1.0f;
   w->fs    = fs;
   w->fc    = fc;
+  w->t0    = t0_unix_sec;
   if (ft == WFM_FT_BLUE
       && wfm_blue_write_hcb (fp, sample_type, w->be, fs, fc, 512.0,
-                             total_samples, 0))
+                             total_samples, 0, t0_unix_sec))
     {
       free (w);
       return NULL;
@@ -501,13 +523,26 @@ wfm_writer_get_clipped (const wfm_writer_state_t *w)
   return wfm_writer_peak (w) > 1.0 && w->stype >= 2;
 }
 
-/* Emit the `<base>.sigmf-meta` sidecar for a path-opened SigMF writer.
+/* Emit the metadata sidecar for a path-opened writer.
 
-   SigMF is a PAIR: the data half is undecodable on its own, because the
-   datatype, sample rate and centre frequency live only in the sidecar. A
-   writer that emits one half is not writing a lean capture, it is writing an
-   unreadable one — which is what this used to do unless the caller went
-   through Composer and produced the JSON itself.
+   For SigMF it is half the capture: the data file is undecodable on its own,
+   because the datatype, sample rate and centre frequency live only in the
+   sidecar. A writer that emits one half is not writing a lean capture, it is
+   writing an unreadable one — which is what this used to do unless the caller
+   went through Composer and produced the JSON itself.
+
+   For raw and CSV it is the answer to a footgun of the same family: the
+   constructor already takes fs, fc and t0 for every file type and those two
+   simply DROPPED them, handing back a file whose own author's metadata no
+   longer existed anywhere. Nothing about raw or CSV forbids the metadata; the
+   containers just have no room for it, and a sidecar is room. It is
+   SigMF-SHAPED rather than a SigMF capture (the spec pairs `.sigmf-data`, and
+   for CSV `core:datatype` names the value domain the samples were quantised
+   to rather than a byte layout), so it is named by appending — see
+   wfm_meta_path — and documented as a sidecar, never advertised as SigMF.
+
+   BLUE never gets one: its header already carries fs, fc and the timecode, so
+   a sidecar would be a second copy of all three, free to drift.
 
    Written at close, not at open, because the annotations describe a completed
    capture. A plain Writer has no scene to annotate, so `annotations` comes out
@@ -517,8 +552,9 @@ static int
 write_sigmf_sidecar (wfm_writer_state_t *w)
 {
   char meta_path[1024];
-  wfm_swap_ext (w->sigmf_path, ".sigmf-meta", meta_path, sizeof meta_path);
-  char *json = wfm_sigmf_meta_json (w->stype, w->be, w->fs, w->fc, NULL, 0);
+  wfm_meta_path (w->path, meta_path, sizeof meta_path);
+  char *json
+      = wfm_sigmf_meta_json (w->stype, w->be, w->fs, w->fc, w->t0, NULL, 0);
   if (!json)
     return -1;
   FILE *mf = fopen (meta_path, "w");
@@ -575,11 +611,15 @@ wfm_writer_close (wfm_writer_state_t *w)
       else if (w->fp && fflush (w->fp) != 0)
         rc = -1;
       /* After the data half is safely down: a sidecar advertising a capture
-         that failed to write would be worse than no sidecar at all. */
-      if (rc == 0 && w->ft == WFM_FT_SIGMF && w->sigmf_path
-          && write_sigmf_sidecar (w) != 0)
+         that failed to write would be worse than no sidecar at all. A failed
+         sidecar fails the close for raw and CSV too, and deliberately: the
+         caller asked for their metadata to be preserved, and silently landing
+         a capture whose fs and fc exist nowhere is the very outcome this
+         writes the file to prevent. Opt out with sidecar=false to make the
+         data file the only thing that can fail. */
+      if (rc == 0 && w->path && write_sigmf_sidecar (w) != 0)
         rc = -1;
-      free (w->sigmf_path);
+      free (w->path);
       free (w->kw);
       free (w->buf);
       free (w);
@@ -603,9 +643,9 @@ wfm_writer_destroy (wfm_writer_state_t *w)
  * delegates to wfm_writer_open, and marks the FILE owned so wfm_writer_close
  * fclose's it. */
 wfm_writer_state_t *
-wfm_writer_create (const char *path, int file_type, int sample_type,
-                   int endian, double fs, double fc, size_t total,
-                   double headroom)
+wfm_writer_create (const char *path, double fs, int file_type, int sample_type,
+                   int endian, double fc, size_t total, double headroom,
+                   double t0, bool sidecar)
 {
   /* A SigMF capture is a PAIR whose two halves are found by name:
      `<base>.sigmf-data` holds the samples, `<base>.sigmf-meta` holds the
@@ -621,23 +661,28 @@ wfm_writer_create (const char *path, int file_type, int sample_type,
   FILE *fp = fopen (path, "wb");
   if (!fp)
     return NULL;
-  wfm_writer_state_t *w = wfm_writer_open (fp, (wfm_filetype_t)file_type,
-                                           sample_type, endian, fs, fc, total);
+  wfm_writer_state_t *w = wfm_writer_open (
+      fp, (wfm_filetype_t)file_type, sample_type, endian, fs, fc, total, t0);
   if (!w)
     {
       fclose (fp);
       return NULL;
     }
   w->owns_fp = 1;
-  /* A path-opened SigMF writer can derive its sidecar's name, so it owns the
-     whole pair. (wfm_writer_open takes a FILE* with no name attached and
-     cannot, which is why the sidecar is a create()-only guarantee.) */
-  if (w->ft == WFM_FT_SIGMF)
+  /* Remembering the path is what commits this writer to a sidecar at close.
+     SigMF always: the sidecar is half the capture, so `sidecar=false` cannot
+     turn it off -- a lone `.sigmf-data` is not a leaner capture, it is an
+     undecodable one, and the flag would be a way to write a broken file.
+     Raw and CSV by default, because they have nowhere else to keep the fs,
+     fc and t0 the caller already supplied. BLUE never: its header carries all
+     three already. */
+  if (w->ft == WFM_FT_SIGMF
+      || (sidecar && (w->ft == WFM_FT_RAW || w->ft == WFM_FT_CSV)))
     {
-      size_t n      = strlen (path) + 1u;
-      w->sigmf_path = (char *)malloc (n);
-      if (w->sigmf_path)
-        memcpy (w->sigmf_path, path, n);
+      size_t n = strlen (path) + 1u;
+      w->path  = (char *)malloc (n);
+      if (w->path)
+        memcpy (w->path, path, n);
     }
   /* headroom dB → a single output gain (10^(-H/20)); 0 dB is a no-op. Folded
    * in here so headroom is a plain ctor arg, not a create_post over a non-ctor
@@ -688,17 +733,51 @@ sigmf_datatype (int stype, int be, char *out, size_t cap)
 
 char *
 wfm_sigmf_meta_json (int sample_type, int endian, double fs, double fc,
-                     const wfm_segment_t *segs, size_t n_segs)
+                     double t0_unix_sec, const wfm_segment_t *segs,
+                     size_t n_segs)
 {
   cJSON *root = cJSON_CreateObject ();
   if (!root)
     return NULL;
 
+  /* An unstated rate is DERIVED from the segments being serialised, because
+     they already carry one and this same document is already using it: the
+     annotation edges below are ±fs/(2*sps) computed from `s->fs`. Omitting
+     `core:sample_rate` while emitting those edges withheld a rate the
+     document demonstrably knew -- the caller was made to restate, as an
+     argument, a value the scene already holds.
+
+     Only when every segment AGREES. `fs` is per segment, and no single
+     core:sample_rate is true of a stream whose segments disagree, so that
+     case stays unstated rather than picking one.
+
+     An explicit `fs` always wins and is never second-guessed: a caller
+     rendering the scene at a resampled rate is describing the FILE, and the
+     file is what this document annotates. */
+  if (fs == 0.0 && segs && n_segs > 0)
+    {
+      double f = segs[0].fs;
+      for (size_t i = 1; i < n_segs; i++)
+        if (segs[i].fs != f)
+          {
+            f = 0.0;
+            break;
+          }
+      fs = f;
+    }
+
   cJSON *g = cJSON_AddObjectToObject (root, "global");
   char   dt[16];
   sigmf_datatype (sample_type, endian, dt, sizeof dt);
   cJSON_AddStringToObject (g, "core:datatype", dt);
-  cJSON_AddNumberToObject (g, "core:sample_rate", fs);
+  /* core:sample_rate is OPTIONAL in SigMF 1.0.0 -- `core:datatype` and
+     `core:version` are the only required members of `global` -- so an
+     unknown rate is OMITTED rather than emitted as a number. Writing the
+     ctor's old 1e6 default here is what made an undeclared capture claim
+     1 MHz in a file that outlives the process; an absent key says "not
+     stated", which is the truth and is what a reader can act on. */
+  if (fs != 0.0)
+    cJSON_AddNumberToObject (g, "core:sample_rate", fs);
   cJSON_AddStringToObject (g, "core:version", "1.0.0");
   cJSON_AddStringToObject (g, "core:description", "doppler wfmgen");
   cJSON_AddStringToObject (g, "core:author", "doppler wfmgen");
@@ -706,7 +785,31 @@ wfm_sigmf_meta_json (int sample_type, int endian, double fs, double fc,
   cJSON *caps = cJSON_AddArrayToObject (root, "captures");
   cJSON *cap0 = cJSON_CreateObject ();
   cJSON_AddNumberToObject (cap0, "core:sample_start", 0);
-  cJSON_AddNumberToObject (cap0, "core:frequency", fc);
+  /* core:datetime is the capture's start instant, and SigMF specifies it as
+     ISO 8601 with separators -- the extended spelling, not the filename-safe
+     basic one doppler names files with. Same omit-when-unset rule as the
+     sample rate: an unset t0 must not be rendered as 1970. Microseconds is
+     the useful precision here; a BLUE timecode is a double of seconds, whose
+     own resolution near the present is about half a microsecond. */
+  if (wfm_timecode_is_set (t0_unix_sec))
+    {
+      double   whole = floor (t0_unix_sec);
+      uint32_t nsec  = (uint32_t)((t0_unix_sec - whole) * 1e9);
+      char     iso[DP_ISOTIME_MAX];
+      if (dp_isotime_format_as (iso, sizeof iso, (int64_t)whole, nsec,
+                                DP_ISOTIME_USEC, DP_ISOTIME_EXTENDED)
+          > 0)
+        cJSON_AddStringToObject (cap0, "core:datetime", iso);
+    }
+  /* Omitted when unstated, for the same reason as the rate above and by the
+     same convention the rest of the library already follows: the BLUE writer
+     has always skipped its `FREQ` keyword at fc == 0.0, and the reader's
+     `has_fc` / WFM_FC_NONE exist precisely so an absent centre frequency
+     reads as "not found" instead of "DC". `core:frequency` is optional in
+     SigMF 1.0.0, so writing a confident 0 was the odd one out -- and it
+     asserts a baseband capture on every file that simply never said. */
+  if (fc != 0.0)
+    cJSON_AddNumberToObject (cap0, "core:frequency", fc);
   cJSON_AddItemToArray (caps, cap0);
 
   cJSON *anns = cJSON_AddArrayToObject (root, "annotations");

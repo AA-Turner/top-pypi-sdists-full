@@ -626,7 +626,11 @@ class CanonicalSchema:
         ...
 
     def definition(self, uri: str) -> CanonicalSchema | None:
-        """The reference target registered under ``uri``."""
+        """The reference target registered under ``uri``, or the document itself under ``#``.
+
+        The target keeps the document it was written in, so a ``#`` inside it names that document
+        and not the target standing in for it.
+        """
         ...
 
     def definitions(self) -> dict[str, CanonicalSchema]:
@@ -634,7 +638,11 @@ class CanonicalSchema:
         ...
 
     def to_json_schema(self) -> JsonValue:
-        """Convert this canonical schema back to a plain Python JSON value."""
+        """Convert this canonical schema back to a plain Python JSON value.
+
+        A node below the document root carries that root along, so a ``#`` inside it keeps naming
+        the document.
+        """
         ...
 
     def is_satisfiable(self) -> bool:
@@ -652,6 +660,9 @@ def canonicalize(
     draft: int | None = None,
     validate_formats: bool | None = None,
     pattern_options: PatternOptionsType | None = None,
+    retriever: RetrieverProtocol | None = None,
+    registry: Registry | None = None,
+    base_uri: str | None = None,
 ) -> CanonicalSchema:
     """Parse and normalize a JSON Schema to its canonical form.
 

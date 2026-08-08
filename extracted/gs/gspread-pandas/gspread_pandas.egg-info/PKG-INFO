@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: gspread-pandas
-Version: 4.0.0
+Version: 4.2.0
 Summary: A package to easily open an instance of a Google spreadsheet and interact with worksheets through Pandas DataFrames.
 Home-page: https://github.com/Paradigmllc/gspread-pandas
-Download-URL: https://github.com/Paradigmllc/gspread-pandas/tarball/v4.0.0
+Download-URL: https://github.com/Paradigmllc/gspread-pandas/tarball/v4.2.0
 Author: Diego Fernandez
 Author-email: aiguo.fernandez@gmail.com
 License: BSD
@@ -177,8 +177,8 @@ Or clone the repo:
 
 .. code-block:: console
 
-    $ git clone https://github.com/aiguofer/gspread-pandas.git
-    $ python setup.py install
+    $ git clone https://github.com/Paradigmllc/gspread-pandas.git
+    $ pip install .
 
 Before using, you will need to download Google client credentials for
 your app.

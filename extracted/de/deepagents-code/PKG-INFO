@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: deepagents-code
-Version: 0.1.53
+Version: 0.1.54
 Summary: Terminal coding agent built on the Deep Agents SDK - works with any model, with persistent memory, customizable skills, subagents, and approval controls.
 Project-URL: Homepage, https://docs.langchain.com/oss/python/deepagents/overview
 Project-URL: Documentation, https://reference.langchain.com/python/deepagents/
@@ -29,7 +29,7 @@ Requires-Python: <4.0,>=3.11
 Requires-Dist: aiosqlite<1.0.0,>=0.22.1
 Requires-Dist: anyio<5.0.0,>=4.14.2
 Requires-Dist: deepagents-acp<1.0.0,>=0.0.9
-Requires-Dist: deepagents==0.7.4
+Requires-Dist: deepagents==0.7.5
 Requires-Dist: filelock<3.30,>=3.29.7
 Requires-Dist: genai-prices<0.2.0,>=0.1.1
 Requires-Dist: httpx<1.0.0,>=0.28.1
@@ -39,7 +39,7 @@ Requires-Dist: langchain-mcp-adapters<1.0.0,>=0.3.0
 Requires-Dist: langchain-openai<2.0.0,>=1.4.1
 Requires-Dist: langchain-quickjs<0.4.0,>=0.3.4
 Requires-Dist: langchain<2.0.0,>=1.3.14
-Requires-Dist: langgraph-checkpoint-sqlite<4.0.0,>=3.1.0
+Requires-Dist: langgraph-checkpoint-sqlite<4.0.0,>=3.1.1
 Requires-Dist: langgraph-cli[inmem]<1.0.0,>=0.4.31
 Requires-Dist: langgraph-runtime-inmem<1.0.0,>=0.31.1
 Requires-Dist: langgraph-sdk<1.0.0,>=0.4.2

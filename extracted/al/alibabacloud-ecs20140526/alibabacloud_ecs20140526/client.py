@@ -3692,6 +3692,8 @@ class Client(OpenApiClient):
     ) -> main_models.CreateAutoSnapshotPolicyResponse:
         request.validate()
         query = {}
+        if not DaraCore.is_null(request.association_type):
+            query['AssociationType'] = request.association_type
         if not DaraCore.is_null(request.copied_snapshots_retention_days):
             query['CopiedSnapshotsRetentionDays'] = request.copied_snapshots_retention_days
         if not DaraCore.is_null(request.copy_encryption_configuration):
@@ -3712,6 +3714,8 @@ class Client(OpenApiClient):
             query['Tag'] = request.tag
         if not DaraCore.is_null(request.target_copy_regions):
             query['TargetCopyRegions'] = request.target_copy_regions
+        if not DaraCore.is_null(request.target_tags):
+            query['TargetTags'] = request.target_tags
         if not DaraCore.is_null(request.auto_snapshot_policy_name):
             query['autoSnapshotPolicyName'] = request.auto_snapshot_policy_name
         if not DaraCore.is_null(request.region_id):
@@ -3748,6 +3752,8 @@ class Client(OpenApiClient):
     ) -> main_models.CreateAutoSnapshotPolicyResponse:
         request.validate()
         query = {}
+        if not DaraCore.is_null(request.association_type):
+            query['AssociationType'] = request.association_type
         if not DaraCore.is_null(request.copied_snapshots_retention_days):
             query['CopiedSnapshotsRetentionDays'] = request.copied_snapshots_retention_days
         if not DaraCore.is_null(request.copy_encryption_configuration):
@@ -3768,6 +3774,8 @@ class Client(OpenApiClient):
             query['Tag'] = request.tag
         if not DaraCore.is_null(request.target_copy_regions):
             query['TargetCopyRegions'] = request.target_copy_regions
+        if not DaraCore.is_null(request.target_tags):
+            query['TargetTags'] = request.target_tags
         if not DaraCore.is_null(request.auto_snapshot_policy_name):
             query['autoSnapshotPolicyName'] = request.auto_snapshot_policy_name
         if not DaraCore.is_null(request.region_id):
@@ -29482,6 +29490,8 @@ class Client(OpenApiClient):
             query['ResourceOwnerId'] = request.resource_owner_id
         if not DaraCore.is_null(request.target_copy_regions):
             query['TargetCopyRegions'] = request.target_copy_regions
+        if not DaraCore.is_null(request.target_tags):
+            query['TargetTags'] = request.target_tags
         if not DaraCore.is_null(request.auto_snapshot_policy_id):
             query['autoSnapshotPolicyId'] = request.auto_snapshot_policy_id
         if not DaraCore.is_null(request.auto_snapshot_policy_name):
@@ -29534,6 +29544,8 @@ class Client(OpenApiClient):
             query['ResourceOwnerId'] = request.resource_owner_id
         if not DaraCore.is_null(request.target_copy_regions):
             query['TargetCopyRegions'] = request.target_copy_regions
+        if not DaraCore.is_null(request.target_tags):
+            query['TargetTags'] = request.target_tags
         if not DaraCore.is_null(request.auto_snapshot_policy_id):
             query['autoSnapshotPolicyId'] = request.auto_snapshot_policy_id
         if not DaraCore.is_null(request.auto_snapshot_policy_name):

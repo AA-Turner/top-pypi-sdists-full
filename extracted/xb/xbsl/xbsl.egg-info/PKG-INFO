@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xbsl
-Version: 0.55.0
+Version: 0.57.1
 Summary: Инструментарий XBSL (1С:Элемент): линтер, LSP, документация, индекс проекта, скаффолдинг метаданных
 Author: xbsl contributors
 License-Expression: MIT

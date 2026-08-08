@@ -110,7 +110,7 @@ sentence-transformers = [
 
 # Direct scaling-group model calls via chalkcompute's native client.
 compute = [
-    "chalkcompute>=2.3.2; python_version >= '3.11'",
+    "chalkcompute>=2.4.0; python_version >= '3.11'",
 ]
 
 # SQL-specific
@@ -573,6 +573,7 @@ filterwarnings = [
     "ignore::DeprecationWarning",
     "ignore::ImportWarning",
     "ignore:You have an incompatible version of 'pyarrow' installed:UserWarning",
+    "ignore:Retrieving Arrow record batches directly via google-cloud-bigquery-storage is deprecated.*:PendingDeprecationWarning",
     "ignore:The GenericFunction 'flatten' is already registered and is going to be overridden.",
     "ignore:You are using a Python version:FutureWarning",
     "ignore:Resolving the schema of a LazyFrame",

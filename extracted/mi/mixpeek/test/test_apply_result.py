@@ -51,7 +51,13 @@ class TestApplyResult(unittest.TestCase):
                 errors = [
                     ''
                     ],
+                warnings = [
+                    ''
+                    ],
                 rollback_performed = True,
+                rollback_orphans = [
+                    ''
+                    ],
                 dry_run = True
             )
         else:

@@ -96,6 +96,7 @@ __all__ = (
     "CapacityReservationTypeType",
     "CapacityTenancyType",
     "CarrierGatewayStateType",
+    "ChronologicalOrderType",
     "ClientCertificateRevocationListStatusCodeType",
     "ClientVpnAuthenticationTypeType",
     "ClientVpnAuthorizationRuleStatusCodeType",
@@ -410,9 +411,12 @@ __all__ = (
     "IpVersionEnumType",
     "IpamAddressHistoryResourceTypeType",
     "IpamAssociatedResourceDiscoveryStatusType",
+    "IpamByoipAdvertisementTypeType",
+    "IpamByoipCidrStateType",
     "IpamComplianceStatusType",
     "IpamDiscoveryFailureCodeType",
     "IpamExternalResourceVerificationTokenStateType",
+    "IpamInternetRegistryAssociationStateType",
     "IpamManagementStateType",
     "IpamMeteredAccountType",
     "IpamNetworkInterfaceAttachmentStatusType",
@@ -439,6 +443,10 @@ __all__ = (
     "IpamResourceDiscoveryAssociationStateType",
     "IpamResourceDiscoveryStateType",
     "IpamResourceTypeType",
+    "IpamRoutingPolicyRegistrationDeltaStateType",
+    "IpamRoutingPolicyRegistrationStateType",
+    "IpamRpkiStatusType",
+    "IpamRpkiStrengthType",
     "IpamScopeExternalAuthorityTypeType",
     "IpamScopeStateType",
     "IpamScopeTypeType",
@@ -544,6 +552,7 @@ __all__ = (
     "ResetImageAttributeNameType",
     "ResourceServiceName",
     "ResourceTypeType",
+    "RirType",
     "RootDeviceTypeType",
     "RouteOriginType",
     "RouteServerAssociationStateType",
@@ -929,6 +938,7 @@ CapacityReservationTenancyType = Literal["dedicated", "default"]
 CapacityReservationTypeType = Literal["capacity-block", "default"]
 CapacityTenancyType = Literal["dedicated", "default"]
 CarrierGatewayStateType = Literal["available", "deleted", "deleting", "pending"]
+ChronologicalOrderType = Literal["forward", "reverse"]
 ClientCertificateRevocationListStatusCodeType = Literal["active", "pending"]
 ClientVpnAuthenticationTypeType = Literal[
     "certificate-authentication", "directory-service-authentication", "federated-authentication"
@@ -2856,6 +2866,19 @@ IpamAddressHistoryResourceTypeType = Literal[
     "eip", "instance", "network-interface", "subnet", "vpc"
 ]
 IpamAssociatedResourceDiscoveryStatusType = Literal["active", "not-found"]
+IpamByoipAdvertisementTypeType = Literal["global", "regional"]
+IpamByoipCidrStateType = Literal[
+    "advertised",
+    "deprovisioned",
+    "failed-deprovision",
+    "failed-provision",
+    "pending-advertising",
+    "pending-deprovision",
+    "pending-provision",
+    "pending-withdrawal",
+    "provisioned",
+    "provisioned-not-publicly-advertisable",
+]
 IpamComplianceStatusType = Literal["compliant", "ignored", "noncompliant", "unmanaged"]
 IpamDiscoveryFailureCodeType = Literal[
     "assume-role-failure", "throttling-failure", "unauthorized-failure"
@@ -2867,6 +2890,17 @@ IpamExternalResourceVerificationTokenStateType = Literal[
     "delete-complete",
     "delete-failed",
     "delete-in-progress",
+]
+IpamInternetRegistryAssociationStateType = Literal[
+    "create-failed",
+    "create-in-progress",
+    "delete-complete",
+    "delete-failed",
+    "delete-in-progress",
+    "enable-complete",
+    "enable-failed",
+    "enable-in-progress",
+    "pending-enable",
 ]
 IpamManagementStateType = Literal["ignored", "managed", "unmanaged"]
 IpamMeteredAccountType = Literal["ipam-owner", "resource-owner"]
@@ -3004,6 +3038,19 @@ IpamResourceDiscoveryStateType = Literal[
 IpamResourceTypeType = Literal[
     "anycast-ip-list", "eip", "eni", "ipv6-pool", "public-ipv4-pool", "subnet", "vpc"
 ]
+IpamRoutingPolicyRegistrationDeltaStateType = Literal["failed", "pending", "published"]
+IpamRoutingPolicyRegistrationStateType = Literal[
+    "activate-failed",
+    "create-complete",
+    "create-in-progress",
+    "delete-complete",
+    "delete-in-progress",
+    "pending-activate",
+    "update-complete",
+    "update-in-progress",
+]
+IpamRpkiStatusType = Literal["invalid", "unknown", "valid"]
+IpamRpkiStrengthType = Literal["permissive", "strict"]
 IpamScopeExternalAuthorityTypeType = Literal["infoblox"]
 IpamScopeStateType = Literal[
     "create-complete",
@@ -3301,6 +3348,7 @@ ResourceTypeType = Literal[
     "internet-gateway",
     "ipam",
     "ipam-external-resource-verification-token",
+    "ipam-internet-registry-association",
     "ipam-policy",
     "ipam-pool",
     "ipam-pool-allocation",
@@ -3381,6 +3429,7 @@ ResourceTypeType = Literal[
     "vpn-connection-device-type",
     "vpn-gateway",
 ]
+RirType = Literal["apnic", "arin", "lacnic", "ripe"]
 RootDeviceTypeType = Literal["ebs", "instance-store"]
 RouteOriginType = Literal[
     "Advertisement", "CreateRoute", "CreateRouteTable", "EnableVgwRoutePropagation"

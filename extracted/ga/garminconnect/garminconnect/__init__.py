@@ -73,6 +73,17 @@ def _validate_date_format(date_str: str, param_name: str = "date") -> str:
     return date_str
 
 
+def _validate_date_range(start: str, end: str) -> tuple[str, str]:
+    """Validate 'start'/'end' are well-formed dates with start <= end."""
+    start = _validate_date_format(start, "start")
+    end = _validate_date_format(end, "end")
+    if datetime.strptime(start, DATE_FORMAT_STR) > datetime.strptime(
+        end, DATE_FORMAT_STR
+    ):
+        raise ValueError("start date cannot be after end date")
+    return start, end
+
+
 def _validate_positive_number(
     value: int | float, param_name: str = "value"
 ) -> int | float:
@@ -110,9 +121,15 @@ def _validate_positive_integer(value: int, param_name: str = "value") -> int:
 
 
 def _validate_hole_numbers(value: str, param_name: str = "hole_numbers") -> str:
-    """Validate a golf hole-numbers string: holes 1-18 separated by ',' or '-'."""
+    """Validate a golf hole-numbers string: holes 1-18 separated by ',' or '-'.
+
+    Spaces around separators are tolerated (e.g. "1, 2, 3" or "1 - 18").
+    """
     if not isinstance(value, str):
         raise ValueError(f"{param_name} must be a string")
+    # Remove spaces so callers can use "1, 2, 3" or "1 - 18" and still pass
+    # a clean hyphen-separated string to Garmin's API.
+    value = value.replace(" ", "")
     if not re.fullmatch(HOLE_NUMBERS_REGEX, value):
         raise ValueError(
             f"{param_name} must be holes 1-18 separated by ',' or '-', got: {value!r}"
@@ -1401,6 +1418,60 @@ class Garmin:
 
         return self.connectapi(url)
 
+    def get_max_metrics_range(self, start: str, end: str) -> dict[str, Any]:
+        """Return max metric data for a date range ('start'/'end' format 'YYYY-MM-DD').
+
+        Unlike `get_max_metrics`, which is limited to a single day, this
+        queries the same endpoint with distinct start/end dates to fetch a
+        range in one request.
+        """
+        start, end = _validate_date_range(start, end)
+        url = f"{self.garmin_connect_metrics_url}/{start}/{end}"
+        logger.debug("Requesting max metrics range")
+
+        return self.connectapi(url)
+
+    def get_functional_threshold_power_range(
+        self,
+        start: str,
+        end: str,
+        *,
+        sport: str = "RUNNING",
+        aggregation: str = "daily",
+    ) -> dict[str, Any] | list[dict[str, Any]]:
+        """Return historic functional threshold power for a Garmin sport.
+
+        This uses Garmin Connect's undocumented biometric statistics range
+        endpoint. It is useful for FTP history because the existing
+        ``get_cycling_ftp`` endpoint returns only the latest cycling value.
+
+        Args:
+            start: First date in the range, format 'YYYY-MM-DD'.
+            end: Last date in the range, format 'YYYY-MM-DD'.
+            sport: Garmin sport key (e.g. ``RUNNING``, ``CYCLING``).
+            aggregation: One of ``daily``, ``weekly``, ``monthly``, ``yearly``.
+
+        """
+        start, end = _validate_date_range(start, end)
+
+        valid_aggregations = {"daily", "weekly", "monthly", "yearly"}
+        if aggregation not in valid_aggregations:
+            raise ValueError(f"aggregation must be one of {valid_aggregations}")
+
+        normalized_sport = _validate_sport_key(sport)
+        url = (
+            f"{self.garmin_connect_biometric_stats_url}"
+            f"/functionalThresholdPower/range/{start}/{end}"
+            f"?sport={normalized_sport}&aggregation={aggregation}&aggregationStrategy=LATEST"
+        )
+        logger.debug(
+            "Requesting functional threshold power from %s to %s for sport %s",
+            start,
+            end,
+            normalized_sport,
+        )
+        return self.connectapi(url)
+
     def get_lactate_threshold(
         self,
         *,
@@ -1488,15 +1559,27 @@ class Garmin:
         if aggregation not in _valid_aggregations:
             raise ValueError(f"aggregation must be one of {_valid_aggregations}")
 
-        speed_url = f"{self.garmin_connect_biometric_stats_url}/lactateThresholdSpeed/range/{start_date}/{end_date}?sport=RUNNING&aggregation={aggregation}&aggregationStrategy=LATEST"
+        power = self.get_functional_threshold_power_range(
+            start_date,
+            end_date,
+            sport="RUNNING",
+            aggregation=aggregation,
+        )
 
-        heart_rate_url = f"{self.garmin_connect_biometric_stats_url}/lactateThresholdHeartRate/range/{start_date}/{end_date}?sport=RUNNING&aggregation={aggregation}&aggregationStrategy=LATEST"
+        speed_url = (
+            f"{self.garmin_connect_biometric_stats_url}"
+            f"/lactateThresholdSpeed/range/{start_date}/{end_date}"
+            f"?sport=RUNNING&aggregation={aggregation}&aggregationStrategy=LATEST"
+        )
 
-        power_url = f"{self.garmin_connect_biometric_stats_url}/functionalThresholdPower/range/{start_date}/{end_date}?sport=RUNNING&aggregation={aggregation}&aggregationStrategy=LATEST"
+        heart_rate_url = (
+            f"{self.garmin_connect_biometric_stats_url}"
+            f"/lactateThresholdHeartRate/range/{start_date}/{end_date}"
+            f"?sport=RUNNING&aggregation={aggregation}&aggregationStrategy=LATEST"
+        )
 
         speed = self.connectapi(speed_url)
         heart_rate = self.connectapi(heart_rate_url)
-        power = self.connectapi(power_url)
 
         return {"speed": speed, "heart_rate": heart_rate, "power": power}
 
@@ -1595,12 +1678,22 @@ class Garmin:
         return self.connectapi(url)
 
     def get_spo2_data(self, cdate: str) -> dict[str, Any]:
-        """Return available SpO2 data 'cdate' format 'YYYY-MM-DD'."""
+        """Return available SpO2 data 'cdate' format 'YYYY-MM-DD'.
+
+        The API occasionally returns ``lastSevenDaysAvgSpO2`` as a string; it is
+        converted to ``float`` when that happens so the field is consistent with
+        the other numeric SpO2 values.
+        """
         cdate = _validate_date_format(cdate, "cdate")
         url = f"{self.garmin_connect_daily_spo2_url}/{cdate}"
         logger.debug("Requesting SpO2 data")
 
-        return self.connectapi(url)
+        data = self.connectapi(url)
+        if isinstance(data, dict):
+            value = data.get("lastSevenDaysAvgSpO2")
+            if isinstance(value, str):
+                data["lastSevenDaysAvgSpO2"] = float(value)
+        return data
 
     def get_intensity_minutes_data(self, cdate: str) -> dict[str, Any]:
         """Return available Intensity Minutes data 'cdate' format 'YYYY-MM-DD'."""
@@ -1735,13 +1828,58 @@ class Garmin:
         return self.connectapi(url, params=params)
 
     def get_sleep_data(self, cdate: str) -> dict[str, Any]:
-        """Return sleep data for 'cdate' format 'YYYY-MM-DD'."""
+        """Return sleep data for 'cdate' format 'YYYY-MM-DD'.
+
+        The response is passed through exactly as Garmin returns it. Some users
+        (notably China/UTC+8 accounts on connect.garmin.cn) have reported that
+        ``sleepStartTimestampLocal`` / ``sleepEndTimestampLocal`` can be offset
+        by the local timezone twice. When in doubt, use the ``*GMT`` fields and
+        convert to local time yourself.
+        """
         cdate = _validate_date_format(cdate, "cdate")
         url = f"{self.garmin_connect_daily_sleep_url}/{self.display_name}"
         params = {"date": cdate, "nonSleepBufferMinutes": 60}
         logger.debug("Requesting sleep data")
 
         return self.connectapi(url, params=params)
+
+    def get_sleep_daily(self, start: str, end: str) -> list[dict[str, Any]]:
+        """Fetch daily sleep summaries for 'start' and 'end' format 'YYYY-MM-DD'.
+
+        Note: The Garmin Connect sleep-stats endpoint has a 28-day limit per
+        request. For date ranges exceeding 28 days, this method automatically
+        splits the range into chunks and makes multiple API calls, then merges
+        the results, de-duplicating by calendar date.
+        """
+        start, end = _validate_date_range(start, end)
+        start_date = datetime.strptime(start, DATE_FORMAT_STR).date()
+        end_date = datetime.strptime(end, DATE_FORMAT_STR).date()
+
+        results: list[dict[str, Any]] = []
+        seen: set[str] = set()
+        current_start = start_date
+
+        while current_start <= end_date:
+            chunk_end = min(current_start + timedelta(days=27), end_date)
+            url = (
+                "/sleep-service/stats/sleep/daily/"
+                f"{current_start.isoformat()}/{chunk_end.isoformat()}"
+            )
+            logger.debug(
+                f"Requesting daily sleep data for chunk: "
+                f"{current_start.isoformat()} to {chunk_end.isoformat()}"
+            )
+            data = self.connectapi(url)
+            for row in (data or {}).get("individualStats") or []:
+                cal_date = row.get("calendarDate")
+                if cal_date and cal_date not in seen:
+                    seen.add(cal_date)
+                    results.append(row)
+
+            current_start = chunk_end + timedelta(days=1)
+
+        results.sort(key=lambda r: r.get("calendarDate") or "")
+        return results
 
     def get_stress_data(self, cdate: str) -> dict[str, Any]:
         """Return stress data for 'cdate' format 'YYYY-MM-DD'."""
@@ -1772,11 +1910,94 @@ class Garmin:
 
         return self.connectapi(url, params=params)
 
+    def get_rhr_daily(self, start: str, end: str) -> list[dict[str, Any]]:
+        """Return daily resting heart rate for a date range ('start'/'end' format 'YYYY-MM-DD').
+
+        Unlike `get_rhr_day`, which is limited to a single day, this queries
+        the same wellness-stats endpoint with distinct fromDate/untilDate to
+        fetch a range (up to ~1 year) in a single request.
+        """
+        start, end = _validate_date_range(start, end)
+        url = f"{self.garmin_connect_rhr_url}/{self._require_display_name()}"
+        params = {
+            "fromDate": start,
+            "untilDate": end,
+            "metricId": 60,
+        }
+        logger.debug("Requesting resting heartrate data range")
+
+        data = self.connectapi(url, params=params)
+        rows = ((data or {}).get("allMetrics") or {}).get("metricsMap", {}).get(
+            "WELLNESS_RESTING_HEART_RATE"
+        ) or []
+        return [
+            {"calendarDate": row.get("calendarDate"), "value": row.get("value")}
+            for row in rows
+            if row.get("value") is not None
+        ]
+
+    def get_calories_daily(self, start: str, end: str) -> list[dict[str, Any]]:
+        """Return daily active + resting (BMR) calories for a date range.
+
+        'start'/'end' format 'YYYY-MM-DD'. Uses the same wellness-stats
+        endpoint as `get_rhr_daily` (metric IDs 22 = active calories, 23 = BMR
+        calories) to fetch both series for the range in a single request.
+        """
+        start, end = _validate_date_range(start, end)
+        url = f"{self.garmin_connect_rhr_url}/{self._require_display_name()}"
+        params = {
+            "fromDate": start,
+            "untilDate": end,
+            "metricId": [22, 23],
+        }
+        logger.debug("Requesting daily calories data range")
+
+        data = self.connectapi(url, params=params)
+        metrics = ((data or {}).get("allMetrics") or {}).get("metricsMap", {})
+
+        def _by_date(key: str) -> dict[str, float]:
+            return {
+                row.get("calendarDate"): row.get("value")
+                for row in (metrics.get(key) or [])
+                if row.get("calendarDate") is not None and row.get("value") is not None
+            }
+
+        active = _by_date("WELLNESS_ACTIVE_CALORIES")
+        resting = _by_date("WELLNESS_BMR_CALORIES")
+        results: list[dict[str, Any]] = []
+        for cal_date in sorted(set(active) | set(resting)):
+            a = active.get(cal_date)
+            r = resting.get(cal_date)
+            if a is None and r is None:
+                continue
+            results.append(
+                {
+                    "calendarDate": cal_date,
+                    "active": a,
+                    "resting": r,
+                    "total": (a or 0) + (r or 0),
+                }
+            )
+        return results
+
     def get_hrv_data(self, cdate: str) -> dict[str, Any] | None:
         """Return HRV (Heart Rate Variability) data for 'cdate' format 'YYYY-MM-DD'."""
         cdate = _validate_date_format(cdate, "cdate")
         url = f"{self.garmin_connect_hrv_url}/{cdate}"
         logger.debug("Requesting Heart Rate Variability (hrv) data")
+
+        return self.connectapi(url)
+
+    def get_hrv_data_range(self, start: str, end: str) -> dict[str, Any] | None:
+        """Return HRV (Heart Rate Variability) data for a date range.
+
+        'start'/'end' format 'YYYY-MM-DD'. Unlike `get_hrv_data`, which is
+        limited to a single day, this queries the same endpoint with distinct
+        start/end dates to fetch a range in one request.
+        """
+        start, end = _validate_date_range(start, end)
+        url = f"{self.garmin_connect_hrv_url}/daily/{start}/{end}"
+        logger.debug("Requesting Heart Rate Variability (hrv) data range")
 
         return self.connectapi(url)
 
@@ -3349,6 +3570,9 @@ class Garmin:
             hole_numbers: Holes 1-18 separated by ',' or '-' (e.g. "1,2,3").
                 Garmin's API only accepts '-' as a separator, so any commas
                 are normalized to '-' before the request is sent.
+                Lists containing holes 10-18 are silently upgraded to return
+                all 18 holes, because Garmin's endpoint drops double-digit
+                hole numbers from filtered queries.
                 Omit to get every hole on the scorecard.
 
         Returns:
@@ -3360,7 +3584,20 @@ class Garmin:
         params = None
         if hole_numbers is not None:
             hole_numbers = _validate_hole_numbers(hole_numbers)
-            params = f"hole-numbers={hole_numbers.replace(',', '-')}"
+            # Garmin's endpoint only returns single-digit holes reliably when a
+            # hole-numbers filter is supplied. Double-digit holes (10-18) are
+            # dropped or cause an empty response. The only reliable way to
+            # retrieve holes 10-18 is to omit the parameter and get all 18 holes.
+            if any(int(n) > 9 for n in re.findall(r"\d+", hole_numbers)):
+                logger.warning(
+                    "Garmin drops double-digit hole numbers from hole-numbers "
+                    "queries; returning all 18 holes for scorecard %s instead of %s",
+                    scorecard_id,
+                    hole_numbers,
+                )
+                hole_numbers = None
+            else:
+                params = f"hole-numbers={hole_numbers.replace(',', '-')}"
         logger.debug(
             "Requesting golf shot data for scorecard %d, holes %s",
             scorecard_id,

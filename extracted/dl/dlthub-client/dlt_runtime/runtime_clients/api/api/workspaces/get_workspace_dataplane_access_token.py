@@ -100,13 +100,12 @@ def sync_detailed(
     """GetWorkspaceDataplaneAccessToken
 
 
-    Mint a short-lived **DataplaneUserJwt** that the caller can present directly to
-    data-plane services (telemetry, logs) for reads against this workspace.
+    Mint a short-lived **DataplaneUserJwt** the caller presents directly to data-plane
+    services (telemetry, logs, workspace variables) for this workspace.
 
-    The token carries a single ``ws:read`` grant bound to this workspace and the
-    workspace's ``dataplane_id``; the caller is expected to cache it in memory and
-    refresh before ``expires_at``. Token TTL is server-controlled and short
-    (minutes) so leaked tokens have a tight blast radius.
+    The token carries one grant bound to this workspace, scoped to the capabilities the
+    caller's workspace role allows — readers and developers get reads; owners additionally
+    get workspace variables. Cache it in memory and refresh before ``expires_at``.
 
     Requires READ permission on the workspace.
 
@@ -147,13 +146,12 @@ def sync(
     """GetWorkspaceDataplaneAccessToken
 
 
-    Mint a short-lived **DataplaneUserJwt** that the caller can present directly to
-    data-plane services (telemetry, logs) for reads against this workspace.
+    Mint a short-lived **DataplaneUserJwt** the caller presents directly to data-plane
+    services (telemetry, logs, workspace variables) for this workspace.
 
-    The token carries a single ``ws:read`` grant bound to this workspace and the
-    workspace's ``dataplane_id``; the caller is expected to cache it in memory and
-    refresh before ``expires_at``. Token TTL is server-controlled and short
-    (minutes) so leaked tokens have a tight blast radius.
+    The token carries one grant bound to this workspace, scoped to the capabilities the
+    caller's workspace role allows — readers and developers get reads; owners additionally
+    get workspace variables. Cache it in memory and refresh before ``expires_at``.
 
     Requires READ permission on the workspace.
 
@@ -188,13 +186,12 @@ async def asyncio_detailed(
     """GetWorkspaceDataplaneAccessToken
 
 
-    Mint a short-lived **DataplaneUserJwt** that the caller can present directly to
-    data-plane services (telemetry, logs) for reads against this workspace.
+    Mint a short-lived **DataplaneUserJwt** the caller presents directly to data-plane
+    services (telemetry, logs, workspace variables) for this workspace.
 
-    The token carries a single ``ws:read`` grant bound to this workspace and the
-    workspace's ``dataplane_id``; the caller is expected to cache it in memory and
-    refresh before ``expires_at``. Token TTL is server-controlled and short
-    (minutes) so leaked tokens have a tight blast radius.
+    The token carries one grant bound to this workspace, scoped to the capabilities the
+    caller's workspace role allows — readers and developers get reads; owners additionally
+    get workspace variables. Cache it in memory and refresh before ``expires_at``.
 
     Requires READ permission on the workspace.
 
@@ -233,13 +230,12 @@ async def asyncio(
     """GetWorkspaceDataplaneAccessToken
 
 
-    Mint a short-lived **DataplaneUserJwt** that the caller can present directly to
-    data-plane services (telemetry, logs) for reads against this workspace.
+    Mint a short-lived **DataplaneUserJwt** the caller presents directly to data-plane
+    services (telemetry, logs, workspace variables) for this workspace.
 
-    The token carries a single ``ws:read`` grant bound to this workspace and the
-    workspace's ``dataplane_id``; the caller is expected to cache it in memory and
-    refresh before ``expires_at``. Token TTL is server-controlled and short
-    (minutes) so leaked tokens have a tight blast radius.
+    The token carries one grant bound to this workspace, scoped to the capabilities the
+    caller's workspace role allows — readers and developers get reads; owners additionally
+    get workspace variables. Cache it in memory and refresh before ``expires_at``.
 
     Requires READ permission on the workspace.
 

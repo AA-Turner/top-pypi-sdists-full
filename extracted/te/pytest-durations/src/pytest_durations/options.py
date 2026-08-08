@@ -1,7 +1,14 @@
 """Plugin command line arguments parsing module."""
 from typing import TYPE_CHECKING
 
-from pytest_durations.types import GroupBy
+from pytest_durations.types import (
+    ALL_CATEGORIES,
+    DEFAULT_COLUMNS,
+    GroupBy,
+    TimeFormat,
+    parse_categories,
+    parse_columns,
+)
 
 if TYPE_CHECKING:
     from _pytest.config import Config, PytestPluginManager
@@ -11,6 +18,8 @@ DEFAULT_DURATIONS = 30
 DEFAULT_DURATIONS_MIN = 0.005
 DEFAULT_RESULT_LOG = "-"
 DEFAULT_GROUP_BY = GroupBy.FUNCTION
+DEFAULT_TIME_FORMAT = TimeFormat.CLOCK
+DEFAULT_SHOW_SECTIONS = ALL_CATEGORIES
 
 
 def pytest_addoption(parser: "Parser", pluginmanager: "PytestPluginManager") -> None:
@@ -49,6 +58,34 @@ def pytest_addoption(parser: "Parser", pluginmanager: "PytestPluginManager") -> 
         help=f'Group test durations by module, class, or function.'
              f' Use legacy grouping for backward compatibility.'
              f' Default: "{DEFAULT_GROUP_BY}"',
+    )
+    group.addoption(
+        "--pytest-durations-time-format",
+        type=TimeFormat,
+        default=DEFAULT_TIME_FORMAT,
+        choices=[*TimeFormat],
+        help=f'How to format durations in the report.'
+             f' "clock" shows the full datetime-style value, "short" a compact H:MM:SS,'
+             f' and "auto" picks one readable form based on the report magnitude.'
+             f' Default: "{DEFAULT_TIME_FORMAT}"',
+    )
+    group.addoption(
+        "--pytest-durations-show",
+        metavar="SECTIONS",
+        type=parse_categories,
+        default=DEFAULT_SHOW_SECTIONS,
+        help='Comma-separated list of report sections to show: "fixture", "call",'
+             ' "setup", "teardown". Default: show all sections.',
+    )
+    group.addoption(
+        "--pytest-durations-columns",
+        metavar="COLUMNS",
+        type=parse_columns,
+        default=DEFAULT_COLUMNS,
+        help='Comma-separated list of stat columns to show: "total", "num", "min",'
+             ' "med", "max". The test/fixture name is always shown second, and the'
+             ' first listed column is used to sort the report.'
+             f' Default: {",".join(DEFAULT_COLUMNS)}.',
     )
 
 

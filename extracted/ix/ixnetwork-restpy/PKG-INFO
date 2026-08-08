@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ixnetwork_restpy
-Version: 1.10.0
+Version: 1.11.0
 Summary: The IxNetwork Python Client
 Author-email: Keysight ISG IxNetwork team <andy.balogh@keysight.com>
 License: MIT

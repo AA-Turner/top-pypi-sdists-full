@@ -2,8 +2,11 @@
 
 Consumes: pieces + piece_tags (grouped), segments, structure, tokens.
 Produces: tokens with roles set on every main-stream token.
-Reads: Policy.name_order (#270); token/piece tags; Lexicon only through
-tags already applied by classify (plus the leading-title period rule).
+Reads: Policy.name_order (#270) and Policy.script_orders (#271, which
+overrides it when every name piece is written wholly in one script, or
+in the Han/Hiragana/Katakana repertoire the #272 kana license shares
+across pieces); token/piece tags; Lexicon only through tags already
+applied by classify (plus the leading-title period rule).
 
 Ports v1's assignment loops. NO_COMMA (per name_order):
 leading title pieces chain while no given-position name has been seen
@@ -27,13 +30,17 @@ from __future__ import annotations
 import dataclasses
 import re
 
-from nameparser._pipeline._vocab import is_suffix_lenient
+from nameparser._pipeline._vocab import (
+    effective_script, is_initial_shaped, is_suffix_lenient,
+    resolve_script_set,
+)
 from nameparser._pipeline._group import (
     _is_suffix_piece, _is_title_piece,
 )
 from nameparser._pipeline._state import (
     ParseState, PendingAmbiguity, Structure, WorkToken,
 )
+from nameparser._policy import Policy, Script
 from nameparser._types import AmbiguityKind, Role
 
 # Ported verbatim from v1 (nameparser/config/regexes.py
@@ -72,6 +79,62 @@ def _peel_leading_titles(pieces: tuple[tuple[int, ...], ...],
             continue
         break
     return n
+
+
+def _effective_order(policy: Policy,
+                     pieces: list[tuple[int, ...]],
+                     tokens: list[WorkToken],
+                     *, dot_divided: bool) -> tuple[Role, Role, Role]:
+    """script_orders resolution (#271): when every name piece is
+    written wholly in ONE script that has an entry, that script's
+    order governs the positional read; anything else -- Latin, mixed
+    scripts, no entry -- falls back to name_order. A 间隔号-divided
+    name (`dot_divided`, #298) suppresses the whole lookup first: the
+    dot marks a transcription -- playing the role pure katakana plays
+    in the kana license, orthography naming the convention -- so the
+    license yields to name_order. Piece-level, after
+    title/suffix peeling: 'Dr. 毛泽东' is a wholly-Han NAME under a
+    Latin title. Kana-licensed tokens (高橋みなみ, #272) resolve to
+    HIRAGANA the same way a wholly-Han or wholly-Hangul token resolves
+    to its own script -- and so does a kana-licensed NAME split across
+    separately single-script PIECES ('高橋 みなみ', Han piece plus
+    Hiragana piece): resolve_script_set generalizes the license from
+    one token's characters to the whole found-script set below, which
+    is why Han+Hangul ('毛 김') still declines even though both
+    individually read family-first -- the license is specific to the
+    Han/Hiragana/Katakana repertoire, not "the entries happen to
+    agree".
+
+    Naming note, since the two are easy to conflate: THIS function
+    resolves the ORDER for a whole name; `_vocab.effective_script`
+    resolves the SCRIPT for a single token. This function calls that
+    one per token below.
+    """
+    # #298 transcription marker -- see the docstring; codepoint-scoped
+    # (only U+00B7 records, spec 2026-07-30 decision 5)
+    if dot_divided:
+        return policy.name_order
+    if not policy.script_orders:
+        return policy.name_order
+    # Collect every token's script rather than comparing pairwise as
+    # tokens are seen: the kana license needs the WHOLE set (a Han
+    # piece and a Hiragana piece only license together, never one at a
+    # time), so resolution is deferred to resolve_script_set below.
+    found: set[Script] = set()
+    for piece in pieces:
+        for i in piece:
+            script = effective_script(tokens[i].text)
+            if script is None:
+                # Latin, mixed, or a script with no entry: never a key
+                return policy.name_order
+            found.add(script)
+    resolved = resolve_script_set(found)
+    if resolved is None:
+        # e.g. Han+Hangul: two scripts, neither the kana license's
+        # Han/Hiragana/Katakana repertoire -- no single tradition
+        return policy.name_order
+    return next((order for s, order in policy.script_orders
+                 if s is resolved), policy.name_order)
 
 
 def _name_positions(order: tuple[Role, Role, Role],
@@ -138,9 +201,16 @@ def _assign_main(seg_idx: int, state: ParseState,
         if _is_suffix_piece(piece, tags, tokens):
             k -= 1
             continue
+        # is_initial_shaped, not the "initial" tag: this asks whether
+        # the preceding piece looks like part of an initial run, which
+        # is a question about layout, and #320 narrowed the tag to
+        # initials that can really stand in for a name. Reading the tag
+        # here made '씨.' stop suppressing the fork and cost 'John 씨. V'
+        # its family name.
         if (k == len(rest) and k >= 2 and len(piece) == 1
                 and _ROMAN.match(tokens[piece[0]].text)
-                and "initial" not in tokens[pieces[rest[k - 2]][0]].tags):
+                and not is_initial_shaped(
+                    tokens[pieces[rest[k - 2]][0]].text)):
             # a trailing single letter is a name part unless it happens
             # to be a roman numeral -- and V/X/I are ordinary middle
             # initials, so taking it as a suffix is a call, not a fact
@@ -175,7 +245,13 @@ def _assign_main(seg_idx: int, state: ParseState,
     if not name_pieces and suffix_pieces:
         # everything suffix-shaped after titles: first one is the name
         name_pieces, suffix_pieces = suffix_pieces[:1], suffix_pieces[1:]
-    roles = _name_positions(state.policy.name_order, len(name_pieces))
+    # AFTER both peels, and load-bearing: the script test sees the NAME
+    # pieces only, so a Latin title or suffix ('Dr. 毛 泽东', '毛 泽东,
+    # PhD') cannot make a wholly-CJK name look mixed-script.
+    order = _effective_order(state.policy,
+                             [pieces[i] for i in name_pieces], tokens,
+                             dot_divided=bool(state.interpunct_offsets))
+    roles = _name_positions(order, len(name_pieces))
     for pos, piece_idx in enumerate(name_pieces):
         _set_roles(tokens, pieces[piece_idx], roles[pos])
     for piece_idx in suffix_pieces:
@@ -219,7 +295,9 @@ def assign(state: ParseState) -> ParseState:
     else:  # FAMILY_COMMA
         # PARTICLE_OR_GIVEN is deliberately not emitted here: after a
         # comma the family is already fixed, so a leading given-position
-        # particle is not meaningfully ambiguous.
+        # particle is not meaningfully ambiguous. script_orders is not
+        # consulted here for the parallel reason -- the comma already
+        # fixed the family, so there is no positional read to override.
         # v1: "lastname part may have suffixes in it" -- the first
         # piece is always the family even if suffix-shaped; any later
         # strict-suffix piece goes to SUFFIX per piece ('Smith Jr.,

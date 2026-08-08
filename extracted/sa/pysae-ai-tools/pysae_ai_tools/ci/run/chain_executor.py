@@ -25,6 +25,7 @@ from .gitlab_api import (
     Pipeline,
     PipelineContext,
     create_pipeline,
+    describe_context,
     find_pipeline,
     get_environment_url,
     get_job,
@@ -563,7 +564,7 @@ def follow_job_chain(
     if not pipeline:
         return ChainResult(
             pipeline=Pipeline(id=0, status="error"),
-            error="Aucune pipeline à suivre (aucune pipeline existante trouvée)",
+            error=f"Aucune pipeline à suivre ({describe_context(ctx)})",
         )
 
     jobs = list_jobs(ctx, pipeline.id)
@@ -632,7 +633,7 @@ def follow_jobs(ctx: PipelineContext, target_names: list[str], *, clock: Clock =
         return MultiChainResult(
             pipeline=Pipeline(id=0, status="error"),
             targets=targets,
-            error="Aucune pipeline à suivre (aucune pipeline existante trouvée)",
+            error=f"Aucune pipeline à suivre ({describe_context(ctx)})",
         )
 
     chain_results: dict[str, ChainResult] = {}

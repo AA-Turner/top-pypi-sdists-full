@@ -1,5 +1,5 @@
 //! Parsing schema documents into structural IR; anything not modeled stays `Raw`.
-use std::{borrow::Cow, collections::BTreeMap, sync::Arc};
+use std::{borrow::Cow, sync::Arc};
 
 use ahash::{AHashMap, AHashSet};
 
@@ -14,8 +14,8 @@ use crate::{
         ir::{
             canonicalize_value_set, type_set_schema, typed_group, ArrayLeaf, BoundCardinality,
             BoundNumber, BoundRational, CanonicalJson, ContainsFacet, Distinctness, Divisors,
-            ExcludedDivisors, IntegerLeaf, LengthBounds, NumberLeaf, ObjectLeaf, Schema,
-            SchemaKind, Side, StringLeaf,
+            ExcludedDivisors, IntegerLeaf, LengthBounds, NumberLeaf, ObjectLeaf, PropertyMap,
+            Schema, SchemaKind, Side, StringFormat, StringLeaf,
         },
         negate, CanonicalizationError, DefinitionMap, CANONICAL_REFERENCE_PREFIX,
         ROOT_DEFINITION_KEY,
@@ -31,6 +31,8 @@ pub(crate) struct ParseOutput {
     /// producer of `SchemaKind::Reference`, so `false` means the emptiness pass has no graph to
     /// build.
     pub(crate) has_references: bool,
+    /// The choices between pointers left undecided for want of a body still being parsed.
+    pub(crate) pending_choices: Vec<Vec<Schema>>,
 }
 
 /// Parse a document into structural IR when every construct is modeled; `Ok(None)` keeps it `Raw`.
@@ -57,6 +59,10 @@ pub(crate) struct Assumptions {
     pub(crate) empty: AHashSet<Arc<str>>,
     /// Resolved as `true`.
     pub(crate) admits_all: AHashSet<Arc<str>>,
+    /// Bodies a finished round produced, for the decisions a target still being parsed cannot
+    /// answer. A body only ever narrows between rounds, so a decision this map settles stays
+    /// settled the same way.
+    pub(crate) finished: DefinitionMap,
 }
 
 /// [`parse`] under `assumptions`.
@@ -103,7 +109,8 @@ fn parse_inner<'a>(
     // makes that dependent on the order definitions were registered in. Re-parsing with the folded
     // keys added, until none are new, settles it: the result no longer depends on the order.
     let mut folded = assumptions.clone();
-    let mut tracks = spells_dynamic_reference(value, ctx.draft());
+    let mut tracks = false;
+    let mut reparsed_for_bodies = false;
     loop {
         let attempt = parse_once(value, ctx, resolver, &folded, pruning, tracks)?;
         if attempt.needs_dynamic_scope {
@@ -125,6 +132,20 @@ fn parse_inner<'a>(
             }
         }
         if !grew {
+            // A choice between pointers reads the bodies they name, and one still being parsed has
+            // none to read - which would make the form depend on the order the targets registered
+            // in. One re-parse with this round's bodies known settles every such choice: what the
+            // choice reads off a body is which types it admits, and folding one cannot change that.
+            let settles = !reparsed_for_bodies
+                && parsed
+                    .pending_choices
+                    .iter()
+                    .any(|branches| algebra::choice_folds(branches, &parsed.definitions, ctx));
+            if settles {
+                reparsed_for_bodies = true;
+                folded.finished = parsed.definitions.clone();
+                continue;
+            }
             return Ok(Some(parsed));
         }
     }
@@ -145,22 +166,15 @@ fn parse_once<'a>(
     tracks_dynamic_scope: bool,
 ) -> Result<DocumentParse, CanonicalizationError> {
     let mut state = ParseState::new(value, resolver.base_uri().as_str(), assumptions);
-    state.facts.merges_object_leaves =
-        matches!(ctx.draft(), Draft::Draft4) && merges_object_leaves(value);
     if !tracks_dynamic_scope {
-        // The root document was already scanned; its verdict seeds the per-resource memo.
-        let mut spelling_scans = AHashMap::default();
-        spelling_scans.insert(Arc::clone(&state.root_base_uri), false);
         state.dynamic_scope = DynamicScope::Untracked {
-            spelling_scans,
             needs_tracking: false,
         };
     }
     let parsed = parse_schema_in_scope(value, ctx, true, resolver, &mut state)?;
-    // An in-between `additionalProperties` meeting `patternProperties` anywhere in the document
-    // has no exact intersection without pattern-overlap reasoning; nodes built before this check
-    // may already be wrong, so the whole document is discarded, not just the pairing site.
-    if state.facts.additional_schema && state.facts.pattern_properties {
+    // An in-between object meet the IR cannot spell may have produced nodes already, so discard
+    // the whole document rather than just that pairing site.
+    if ctx.saw_unspellable_meet() {
         return Ok(DocumentParse {
             output: None,
             needs_dynamic_scope: state.dynamic_scope.needs_tracking(),
@@ -181,6 +195,7 @@ fn parse_once<'a>(
             root,
             definitions: state.definitions,
             has_references: state.facts.has_references,
+            pending_choices: state.facts.pending_choices,
         }),
         needs_dynamic_scope,
     })
@@ -208,26 +223,19 @@ struct ParseState<'a> {
 #[derive(Default)]
 #[allow(clippy::struct_excessive_bools)]
 struct DocumentFacts {
-    additional_schema: bool,
-    pattern_properties: bool,
-    /// Set only under Draft 4, where it decides whether a pattern coverage can survive the algebra.
-    merges_object_leaves: bool,
     /// `reference_to_definition` is the only producer of `Reference`, so this gates the emptiness
     /// pass.
     has_references: bool,
+    /// The choices between pointers left undecided for want of a body still being parsed.
+    pending_choices: Vec<Vec<Schema>>,
 }
 
 /// How a parse attempt treats the dynamic scope.
 enum DynamicScope {
     /// A dynamic reference is spelled: digests are computed and definition keys specialized.
     Tracked,
-    /// No dynamic reference is spelled, so keys stay unspecialized. Keeps per-resource scan
-    /// verdicts - scanning every resolved target's subtree instead is quadratic on nested
-    /// definitions - and records when a lazily resolved target voids the assumption.
-    Untracked {
-        spelling_scans: AHashMap<Arc<str>, bool>,
-        needs_tracking: bool,
-    },
+    /// No dynamic reference has been reached, so keys stay unspecialized until one does.
+    Untracked { needs_tracking: bool },
 }
 
 impl DynamicScope {
@@ -243,6 +251,12 @@ impl DynamicScope {
                 ..
             }
         )
+    }
+
+    fn request_tracking(&mut self) {
+        if let Self::Untracked { needs_tracking } = self {
+            *needs_tracking = true;
+        }
     }
 }
 
@@ -378,29 +392,11 @@ fn resource_root_has_recursive_anchor(contents: &Value) -> bool {
         == Some(true)
 }
 
-/// Whether `value` spells a reference keyword the draft resolves through the dynamic scope,
-/// mirroring the reference gates in [`parse_schema_in_scope`]. Over-approximates on purpose - a
-/// spelling inside a `const` value counts - because missing one would skip the environment
-/// specialization a real dynamic reference needs.
-fn spells_dynamic_reference(value: &Value, draft: Draft) -> bool {
-    if matches!(draft, Draft::Draft201909) {
-        return spells_key(value, "$recursiveRef");
-    }
-    if draft.is_known_keyword("$dynamicRef") {
-        return spells_key(value, "$dynamicRef");
-    }
-    false
-}
-
-fn spells_key(value: &Value, keyword: &str) -> bool {
-    match value {
-        Value::Object(map) => {
-            map.get(keyword).is_some_and(Value::is_string)
-                || map.values().any(|entry| spells_key(entry, keyword))
-        }
-        Value::Array(items) => items.iter().any(|item| spells_key(item, keyword)),
-        Value::Null | Value::Bool(_) | Value::Number(_) | Value::String(_) => false,
-    }
+/// Whether this schema object carries a reference whose resolver consults the dynamic scope.
+fn has_dynamic_reference(map: &serde_json::Map<String, Value>, draft: Draft) -> bool {
+    (draft.is_known_keyword("$dynamicRef") && map.get("$dynamicRef").is_some_and(Value::is_string))
+        || (matches!(draft, Draft::Draft201909)
+            && map.get("$recursiveRef").is_some_and(Value::is_string))
 }
 
 /// The definition key `key` takes under `env`.
@@ -460,8 +456,8 @@ fn parse_schema_in_scope<'a>(
     state: &mut ParseState<'a>,
 ) -> Result<Option<Schema>, CanonicalizationError> {
     let map = match value {
-        Value::Bool(true) => return Ok(Some(Schema::new(SchemaKind::True))),
-        Value::Bool(false) => return Ok(Some(Schema::new(SchemaKind::False))),
+        Value::Bool(true) => return Ok(Some(Schema::truthy())),
+        Value::Bool(false) => return Ok(Some(Schema::falsy())),
         Value::Object(map) => map,
         // Not a schema document; the root is rejected earlier, a nested one keeps the document raw.
         Value::Null | Value::Number(_) | Value::String(_) | Value::Array(_) => return Ok(None),
@@ -473,6 +469,13 @@ fn parse_schema_in_scope<'a>(
             return Ok(None);
         };
         return parse_schema_in_scope(&degraded, ctx, is_root, resolver, state);
+    }
+
+    // An untracked attempt stops before resolving a dynamic reference. Re-running it with the
+    // scope tracked gives every reachable target the environment-specialized key it requires.
+    if !state.dynamic_scope.tracked() && has_dynamic_reference(map, ctx.draft()) {
+        state.dynamic_scope.request_tracking();
+        return Ok(None);
     }
 
     // The reference keywords are independent and may be spelled together, so each contributes a
@@ -554,14 +557,14 @@ fn parse_schema_in_scope<'a>(
     let mut additional_items: Option<&Value> = None;
     let mut required: Vec<Arc<str>> = Vec::new();
     let mut property_names: Option<Schema> = None;
-    let mut properties: BTreeMap<Arc<str>, Schema> = BTreeMap::new();
-    let mut pattern_properties: BTreeMap<Arc<str>, Schema> = BTreeMap::new();
+    let mut properties = PropertyMap::default();
+    let mut pattern_properties = PropertyMap::default();
     let mut forbid_unmatched_keys = false;
     let mut additional_schema: Option<Schema> = None;
     let mut min_properties: Option<BoundCardinality> = None;
     let mut max_properties: Option<BoundCardinality> = None;
     let mut patterns: Vec<Arc<str>> = Vec::new();
-    let mut formats: Vec<Arc<str>> = Vec::new();
+    let mut formats: Vec<StringFormat> = Vec::new();
     let mut content_media_types: Vec<Arc<str>> = Vec::new();
     let mut content_encodings: Vec<Arc<str>> = Vec::new();
     let mut multiple_of = Divisors::default();
@@ -622,7 +625,13 @@ fn parse_schema_in_scope<'a>(
                         None => return Ok(None),
                     }
                 }
-                match algebra::one_of(branches, &state.definitions, ctx) {
+                match algebra::one_of(
+                    branches,
+                    &state.definitions,
+                    &state.assumptions.finished,
+                    &mut state.facts.pending_choices,
+                    ctx,
+                ) {
                     Some(schema) => conjuncts.push(schema),
                     None => return Ok(None),
                 }
@@ -792,10 +801,7 @@ fn parse_schema_in_scope<'a>(
                     Some(schema) if matches!(schema.kind(), SchemaKind::False) => {
                         forbid_unmatched_keys = true;
                     }
-                    Some(schema) => {
-                        state.facts.additional_schema = true;
-                        additional_schema = Some(schema);
-                    }
+                    Some(schema) => additional_schema = Some(schema),
                     None => return Ok(None),
                 }
             }
@@ -830,7 +836,7 @@ fn parse_schema_in_scope<'a>(
             // An annotation-only `format` constrains nothing, so it leaves no trace in the IR.
             ("format", Value::String(name)) if ctx.draft().is_known_keyword("format") => {
                 if ctx.validate_formats() {
-                    formats.push(Arc::from(name.as_str()));
+                    formats.push(StringFormat::from_name(ctx.draft(), name));
                 }
             }
             // `contentEncoding`/`contentMediaType`/`contentSchema` are annotations from 2019-09 on -
@@ -982,6 +988,9 @@ fn parse_schema_in_scope<'a>(
             // The complement of the negated schema, when the IR can spell it; an unmodeled child or
             // an inexpressible complement keeps the whole document raw.
             ("not", value) if ctx.draft().is_known_keyword("not") => {
+                if matches!(ctx.draft(), Draft::Draft4) && is_closed_pattern_map(value) {
+                    return Ok(None);
+                }
                 match parse_schema(value, ctx, false, resolver, state)? {
                     Some(child) => match negate::negate_in_place(&child, &state.definitions, ctx) {
                         Some(complement) => conjuncts.push(complement),
@@ -1118,16 +1127,6 @@ fn parse_schema_in_scope<'a>(
     // the pattern goes. What is left decides whether this document meets the `additionalProperties`
     // pairing at all - `additionalProperties` already knows to skip a named key.
     fold_finite_key_patterns(&mut pattern_properties, &mut properties, ctx);
-    if !pattern_properties.is_empty() {
-        state.facts.pattern_properties = true;
-    }
-
-    // Draft 4 holds a key constraint only as the closed map it was parsed from, which the algebra
-    // can destroy by meeting two pattern maps. Bailing here, before the rest of the document is
-    // parsed, keeps that cheap - and only a merging keyword can bring two leaves together.
-    if forbid_unmatched_keys && !pattern_properties.is_empty() && state.facts.merges_object_leaves {
-        return Ok(None);
-    }
     // `additionalProperties: false` forbids every key the property map does not name and no
     // pattern matches, which a key constraint spells: the named keys and the patterns' keys,
     // met into any stored constraint.
@@ -1245,7 +1244,7 @@ fn parse_schema_in_scope<'a>(
     }
 
     let base = match (type_set, admitted_values(enum_values, const_value)) {
-        (None, None) => Schema::new(SchemaKind::True),
+        (None, None) => Schema::truthy(),
         (Some(set), None) => type_set_schema(set),
         (None, Some(values)) => canonicalize_value_set(values),
         (Some(set), Some(values)) => restrict_values_to_types(values, set, ctx),
@@ -1258,11 +1257,23 @@ fn parse_schema_in_scope<'a>(
     ))
 }
 
+/// Whether this schema has the Draft 4 closed-map spelling that negation must preserve directly.
+fn is_closed_pattern_map(value: &Value) -> bool {
+    let Some(map) = value.as_object() else {
+        return false;
+    };
+    map.get("additionalProperties") == Some(&Value::Bool(false))
+        && map
+            .get("patternProperties")
+            .and_then(Value::as_object)
+            .is_some_and(|patterns| !patterns.is_empty())
+}
+
 /// Move every pattern matching finitely many keys onto those keys, met into whatever the property
 /// map already demands of each, and drop the pattern.
 fn fold_finite_key_patterns(
-    pattern_properties: &mut BTreeMap<Arc<str>, Schema>,
-    properties: &mut BTreeMap<Arc<str>, Schema>,
+    pattern_properties: &mut PropertyMap,
+    properties: &mut PropertyMap,
     ctx: &CanonicalizationContext,
 ) {
     pattern_properties.retain(|pattern, schema| {
@@ -1720,10 +1731,10 @@ fn reference_to_definition<'a>(
     {
         // The root is never keyed, so the fixpoint names it by the spelling emitted here.
         if state.assumes_empty(ROOT_DEFINITION_KEY) {
-            return Ok(Some(Schema::new(SchemaKind::False)));
+            return Ok(Some(Schema::falsy()));
         }
         if state.assumes_admits_all(ROOT_DEFINITION_KEY) {
-            return Ok(Some(Schema::new(SchemaKind::True)));
+            return Ok(Some(Schema::truthy()));
         }
         return Ok(Some(Schema::new(SchemaKind::Reference(Arc::from(
             ROOT_DEFINITION_KEY,
@@ -1745,10 +1756,10 @@ fn reference_to_definition<'a>(
     // Unlike the fold below, canonical URIs are not exempt: a cycle closed through an `$id`-bearing
     // subresource is keyed by a minted URI, and exempting it would leave it live once proven empty.
     if state.assumes_empty(&key) {
-        return Ok(Some(Schema::new(SchemaKind::False)));
+        return Ok(Some(Schema::falsy()));
     }
     if state.assumes_admits_all(&key) {
-        return Ok(Some(Schema::new(SchemaKind::True)));
+        return Ok(Some(Schema::truthy()));
     }
     // Folding an empty target lets the surrounding leaf normalization see the contradiction:
     // `required: ["a"]` beside `properties: {"a": false}` collapses, a symbolic `Reference` does
@@ -1759,19 +1770,45 @@ fn reference_to_definition<'a>(
             .get(&key)
             .is_some_and(|body| matches!(body.kind(), SchemaKind::False))
     {
-        return Ok(Some(Schema::new(SchemaKind::False)));
+        return Ok(Some(Schema::falsy()));
     }
     Ok(Some(Schema::new(SchemaKind::Reference(key))))
 }
 
 fn canonical_reference_uri(reference: &str, location: &str, root_base_uri: &str) -> Arc<str> {
-    if let Some(uri) = canonical_definition_reference(reference) {
-        return uri;
-    }
-    if is_direct_definition_reference(reference)
-        && resource_uri(location) == resource_uri(root_base_uri)
-    {
-        return Arc::from(reference);
+    for prefix in ["#/$defs/", "#/definitions/"] {
+        let Some(encoded) = reference.strip_prefix(prefix) else {
+            continue;
+        };
+        if encoded.starts_with(CANONICAL_REFERENCE_PREFIX) {
+            if !encoded.contains('%') {
+                let uri = referencing::unescape_segment(encoded);
+                return Arc::from(uri.as_ref());
+            }
+        } else {
+            match encoded.bytes().find(|byte| matches!(byte, b'%' | b'/')) {
+                None if !encoded.is_empty()
+                    && resource_uri(location) == resource_uri(root_base_uri) =>
+                {
+                    return Arc::from(reference);
+                }
+                Some(b'%') => {}
+                None | Some(_) => break,
+            }
+        }
+        if let Ok(decoded) = percent_encoding::percent_decode_str(encoded).decode_utf8() {
+            if decoded.starts_with(CANONICAL_REFERENCE_PREFIX) {
+                let uri = referencing::unescape_segment(&decoded);
+                return Arc::from(uri.as_ref());
+            }
+            if !decoded.is_empty()
+                && !decoded.contains('/')
+                && resource_uri(location) == resource_uri(root_base_uri)
+            {
+                return Arc::from(reference);
+            }
+        }
+        break;
     }
     if location.starts_with(CANONICAL_REFERENCE_PREFIX) {
         return Arc::from(location);
@@ -1783,36 +1820,8 @@ fn canonical_reference_uri(reference: &str, location: &str, root_base_uri: &str)
     Arc::from(uri.as_str())
 }
 
-fn canonical_definition_reference(reference: &str) -> Option<Arc<str>> {
-    for prefix in ["#/$defs/", "#/definitions/"] {
-        let Some(encoded) = reference.strip_prefix(prefix) else {
-            continue;
-        };
-        let decoded = percent_encoding::percent_decode_str(encoded)
-            .decode_utf8()
-            .ok()?;
-        let uri = referencing::unescape_segment(&decoded);
-        if uri.starts_with(CANONICAL_REFERENCE_PREFIX) {
-            return Some(Arc::from(uri.as_ref()));
-        }
-    }
-    None
-}
-
 fn resource_uri(uri: &str) -> &str {
     uri.split_once('#').map_or(uri, |(resource, _)| resource)
-}
-
-fn is_direct_definition_reference(reference: &str) -> bool {
-    for prefix in ["#/$defs/", "#/definitions/"] {
-        if let Some(name) = reference.strip_prefix(prefix) {
-            let Ok(decoded) = percent_encoding::percent_decode_str(name).decode_utf8() else {
-                return false;
-            };
-            return !decoded.is_empty() && !decoded.contains('/');
-        }
-    }
-    false
 }
 
 fn ensure_definition<'a>(
@@ -1823,29 +1832,6 @@ fn ensure_definition<'a>(
     env: &DynamicEnv,
     state: &mut ParseState<'a>,
 ) -> Result<bool, CanonicalizationError> {
-    // An untracked parse assumed no dynamic reference exists; a target that spells one - reachable
-    // only through an externally registered resource, since the root was scanned - voids that
-    // assumption for every key minted so far, so the whole document reparses with tracking on.
-    // Scanned per resource root rather than per target subtree, and memoized.
-    if let DynamicScope::Untracked {
-        spelling_scans,
-        needs_tracking,
-    } = &mut state.dynamic_scope
-    {
-        let base = resolver.base_uri();
-        let spells = if let Some(&spells) = spelling_scans.get(base.as_str()) {
-            spells
-        } else {
-            let (contents, _, resource_draft) = resolver.lookup("#")?.into_inner();
-            let spells = spells_dynamic_reference(contents, resource_draft);
-            spelling_scans.insert(Arc::from(base.as_str()), spells);
-            spells
-        };
-        if spells {
-            *needs_tracking = true;
-            return Ok(false);
-        }
-    }
     debug_assert!(
         state.dynamic_scope.tracked() || env.is_empty(),
         "an untracked parse keeps the digest empty"
@@ -1931,33 +1917,6 @@ pub(crate) fn prune_unreachable_definitions(root: &Schema, definitions: &mut Def
     }
 }
 
-/// Whether the document holds a keyword that can bring two object leaves together.
-fn merges_object_leaves(value: &Value) -> bool {
-    match value {
-        Value::Object(map) => {
-            map.keys().any(|key| {
-                matches!(
-                    key.as_str(),
-                    "$dynamicRef"
-                        | "$recursiveRef"
-                        | "$ref"
-                        | "allOf"
-                        | "anyOf"
-                        | "dependencies"
-                        | "dependentSchemas"
-                        | "else"
-                        | "if"
-                        | "not"
-                        | "oneOf"
-                        | "then"
-                )
-            }) || map.values().any(merges_object_leaves)
-        }
-        Value::Array(items) => items.iter().any(merges_object_leaves),
-        Value::Null | Value::Bool(_) | Value::Number(_) | Value::String(_) => false,
-    }
-}
-
 fn collect_live_definition_references<'a>(schema: &'a Schema, references: &mut Vec<&'a str>) {
     // Derived from the emptiness walker rather than repeated: the two must agree on which fields
     // hold a schema, and a field missed here leaks a `$ref` to a pruned definition.
@@ -1993,8 +1952,8 @@ fn dependency_conjunct(key: &str, consequent: Schema, ctx: &CanonicalizationCont
             sizes: LengthBounds::default(),
             required: Vec::new(),
             property_names: None,
-            properties: BTreeMap::from([(Arc::from(key), Schema::new(SchemaKind::False))]),
-            pattern_properties: BTreeMap::new(),
+            properties: PropertyMap::from_iter([(Arc::from(key), Schema::falsy())]),
+            pattern_properties: PropertyMap::default(),
             additional: None,
             violations: Vec::new(),
         },
@@ -2010,8 +1969,8 @@ fn object_with_required(required: Vec<Arc<str>>, ctx: &CanonicalizationContext) 
             sizes: LengthBounds::default(),
             required,
             property_names: None,
-            properties: BTreeMap::new(),
-            pattern_properties: BTreeMap::new(),
+            properties: PropertyMap::default(),
+            pattern_properties: PropertyMap::default(),
             additional: None,
             violations: Vec::new(),
         },

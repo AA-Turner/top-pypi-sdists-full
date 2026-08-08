@@ -100,10 +100,27 @@ class PipelineContext:
     pipeline_id: str = ""
     mr_iid: str = ""
     source_branch: str = ""
+    sha: str = ""
+
+
+def describe_context(ctx: PipelineContext) -> str:
+    """Summarise what :func:`find_pipeline` looked for, for error messages."""
+    parts = [f"projet {ctx.project_id}"]
+    if ctx.pipeline_id:
+        parts.append(f"pipeline #{ctx.pipeline_id}")
+    if ctx.mr_iid:
+        parts.append(f"MR !{ctx.mr_iid}")
+    if ctx.source_branch:
+        parts.append(f"branche {ctx.source_branch}")
+    if ctx.sha:
+        parts.append(f"commit {ctx.sha[:8]}")
+    if len(parts) == 1:
+        parts.append("aucun ref à chercher — passe --branch, --mr-iid ou --pipeline-id")
+    return ", ".join(parts)
 
 
 def find_pipeline(ctx: PipelineContext) -> Pipeline | None:
-    """Find the latest pipeline for MR or branch."""
+    """Find the pipeline to work on, from the most explicit context to the least."""
     if ctx.pipeline_id:
         data = _glab_json("api", f"projects/{ctx.project_id}/pipelines/{ctx.pipeline_id}")
         if data:
@@ -120,6 +137,20 @@ def find_pipeline(ctx: PipelineContext) -> Pipeline | None:
         data = _glab_json("api", f"projects/{ctx.project_id}/pipelines?ref={ctx.source_branch}&per_page=1")
         if data and isinstance(data, list) and data:
             return Pipeline.from_api(data[0])
+
+    # The branch may carry no pipeline of its own while its commit does under
+    # another ref — a local branch sitting on an already-pushed tip, a tag
+    # pipeline. Same commit means same code, so that pipeline is the right one.
+    # GitLab only matches the full 40-char sha here, never an abbreviation.
+    if ctx.sha:
+        data = _glab_json("api", f"projects/{ctx.project_id}/pipelines?sha={ctx.sha}&per_page=1")
+        if data and isinstance(data, list) and data:
+            pipeline = Pipeline.from_api(data[0])
+            print(
+                f"Pipeline #{pipeline.id} résolue par commit {ctx.sha[:8]} (ref: {pipeline.ref})",
+                file=sys.stderr,
+            )
+            return pipeline
 
     return None
 

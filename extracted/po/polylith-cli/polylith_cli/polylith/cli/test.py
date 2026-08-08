@@ -6,7 +6,7 @@ from typing_extensions import Annotated
 app = Typer()
 
 @app.command('diff')
-def diff_command(since: Annotated[str, Option(help='Changed since a specific tag.')]='', short: Annotated[bool, options.short]=False, bricks: Annotated[bool, Option(help='Bricks affected by changes in tests')]=False, projects: Annotated[bool, Option(help='Projects affected by changes in tests')]=False):
+def diff_command(since: Annotated[str, Option(help='Changed since a specific tag.')]='', short: Annotated[bool, options.short]=False, bricks: Annotated[bool, Option(help='Bricks affected by changes in tests')]=False, projects: Annotated[bool, Option(help='Projects affected by changes in tests')]=False, strategy: Annotated[str, Option(help="By 'imports' (the bricks used in tests) or by 'path' (the corresponding bricks).")]='imports'):
     """Shows the Polylith projects and bricks that are affected by changes in tests."""
     root = repo.get_workspace_root(Path.cwd())
     ns = configuration.get_namespace_from_config(root)
@@ -14,5 +14,5 @@ def diff_command(since: Annotated[str, Option(help='Changed since a specific tag
     if not tag:
         print('No matching tags or commits found in repository.')
         return
-    options = {'short': short, 'bricks': bricks, 'projects': projects}
+    options = {'short': short, 'bricks': bricks, 'projects': projects, 'strategy': strategy}
     commands.test.run(root, ns, tag, options)

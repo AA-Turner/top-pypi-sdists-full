@@ -8,9 +8,7 @@ This module provides:
 """
 
 from airbyte_ops_mcp.prod_db_access.db_engine import get_pool
-from airbyte_ops_mcp.prod_db_access.queries import (
-    query_versions_with_pins,
-)
+from airbyte_ops_mcp.prod_db_access.queries import query_versions_with_pins
 from airbyte_ops_mcp.prod_db_access.sql import (
     SELECT_ACTORS_PINNED_TO_VERSION,
     SELECT_CONNECTIONS_BY_CONNECTOR,

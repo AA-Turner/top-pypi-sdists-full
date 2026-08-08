@@ -191,6 +191,8 @@ async def new_tab(context, url: Optional[str] = None):
       (preserves the legacy/inert behavior of the pre-V3 path).
     """
     page = await context.new_page()
+    from testmu._session import _apply_page_timeouts
+    _apply_page_timeouts(page)
     target = url
     if target is None and _configure.get("kane_version") == "v3":
         target = "https://www.google.com"

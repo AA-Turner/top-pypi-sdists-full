@@ -6,8 +6,7 @@ and
 https://cloud.google.com/bigquery/docs/reference/standard-sql/lexical#string_and_bytes_literals
 """
 
-from collections.abc import Generator
-
+from sqlfluff.core.dialects import common as dialect_common
 from sqlfluff.core.dialects import load_raw_dialect
 from sqlfluff.core.parser import (
     AnyNumberOf,
@@ -29,7 +28,6 @@ from sqlfluff.core.parser import (
     OneOf,
     OptionallyBracketed,
     ParseMode,
-    RawSegment,
     Ref,
     RegexLexer,
     RegexParser,
@@ -397,11 +395,17 @@ bigquery_dialect.replace(
     NaturalJoinKeywordsGrammar=Nothing(),
     UnconditionalCrossJoinKeywordsGrammar=Ref.keyword("CROSS"),
     MergeIntoLiteralGrammar=Sequence("MERGE", Ref.keyword("INTO", optional=True)),
-    AccessorGrammar=AnyNumberOf(
-        Ref("ArrayAccessorSegment"),
-        Ref("ChainedFunctionCallSegment"),
-        # Add in semi structured expressions
-        Ref("SemiStructuredAccessorSegment"),
+    AccessorGrammar=Sequence(
+        AnyNumberOf(
+            Ref("ArrayAccessorSegment"),
+            Ref("ChainedFunctionCallSegment"),
+            # Add in semi structured expressions
+            Ref("SemiStructuredAccessorSegment"),
+        ),
+        # A wildcard terminates the accessor chain, so it sits outside the
+        # repeating part above - nothing may be chained after it.
+        Ref("SemiStructuredWildcardAccessorSegment", optional=True),
+        allow_gaps=True,
     ),
     BracketedSetExpressionGrammar=Bracketed(Ref("SetExpressionSegment")),
     NotEnforcedGrammar=Sequence("NOT", "ENFORCED"),
@@ -757,7 +761,6 @@ class StatementSegment(ansi.StatementSegment):
             Ref("DropAssignmentStatementSegment"),
             Ref("DropTableFunctionStatementSegment"),
             Ref("CreateTableFunctionStatementSegment"),
-            Ref("PipeStatementSegment"),
         ],
     )
 
@@ -1310,6 +1313,11 @@ class FunctionSegment(ansi.FunctionSegment):
                 # Functions returning STRUCTs in BigQuery can have the fields
                 # elements referenced (e.g. ".a"), including wildcards (e.g. ".*")
                 # or multiple nested fields (e.g. ".a.b", or ".a.b.c")
+                # Note the wildcard form is deliberately *not* matched here. It is
+                # left to `AccessorGrammar`, which is applied after the function and
+                # is the single place that enforces the wildcard being terminal.
+                # Matching it here would let the outer grammar chain a further
+                # accessor after the star (e.g. `f(a).b.*.z`).
                 Ref("SemiStructuredAccessorSegment", optional=True),
                 Ref("PostFunctionGrammar", optional=True),
             ),
@@ -1727,23 +1735,58 @@ class NamedArgumentSegment(BaseSegment):
 
 
 class SemiStructuredAccessorSegment(BaseSegment):
-    """A semi-structured data accessor segment."""
+    """A semi-structured data accessor segment.
+
+    This covers the non-wildcard part of an accessor chain (e.g. `.a`, `.a.b`,
+    `.a[0].b`). A wildcard is handled separately by
+    :class:`SemiStructuredWildcardAccessorSegment` so that it can only appear as
+    the final element of the chain.
+    """
 
     type = "semi_structured_expression"
     match_grammar = Sequence(
         AnyNumberOf(
             Sequence(
                 Ref("DotSegment"),
-                OneOf(
-                    Ref("SingleIdentifierGrammar"),
-                    Ref("StarSegment"),
-                ),
+                Ref("SingleIdentifierGrammar"),
                 allow_gaps=True,
             ),
             Ref("ArrayAccessorSegment", optional=True),
             allow_gaps=True,
             min_times=1,
         ),
+        allow_gaps=True,
+    )
+
+
+class SemiStructuredWildcardAccessorSegment(BaseSegment):
+    """A wildcard terminating a semi-structured accessor chain.
+
+    A wildcard is only valid as the *final* element of an accessor chain, and it
+    may carry the EXCEPT/REPLACE modifiers, e.g. `results[0].* EXCEPT (cola)`.
+    Keeping it out of the repeating part of ``AccessorGrammar`` is what stops
+    invalid mid-chain forms such as `a.b.*.c` from parsing.
+
+    https://cloud.google.com/bigquery/docs/reference/standard-sql/query-syntax#select_except
+    """
+
+    type = "semi_structured_expression"
+    match_grammar = Sequence(
+        # Any fields preceding the wildcard are part of the same accessor, so
+        # that `.b.*` stays a single segment rather than being split in two.
+        AnyNumberOf(
+            Sequence(
+                Ref("DotSegment"),
+                Ref("SingleIdentifierGrammar"),
+                allow_gaps=True,
+            ),
+            Ref("ArrayAccessorSegment", optional=True),
+            allow_gaps=True,
+        ),
+        Ref("DotSegment"),
+        Ref("StarSegment"),
+        Ref("ExceptClauseSegment", optional=True),
+        Ref("ReplaceClauseSegment", optional=True),
         allow_gaps=True,
     )
 
@@ -1758,14 +1801,20 @@ class SplittableObjectReferenceGrammar(ansi.ObjectReferenceSegment):
     identifiers that contain keywords or special characters.
     """
 
-    @classmethod
-    def _iter_reference_parts(
-        cls, elem: RawSegment
-    ) -> Generator[ansi.ObjectReferenceSegment.ObjectReferencePart, None, None]:
-        """Extract the elements of a reference and yield."""
-        # trim on quotes and split out any dots.
-        for part in elem.raw_trimmed().split("."):
-            yield cls.ObjectReferencePart(part, [elem])
+    def iter_raw_references(self):
+        """Generate a list of reference strings and elements.
+
+        Splits each identifier on embedded dots, since BigQuery object
+        references can be multi-part within a single quoted identifier.
+
+        .. deprecated::
+            Use :func:`sqlfluff.core.dialects.common.iter_raw_references`.
+        """
+        dialect_common.deprecated_segment_method(
+            "SplittableObjectReferenceGrammar.iter_raw_references()",
+            "iter_raw_references()",
+        )
+        yield from dialect_common._iter_raw_references_default(self, split_on_dots=True)
 
 
 class ColumnReferenceSegment(SplittableObjectReferenceGrammar):
@@ -1821,38 +1870,32 @@ class ColumnReferenceSegment(SplittableObjectReferenceGrammar):
 
         means that, without schema information (which SQLFluff does not have),
         references to data are often ambiguous.
+
+        .. deprecated::
+            Use :func:`sqlfluff.core.dialects.common.extract_possible_references`.
         """
-        level = self._level_to_int(level)
-        refs = list(self.iter_raw_references())
-        if level == self.ObjectReferenceLevel.SCHEMA.value and len(refs) >= 3:
-            return [refs[0]]  # pragma: no cover
-        if level == self.ObjectReferenceLevel.TABLE.value:
-            # One part: Could be a table, e.g. TO_JSON_STRING(t)
-            # Two parts: Could be dataset.table or table.column.
-            # Three parts: Could be table.column.struct or dataset.table.column.
-            # Four parts: dataset.table.column.struct
-            # Five parts: project.dataset.table.column.struct
-            # So... return the first 3 parts.
-            return refs[:3]
-        if (
-            level == self.ObjectReferenceLevel.OBJECT.value and len(refs) >= 3
-        ):  # pragma: no cover
-            # Ambiguous case: The object (i.e. column) could be the first or
-            # second part, so return both.
-            return [refs[1], refs[2]]
-        return super().extract_possible_references(level)  # pragma: no cover
+        dialect_common.deprecated_segment_method(
+            "ColumnReferenceSegment.extract_possible_references()",
+            "extract_possible_references()",
+        )
+        return dialect_common._extract_possible_references_bigquery_column(
+            self, level, "bigquery"
+        )
 
     def extract_possible_multipart_references(self, levels):
-        """Extract possible multipart references, e.g. schema.table."""
-        levels_tmp = [self._level_to_int(level) for level in levels]
-        min_level = min(levels_tmp)
-        max_level = max(levels_tmp)
-        refs = list(self.iter_raw_references())
-        if max_level == self.ObjectReferenceLevel.SCHEMA.value and len(refs) >= 3:
-            return [tuple(refs[0 : max_level - min_level + 1])]
-        # Note we aren't handling other possible cases. We'll add these as
-        # needed.
-        return super().extract_possible_multipart_references(levels)
+        """Extract possible multipart references, e.g. schema.table.
+
+        .. deprecated::
+            Use
+            :func:`sqlfluff.core.dialects.common.extract_possible_multipart_references`.
+        """
+        dialect_common.deprecated_segment_method(
+            "ColumnReferenceSegment.extract_possible_multipart_references()",
+            "extract_possible_multipart_references()",
+        )
+        return dialect_common._extract_possible_multipart_references_bigquery_column(
+            self, levels, "bigquery"
+        )
 
 
 class TableReferenceSegment(SplittableObjectReferenceGrammar):
@@ -1897,45 +1940,14 @@ class TableReferenceSegment(SplittableObjectReferenceGrammar):
         because hyphens (DashSegment) causes one logical part of the name to
         be split across multiple elements, e.g. "table-a" is parsed as three
         segments.
+
+        .. deprecated::
+            Use :func:`sqlfluff.core.dialects.common.iter_raw_references`.
         """
-        # For each descendant element, group them, using "dot" elements as a
-        # delimiter.
-        parts = []
-        elems_for_parts = []
-
-        def flush():
-            nonlocal parts, elems_for_parts
-            result = self.ObjectReferencePart("".join(parts), elems_for_parts)
-            parts = []
-            elems_for_parts = []
-            return result
-
-        for elem in self.recursive_crawl(
-            "identifier", "literal", "dash", "dot", "star"
-        ):
-            if not elem.is_type("dot"):
-                if elem.is_type("identifier"):
-                    # Found an identifier (potentially with embedded dots).
-                    elem_subparts = elem.raw_trimmed().split(".")
-                    for idx, part in enumerate(elem_subparts):
-                        # Save each part of the segment.
-                        parts.append(part)
-                        elems_for_parts.append(elem)
-
-                        if idx != len(elem_subparts) - 1:
-                            # For each part except the last, flush.
-                            yield flush()
-
-                else:
-                    # For non-identifier segments, save the whole segment.
-                    parts.append(elem.raw_trimmed())
-                    elems_for_parts.append(elem)
-            else:
-                yield flush()
-
-        # Flush any leftovers.
-        if parts:
-            yield flush()
+        dialect_common.deprecated_segment_method(
+            "TableReferenceSegment.iter_raw_references()", "iter_raw_references()"
+        )
+        yield from dialect_common._iter_raw_references_bigquery_table(self)
 
 
 class SystemVariableSegment(BaseSegment):
@@ -3671,7 +3683,7 @@ class DropAssignmentStatementSegment(BaseSegment):
 
 
 class PipeStatementSegment(BaseSegment):
-    """A `PIPE` statement.
+    """A pipe query: a base query followed by pipe operators.
 
     https://cloud.google.com/bigquery/docs/reference/standard-sql/pipe-syntax
     """
@@ -3684,11 +3696,34 @@ class PipeStatementSegment(BaseSegment):
             AnyNumberOf(Ref("PipeOperatorClauseSegment")),
         ),
         Sequence(
-            Ref("SelectableGrammar"),
+            OneOf(
+                OptionallyBracketed(Ref("SelectStatementSegment")),
+                Ref("SetExpressionSegment"),
+                Bracketed(Ref("SelectableGrammar")),
+            ),
             Ref("AliasExpressionSegment", optional=True),
             AnyNumberOf(Ref("PipeOperatorClauseSegment"), min_times=1),
         ),
     )
+
+
+bigquery_dialect.replace(
+    NonWithSelectableGrammar=OneOf(
+        Ref("SetExpressionSegment"),
+        OptionallyBracketed(Ref("SelectStatementSegment")),
+        Ref("NonSetSelectableGrammar"),
+        Ref("PipeStatementSegment"),
+    ),
+    NonSetSelectableGrammar=OneOf(
+        Ref("ValuesClauseSegment"),
+        Ref("UnorderedSelectStatementSegment"),
+        Bracketed(Ref("SelectStatementSegment")),
+        Bracketed(Ref("WithCompoundStatementSegment")),
+        Bracketed(Ref("NonSetSelectableGrammar")),
+        Bracketed(Ref("PipeStatementSegment")),
+        Ref("BracketedSetExpressionGrammar"),
+    ),
+)
 
 
 class PipeOperatorClauseSegment(BaseSegment):
@@ -3732,12 +3767,14 @@ class ExtendClauseSegment(BaseSegment):
 
     match_grammar: Matchable = Sequence(
         "EXTEND",
+        Indent,
         Delimited(
             Sequence(
                 Ref("BaseExpressionElementGrammar"),
                 Ref("AliasExpressionSegment", optional=True),
             ),
         ),
+        Dedent,
     )
 
 
@@ -3827,6 +3864,7 @@ class AggregateClauseSegment(BaseSegment):
 
     match_grammar: Matchable = Sequence(
         "AGGREGATE",
+        Indent,
         Delimited(
             Sequence(
                 Ref("BaseExpressionElementGrammar"),
@@ -3838,6 +3876,7 @@ class AggregateClauseSegment(BaseSegment):
                 ),
             ),
         ),
+        Dedent,
         Ref("GroupAndOrderByClauseSegment", optional=True),
     )
 
@@ -3883,24 +3922,6 @@ class UnpivotOperatorSegment(BaseSegment):
     match_grammar: Matchable = Sequence(
         Ref("FromUnpivotExpressionSegment"),
         Ref("AliasExpressionSegment", optional=True),
-    )
-
-
-class CTEDefinitionSegment(ansi.CTEDefinitionSegment):
-    """A CTE Definition from a WITH statement.
-
-    BigQuery allows FROM clauses directly in CTEs without requiring SELECT statements.
-    This extends the ANSI definition to support this pipe syntax.
-    """
-
-    match_grammar = Sequence(
-        Ref("SingleIdentifierGrammar"),
-        Ref("CTEColumnList", optional=True),
-        Ref.keyword("AS", optional=True),
-        Bracketed(
-            OneOf(Ref("SelectableGrammar"), Ref("PipeStatementSegment")),
-            parse_mode=ParseMode.GREEDY,
-        ),
     )
 
 

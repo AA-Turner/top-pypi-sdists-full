@@ -131,6 +131,7 @@ class Seltz:
         scope: Union[str, Omit] = OMIT,
         model: Union[str, Omit] = OMIT,
         response_format: Union[Dict[str, Any], Omit] = OMIT,
+        system_prompt: Union[str, Omit] = OMIT,
     ) -> AnswerResponse:
         """Generate a natural-language answer for a query, grounded in search results.
 
@@ -158,6 +159,12 @@ class Seltz:
                 ``citations`` are still returned. Omitted from the request when
                 not provided (the answer stays Markdown).
 
+            system_prompt (str, optional):
+                Instructions steering how the answer is presented — tone,
+                voice, format. Grounding and citations are unaffected.
+                Composes with ``response_format`` and applies at every tier.
+                Empty or whitespace-only is treated as absent.
+
         Raises:
             SeltzAuthenticationError: If the API key is invalid.
             SeltzConnectionError: If the connection to the API fails.
@@ -181,6 +188,7 @@ class Seltz:
             scope=scope,
             model=model,
             response_format=response_format,
+            system_prompt=system_prompt,
         )
 
     def answer_stream(
@@ -191,6 +199,7 @@ class Seltz:
         scope: Union[str, Omit] = OMIT,
         model: Union[str, Omit] = OMIT,
         response_format: Union[Dict[str, Any], Omit] = OMIT,
+        system_prompt: Union[str, Omit] = OMIT,
     ) -> Iterator[AnswerStreamResponse]:
         """Stream a natural-language answer for a query as it is generated.
 
@@ -222,6 +231,12 @@ class Seltz:
                 ``citations`` are still returned. Omitted from the request when
                 not provided (the answer stays Markdown).
 
+            system_prompt (str, optional):
+                Instructions steering how the answer is presented — tone,
+                voice, format. Grounding and citations are unaffected.
+                Composes with ``response_format`` and applies at every tier.
+                Empty or whitespace-only is treated as absent.
+
         Raises:
             SeltzAuthenticationError: If the API key is invalid.
             SeltzConnectionError: If the connection to the API fails.
@@ -246,6 +261,7 @@ class Seltz:
             scope=scope,
             model=model,
             response_format=response_format,
+            system_prompt=system_prompt,
         )
 
     def close(self) -> None:
@@ -385,6 +401,7 @@ class AsyncSeltz:
         scope: Union[str, Omit] = OMIT,
         model: Union[str, Omit] = OMIT,
         response_format: Union[Dict[str, Any], Omit] = OMIT,
+        system_prompt: Union[str, Omit] = OMIT,
     ) -> AnswerResponse:
         """Generate a natural-language answer for a query, grounded in search results.
 
@@ -412,6 +429,12 @@ class AsyncSeltz:
                 ``citations`` are still returned. Omitted from the request when
                 not provided (the answer stays Markdown).
 
+            system_prompt (str, optional):
+                Instructions steering how the answer is presented — tone,
+                voice, format. Grounding and citations are unaffected.
+                Composes with ``response_format`` and applies at every tier.
+                Empty or whitespace-only is treated as absent.
+
         Raises:
             SeltzAuthenticationError: If the API key is invalid.
             SeltzConnectionError: If the connection to the API fails.
@@ -435,6 +458,7 @@ class AsyncSeltz:
             scope=scope,
             model=model,
             response_format=response_format,
+            system_prompt=system_prompt,
         )
 
     def answer_stream(
@@ -445,6 +469,7 @@ class AsyncSeltz:
         scope: Union[str, Omit] = OMIT,
         model: Union[str, Omit] = OMIT,
         response_format: Union[Dict[str, Any], Omit] = OMIT,
+        system_prompt: Union[str, Omit] = OMIT,
     ) -> AsyncIterator[AnswerStreamResponse]:
         """Stream a natural-language answer for a query as it is generated.
 
@@ -476,6 +501,12 @@ class AsyncSeltz:
                 ``citations`` are still returned. Omitted from the request when
                 not provided (the answer stays Markdown).
 
+            system_prompt (str, optional):
+                Instructions steering how the answer is presented — tone,
+                voice, format. Grounding and citations are unaffected.
+                Composes with ``response_format`` and applies at every tier.
+                Empty or whitespace-only is treated as absent.
+
         Raises:
             SeltzAuthenticationError: If the API key is invalid.
             SeltzConnectionError: If the connection to the API fails.
@@ -499,6 +530,7 @@ class AsyncSeltz:
             scope=scope,
             model=model,
             response_format=response_format,
+            system_prompt=system_prompt,
         )
 
     async def close(self) -> None:

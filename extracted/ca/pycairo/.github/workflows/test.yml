@@ -4,10 +4,14 @@ on:
   push:
   pull_request:
 
+permissions: {}
+
 jobs:
 
   msys2:
     runs-on: windows-latest
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -18,10 +22,12 @@ jobs:
             pkgprefix: mingw-w64-clang-x86_64
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: setup-msys2
-        uses: msys2/setup-msys2@v2
+        uses: msys2/setup-msys2@66cd2cce69caa17b53920067426061ca1de3a884 # v2.32.0
         with:
           msystem: ${{ matrix.msystem }}
           update: true
@@ -61,19 +67,23 @@ jobs:
           poetry run coverage xml -i
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
 
   ubuntu:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
-        python-version: ['3.10', '3.11', '3.12', '3.13', '3.14', '3.14t', 'pypy-3.11']
+        python-version: ['3.10', '3.11', '3.12', '3.13', '3.14', '3.14t', '3.15', '3.15t', 'pypy-3.11']
     steps:
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        persist-credentials: false
 
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v6
+      uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
       with:
         python-version: ${{ matrix.python-version }}
         allow-prereleases: true
@@ -87,7 +97,7 @@ jobs:
         uv sync
 
     - name: Install optional test dependencies
-      if: ${{ !contains(matrix.python-version, 'pypy') && !contains(matrix.python-version, '3.14') }}
+      if: ${{ !contains(matrix.python-version, 'pypy') && !contains(matrix.python-version, '3.14') && !contains(matrix.python-version, '3.15') }}
       run: |
         uv sync --group test-extras
 
@@ -107,7 +117,7 @@ jobs:
         uv run coverage xml -i
 
     - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v5
+      uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
 
     - name: Run linters
       if: ${{ !contains(matrix.python-version, 'pypy') }}
@@ -123,10 +133,12 @@ jobs:
 
   msvc:
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
-        python-version: ['3.10', '3.11', '3.12', '3.13', '3.14', '3.14t', 'pypy-3.11']
+        python-version: ['3.10', '3.11', '3.12', '3.13', '3.14', '3.14t', '3.15', '3.15t', 'pypy-3.11']
         architecture: ['x64']
         os: ['windows-2022']
         include:
@@ -136,33 +148,39 @@ jobs:
           - python-version: '3.14'
             architecture: 'x86'
             os: 'windows-2022'
-          - python-version: '3.14'
+          - python-version: '3.15'
             architecture: 'arm64'
             os: 'windows-11-arm'
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Set up Python ${{ matrix.python-version }}
         id: setup-python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: ${{ matrix.python-version }}
           architecture: ${{ matrix.architecture }}
           allow-prereleases: true
 
       - name: Setup MSVC
-        uses: ilammy/msvc-dev-cmd@v1.13.0
+        uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1.13.0
         with:
           arch : ${{ matrix.architecture }}
 
       - name: Download and extract Cairo Binary
+        env:
+          PYCAIRO_ARCH: ${{ matrix.architecture }}
         run: |
-          python .ci/download-cairo-win32.py "${{ matrix.architecture }}"
+          python .ci/download-cairo-win32.py "$env:PYCAIRO_ARCH"
 
       - name: Install dependencies
+        env:
+          PYTHON_PATH: ${{ steps.setup-python.outputs.python-path }}
         run: |
-          pipx install --python "${{ steps.setup-python.outputs.python-path }}" uv
-          pipx install --python "${{ steps.setup-python.outputs.python-path }}" meson
+          pipx install --python "$env:PYTHON_PATH" uv
+          pipx install --python "$env:PYTHON_PATH" meson
           uv sync
 
       - name: Build & Test with meson
@@ -191,14 +209,17 @@ jobs:
           uv run coverage xml -i
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
 
   macos:
     runs-on: macos-latest
-
+    permissions:
+      contents: read
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Install dependencies
         run: |
@@ -221,4 +242,4 @@ jobs:
           uv run coverage xml -i
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0

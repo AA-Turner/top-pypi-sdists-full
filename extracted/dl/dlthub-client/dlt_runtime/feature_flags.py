@@ -1,3 +1,4 @@
+# Python internals
 from enum import StrEnum
 from typing import Protocol
 

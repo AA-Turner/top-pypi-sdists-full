@@ -15,9 +15,6 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 jobs:
   # ------------------------------------------------------------------
   # Native C build + CTest on Ubuntu and macOS
@@ -34,7 +31,7 @@ jobs:
         os: [ubuntu-22.04, ubuntu-24.04, macos-latest]
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7.0.1
 
     # `make install-deps` is the one dep command a developer also runs: it
     # self-bootstraps jbx and installs jb.toml's runtime+dev groups, auto-
@@ -47,6 +44,28 @@ jobs:
 
     - name: Test
       run: make test
+
+    # dp_isotime.h follows just-bashit's `iso-8601-basic` rather than defining
+    # the format itself, so the reference has to be present for the agreement
+    # to be checkable at all. Clone it and set ISOTIME_REQUIRE=1: without the
+    # flag a missing checkout would SKIP, and a gate that skips in CI is a
+    # gate that stopped gating without saying so.
+    - name: Check ISO 8601 parity with just-bashit
+      run: |
+        # macOS ships BSD date, and BOTH sides of this comparison want GNU:
+        # just-bashit's own helper picks `gdate` when it is there, and this
+        # gate needs it to split an instant into the (seconds, nanoseconds)
+        # pair the C API takes. Installing it keeps the check REQUIRED on
+        # every platform doppler ships a wheel for, rather than quietly
+        # Linux-only -- the C side formats through the platform libc's
+        # gmtime_r, so parity on Linux does not prove parity on macOS.
+        if [ "$RUNNER_OS" = "macOS" ]; then
+            brew install coreutils
+        fi
+        git clone --depth 1 https://github.com/just-buildit/just-bashit.git \
+            "$RUNNER_TEMP/just-bashit"
+        make check-isotime-parity ISOTIME_REQUIRE=1 \
+            JUST_BASHIT="$RUNNER_TEMP/just-bashit"
 
     - name: Example smoke tests
       run: make test-examples
@@ -95,13 +114,13 @@ jobs:
         python-version: ['3.9', '3.10', '3.11', '3.12', '3.13', '3.14']
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7.0.1
 
     - name: Install system dependencies
       run: make install-deps
 
     - name: Install uv + Python + package deps
-      uses: astral-sh/setup-uv@v4
+      uses: astral-sh/setup-uv@v9.0.0
       with:
         python-version: ${{ matrix.python-version }}
 
@@ -115,12 +134,7 @@ jobs:
       # Started here, before any build/test step, because the "Doctest
       # generated stubs" step below now needs a live broker too (stream.pyi's
       # examples create real nats:// Publisher/Push/etc. handles).
-      run: |
-        docker run -d --name nats -p 4222:4222 nats:2.10 -js
-        for _ in $(seq 1 50); do
-          (exec 3<>/dev/tcp/127.0.0.1/4222) 2>/dev/null && break || sleep 0.2
-        done
-        echo "NATS JetStream broker ready on 127.0.0.1:4222"
+      run: bash scripts/start-nats.sh
 
     - name: Build C library
       run: make build
@@ -177,7 +191,7 @@ jobs:
       run: make test-examples-python
 
     - name: Upload coverage report
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7.0.1
       if: matrix.python-version == '3.12'
       with:
         name: coverage-report
@@ -193,7 +207,7 @@ jobs:
     container: debian:buster-slim
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7.0.1
 
     - name: Install build deps + cmake ≥ 3.16
       run: |
@@ -234,9 +248,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7.0.1
 
-    - name: Install doxygen + LaTeX
+    - name: Install doxygen
       run: make install-docs-deps
 
     - name: Run doxygen (zero warnings)
@@ -258,7 +272,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7.0.1
       with:
         fetch-depth: 0
 
@@ -275,10 +289,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7.0.1
 
     - name: Install uv
-      uses: astral-sh/setup-uv@v4
+      uses: astral-sh/setup-uv@v9.0.0
       with:
         python-version: '3.12'
 
@@ -307,7 +321,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7.0.1
 
     - name: Build + smoke the build-on-doppler images
       run: make docker-examples
@@ -335,7 +349,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7.0.1
 
     # uv, not bare setup-python: the hooks now DISPATCH into the Makefile
     # (`make -s lint-ruff`), which invokes `$(DEV_RUN) <tool>` so the version
@@ -344,7 +358,7 @@ jobs:
     # local cache and a fresh runner holding different mdformat plugins and
     # disagreeing about the same file.
     - name: Install uv
-      uses: astral-sh/setup-uv@v4
+      uses: astral-sh/setup-uv@v9.0.0
       with:
         python-version: '3.12'
 
@@ -362,10 +376,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7.0.1
 
     - name: Install uv
-      uses: astral-sh/setup-uv@v4
+      uses: astral-sh/setup-uv@v9.0.0
 
     - name: Check manifest drift
       # --refresh: ignore setup-uv's cached PyPI index so a just-published jm
@@ -387,7 +401,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7.0.1
       with:
         # Full history so the patch gate can diff against origin/main.
         fetch-depth: 0
@@ -400,7 +414,7 @@ jobs:
         sudo apt-get install -y clang llvm
 
     - name: Install uv + Python + package deps
-      uses: astral-sh/setup-uv@v4
+      uses: astral-sh/setup-uv@v9.0.0
       with:
         python-version: '3.13'
 
@@ -410,12 +424,7 @@ jobs:
     - name: Start NATS JetStream broker (covers the nats:// stream path)
       # The stream suite's nats:// tests self-skip when 127.0.0.1:4222 is
       # unreachable; start a JetStream broker so stream_nats.c is exercised.
-      run: |
-        docker run -d --name nats -p 4222:4222 nats:2.10 -js
-        for _ in $(seq 1 50); do
-          (exec 3<>/dev/tcp/127.0.0.1/4222) 2>/dev/null && break || sleep 0.2
-        done
-        echo "NATS JetStream broker ready on 127.0.0.1:4222"
+      run: bash scripts/start-nats.sh
 
     - name: Coverage (clang source-based; C ∪ Python ∪ Rust)
       run: make coverage | tee coverage.txt
@@ -442,7 +451,7 @@ jobs:
 
     - name: Upload coverage report
       if: always()
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7.0.1
       with:
         name: coverage-report
         path: |

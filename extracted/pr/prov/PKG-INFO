@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: prov
-Version: 3.0.0
-Summary: A library for W3C Provenance Data Model supporting PROV-JSON, PROV-XML and PROV-O (RDF)
+Version: 3.1.0
+Summary: A library for W3C Provenance Data Model supporting PROV-JSON, PROV-XML, PROV-O (RDF) and PROV-JSONLD
 Author-email: Trung Dong Huynh <trungdong@donggiang.com>
 License-Expression: MIT
 Project-URL: Homepage, https://github.com/trungdong/prov
@@ -9,7 +9,7 @@ Project-URL: Documentation, https://prov.readthedocs.io
 Project-URL: Repository, https://github.com/trungdong/prov
 Project-URL: Issues, https://github.com/trungdong/prov/issues
 Project-URL: Changelog, https://prov.readthedocs.io/en/latest/history.html
-Keywords: provenance,graph,model,PROV,PROV-DM,PROV-JSON,W3C,PROV-XML,PROV-N,PROV-O,RDF
+Keywords: provenance,graph,model,PROV,PROV-DM,PROV-JSON,W3C,PROV-XML,PROV-N,PROV-O,RDF,PROV-JSONLD,JSON-LD
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Information Technology
@@ -28,7 +28,7 @@ Classifier: Topic :: Scientific/Engineering :: Information Analysis
 Classifier: Topic :: Security
 Classifier: Topic :: System :: Logging
 Requires-Python: >=3.10
-Description-Content-Type: text/x-rst
+Description-Content-Type: text/markdown
 License-File: LICENSE
 Provides-Extra: rdf
 Requires-Dist: rdflib<8,>=7.0.0; extra == "rdf"
@@ -45,68 +45,47 @@ Requires-Dist: pydot>=1.2.0; extra == "plot"
 Requires-Dist: networkx>=2.0; extra == "plot"
 Dynamic: license-file
 
-============
-Introduction
-============
+# Introduction
 
+[![Latest Release](https://badge.fury.io/py/prov.svg)](http://badge.fury.io/py/prov)
+[![License](https://img.shields.io/pypi/l/prov.svg)](https://pypi.python.org/pypi/prov/)
+[![CI Status](https://github.com/trungdong/prov/workflows/CI/badge.svg)](https://github.com/trungdong/prov/actions?workflow=CI)
+[![Coverage Status](https://img.shields.io/coveralls/trungdong/prov.svg)](https://coveralls.io/r/trungdong/prov?branch=master)
+[![Codacy Badge](https://app.codacy.com/project/badge/Grade/73bdf6dda3884abf9f5e79352c07e66c)](https://app.codacy.com/gh/trungdong/prov/dashboard)
+[![Supported Python version](https://img.shields.io/pypi/pyversions/prov.svg)](https://pypi.python.org/pypi/prov/)
 
-.. image:: https://badge.fury.io/py/prov.svg
-  :target: http://badge.fury.io/py/prov
-  :alt: Latest Release
-.. image:: https://github.com/trungdong/prov/workflows/CI/badge.svg
-  :target: https://github.com/trungdong/prov/actions?workflow=CI
-  :alt: CI Status
-.. image:: https://img.shields.io/coveralls/trungdong/prov.svg
-  :target: https://coveralls.io/r/trungdong/prov?branch=master
-  :alt: Coverage Status
-.. image:: https://img.shields.io/pypi/wheel/prov.svg
-  :target: https://pypi.python.org/pypi/prov/
-  :alt: Wheel Status
-.. image:: https://img.shields.io/pypi/pyversions/prov.svg
-  :target: https://pypi.python.org/pypi/prov/
-  :alt: Supported Python version
-.. image:: https://img.shields.io/pypi/l/prov.svg
-  :target: https://pypi.python.org/pypi/prov/
-  :alt: License
+A library for W3C Provenance Data Model supporting PROV-O (RDF), PROV-XML, PROV-JSON and PROV-JSONLD import/export
 
+- Free software: MIT license
+- Documentation: <http://prov.readthedocs.io/>.
+- Python 3 only.
 
-A library for W3C Provenance Data Model supporting PROV-O (RDF), PROV-XML, PROV-JSON import/export
+## Features
 
-* Free software: MIT license
-* Documentation: http://prov.readthedocs.io/.
-* Python 3 only.
+- An implementation of the [W3C PROV Data Model](http://www.w3.org/TR/prov-dm/) in Python.
+- In-memory classes for PROV assertions, which can then be output as [PROV-N](http://www.w3.org/TR/prov-n/)
+- Serialization and deserialization support: [PROV-O](http://www.w3.org/TR/prov-o/) (RDF), [PROV-XML](http://www.w3.org/TR/prov-xml/), [PROV-JSON](http://www.w3.org/Submission/prov-json/) and [PROV-JSONLD](https://www.w3.org/submissions/prov-jsonld/).
+- Exporting PROV documents into various graphical formats (e.g. PDF, PNG, SVG).
+- Convert a PROV document to a [Networkx MultiDiGraph](https://networkx.github.io/documentation/stable/reference/classes/multidigraph.html) and back.
 
-Features
---------
+### Uses
 
-* An implementation of the `W3C PROV Data Model <http://www.w3.org/TR/prov-dm/>`_ in Python.
-* In-memory classes for PROV assertions, which can then be output as `PROV-N <http://www.w3.org/TR/prov-n/>`_
-* Serialization and deserialization support: `PROV-O <http://www.w3.org/TR/prov-o/>`_ (RDF), `PROV-XML <http://www.w3.org/TR/prov-xml/>`_ and `PROV-JSON <http://www.w3.org/Submission/prov-json/>`_.
-* Exporting PROV documents into various graphical formats (e.g. PDF, PNG, SVG).
-* Convert a PROV document to a `Networkx MultiDiGraph <https://networkx.github.io/documentation/stable/reference/classes/multidigraph.html>`_ and back.
+See [a short tutorial](http://trungdong.github.io/prov-python-short-tutorial.html) for using this package.
 
-
-Uses
-^^^^
-
-See `a short tutorial  <http://trungdong.github.io/prov-python-short-tutorial.html>`_ for using this package.
-
-This package is used extensively by `ProvStore <https://openprovenance.org/store/>`_,
+This package is used extensively by [ProvStore](https://openprovenance.org/store/),
 a free online repository for provenance documents.
 
+## Roadmap
 
-Roadmap
--------
+3.0.0 has been released, completing the staged modernisation (tooling, type hints,
+tests, documentation, standards conformance). See
+[ROADMAP.md](https://github.com/trungdong/prov/blob/master/ROADMAP.md) for the plan
+and the 3.x API-stability promise.
+Feedback is welcome on the [issue tracker](https://github.com/trungdong/prov/issues).
 
-The library is undergoing a staged modernisation (tooling, type hints, tests,
-documentation, standards conformance), a batch of bug fixes, and new format support.
-See `ROADMAP.md <ROADMAP.md>`_ for the plan and the 2.x API-stability promise.
-Feedback is welcome on the `issue tracker <https://github.com/trungdong/prov/issues>`_.
+## Supported versions
 
-
-Supported versions
--------------------
-
-Only the latest 2.x release is supported; 1.x and earlier no longer receive
-fixes. See `SECURITY.md <SECURITY.md>`_ for the full support table and how to
-report a vulnerability.
+The latest 3.x release receives all fixes. The most recent 2.x release
+receives security fixes only; 1.x and earlier no longer receive fixes. See
+[SECURITY.md](https://github.com/trungdong/prov/blob/master/SECURITY.md)
+for the full support table and how to report a vulnerability.

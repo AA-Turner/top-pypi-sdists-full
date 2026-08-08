@@ -62,7 +62,20 @@ from .procsplit import broker
 
 logger = logging.getLogger(__name__)
 
-RECEIPT_VERSION = "cell-receipt-v1"
+# th#1657 bumped v1 -> v2: the claim set gained `publisher_tier` and
+# `publisher_org_id`, and they are LOAD-BEARING at the arm gate below. A v1
+# receipt must not be read as a v2 one with the trust fields missing, so the
+# version check refuses it outright rather than defaulting them.
+RECEIPT_VERSION = "cell-receipt-v2"
+
+# Publisher tiers (th#1657). `platform` means the platform vouches for the
+# publishing org's endpoint code, so the cell is adoptable fleet-wide within its
+# family. Anything else — including an absent or unrecognised value — is `org`,
+# and an org-scoped cell is adoptable only by pods of the endpoint that minted
+# it. There is deliberately no third value and no "unknown" branch: every
+# unparseable tier must land on the NARROWER rule.
+CELL_PUBLISHER_TIER_PLATFORM = "platform"
+CELL_PUBLISHER_TIER_ORG = "org"
 # The algorithms this worker can actually recompute from local bytes. A
 # receipt naming anything else is refused, never assumed.
 ARTIFACT_DIGEST_ALGORITHMS = ("sha256",)
@@ -92,6 +105,9 @@ class Receipt:
     axes: Dict[str, str]
     owning_endpoint_id: str
     publisher: str
+    # th#1657: the publisher-trust boundary, inside the signature.
+    publisher_tier: str
+    publisher_org_id: str
     snapshot_digest: str
     artifact_path: str
     # Canonical, ALGORITHM-TAGGED ("<algo>:<hex>"). Never bare hex.
@@ -148,6 +164,135 @@ def _b64url_decode(segment: str) -> bytes:
         return base64.urlsafe_b64decode(segment + pad)
     except (binascii.Error, ValueError) as exc:
         raise ReceiptError("receipt_malformed", f"base64url decode failed: {exc}") from exc
+
+
+# -- th#1657 publisher trust ------------------------------------------------
+
+
+def _normalize_publisher_tier(raw: object) -> str:
+    """Anything that is not exactly ``platform`` is ``org``.
+
+    No error return and no third value on purpose: a caller forced to branch on
+    an error eventually gets the branch wrong, and every wrong branch here ends
+    in ``dlopen``.
+    """
+    if str(raw or "").strip() == CELL_PUBLISHER_TIER_PLATFORM:
+        return CELL_PUBLISHER_TIER_PLATFORM
+    return CELL_PUBLISHER_TIER_ORG
+
+
+def _self_grant_claim(cfg: "_Config", name: str) -> str:
+    """One hub-stamped cell-read grant claim, read out of our OWN worker JWT.
+
+    The hub stamps ``cell_read_endpoint_id`` on the cell-read grant (th#1335 +
+    th#1657) precisely so both ends of the exchange can name the viewer. Reading
+    it here means the pod's identity comes from the credential the hub issued
+    for this pod — not from config, not from an env var, and not from anything
+    the cell being adopted can influence.
+
+    The payload is decoded WITHOUT verifying the signature, and that is correct:
+    this is our OWN bearer token, not an input. A worker that forged its own
+    credential would be attacking itself, and the hub verifies it on every call
+    anyway. What must not be trusted is the RECEIPT, and that one is
+    signature-verified before it reaches the comparison.
+    """
+    try:
+        token = str(cfg.worker_jwt() or "").strip()
+    except Exception:  # noqa: BLE001 — a credential provider that raises is not an identity
+        return ""
+    parts = token.split(".")
+    if len(parts) != 3:
+        return ""
+    try:
+        payload = json.loads(_b64url_decode(parts[1]).decode("utf-8"))
+    except (ReceiptError, ValueError, UnicodeDecodeError):
+        return ""
+    if not isinstance(payload, dict):
+        return ""
+    return str(payload.get(name) or "").strip()
+
+
+def _self_endpoint_id(cfg: "_Config") -> str:
+    """The endpoint this pod serves (th#1657)."""
+    return _self_grant_claim(cfg, "cell_read_endpoint_id")
+
+
+def _self_org_id(cfg: "_Config") -> str:
+    """The ORG that owns this pod's endpoint (th#1680).
+
+    Absent on a hub older than th#1680, and absent when the hub could not
+    resolve the org — both of which fall back to endpoint-only matching, i.e.
+    exactly pgw#1008's behaviour. Never wider.
+    """
+    return _self_grant_claim(cfg, "cell_read_org_id")
+
+
+def refuse_untrusted_publisher(
+    receipt: Receipt, self_endpoint_id: str, self_org_id: str = "",
+) -> None:
+    """Raise unless this pod may adopt ``receipt``'s cell (th#1657).
+
+    THE RULE: a cell must have come from THIS endpoint, from THIS pod's OWN ORG,
+    or from a publisher the platform vouches for.
+
+    Paul's ruling is literally endpoint-scoped (*"must have come from endpoint-A
+    itself, or from a publisher that is us or a trusted party"*) and pgw#1008
+    implemented exactly that — because the worker had no way to name its own
+    org. th#1680 stamps ``cell_read_org_id`` on the grant, and the ORG is the
+    rule the hub's listing has applied all along
+    (``authz.CellAdoptable``). Until now the two layers disagreed: the listing
+    showed an org its own cell from a sibling endpoint, and this function
+    refused it, costing a wasted download plus a full cold mint and emitting a
+    ``publisher_untrusted`` that reads like an attack when it is the platform
+    disagreeing with itself.
+
+    THREAT: cross-tenant native-code execution. The artifact is a ``.so`` this
+    process is about to ``dlopen``. Nothing else prevents it — the digest proves
+    the bytes are the ones the hub signed, not that the hub meant them for US;
+    the cell key proves nothing at all, because the hub cannot verify
+    artifact-to-graph correspondence without recompiling; and the hub's own
+    listing filter (th#1657 hub half) is the only thing standing between us and
+    another org's cell on the ONE path that goes through a listing. This runs on
+    every path, and it is the last check before the load.
+
+    THE FIELD WAS ALREADY HERE. ``owning_endpoint_id`` has ridden the signed
+    receipt since pgw#709 and was decoded into ``Receipt`` and then compared
+    against nothing — so a valid signature was read as "this cell is genuine"
+    and armed on whatever pod happened to fetch it. We were paying for the
+    attestation and discarding the field that made it a trust decision.
+    """
+    if receipt.publisher_tier == CELL_PUBLISHER_TIER_PLATFORM:
+        return
+    owner = str(receipt.owning_endpoint_id or "").strip()
+    mine = str(self_endpoint_id or "").strip()
+    owner_org = str(receipt.publisher_org_id or "").strip()
+    my_org = str(self_org_id or "").strip()
+
+    # Same endpoint: the narrowest match, and the only one a pre-th#1680 hub can
+    # support.
+    if owner and mine and owner == mine:
+        return
+    # Same org (th#1680). BOTH sides must be non-empty: an empty-equals-empty
+    # match is the vacuous-guard shape this module already refuses elsewhere —
+    # two cells neither of which can be attributed must not match each other.
+    if owner_org and my_org and owner_org == my_org:
+        return
+
+    if not owner and not owner_org:
+        raise ReceiptError(
+            "publisher_untrusted",
+            "org-tier receipt names neither an owning endpoint nor a publisher "
+            "org, so no pod may adopt it")
+    if not mine and not my_org:
+        raise ReceiptError(
+            "publisher_untrusted",
+            "this pod cannot name its own endpoint or org (no cell_read_* claim "
+            "on the worker credential), so it may adopt platform-tier cells only")
+    raise ReceiptError(
+        "publisher_untrusted",
+        f"cell was minted for endpoint {owner or '<unnamed>'} "
+        f"(org {owner_org or '<unnamed>'}) and this pod serves "
+        f"{mine or '<unnamed>'} (org {my_org or '<unnamed>'})")
 
 
 def _rsa_key_from_jwk(jwk: Mapping[str, object]) -> Optional[rsa.RSAPublicKey]:
@@ -247,6 +392,8 @@ def verify_receipt_jws(jws: str, keys: Mapping[str, rsa.RSAPublicKey]) -> Receip
         axes=axes,
         owning_endpoint_id=str(payload.get("owning_endpoint_id") or ""),
         publisher=str(payload.get("publisher") or ""),
+        publisher_tier=_normalize_publisher_tier(payload.get("publisher_tier")),
+        publisher_org_id=str(payload.get("publisher_org_id") or ""),
         snapshot_digest=str(payload.get("snapshot_digest") or ""),
         artifact_path=str(artifact.get("path") or ""),
         artifact_digest=canonical_artifact_digest(str(artifact.get("digest") or "")),
@@ -426,8 +573,14 @@ def verify_delivered_artifact(artifact: Path, family: str) -> Receipt:
     Chain of trust: receipt signature (hub key via JWKS) -> local bytes
     (the receipt's OWN algorithm + integral size) -> embedded metadata
     (inside the digested bytes) -> ``meta.cell_key == receipt.cell_key`` ->
+    **the PUBLISHER** (th#1657: platform tier, or this pod's own endpoint) ->
     the runtime's own computed key (enforced downstream by the th#883
     selection brain).
+
+    The publisher link is last because it is the only one that asks a question
+    about US rather than about the bytes, and it is the one that was missing:
+    every other link proved the artifact was the one the hub signed, and none
+    of them asked whether the hub signed it for this pod.
     """
     with _LOCK:
         cfg = _CONFIG
@@ -487,6 +640,12 @@ def verify_delivered_artifact(artifact: Path, family: str) -> Receipt:
             "cell_revoked",
             f"key={receipt.cell_key} snapshot={receipt.snapshot_digest} is recalled")
 
+    # th#1657, LAST: who published this, and may we run it. Deliberately after
+    # the signature — the tier is only meaningful once the claims are proven —
+    # and deliberately before the return, because the caller's next act is to
+    # arm the cell and dlopen it.
+    refuse_untrusted_publisher(receipt, _self_endpoint_id(cfg), _self_org_id(cfg))
+
     return receipt
 
 
@@ -532,6 +691,8 @@ def gate_delivered_artifact(artifact: Path, family: str) -> bool:
 
 __all__ = [
     "ARTIFACT_DIGEST_ALGORITHMS",
+    "CELL_PUBLISHER_TIER_ORG",
+    "CELL_PUBLISHER_TIER_PLATFORM",
     "Receipt",
     "ReceiptError",
     "artifact_digests",
@@ -539,6 +700,7 @@ __all__ = [
     "configure",
     "configured",
     "gate_delivered_artifact",
+    "refuse_untrusted_publisher",
     "reset",
     "verify_delivered_artifact",
     "verify_receipt_jws",

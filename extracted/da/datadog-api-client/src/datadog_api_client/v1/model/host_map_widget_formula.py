@@ -53,7 +53,7 @@ class HostMapWidgetFormula(ModelNormal):
         :param alias: Expression alias.
         :type alias: str, optional
 
-        :param dimension: Visual dimension driven by a formula in the infrastructure host map widget.
+        :param dimension: Visual dimension for the host map widget. Used both by infrastructure-backed formulas and by DDSQL projection columns; ``group`` is only meaningful for DDSQL projection columns, where repeated entries define the grouping hierarchy.
         :type dimension: HostMapWidgetDimension
 
         :param formula: String expression built from queries, formulas, and functions.

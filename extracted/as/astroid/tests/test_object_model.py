@@ -88,6 +88,44 @@ class BoundMethodModelTest(unittest.TestCase):
         self.assertIsInstance(self_, astroid.Instance)
         self.assertEqual(self_.name, "A")
 
+    def test_bound_method_model_classmethod_on_class(self) -> None:
+        """A classmethod accessed on its class proxies the function directly.
+
+        Reported in https://github.com/pylint-dev/pylint/issues/11198, where
+        ``getattr()`` on ``__func__`` aborted the whole pylint run.
+        """
+        ast_nodes = builder.extract_node("""
+        class A:
+            @classmethod
+            def test(cls): pass
+        A.test.__func__ #@
+        getattr(A.test, "__func__") #@
+        A.test.__self__ #@
+        """)
+        assert isinstance(ast_nodes, list)
+        for node in ast_nodes[:2]:
+            func = next(node.infer())
+            self.assertIsInstance(func, nodes.FunctionDef)
+            self.assertEqual(func.name, "test")
+
+        self_ = next(ast_nodes[2].infer())
+        self.assertIsInstance(self_, nodes.ClassDef)
+        self.assertEqual(self_.name, "A")
+
+    def test_bound_method_model_lambda_class_attribute(self) -> None:
+        """A lambda assigned as a class attribute is proxied directly too."""
+        ast_nodes = builder.extract_node("""
+        class A:
+            test = lambda self: 1
+        a = A()
+        a.test.__func__ #@
+        getattr(a.test, "__func__") #@
+        """)
+        assert isinstance(ast_nodes, list)
+        for node in ast_nodes:
+            func = next(node.infer())
+            self.assertIsInstance(func, nodes.Lambda)
+
 
 class UnboundMethodModelTest(unittest.TestCase):
     def test_unbound_method_model(self) -> None:
@@ -628,13 +666,13 @@ class GeneratorModelTest(unittest.TestCase):
         doc = next(ast_nodes[1].infer())
         self.assertEqual(doc.value, "a")
 
+        # ``gi_code`` and ``gi_frame`` are data descriptors, so they resolve but
+        # the values they return are not statically known.
         gi_code = next(ast_nodes[2].infer())
-        self.assertIsInstance(gi_code, nodes.ClassDef)
-        self.assertEqual(gi_code.name, "gi_code")
+        self.assertIs(gi_code, util.Uninferable)
 
         gi_frame = next(ast_nodes[3].infer())
-        self.assertIsInstance(gi_frame, nodes.ClassDef)
-        self.assertEqual(gi_frame.name, "gi_frame")
+        self.assertIs(gi_frame, util.Uninferable)
 
         send = next(ast_nodes[4].infer())
         self.assertIsInstance(send, astroid.BoundMethod)
@@ -702,6 +740,21 @@ class ExceptionModelTest(unittest.TestCase):
             inferred = next(node.infer())
             assert isinstance(inferred, nodes.Const)
             assert inferred.value == value
+
+    @staticmethod
+    def test_traceback_frame_attribute() -> None:
+        """The frame a traceback exposes is a data descriptor, so its value is
+        unknown rather than a class named after the attribute.
+
+        Closes https://github.com/pylint-dev/pylint/issues/11218
+        """
+        node = builder.extract_node("""
+        try:
+            raise ValueError("a")
+        except ValueError as err:
+            err.__traceback__.tb_frame.f_locals #@
+        """)
+        assert node.inferred() == [util.Uninferable]
 
     def test_unicodedecodeerror(self) -> None:
         code = """

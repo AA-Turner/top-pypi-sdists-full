@@ -1449,6 +1449,7 @@ __all__ = (
     "UpdateContactRequestTypeDef",
     "UpdateContactRoutingDataRequestTypeDef",
     "UpdateContactScheduleRequestTypeDef",
+    "UpdateContactTaskTemplateRequestTypeDef",
     "UpdateDataTableAttributeRequestTypeDef",
     "UpdateDataTableAttributeResponseTypeDef",
     "UpdateDataTableMetadataRequestTypeDef",
@@ -4971,6 +4972,12 @@ class UpdateContactFlowNameRequestTypeDef(TypedDict):
     ContactFlowId: str
     Name: NotRequired[str]
     Description: NotRequired[str]
+
+
+class UpdateContactTaskTemplateRequestTypeDef(TypedDict):
+    InstanceId: str
+    TaskTemplateId: str
+    ContactId: str
 
 
 class UpdateDataTableMetadataRequestTypeDef(TypedDict):

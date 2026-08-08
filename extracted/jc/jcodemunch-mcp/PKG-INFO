@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: jcodemunch-mcp
-Version: 1.108.251
+Version: 1.108.264
 Summary: Token-efficient MCP server for source code exploration via tree-sitter AST parsing
 Project-URL: Homepage, https://github.com/jgravelle/jcodemunch-mcp
 Project-URL: Repository, https://github.com/jgravelle/jcodemunch-mcp

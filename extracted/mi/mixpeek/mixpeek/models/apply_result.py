@@ -34,9 +34,11 @@ class ApplyResult(BaseModel):
     failed_count: Optional[StrictInt] = Field(default=0, description="Number of resources that failed")
     skipped_count: Optional[StrictInt] = Field(default=0, description="Number of resources skipped")
     errors: Optional[List[StrictStr]] = Field(default=None, description="Error messages")
-    rollback_performed: Optional[StrictBool] = Field(default=False, description="Whether rollback was performed due to failure")
+    warnings: Optional[List[StrictStr]] = Field(default=None, description="Non-fatal issues found while PARSING the manifest, chiefly keys the parser had to drop. MG-1435: the parser already detects these and /validate and /lint already surface them, but /apply computed them and threw them away — so anyone applying without validating first got a 201 and no hint that part of their manifest was ignored. A collection-level `field_passthrough:` is the case that cost a customer POC: detected, described, discarded.")
+    rollback_performed: Optional[StrictBool] = Field(default=False, description="Whether a rollback was ATTEMPTED after a failure. MG-1440: this used to read as 'the namespace was returned to its prior state', which it does not mean — rollback deletes only namespaces and buckets today, so any other resource created before the failure SURVIVES. Read `rollback_orphans` to find out what is still there.")
+    rollback_orphans: Optional[List[StrictStr]] = Field(default=None, description="Resources created before the failure that rollback did NOT delete, as '<type>/<id>'. Non-empty means the namespace is in a PARTIAL state and a straight retry will hit AlreadyExists on these. MG-1440: previously these were silently skipped while rollback_performed=true claimed otherwise, which is the state that had to be unpicked by hand on the Radio-Canada POC.")
     dry_run: Optional[StrictBool] = Field(default=False, description="Whether this was a dry run (no changes made)")
-    __properties: ClassVar[List[str]] = ["success", "resources", "created_count", "failed_count", "skipped_count", "errors", "rollback_performed", "dry_run"]
+    __properties: ClassVar[List[str]] = ["success", "resources", "created_count", "failed_count", "skipped_count", "errors", "warnings", "rollback_performed", "rollback_orphans", "dry_run"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -102,7 +104,9 @@ class ApplyResult(BaseModel):
             "failed_count": obj.get("failed_count") if obj.get("failed_count") is not None else 0,
             "skipped_count": obj.get("skipped_count") if obj.get("skipped_count") is not None else 0,
             "errors": obj.get("errors"),
+            "warnings": obj.get("warnings"),
             "rollback_performed": obj.get("rollback_performed") if obj.get("rollback_performed") is not None else False,
+            "rollback_orphans": obj.get("rollback_orphans"),
             "dry_run": obj.get("dry_run") if obj.get("dry_run") is not None else False
         })
         return _obj

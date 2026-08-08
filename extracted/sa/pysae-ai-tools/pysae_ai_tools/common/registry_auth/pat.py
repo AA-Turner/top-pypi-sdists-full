@@ -25,6 +25,7 @@ The token is only ever sent as a request header: never in a URL, never logged.
 
 from dataclasses import dataclass
 from datetime import date, timedelta
+from urllib.parse import urlencode
 
 # ``httpx`` is imported inside the two functions that call GitLab, not at module
 # level: ``env/config.py`` reads this module's constants and ``creation_url``,
@@ -35,13 +36,19 @@ from datetime import date, timedelta
 # container registry, self_rotate the renewal below.
 REQUIRED_SCOPES: tuple[str, ...] = ("read_api", "read_registry", "self_rotate")
 
-# Name pre-filled in the creation link, so a token this CLI manages is
-# recognisable in the user's GitLab settings.
+# Name and description pre-filled in the creation link, so a token this CLI
+# manages is recognisable — and explains itself — in the user's GitLab settings,
+# months later, next to tokens created by hand.
 TOKEN_NAME = "pysae-ai-tools-registry"
+TOKEN_DESCRIPTION = (
+    "Lecture des registries privées GitLab (paquets Python, npm, images de conteneurs). "
+    "Créé et renouvelé automatiquement par pysae-ai-tools."
+)
 
-# Rotate this many days before expiry. Wide enough that a developer who runs
-# the CLI weekly never hits an expired credential.
-ROTATION_THRESHOLD_DAYS = 14
+# Rotate this many days before expiry. A month of runway: a developer who does
+# not touch the CLI for a few weeks — holidays, another project — still comes
+# back to a credential that renewed itself rather than one to recreate by hand.
+ROTATION_THRESHOLD_DAYS = 30
 
 # Window asked for at rotation when the original one cannot be read (GitLab
 # omitted ``created_at``). Never GitLab's own default, which is a week — see the
@@ -126,8 +133,13 @@ class TokenInfo:
         return remaining <= threshold
 
 
-def creation_url(host: str, name: str = TOKEN_NAME, scopes: tuple[str, ...] = REQUIRED_SCOPES) -> str:
-    """GitLab token-creation page with the name and scopes pre-filled.
+def creation_url(
+    host: str,
+    name: str = TOKEN_NAME,
+    scopes: tuple[str, ...] = REQUIRED_SCOPES,
+    description: str = TOKEN_DESCRIPTION,
+) -> str:
+    """GitLab token-creation page with the name, description and scopes pre-filled.
 
     A link rather than an API call because GitLab has no self-serve endpoint
     that can mint this token. ``POST /user/personal_access_tokens`` does accept
@@ -137,8 +149,16 @@ def creation_url(host: str, name: str = TOKEN_NAME, scopes: tuple[str, ...] = RE
     when the calling token itself carries ``api``. Creating the credential is
     therefore the developer's own action, which also matches the rule that they
     create and hold their own PAT.
+
+    The expiry is deliberately **not** in the link. GitLab's form only reads
+    ``name``, ``description`` and ``scopes`` back from the query string when it
+    renders (``set_access_token_params``); ``expires_at`` is permitted on submit
+    but ignored on display, so adding it would silently do nothing. The developer
+    picks the lifetime, and the CLI reconducts whatever they chose at every
+    rotation (see :meth:`TokenInfo.rotation_expiry`).
     """
-    return f"https://{host}/-/user_settings/personal_access_tokens?name={name}&scopes={','.join(scopes)}"
+    query = urlencode({"name": name, "description": description, "scopes": ",".join(scopes)}, safe=",")
+    return f"https://{host}/-/user_settings/personal_access_tokens?{query}"
 
 
 def _parse_day(raw: object) -> date | None:

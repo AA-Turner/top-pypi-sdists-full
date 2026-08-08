@@ -225,7 +225,7 @@ snowflake_dialect.sets("warehouse_scaling_policies").update(
 
 snowflake_dialect.sets("refreshmode_types").clear()
 snowflake_dialect.sets("refreshmode_types").update(
-    ["AUTO", "FULL", "INCREMENTAL"],
+    ["ADAPTIVE", "AUTO", "FULL", "INCREMENTAL"],
 )
 
 snowflake_dialect.sets("initialize_types").clear()
@@ -695,6 +695,11 @@ snowflake_dialect.replace(
     LiteralGrammar=ansi_dialect.get_grammar("LiteralGrammar").copy(
         insert=[
             Ref("ReferencedVariableNameSegment"),
+            # Snowflake Scripting bind variables, e.g. :my_variable. These are
+            # usable wherever a literal value is expected (VALUES lists, WHERE
+            # clauses, etc.).
+            # https://docs.snowflake.com/en/developer-guide/snowflake-scripting/variables#using-a-variable-in-a-sql-statement-binding
+            Ref("BindVariableSegment"),
         ]
     ),
     AccessorGrammar=AnyNumberOf(
@@ -1070,6 +1075,7 @@ class FunctionNameSegment(ansi.FunctionNameSegment):
         OneOf(
             Ref("FunctionNameIdentifierSegment"),
             Ref("QuotedIdentifierSegment"),
+            Ref("SystemFunctionName"),
             # Snowflake's IDENTIFIER pseudo-function
             # https://docs.snowflake.com/en/sql-reference/identifier-literal.html
             Sequence(
@@ -1475,6 +1481,8 @@ class StatementSegment(ansi.StatementSegment):
             Ref("AccessStatementSegment"),
             Ref("CreateStatementSegment"),
             Ref("DefineStatementSegment"),
+            Ref("CreateDbtProjectStatementSegment"),
+            Ref("CreateDcmProjectStatementSegment"),
             Ref("CreateTaskSegment"),
             Ref("CreateUserSegment"),
             Ref("CreateCloneStatementSegment"),
@@ -2037,23 +2045,6 @@ class SelectStatementSegment(ansi.SelectStatementSegment):
     ).copy(
         insert=[Ref("IntoClauseSegment", optional=True)],
         before=Ref("FromClauseSegment", optional=True),
-    )
-
-
-class SelectClauseElementSegment(ansi.SelectClauseElementSegment):
-    """Inherit from ansi but also allow for Snowflake System Functions.
-
-    https://docs.snowflake.com/en/sql-reference/functions-system
-    """
-
-    match_grammar = ansi.SelectClauseElementSegment.match_grammar.copy(
-        insert=[
-            Sequence(
-                Ref("SystemFunctionName"),
-                Bracketed(Delimited(Ref("LiteralGrammar"))),
-            )
-        ],
-        before=Ref("WildcardExpressionSegment"),
     )
 
 
@@ -3283,6 +3274,8 @@ class AccessSchemaObjectSegment(ansi.AccessSchemaObjectSegment):
         "NOTEBOOK",
         "MODEL",
         "WORKSPACE",
+        Sequence("DBT", "PROJECT"),
+        Sequence("DCM", "PROJECT"),
         Sequence("MATERIALIZED", "VIEW"),
         Sequence("DYNAMIC", "TABLE"),
         Sequence("EXTERNAL", "TABLE"),
@@ -3313,6 +3306,8 @@ class AccessSchemaPluralObjectSegment(ansi.AccessSchemaPluralObjectSegment):
         "NOTEBOOKS",
         "MODELS",
         "WORKSPACES",
+        Sequence("DBT", "PROJECTS"),
+        Sequence("DCM", "PROJECTS"),
     )
 
 
@@ -5128,6 +5123,15 @@ class DynamicTableOptionsSegment(BaseSegment):
                 optional=True,
             ),
             Sequence(
+                "INITIALIZATION_WAREHOUSE",
+                Ref("EqualsSegment"),
+                OneOf(
+                    Ref("ObjectReferenceSegment"),
+                    Ref("QuotedLiteralSegment"),
+                ),
+                optional=True,
+            ),
+            Sequence(
                 "WAREHOUSE",
                 Ref("EqualsSegment"),
                 OneOf(
@@ -5416,6 +5420,8 @@ class CreateTaskSegment(BaseSegment):
         ),
         Ref("ObjectReferenceSegment"),
         Indent,
+        # https://docs.snowflake.com/en/sql-reference/sql/create-task#optional-parameters
+        Ref("TagBracketedEqualsSegment", optional=True),
         AnyNumberOf(
             OneOf(
                 Sequence(
@@ -6044,6 +6050,68 @@ class DefineStatementSegment(BaseSegment):
             Delimited(
                 Ref("QuotedLiteralSegment"),
             ),
+            optional=True,
+        ),
+        Ref("CommentEqualsClauseSegment", optional=True),
+    )
+
+
+class CreateDbtProjectStatementSegment(BaseSegment):
+    """A Snowflake `CREATE DBT PROJECT` statement.
+
+    https://docs.snowflake.com/en/sql-reference/sql/create-dbt-project
+    """
+
+    type = "create_dbt_project_statement"
+
+    match_grammar = Sequence(
+        "CREATE",
+        Ref("OrReplaceGrammar", optional=True),
+        "DBT",
+        "PROJECT",
+        Ref("IfNotExistsGrammar", optional=True),
+        Ref("ObjectReferenceSegment"),
+        Sequence(
+            "FROM",
+            Ref("QuotedLiteralSegment"),
+            optional=True,
+        ),
+        Ref("CommentEqualsClauseSegment", optional=True),
+        Sequence(
+            "DBT_VERSION",
+            Ref("EqualsSegment"),
+            Ref("NumericLiteralSegment"),
+            optional=True,
+        ),
+        Sequence(
+            "DEFAULT_TARGET",
+            Ref("EqualsSegment"),
+            Ref("ObjectReferenceSegment"),
+            optional=True,
+        ),
+        Ref("ExternalAccessIntegrationsEqualsSegment", optional=True),
+    )
+
+
+class CreateDcmProjectStatementSegment(BaseSegment):
+    """A Snowflake `CREATE DCM PROJECT` statement.
+
+    https://docs.snowflake.com/en/sql-reference/sql/create-dcm-project
+    """
+
+    type = "create_dcm_project_statement"
+
+    match_grammar = Sequence(
+        "CREATE",
+        Ref("OrReplaceGrammar", optional=True),
+        "DCM",
+        "PROJECT",
+        Ref("IfNotExistsGrammar", optional=True),
+        Ref("ObjectReferenceSegment"),
+        Sequence(
+            "LOG_LEVEL",
+            Ref("EqualsSegment"),
+            OneOf("DEBUG", "INFO", "WARN", "ERROR"),
             optional=True,
         ),
         Ref("CommentEqualsClauseSegment", optional=True),
@@ -7895,7 +7963,7 @@ class CreateStreamStatementSegment(BaseSegment):
         "ON",
         OneOf(
             Sequence(
-                OneOf("TABLE", "VIEW"),
+                OneOf("TABLE", "VIEW", Sequence("DYNAMIC", "TABLE")),
                 Ref("ObjectReferenceSegment"),
                 OneOf(
                     Ref("FromAtExpressionSegment"),
@@ -8221,6 +8289,9 @@ class ShowStatementSegment(BaseSegment):
         "STREAMLITS",
         "TASKS",
         "WORKSPACES",
+        "DEPLOYMENTS",
+        Sequence("DBT", "PROJECTS"),
+        Sequence("DCM", "PROJECTS"),
         Sequence("USER", "FUNCTIONS"),
         Sequence("EXTERNAL", "FUNCTIONS"),
         "PROCEDURES",
@@ -8246,6 +8317,8 @@ class ShowStatementSegment(BaseSegment):
                 "WAREHOUSE",
                 "VIEW",
                 "WORKSPACE",
+                Sequence("DBT", "PROJECT"),
+                Sequence("DCM", "PROJECT"),
             ),
             Ref("ObjectReferenceSegment", optional=True),
         ),
@@ -9113,6 +9186,18 @@ class DescribeStatementSegment(BaseSegment):
                 "CORTEX",
                 "SEARCH",
                 "SERVICE",
+                Ref("ObjectReferenceSegment"),
+            ),
+            # https://docs.snowflake.com/en/sql-reference/sql/desc-dcm-project
+            Sequence(
+                "DCM",
+                "PROJECT",
+                Ref("ObjectReferenceSegment"),
+            ),
+            # https://docs.snowflake.com/en/sql-reference/sql/desc-dbt-project
+            Sequence(
+                "DBT",
+                "PROJECT",
                 Ref("ObjectReferenceSegment"),
             ),
         ),
@@ -10032,9 +10117,14 @@ class BindVariableSegment(BaseSegment):
 
     type = "bind_variable"
 
+    # allow_gaps=False so the colon and the variable name must be adjacent.
+    # Otherwise, when this is reachable in general expressions, input like
+    # `SET a = : WHERE id = 1` would parse `: WHERE` as a bind variable and
+    # corrupt the statement structure instead of failing cleanly.
     match_grammar = Sequence(
         Ref("ColonPrefixSegment"),
         Ref("LocalVariableNameSegment"),
+        allow_gaps=False,
     )
 
 

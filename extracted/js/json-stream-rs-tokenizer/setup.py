@@ -7,7 +7,7 @@ long_description = (this_directory / "README.md").read_text()
 
 setup(
     name="json-stream-rs-tokenizer",
-    version="0.5.1",
+    version="0.5.2.post1",
     rust_extensions=[
         RustExtension(
             "json_stream_rs_tokenizer.json_stream_rs_tokenizer",
@@ -23,7 +23,7 @@ setup(
     readme="README.md",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    license_files=["LICENSE"],
+    license_files=["LICENSE", "LICENSES-RUST-DEPS.html", "LICENSES-RUST.html"],
     project_urls={
         "Repository": (
             "https://github.com/smheidrich/py-json-stream-rs-tokenizer"
@@ -63,6 +63,5 @@ setup(
         "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3.13",
         "Programming Language :: Python :: 3.14",
-        "License :: OSI Approved :: MIT License",
     ],
 )

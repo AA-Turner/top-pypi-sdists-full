@@ -17,8 +17,9 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, StrictStr
+from pydantic import BaseModel, ConfigDict, Field, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
+from tako.aio.models.related_suggestion import RelatedSuggestion
 from tako.aio.models.tako_card import TakoCard
 from tako.aio.models.usage import Usage
 from tako.aio.models.web_result import WebResult
@@ -34,7 +35,8 @@ class SearchResponse(BaseModel):
     web_results: Optional[List[WebResult]] = None
     request_id: StrictStr
     usage: Optional[Usage] = None
-    __properties: ClassVar[List[str]] = ["cards", "web_results", "request_id", "usage"]
+    related: Optional[List[RelatedSuggestion]] = Field(default=None, description="Follow-up queries you can run next. Set `include_related` on the request to receive them. Absent when you did not ask for them, or when Tako found none.")
+    __properties: ClassVar[List[str]] = ["cards", "web_results", "request_id", "usage", "related"]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -92,10 +94,22 @@ class SearchResponse(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of usage
         if self.usage:
             _dict['usage'] = self.usage.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of each item in related (list)
+        _items = []
+        if self.related:
+            for _item_related in self.related:
+                if _item_related:
+                    _items.append(_item_related.to_dict())
+            _dict['related'] = _items
         # set to None if usage (nullable) is None
         # and model_fields_set contains the field
         if self.usage is None and "usage" in self.model_fields_set:
             _dict['usage'] = None
+
+        # set to None if related (nullable) is None
+        # and model_fields_set contains the field
+        if self.related is None and "related" in self.model_fields_set:
+            _dict['related'] = None
 
         return _dict
 
@@ -112,7 +126,8 @@ class SearchResponse(BaseModel):
             "cards": [TakoCard.from_dict(_item) for _item in obj["cards"]] if obj.get("cards") is not None else None,
             "web_results": [WebResult.from_dict(_item) for _item in obj["web_results"]] if obj.get("web_results") is not None else None,
             "request_id": obj.get("request_id"),
-            "usage": Usage.from_dict(obj["usage"]) if obj.get("usage") is not None else None
+            "usage": Usage.from_dict(obj["usage"]) if obj.get("usage") is not None else None,
+            "related": [RelatedSuggestion.from_dict(_item) for _item in obj["related"]] if obj.get("related") is not None else None
         })
         return _obj
 

@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any, Union
 
 from typing_extensions import override
@@ -9,6 +10,7 @@ from faststream.response.response import (
     Response,
     extract_per_message_keys_and_bodies,
     key_for_index,
+    realign_keys,
 )
 
 if TYPE_CHECKING:
@@ -99,9 +101,9 @@ class KafkaPublishCommand(BatchPublishCommand):
 
         # per-message keys support
         keys, normalized = extract_per_message_keys_and_bodies(self.batch_bodies)
+        self._per_message_keys = keys
         if normalized is not None:
             self.batch_bodies = normalized
-        self._per_message_keys = keys
 
     @classmethod
     def from_cmd(
@@ -139,6 +141,24 @@ class KafkaPublishCommand(BatchPublishCommand):
             headers["reply_to"] = self.reply_to
 
         return headers | self.headers
+
+    @BatchPublishCommand.batch_bodies.setter  # type: ignore[attr-defined, untyped-decorator]
+    def batch_bodies(self, value: Sequence["Any"]) -> None:
+        if len(value) == 0:
+            self.body = None
+            self.extra_bodies = ()
+        else:
+            self._align_keys(value)
+            self.body = value[0]
+            self.extra_bodies = tuple(value[1:])
+
+    def _align_keys(self, value: Sequence["Any"]) -> None:
+        """Align the per-message keys with the batch_bodies."""
+        if not self._per_message_keys:
+            return
+        self._per_message_keys = realign_keys(
+            self._per_message_keys, self.batch_bodies, value
+        )
 
 
 # Semantic alias for publish operations

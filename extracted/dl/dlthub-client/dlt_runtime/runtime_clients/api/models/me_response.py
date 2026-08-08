@@ -32,6 +32,7 @@ class MeResponse:
         user_id (UUID): The ID of the current user
         last_workspace (None | Unset | WorkspaceResponse): The most recently accessed workspace; null when the user's
             current organization has no workspaces
+        name (None | str | Unset): The user's display name (full name), or null if the identity provider supplied none
         organizations (list[OrganizationMembershipResponse] | Unset): All organizations the user is a member of
         workspaces (list[WorkspaceWithMembershipResponse] | Unset): All workspaces the user is a member of, with role
             and organization info
@@ -43,6 +44,7 @@ class MeResponse:
     primary_organization: OrganizationResponse
     user_id: UUID
     last_workspace: None | Unset | WorkspaceResponse = UNSET
+    name: None | str | Unset = UNSET
     organizations: list[OrganizationMembershipResponse] | Unset = UNSET
     workspaces: list[WorkspaceWithMembershipResponse] | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -67,6 +69,12 @@ class MeResponse:
             last_workspace = self.last_workspace.to_dict()
         else:
             last_workspace = self.last_workspace
+
+        name: None | str | Unset
+        if isinstance(self.name, Unset):
+            name = UNSET
+        else:
+            name = self.name
 
         organizations: list[dict[str, Any]] | Unset = UNSET
         if not isinstance(self.organizations, Unset):
@@ -95,6 +103,8 @@ class MeResponse:
         )
         if last_workspace is not UNSET:
             field_dict["last_workspace"] = last_workspace
+        if name is not UNSET:
+            field_dict["name"] = name
         if organizations is not UNSET:
             field_dict["organizations"] = organizations
         if workspaces is not UNSET:
@@ -143,6 +153,15 @@ class MeResponse:
 
         last_workspace = _parse_last_workspace(d.pop("last_workspace", UNSET))
 
+        def _parse_name(data: object) -> None | str | Unset:
+            if data is None:
+                return data
+            if isinstance(data, Unset):
+                return data
+            return cast(None | str | Unset, data)
+
+        name = _parse_name(d.pop("name", UNSET))
+
         _organizations = d.pop("organizations", UNSET)
         organizations: list[OrganizationMembershipResponse] | Unset = UNSET
         if _organizations is not UNSET:
@@ -172,6 +191,7 @@ class MeResponse:
             primary_organization=primary_organization,
             user_id=user_id,
             last_workspace=last_workspace,
+            name=name,
             organizations=organizations,
             workspaces=workspaces,
         )

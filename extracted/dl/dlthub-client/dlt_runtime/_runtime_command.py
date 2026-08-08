@@ -8,13 +8,12 @@ import sys
 import time
 from functools import partial
 from http.server import BaseHTTPRequestHandler, HTTPServer
-from urllib.parse import parse_qs, urlparse
-
-import yaml
 from typing import TYPE_CHECKING, Any, Callable, Optional, Set, Union, cast
+from urllib.parse import parse_qs, urlparse
 from uuid import UUID
 
 # Other libraries
+import yaml
 from dlt._workspace._workspace_context import active
 from dlt._workspace.cli import echo as fmt
 from dlt._workspace.cli.exceptions import CliCommandInnerException
@@ -22,7 +21,7 @@ from dlt._workspace.cli.utils import open_url, track_command as dlt_track_comman
 from dlt._workspace.deployment import DEFAULT_DEPLOYMENT_MODULE
 from dlt._workspace.deployment._trigger_helpers import is_selector
 
-
+# Current package
 from dlt_runtime.exceptions import (
     NoRunnableRun,
     OrgRegionRequired,
@@ -43,20 +42,20 @@ from dlt_runtime.runtime_clients.api.api.runs import (
     cancel_run,
     get_run,
 )
-from dlt_runtime.runtime_clients.api.models.bulk_cancel_request import (
-    BulkCancelRequest,
-)
 from dlt_runtime.runtime_clients.api.api.scripts import (
     disable_public_url,
     enable_public_url,
     get_script,
+    pause_script,
+    resume_script,
     trigger_jobs,
 )
-from dlt_runtime.runtime_clients.api.models.trigger_jobs_request import (
+from dlt_runtime.runtime_clients.api.client import Client as ApiClient
+from dlt_runtime.runtime_clients.api.models import (
+    BulkCancelRequest,
+    RunStatus,
     TriggerJobsRequest,
 )
-from dlt_runtime.runtime_clients.api.client import Client as ApiClient
-from dlt_runtime.runtime_clients.api.models.run_status import RunStatus
 from dlt_runtime.runtime_clients.api.types import UNSET, Unset
 from dlt_runtime.runtime_clients.auth.api.workos import (
     workos_auth_code_exchange,
@@ -67,23 +66,40 @@ from dlt_runtime.runtime_clients.auth.api.workos import (
 from dlt_runtime.runtime_clients.auth.errors import (
     UnexpectedStatus as AuthUnexpectedStatus,
 )
+from dlt_runtime.runtime_clients.dataplane_api.models import (
+    VariableChangeResultStatus,
+    VariableUpsert,
+    VariableUpsertType,
+)
 
 if TYPE_CHECKING:
-    from dlt_runtime.runtime_clients.api.models.triggered_job import TriggeredJob
+    from dlt_runtime.runtime_clients.api.models import TriggeredJob
 
-from dlt_runtime._loopback_pages import (
-    _LOOPBACK_ERROR_HTML,
-    _LOOPBACK_SUCCESS_HTML,
+# Other libraries
+from dlt._workspace.deployment._run_helpers import (
+    promote_deployment_arg,
+    resolve_selector,
+    select_single_job,
+    warn_missing_profiles,
 )
+from dlt._workspace.deployment._run_views import pick_one_job
+from dlt._workspace.deployment._trigger_helpers import humanize_trigger
+from dlt._workspace.deployment.exceptions import AmbiguousJobSelector
+from dlt._workspace.deployment.typing import TTrigger
+
+# Current package
+from dlt_runtime import urls
+from dlt_runtime._loopback_pages import _LOOPBACK_ERROR_HTML, _LOOPBACK_SUCCESS_HTML
 from dlt_runtime._runtime_command_helpers import (  # noqa: F401
     _active_org_count,
+    _change_workspace_variables,
     _check_org_arg_matches_pin,
-    _fetch_available_regions,
     _default_dashboard_manifest_bundle,
     _do_deploy_manifest,
     _do_sync_configuration,
     _do_sync_deployment,
     _ensure_profile_warning,
+    _fetch_available_regions,
     _fetch_configuration_info,
     _fetch_configurations,
     _fetch_deployment_info,
@@ -94,6 +110,7 @@ from dlt_runtime._runtime_command_helpers import (  # noqa: F401
     _fetch_run_detail,
     _fetch_runs,
     _fetch_runtime_info,
+    _fetch_workspace_variables,
     _fetch_workspaces,
     _flatten_owned,
     _generate_local_manifest,
@@ -101,13 +118,15 @@ from dlt_runtime._runtime_command_helpers import (  # noqa: F401
     _get_workspace_name,
     _get_workspace_org_name,
     _group_workspaces_by_org,
+    _is_recently_finished_terminal,
     _iter_run_log_stream,
-    _iter_run_logs_historical,
+    _job_is_paused,
+    _open_historical_run_logs,
     _org_id_to_persist,
     _org_label,
     _preprocess_run_output,
     _raise_cross_org,
-    _resolve_dataplane_logs_endpoint,
+    _resolve_dataplane_endpoint,
     _resolve_effective_org_id,
     _resolve_job_ref_from_server,
     _resolve_run_id_by_number,
@@ -124,16 +143,56 @@ from dlt_runtime._runtime_command_helpers import (  # noqa: F401
     requires_login,
     requires_workspace,
 )
-from dlt._workspace.deployment._run_helpers import (
-    promote_deployment_arg,
-    resolve_selector,
-    select_single_job,
-    warn_missing_profiles,
+from dlt_runtime._runtime_command_views import (
+    FAILED_RUN_STATUSES,
+    _confirm_variable_delete,
+    _open_login_page,
+    _print_bulk_cancel_result,
+    _print_configuration_info,
+    _print_configurations,
+    _print_deploy_result,
+    _print_deployment_info,
+    _print_deployments,
+    _print_device_flow_interactive,
+    _print_device_flow_start,
+    _print_job_info,
+    _print_job_paused,
+    _print_job_resumed,
+    _print_job_run_info,
+    _print_jobs,
+    _print_login_result,
+    _print_loopback_login,
+    _print_org_groups_non_interactive,
+    _print_run_banner,
+    _print_run_final_status,
+    _print_runs,
+    _print_runtime_info,
+    _print_show_url,
+    _print_sync_result,
+    _print_trigger_skip,
+    _print_variable_change,
+    _print_variables,
+    _print_waiting_for_auth,
+    _print_workspace_connected,
+    _print_workspaces,
+    _prompt_create_missing_workspace_in_org,
+    _prompt_new_workspace,
+    _prompt_region_selection,
+    _prompt_variable_value,
+    _prompt_workspace_selection,
+    format_job_selector,
+    format_run_status,
 )
-from dlt._workspace.deployment._run_views import pick_one_job
-from dlt._workspace.deployment._trigger_helpers import humanize_trigger
-from dlt._workspace.deployment.exceptions import AmbiguousJobSelector
-from dlt._workspace.deployment.typing import TTrigger
+from dlt_runtime.strings import (
+    JOB_NO_SELECTOR_MATCH,
+    JOB_SCHEDULE_TOGGLE_FAILED,
+    LOGIN_CANCELLED_RESUME_HINT,
+    WORKSPACE_CONNECT_CREATE_DECLINED,
+    WORKSPACE_CONNECT_REQUIRES_NAME_FOR_API_KEY,
+    WORKSPACE_CREATE_REQUIRES_NAME,
+    WORKSPACE_NAME_ALREADY_EXISTS,
+    WORKSPACE_NAME_NOT_FOUND,
+)
 from dlt_runtime.typing import (
     ConnectedWorkspaceInfo,
     CreateInOrgChoice,
@@ -146,49 +205,6 @@ from dlt_runtime.typing import (
     TriggerStatus,
     UserInfo,
     WorkspaceInfo,
-)
-from dlt_runtime import urls
-from dlt_runtime.strings import (
-    LOGIN_CANCELLED_RESUME_HINT,
-    WORKSPACE_CONNECT_CREATE_DECLINED,
-    WORKSPACE_CONNECT_REQUIRES_NAME_FOR_API_KEY,
-    WORKSPACE_CREATE_REQUIRES_NAME,
-    WORKSPACE_NAME_ALREADY_EXISTS,
-    WORKSPACE_NAME_NOT_FOUND,
-)
-from dlt_runtime._runtime_command_views import (
-    _open_login_page,
-    format_job_selector,
-    format_run_status,
-    _print_device_flow_interactive,
-    _print_device_flow_start,
-    _print_loopback_login,
-    _print_waiting_for_auth,
-    _print_login_result,
-    _print_org_groups_non_interactive,
-    _print_runtime_info,
-    _print_run_banner,
-    _print_show_url,
-    _print_sync_result,
-    _print_workspace_connected,
-    _prompt_workspace_selection,
-    _prompt_new_workspace,
-    _prompt_region_selection,
-    _prompt_create_missing_workspace_in_org,
-    _print_workspaces,
-    _print_job_run_info,
-    _print_runs,
-    _print_deployments,
-    _print_deployment_info,
-    _print_configurations,
-    _print_configuration_info,
-    _print_jobs,
-    _print_job_info,
-    _print_deploy_result,
-    _print_bulk_cancel_result,
-    _print_trigger_skip,
-    _print_run_final_status,
-    FAILED_RUN_STATUSES,
 )
 
 
@@ -1305,46 +1321,53 @@ def _fetch_run_logs(
     run_id = run.id
     run_status = run.status
 
-    # Terminal states - fetch static logs
     terminal_states = {
         RunStatus.FAILED,
         RunStatus.CANCELLED,
         RunStatus.COMPLETED,
         RunStatus.SKIPPED,
     }
-
     if run_status in terminal_states:
-        run_info = f"Run # {run.number} of job {run.script.name}"
-        fmt.echo(f"========== Run logs for {run_info} ==========")
-        try:
-            for level, message in _iter_run_logs_historical(
-                run_id, auth_service=auth_service, api_client=api_client
-            ):
-                if level == "log":
-                    fmt.echo(message)
-                elif level == "warning":
-                    fmt.warning(message)
-                elif level == "error":
-                    fmt.error(message)
-        except KeyboardInterrupt:
-            fmt.echo("\nLog fetch interrupted.")
-        fmt.echo(f"========== End of run logs for {run_info} ==========")
-    else:
-        # Stream logs for non-terminal runs
-        header = "Streaming logs" if follow else "Run logs"
-        fmt.echo(f"========== {header} for run (status: {run_status}) ==========")
-        _stream_run_logs(
-            run_id,
-            follow=follow,
-            auth_service=auth_service,
-            api_client=api_client,
-        )
-        footer = "End of log stream" if follow else "End of run logs"
-        fmt.echo(f"========== {footer} ==========")
-        if follow:
-            _show_final_run_status(
-                run_id, auth_service=auth_service, api_client=api_client
-            )
+        # A terminal run serves complete, persisted logs — read them in one request.
+        # 404 on a just-finished run means they aren't consolidated yet: fall through
+        # to streaming. Any other non-200 is a real error.
+        with _open_historical_run_logs(
+            run_id, auth_service=auth_service, api_client=api_client
+        ) as (status, events):
+            if status == 200:
+                run_info = f"Run # {run.number} of job {run.script.name}"
+                fmt.echo(f"========== Run logs for {run_info} ==========")
+                try:
+                    for level, message in events:
+                        if level == "log":
+                            fmt.echo(message)
+                        elif level == "warning":
+                            fmt.warning(message)
+                        elif level == "error":
+                            fmt.error(message)
+                except KeyboardInterrupt:
+                    fmt.echo("\nLog fetch interrupted.")
+                fmt.echo(f"========== End of run logs for {run_info} ==========")
+                return
+            if status != 404:
+                fmt.error(f"Failed to fetch run logs (HTTP {status}).")
+                return
+            if not _is_recently_finished_terminal(run.time_ended):
+                fmt.echo("No logs found for this run.")
+                return
+
+    header = "Streaming logs" if follow else "Run logs"
+    fmt.echo(f"========== {header} for run (status: {run_status}) ==========")
+    _stream_run_logs(
+        run_id,
+        follow=follow,
+        auth_service=auth_service,
+        api_client=api_client,
+    )
+    footer = "End of log stream" if follow else "End of run logs"
+    fmt.echo(f"========== {footer} ==========")
+    if follow:
+        _show_final_run_status(run_id, auth_service=auth_service, api_client=api_client)
 
 
 @requires_login
@@ -2349,3 +2372,167 @@ def job_info(
     )
     job = _fetch_job_info(api_client, auth_service, script_path_or_job_name)
     _print_job_info(job)
+
+
+def _toggle_schedule_pause(
+    selectors: Optional[list[str]],
+    *,
+    pause: bool,
+    auth_service: RuntimeAuthService,
+    api_client: ApiClient,
+) -> None:
+    scripts = _resolve_selectors_to_scripts(
+        selectors or [], api_client=api_client, auth_service=auth_service
+    )
+    if not scripts:
+        fmt.echo(JOB_NO_SELECTOR_MATCH)
+        return
+
+    action = "pause" if pause else "resume"
+    endpoint = pause_script if pause else resume_script
+    # A per-job failure does not stop the rest, but does make the command exit non-zero.
+    failed: list[str] = []
+    for script in scripts:
+        job_ref = str(script.job_ref)
+        # The endpoints are idempotent, so a no-op is reported rather than written again.
+        if _job_is_paused(script) is pause:
+            if pause:
+                _print_job_paused(job_ref, already_paused=True)
+            else:
+                _print_job_resumed(job_ref, was_paused=False)
+            continue
+
+        with handle_client_exceptions():
+            result = endpoint.sync_detailed(
+                client=api_client,
+                workspace_id=_to_uuid(auth_service.workspace_id),
+                script_id_or_ref=job_ref,
+            )
+        if not isinstance(result.parsed, endpoint.ScriptResponse):
+            failed.append(job_ref)
+            fmt.error(
+                str(exception_from_response(f"Cannot {action} {job_ref}", result))
+            )
+            continue
+        if pause:
+            _print_job_paused(job_ref)
+        else:
+            _print_job_resumed(job_ref)
+
+    if failed:
+        raise CliCommandInnerException(
+            cmd="job",
+            msg=JOB_SCHEDULE_TOGGLE_FAILED.format(
+                action=action, job_refs=", ".join(failed)
+            ),
+        )
+
+
+@requires_login
+@requires_workspace
+@track_command(operation="job", suboperation="pause")
+def pause_job(
+    selectors: Optional[list[str]] = None,
+    *,
+    auth_service: RuntimeAuthService,
+    api_client: ApiClient,
+) -> None:
+    _toggle_schedule_pause(
+        selectors, pause=True, auth_service=auth_service, api_client=api_client
+    )
+
+
+@requires_login
+@requires_workspace
+@track_command(operation="job", suboperation="resume")
+def resume_job(
+    selectors: Optional[list[str]] = None,
+    *,
+    auth_service: RuntimeAuthService,
+    api_client: ApiClient,
+) -> None:
+    _toggle_schedule_pause(
+        selectors, pause=False, auth_service=auth_service, api_client=api_client
+    )
+
+
+def _variable_scope_label(profile: Optional[str]) -> str:
+    return f"profile '{profile}'" if profile else "the workspace scope"
+
+
+@requires_login
+@requires_workspace
+@track_command(operation="workspace.variable", suboperation="list")
+def variable_list(
+    profile: Optional[str] = None,
+    workspace_only: bool = False,
+    *,
+    auth_service: RuntimeAuthService,
+    api_client: ApiClient,
+) -> None:
+    scopes = _fetch_workspace_variables(
+        api_client,
+        _to_uuid(auth_service.workspace_id),
+        profile=profile,
+        workspace_only=workspace_only,
+    )
+    _print_variables(scopes)
+
+
+@requires_login
+@requires_workspace
+@track_command(operation="workspace.variable", suboperation="set")
+def variable_set(
+    name: str,
+    secret: bool,
+    value: Optional[str] = None,
+    profile: Optional[str] = None,
+    *,
+    auth_service: RuntimeAuthService,
+    api_client: ApiClient,
+) -> None:
+    if value is None:
+        value = _prompt_variable_value(name)
+    response = _change_workspace_variables(
+        api_client,
+        _to_uuid(auth_service.workspace_id),
+        profile=profile,
+        upserts=[
+            VariableUpsert(
+                name=name,
+                value=value,
+                type_=VariableUpsertType.SECRET if secret else VariableUpsertType.PLAIN,
+            )
+        ],
+    )
+    _print_variable_change(response.results, scope_label=_variable_scope_label(profile))
+
+
+@requires_login
+@requires_workspace
+@track_command(operation="workspace.variable", suboperation="delete")
+def variable_delete(
+    name: str,
+    profile: Optional[str] = None,
+    allow_missing: bool = False,
+    *,
+    auth_service: RuntimeAuthService,
+    api_client: ApiClient,
+) -> None:
+    scope_label = _variable_scope_label(profile)
+    if not _confirm_variable_delete(name, scope_label=scope_label):
+        fmt.echo(f"Left {fmt.bold(name)} in {scope_label}.")
+        return
+    response = _change_workspace_variables(
+        api_client,
+        _to_uuid(auth_service.workspace_id),
+        profile=profile,
+        deletes=[name],
+    )
+    _print_variable_change(response.results, scope_label=scope_label)
+    # The API is idempotent by design; erroring on a missing name is CLI policy.
+    if not allow_missing and any(
+        result.status is VariableChangeResultStatus.NOT_FOUND
+        for result in response.results
+    ):
+        raise RuntimeClientException(f"Variable {name} does not exist in {scope_label}")

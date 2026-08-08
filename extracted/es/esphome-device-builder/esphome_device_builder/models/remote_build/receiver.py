@@ -35,13 +35,16 @@ class StoredPeer(DashboardModel):
     pin_sha256: str
     static_x25519_pub: bytes
     label: str
+    # Original pair time; never refreshed — a re-pair keeps it.
     paired_at: float
     peer_ip: str = ""
     # Offloader-advertised human machine label (its mDNS
     # ``friendly_name``). Captured at pair time and refreshed on
-    # session-open only when the offloader sends a non-empty value.
+    # session-open and re-pair only when the offloader sends a
+    # non-empty value.
     friendly_name: str = ""
-    # Offloader-advertised HA add-on flag; refreshed on session-open.
+    # Offloader-advertised HA add-on flag; refreshed on session-open
+    # and re-pair.
     ha_addon: bool = False
     # True when the offloader's pair dialog label was left at its
     # auto-derived prefill — the UI's signal that ``friendly_name``
@@ -55,31 +58,49 @@ class StoredPeer(DashboardModel):
         pin_sha256: str,
         static_x25519_pub: bytes,
         label: str,
-        paired_at: float,
         peer_ip: str,
         friendly_name: str,
         ha_addon: bool,
         label_auto: bool,
-    ) -> None:
+    ) -> bool:
         """
         Update the fields a fresh ``intent="pair_request"`` supplies.
 
-        ``dashboard_id`` (the row's primary key) is intentionally
-        left out of the refresh set. Caller is responsible for the
+        ``dashboard_id`` (the row's primary key) and ``paired_at``
+        (the original pair time) are intentionally left out of the
+        refresh set; ``label`` / ``peer_ip`` / ``friendly_name``
+        overwrite only with a non-empty value, and ``label_auto``
+        travels with the label it annotates. Returns True when any
+        field changed. Caller is responsible for the
         no-demote-when-APPROVED check before invoking — see
         ``record_pair_request`` for the gating logic. (PENDING vs
-        APPROVED is tracked outside this row: PENDING rows live
-        in ``ReceiverController._pending_peers``, APPROVED in
+        APPROVED is tracked outside this row: PENDING rows live in
+        ``ReceiverController._pending_peers``, APPROVED in
         ``ReceiverPeers.peers``.)
         """
+        before = self._refresh_fields()
         self.pin_sha256 = pin_sha256
         self.static_x25519_pub = static_x25519_pub
-        self.label = label
-        self.paired_at = paired_at
-        self.peer_ip = peer_ip
-        self.friendly_name = friendly_name
+        if label:
+            self.label = label
+            self.label_auto = label_auto
+        if peer_ip:
+            self.peer_ip = peer_ip
+        if friendly_name:
+            self.friendly_name = friendly_name
         self.ha_addon = ha_addon
-        self.label_auto = label_auto
+        return self._refresh_fields() != before
+
+    def _refresh_fields(self) -> tuple[str, bytes, str, str, str, bool, bool]:
+        return (
+            self.pin_sha256,
+            self.static_x25519_pub,
+            self.label,
+            self.peer_ip,
+            self.friendly_name,
+            self.ha_addon,
+            self.label_auto,
+        )
 
 
 @dataclass

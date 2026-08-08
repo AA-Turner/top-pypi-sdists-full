@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: verifiers
-Version: 0.2.1
+Version: 0.3.0
 Summary: Verifiers: Environments for LLM Reinforcement Learning
 Project-URL: Homepage, https://github.com/primeintellect-ai/verifiers
 Project-URL: Documentation, https://github.com/primeintellect-ai/verifiers
@@ -35,11 +35,11 @@ Requires-Dist: numpy>=2.1.0
 Requires-Dist: openai-agents>=0.8.2
 Requires-Dist: openai>=2.9.0
 Requires-Dist: prime-pydantic-config[toml]>=0.4.2
-Requires-Dist: prime-sandboxes>=0.2.31
+Requires-Dist: prime-sandboxes>=0.2.35
 Requires-Dist: prime-tunnel>=0.1.8
 Requires-Dist: pydantic>=2.12.3
 Requires-Dist: pyzmq>=27.1.0
-Requires-Dist: renderers>=0.1.8
+Requires-Dist: renderers>=0.1.9
 Requires-Dist: requests
 Requires-Dist: rich>=11.0.0
 Requires-Dist: setproctitle>=1.3.0
@@ -51,9 +51,11 @@ Provides-Extra: browser
 Requires-Dist: python-dotenv>=1.0.0; extra == 'browser'
 Requires-Dist: stagehand>=3.4.0; extra == 'browser'
 Provides-Extra: harbor
-Requires-Dist: harbor==0.14.0; (python_version >= '3.12') and extra == 'harbor'
+Requires-Dist: harbor==0.20.0; (python_version >= '3.12') and extra == 'harbor'
 Provides-Extra: modal
 Requires-Dist: modal>=1.4.0; extra == 'modal'
+Provides-Extra: nemo-gym
+Requires-Dist: nemo-gym==0.4.0; (python_version >= '3.12') and extra == 'nemo-gym'
 Provides-Extra: notebook
 Requires-Dist: nest-asyncio>=1.6.0; extra == 'notebook'
 Provides-Extra: openenv
@@ -96,7 +98,6 @@ uv tool install prime
 
 - The [docs](docs/) contain short, human-written guides and overviews about the architecture.
 - The [AGENTS.md](AGENTS.md) and [skills](skills/) are for coding agents and go into more details.
-
 
 ## Citation
 

@@ -7,7 +7,7 @@ efficient batch operations.
 from datetime import datetime
 
 from .base import DatabaseConnection
-from .ops import DataAccessOps, TagListingParts
+from .ops import DataAccessOps, LinkExpansionRows, TagListingParts, UpdatedWindow
 from .result import ResultRow
 
 
@@ -252,6 +252,7 @@ class PostgreSQLOps(DataAccessOps):
         bank_id: str,
         entity_names: list[str],
         entity_dates: list,
+        entity_kinds: list[str],
     ) -> dict[str, str]:
         # ORDER BY LOWER(name) so every concurrent batch inserts in the same order
         # as the conflict target (bank_id, LOWER(canonical_name)). ON CONFLICT DO
@@ -263,9 +264,9 @@ class PostgreSQLOps(DataAccessOps):
         # the database's own collation the single arbiter for all writers.
         inserted_rows = await conn.fetch(
             f"""
-            INSERT INTO {table} (bank_id, canonical_name, first_seen, last_seen, mention_count)
-            SELECT $1, name, COALESCE(event_date, now()), COALESCE(event_date, now()), 0
-            FROM unnest($2::text[], $3::timestamptz[]) AS t(name, event_date)
+            INSERT INTO {table} (bank_id, canonical_name, first_seen, last_seen, mention_count, entity_kind)
+            SELECT $1, name, COALESCE(event_date, now()), COALESCE(event_date, now()), 0, kind
+            FROM unnest($2::text[], $3::timestamptz[], $4::text[]) AS t(name, event_date, kind)
             ORDER BY LOWER(name)
             ON CONFLICT (bank_id, LOWER(canonical_name))
             DO NOTHING
@@ -274,6 +275,7 @@ class PostgreSQLOps(DataAccessOps):
             bank_id,
             entity_names,
             entity_dates,
+            entity_kinds,
         )
         return {row["name_lower"]: row["id"] for row in inserted_rows}
 
@@ -305,6 +307,7 @@ class PostgreSQLOps(DataAccessOps):
         bank_id: str,
         entity_ids: list[str],
         canonical_names: list[str],
+        entity_kinds: list[str],
     ) -> None:
         # One statement, one round-trip (same shape as bulk_insert_links):
         #   * the CTE takes FOR KEY SHARE on every parent that still exists,
@@ -323,15 +326,16 @@ class PostgreSQLOps(DataAccessOps):
                 ORDER BY id
                 FOR KEY SHARE
             )
-            INSERT INTO {table} (id, bank_id, canonical_name)
-            SELECT t.entity_id, $1, t.canonical_name
-            FROM unnest($2::uuid[], $3::text[]) AS t(entity_id, canonical_name)
+            INSERT INTO {table} (id, bank_id, canonical_name, entity_kind)
+            SELECT t.entity_id, $1, t.canonical_name, t.entity_kind
+            FROM unnest($2::uuid[], $3::text[], $4::text[]) AS t(entity_id, canonical_name, entity_kind)
             WHERE t.entity_id NOT IN (SELECT id FROM locked)
             ON CONFLICT DO NOTHING
             """,
             bank_id,
             entity_ids,
             canonical_names,
+            entity_kinds,
         )
 
     async def bulk_insert_unit_entities(
@@ -605,6 +609,7 @@ class PostgreSQLOps(DataAccessOps):
         mu_table: str,
         ue_table: str,
         per_entity_limit: int,
+        window: UpdatedWindow,
     ) -> str:
         return f"""
             seed_entities AS (
@@ -625,12 +630,14 @@ class PostgreSQLOps(DataAccessOps):
                     WHERE ue_target.entity_id = se.entity_id
                       AND ue_target.unit_id != ALL($1::uuid[])
                       -- Filter before applying the cap: candidates from other fact
-                      -- types must not consume this entity's bounded fan-out.
+                      -- types, or outside the recall window, must not consume this
+                      -- entity's bounded fan-out.
                       AND EXISTS (
                           SELECT 1
                           FROM {mu_table} mu_target
                           WHERE mu_target.id = ue_target.unit_id
                             AND mu_target.fact_type = $2
+                            {window.clause("mu_target")}
                       )
                     ORDER BY ue_target.unit_id DESC
                     LIMIT {per_entity_limit}
@@ -645,6 +652,7 @@ class PostgreSQLOps(DataAccessOps):
         self,
         ml_table: str,
         mu_table: str,
+        window: UpdatedWindow,
     ) -> str:
         # Exact v0.5.6 query shape: GROUP BY + MAX(weight) for semantic,
         # DISTINCT ON for causal.
@@ -668,6 +676,7 @@ class PostgreSQLOps(DataAccessOps):
                       AND ml.link_type = 'semantic'
                       AND mu.fact_type = $2
                       AND mu.id != ALL($1::uuid[])
+                      {window.clause("mu")}
                     UNION ALL
                     SELECT
                         mu.id, mu.text, mu.context, mu.event_date, mu.occurred_start,
@@ -680,6 +689,7 @@ class PostgreSQLOps(DataAccessOps):
                       AND ml.link_type = 'semantic'
                       AND mu.fact_type = $2
                       AND mu.id != ALL($1::uuid[])
+                      {window.clause("mu")}
                 ) sem_raw
                 GROUP BY id, text, context, event_date, occurred_start,
                          occurred_end, mentioned_at,
@@ -699,6 +709,7 @@ class PostgreSQLOps(DataAccessOps):
                 WHERE ml.from_unit_id = ANY($1::uuid[])
                   AND ml.link_type IN ('causes', 'caused_by', 'enables', 'prevents')
                   AND mu.fact_type = $2
+                  {window.clause("mu")}
                 ORDER BY mu.id, ml.weight DESC
                 LIMIT $3
             )"""
@@ -712,8 +723,13 @@ class PostgreSQLOps(DataAccessOps):
         seed_ids: list,
         budget: int,
         per_entity_limit: int,
-    ) -> tuple[list[ResultRow], list[ResultRow], list[ResultRow]]:
+        window: UpdatedWindow,
+    ) -> LinkExpansionRows:
         # v0.5.6 array ops: unnest, &&, COUNT(DISTINCT) on source_memory_ids.
+        #
+        # The window bounds the observations that come *back*, not the source facts
+        # traversed to reach them: an observation is in the window when it was itself
+        # written or refreshed there, regardless of how old the facts underneath it are.
 
         entity_rows = await conn.fetch(
             f"""
@@ -755,11 +771,13 @@ class PostgreSQLOps(DataAccessOps):
               AND mu.id != ALL($1::uuid[])
               AND ca.source_ids IS NOT NULL
               AND mu.source_memory_ids && ca.source_ids
+              {window.clause("mu")}
             ORDER BY score DESC
             LIMIT $2
             """,
             seed_ids,
             budget,
+            *window.params,
         )
 
         # Exact v0.5.6 query shape: GROUP BY + MAX(weight) for semantic,
@@ -781,6 +799,7 @@ class PostgreSQLOps(DataAccessOps):
                     WHERE ml.from_unit_id = ANY($1::uuid[])
                       AND ml.link_type = 'semantic' AND mu.fact_type = 'observation'
                       AND mu.id != ALL($1::uuid[])
+                      {window.clause("mu")}
                     UNION ALL
                     SELECT mu.id, mu.text, mu.context, mu.event_date, mu.occurred_start,
                            mu.occurred_end, mu.mentioned_at, mu.fact_type, mu.document_id,
@@ -789,6 +808,7 @@ class PostgreSQLOps(DataAccessOps):
                     WHERE ml.to_unit_id = ANY($1::uuid[])
                       AND ml.link_type = 'semantic' AND mu.fact_type = 'observation'
                       AND mu.id != ALL($1::uuid[])
+                      {window.clause("mu")}
                 ) sem_raw
                 GROUP BY id, text, context, event_date, occurred_start, occurred_end,
                          mentioned_at, fact_type, document_id, chunk_id, tags, proof_count
@@ -803,6 +823,7 @@ class PostgreSQLOps(DataAccessOps):
                 WHERE ml.from_unit_id = ANY($1::uuid[])
                   AND ml.link_type IN ('causes', 'caused_by', 'enables', 'prevents')
                   AND mu.fact_type = 'observation'
+                  {window.clause("mu")}
                 ORDER BY mu.id, ml.weight DESC LIMIT $2
             )
             SELECT * FROM semantic_expanded
@@ -811,11 +832,12 @@ class PostgreSQLOps(DataAccessOps):
             """,
             seed_ids,
             budget,
+            *window.params,
         )
 
         semantic_rows = [r for r in sem_causal_rows if r["source"] == "semantic"]
         causal_rows = [r for r in sem_causal_rows if r["source"] == "causal"]
-        return list(entity_rows), semantic_rows, causal_rows
+        return LinkExpansionRows(entity=list(entity_rows), semantic=semantic_rows, causal=causal_rows)
 
     def build_tag_listing_parts(self, mu_table: str) -> TagListingParts:
         return TagListingParts(

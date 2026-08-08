@@ -115,17 +115,13 @@ def sync_detailed(
     associated with the script version will be used, of which
     the latest profile_version will be used. You may specify a specific profile to use.
 
-    The script can be identified by ID, name, or public_secret UUID. When using public_secret, the
-    profile setting is ignored and the default profile is used.
-
-    Anonymous users (no auth header) can only create runs using a script's public_secret.
-    Authenticated users can use ID, name, or public_secret.
+    The script is identified by ID or job_ref.
 
     The mode parameter controls run creation behavior:
     - 'always' (default): Always creates a new run
     - 'when_not_running': Returns an existing active run if one exists, otherwise creates a new one
 
-    Requires WRITE permission on the organization level (or public_secret for anonymous access).
+    Requires CREATE_RUN permission on the workspace.
 
     Args:
         workspace_id (UUID):
@@ -171,17 +167,13 @@ def sync(
     associated with the script version will be used, of which
     the latest profile_version will be used. You may specify a specific profile to use.
 
-    The script can be identified by ID, name, or public_secret UUID. When using public_secret, the
-    profile setting is ignored and the default profile is used.
-
-    Anonymous users (no auth header) can only create runs using a script's public_secret.
-    Authenticated users can use ID, name, or public_secret.
+    The script is identified by ID or job_ref.
 
     The mode parameter controls run creation behavior:
     - 'always' (default): Always creates a new run
     - 'when_not_running': Returns an existing active run if one exists, otherwise creates a new one
 
-    Requires WRITE permission on the organization level (or public_secret for anonymous access).
+    Requires CREATE_RUN permission on the workspace.
 
     Args:
         workspace_id (UUID):
@@ -221,17 +213,13 @@ async def asyncio_detailed(
     associated with the script version will be used, of which
     the latest profile_version will be used. You may specify a specific profile to use.
 
-    The script can be identified by ID, name, or public_secret UUID. When using public_secret, the
-    profile setting is ignored and the default profile is used.
-
-    Anonymous users (no auth header) can only create runs using a script's public_secret.
-    Authenticated users can use ID, name, or public_secret.
+    The script is identified by ID or job_ref.
 
     The mode parameter controls run creation behavior:
     - 'always' (default): Always creates a new run
     - 'when_not_running': Returns an existing active run if one exists, otherwise creates a new one
 
-    Requires WRITE permission on the organization level (or public_secret for anonymous access).
+    Requires CREATE_RUN permission on the workspace.
 
     Args:
         workspace_id (UUID):
@@ -275,17 +263,13 @@ async def asyncio(
     associated with the script version will be used, of which
     the latest profile_version will be used. You may specify a specific profile to use.
 
-    The script can be identified by ID, name, or public_secret UUID. When using public_secret, the
-    profile setting is ignored and the default profile is used.
-
-    Anonymous users (no auth header) can only create runs using a script's public_secret.
-    Authenticated users can use ID, name, or public_secret.
+    The script is identified by ID or job_ref.
 
     The mode parameter controls run creation behavior:
     - 'always' (default): Always creates a new run
     - 'when_not_running': Returns an existing active run if one exists, otherwise creates a new one
 
-    Requires WRITE permission on the organization level (or public_secret for anonymous access).
+    Requires CREATE_RUN permission on the workspace.
 
     Args:
         workspace_id (UUID):

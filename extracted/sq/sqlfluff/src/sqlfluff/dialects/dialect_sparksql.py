@@ -88,7 +88,7 @@ sparksql_dialect.patch_lexer_matchers(
             "inline_comment",
             r"(--)[^\n]*",
             CommentSegment,
-            segment_kwargs={"trim_start": "--"},
+            segment_kwargs={"trim_start": ("--",)},
         ),
         # == and <=> are valid equal operations
         # <=> is a non-null equals in Spark SQL
@@ -265,6 +265,15 @@ sparksql_dialect.sets("datetime_units").update(
 # Set Keywords
 sparksql_dialect.sets("unreserved_keywords").update(UNRESERVED_KEYWORDS)
 sparksql_dialect.sets("reserved_keywords").update(RESERVED_KEYWORDS)
+# Spark SQL is less restrictive than ANSI: several ANSI reserved keywords are
+# only "strict-non-reserved" in Spark's default (non-ANSI) mode and may be used
+# as identifiers (e.g. `LEFT`/`RIGHT` as lambda variables in `array_sort`, #5004).
+# The keyword lists above are authoritative for Spark, so drop from the inherited
+# ANSI reserved set anything Spark declares unreserved. `LEFT`/`RIGHT` are still
+# matched as keywords in `JoinTypeKeywordsGrammar`, so `LEFT`/`RIGHT [OUTER] JOIN`
+# continue to parse.
+# https://spark.apache.org/docs/latest/sql-ref-ansi-compliance.html#sql-keywords
+sparksql_dialect.sets("reserved_keywords").difference_update(UNRESERVED_KEYWORDS)
 
 # Set Angle Bracket Pairs
 sparksql_dialect.bracket_sets("angle_bracket_pairs").update(
@@ -552,6 +561,7 @@ sparksql_dialect.add(
         Ref("EqualsSegment", optional=True),
         OneOf(
             Ref("LiteralGrammar"),
+            Bracketed(Delimited(Ref("LiteralGrammar"))),
             # when property value is Java Class Name
             Delimited(
                 Ref("PropertiesNakedIdentifierSegment"),
@@ -1882,7 +1892,11 @@ class InsertStatementSegment(BaseSegment):
         OneOf(
             Sequence(
                 Ref("PartitionSpecGrammar", optional=True),
-                Ref("BracketedColumnReferenceListGrammar", optional=True),
+                OneOf(
+                    Ref("BracketedColumnReferenceListGrammar"),
+                    Sequence("BY", "NAME"),
+                    optional=True,
+                ),
                 Ref("InsertSourceGrammar"),
             ),
             Sequence(
@@ -2907,6 +2921,39 @@ class ResetStatementSegment(BaseSegment):
     )
 
 
+class SetConfigValueSegment(BaseSegment):
+    """A runtime config value in a Spark `SET` statement.
+
+    Narrower than ``ExpressionSegment`` so opaque config strings (paths, URIs,
+    hyphenated tokens) are not treated as SQL expressions for linting/rewrites.
+    https://github.com/sqlfluff/sqlfluff/issues/4218
+    """
+
+    type = "set_config_value"
+
+    match_grammar = OneOf(
+        Ref("LiteralGrammar"),
+        Bracketed(Delimited(Ref("LiteralGrammar"))),
+        Ref("FunctionSegment"),
+        Ref("BareFunctionSegment"),
+        # Java class names / dotted identifier config tokens.
+        # Require at least one dot so a bare token like `dynamic` in
+        # `dynamic,static` falls through to the opaque Anything() branch.
+        Delimited(
+            Ref("PropertiesNakedIdentifierSegment"),
+            delimiter=Ref("DotSegment"),
+            min_delimiters=1,
+        ),
+        # Opaque raw payloads (URIs, hyphenated tokens, comma lists, etc.).
+        # Bound on `;` only — SparkSQL expects semicolon-delimited statements;
+        # missing-semicolon recovery is a separate known gap. See #8187 / #4218.
+        Anything(
+            terminators=[Ref("DelimiterGrammar")],
+            reset_terminators=True,
+        ),
+    )
+
+
 class SetStatementSegment(BaseSegment):
     """A `SET` statement used to set runtime properties.
 
@@ -2919,7 +2966,13 @@ class SetStatementSegment(BaseSegment):
         "SET",
         Ref("SQLConfPropertiesSegment", optional=True),
         OneOf(
-            Ref("PropertyListGrammar"),
+            # One key=value assignment. Delimiting assignments on commas
+            # incorrectly splits opaque values that contain commas.
+            Sequence(
+                Ref("PropertyNameSegment"),
+                Ref("EqualsSegment"),
+                Ref("SetConfigValueSegment"),
+            ),
             Ref("PropertyNameSegment"),
             optional=True,
         ),
@@ -3270,7 +3323,7 @@ class MergeUpdateClauseSegment(ansi.MergeUpdateClauseSegment):
     match_grammar: Matchable = Sequence(
         "UPDATE",
         OneOf(
-            Sequence("SET", Ref("WildcardIdentifierSegment")),
+            Sequence("SET", Ref("WildcardExpressionSegment")),
             Sequence(
                 Indent,
                 Ref("SetClauseListSegment"),
@@ -3287,7 +3340,7 @@ class MergeInsertClauseSegment(ansi.MergeInsertClauseSegment):
     match_grammar: Matchable = Sequence(
         "INSERT",
         OneOf(
-            Ref("WildcardIdentifierSegment"),
+            Ref("WildcardExpressionSegment"),
             Sequence(
                 Indent,
                 Ref("BracketedColumnReferenceListGrammar"),
@@ -3295,6 +3348,58 @@ class MergeInsertClauseSegment(ansi.MergeInsertClauseSegment):
                 Ref("ValuesClauseSegment"),
             ),
         ),
+    )
+
+
+class MergeMatchSegment(ansi.MergeMatchSegment):
+    """Contains SparkSQL-specific merge operations.
+
+    Spark (and Iceberg) support a `WHEN NOT MATCHED BY SOURCE` clause in
+    addition to the standard matched / not matched clauses.
+    """
+
+    match_grammar: Matchable = AnyNumberOf(
+        Ref("MergeMatchedClauseSegment"),
+        Ref("MergeNotMatchedClauseSegment"),
+        Ref("MergeNotMatchedBySourceClauseSegment"),
+        min_times=1,
+    )
+
+
+class MergeNotMatchedClauseSegment(ansi.MergeNotMatchedClauseSegment):
+    """The `WHEN NOT MATCHED [BY TARGET]` clause within a `MERGE` statement."""
+
+    match_grammar: Matchable = Sequence(
+        "WHEN",
+        "NOT",
+        "MATCHED",
+        Sequence("BY", "TARGET", optional=True),
+        Sequence("AND", Ref("ExpressionSegment"), optional=True),
+        "THEN",
+        Indent,
+        Ref("MergeInsertClauseSegment"),
+        Dedent,
+    )
+
+
+class MergeNotMatchedBySourceClauseSegment(BaseSegment):
+    """The `WHEN NOT MATCHED BY SOURCE` clause within a `MERGE` statement."""
+
+    type = "merge_when_not_matched_by_source_clause"
+    match_grammar: Matchable = Sequence(
+        "WHEN",
+        "NOT",
+        "MATCHED",
+        "BY",
+        "SOURCE",
+        Sequence("AND", Ref("ExpressionSegment"), optional=True),
+        "THEN",
+        Indent,
+        OneOf(
+            Ref("MergeUpdateClauseSegment"),
+            Ref("MergeDeleteClauseSegment"),
+        ),
+        Dedent,
     )
 
 
@@ -3525,12 +3630,18 @@ class ConstraintStatementSegment(BaseSegment):
 
 
 class WildcardExpressionSegment(ansi.WildcardExpressionSegment):
-    """An extension of the star expression for Databricks."""
+    """An extension of the star expression for SparkSQL.
+
+    Adds support for the optional ``EXCEPT`` clause, which prunes columns
+    from the referenceable set of columns identified in the star clause.
+
+    https://spark.apache.org/docs/latest/sql-ref-syntax-qry-star.html
+    """
 
     match_grammar = ansi.WildcardExpressionSegment.match_grammar.copy(
         insert=[
             # Optional EXCEPT clause
-            # https://docs.databricks.com/release-notes/runtime/9.0.html#exclude-columns-in-select--public-preview
+            # https://spark.apache.org/docs/latest/sql-ref-syntax-qry-star.html
             Ref("ExceptClauseSegment", optional=True),
         ]
     )

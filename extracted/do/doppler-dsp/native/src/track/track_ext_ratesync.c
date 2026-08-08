@@ -593,7 +593,7 @@ static PyMethodDef RateSyncObj_methods[] = {
     "phase — see resamp_get_ctrl_acc()). Passing NULL detaches. Setup path,\n"
     "never hot: the context is borrowed and must outlive the attachment "
     "(SPSC\n"
-    "rules in telemetry/telemetry.h).\n"
+    "rules in dp_tlm/dp_tlm_core.h).\n"
     "\n"
     "The three form one readable picture of the loop: `e` is what the\n"
     "detector saw, `ctrl` is what the filter did about it, and `mu` is where\n"
@@ -618,7 +618,7 @@ static PyMethodDef RateSyncObj_methods[] = {
     ">>> rs.set_telemetry(tlm, \"sync\")   # register the six timing probes\n"
     ">>> tlm.probe_count\n"
     "6\n"
-    ">>> \"sync.rate\" in tlm.probe_names()   # tracked samples/symbol\n"
+    ">>> \"sync.rate\" in tlm.probe_names   # tracked samples/symbol\n"
     "True\n" },
   { "configure", (PyCFunction)(void *)RateSyncObj_configure,
     METH_VARARGS | METH_KEYWORDS,
@@ -651,8 +651,7 @@ static PyMethodDef RateSyncObj_methods[] = {
     ">>> _ = rs.steps(x)              # acquire and lock\n"
     ">>> rs.locked\n"
     "True\n"
-    ">>> rs.configure(0.002, 0.707)   # narrow the loop; the lock is "
-    "preserved\n"
+    ">>> rs.configure(0.002, 0.707)   # narrow the loop; lock is kept\n"
     ">>> round(rs.bn, 3)\n"
     "0.002\n"
     ">>> rs.locked\n"

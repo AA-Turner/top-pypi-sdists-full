@@ -11,9 +11,10 @@ from pathlib import Path
 import typer
 
 from ... import config as _config_module
+from ...common.browser import open_and_announce
 from ...config import ConfigParam, ParamValue, get_param, os_default_clone_dir, set_param
 from ...env import cache
-from ...env.config import ENV_CONFIG, get_manual_instructions
+from ...env.config import ENV_CONFIG, get_creation_hint, get_creation_url, get_manual_instructions
 from ...env.resolve import preload_secrets, try_auto_resolve
 
 
@@ -40,8 +41,22 @@ def prompt_env_var(var: str, tool_name: str = "", help_text: str = "", *, persis
     typer.secho(f"  ${var} is required{f' for {tool_name}' if tool_name else ''}", fg=typer.colors.YELLOW)
     if resolved_help:
         typer.secho(f"  → {resolved_help}", fg=typer.colors.BRIGHT_BLACK)
-    if manual:
+
+    # A variable whose manual step is one page: open it rather than leaving the
+    # user to copy a URL out of the instructions — we are about to block on their
+    # answer, so the page they need is the page we should be showing. The
+    # instruction line is dropped here because `open_and_announce` prints the URL
+    # itself; keeping both would show it twice.
+    if creation_url := get_creation_url(var):
+        open_and_announce(creation_url, what=f"Create ${var} — the form comes pre-filled")
+    elif manual:
         typer.secho(f"    {manual}", fg=typer.colors.BRIGHT_BLACK)
+
+    # Outside the branch above: what to know while filling the form in is just as
+    # useful when the manual step is a sequence of clicks as when it is one page.
+    if hint := get_creation_hint(var):
+        typer.secho(f"     {hint}", fg=typer.colors.BRIGHT_BLACK, err=True)
+        typer.echo("", err=True)
 
     value: str = typer.prompt(f"  ${var}", default="", show_default=False)
     if not value.strip():

@@ -34,19 +34,19 @@ jobs:
 
     env:
       TOXENV: "nightly"
-      PYTEST_ADDOPTS: "-v --color=yes --csv unit_results.csv"
+      PYTEST_ADDOPTS: "-v -rfs --color=yes --csv unit_results.csv"
       S3_MD_ORG_KEY: ${{ secrets.S3_MD_ORG_KEY }}
       S3_MD_ORG_REGION: ${{ secrets.S3_MD_ORG_REGION }}
       S3_MD_ORG_SECRET: ${{ secrets.S3_MD_ORG_SECRET }}
 
     steps:
       - name: Check out the repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           persist-credentials: false
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -64,7 +64,7 @@ jobs:
         id: date
         run: echo "date=$(date +'%Y-%m-%dT%H_%M_%S')" >> $GITHUB_OUTPUT #no colons allowed for artifacts
 
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: unit_results_${{ matrix.python-version }}-${{ steps.date.outputs.date }}.csv
@@ -77,7 +77,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Send Slack notification
-        uses: slackapi/slack-github-action@v2.1.1
+        uses: slackapi/slack-github-action@v4.0.0
         with:
           webhook: ${{ secrets.MOTHERDUCK_CI_NOTIFICATION_WEBHOOK }}
           webhook-type: webhook-trigger

@@ -14,6 +14,8 @@ pub(crate) struct PyCanonicalSchema {
 #[pymethods]
 impl PyCanonicalSchema {
     /// Convert this canonical schema back to a plain Python JSON value.
+    /// A node below the document root carries that root along, so a `#` inside it keeps naming
+    /// the document.
     fn to_json_schema(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         crate::value_to_python(py, &self.inner.to_json_schema())
     }
@@ -324,7 +326,10 @@ impl PyCanonicalSchema {
         self.inner.negate().map(|inner| Self { inner })
     }
 
-    /// The reference target registered under `uri`.
+    /// The reference target registered under `uri`, or the document itself under `#`.
+    ///
+    /// The target keeps the document it was written in, so a `#` inside it names that document and
+    /// not the target standing in for it.
     fn definition(&self, uri: &str) -> Option<Self> {
         self.inner.definition(uri).map(|inner| Self { inner })
     }
@@ -788,18 +793,21 @@ impl EnumView {
     }
 }
 
-/// canonicalize(schema, /, *, draft=None, validate_formats=None, pattern_options=None)
+/// canonicalize(schema, /, *, draft=None, validate_formats=None, pattern_options=None, retriever=None, registry=None, base_uri=None)
 ///
 /// Parse and normalize a JSON Schema to its canonical form.
 ///
 /// Returns a :class:`CanonicalSchema` that is semantically equivalent to the input.
 #[pyfunction]
-#[pyo3(signature = (schema, *, draft=None, validate_formats=None, pattern_options=None))]
+#[pyo3(signature = (schema, *, draft=None, validate_formats=None, pattern_options=None, retriever=None, registry=None, base_uri=None))]
 pub(crate) fn canonicalize(
     schema: &Bound<'_, PyAny>,
     draft: Option<u8>,
     validate_formats: Option<bool>,
     pattern_options: Option<&Bound<'_, PyAny>>,
+    retriever: Option<&Bound<'_, PyAny>>,
+    registry: Option<&crate::registry::Registry>,
+    base_uri: Option<String>,
 ) -> PyResult<PyCanonicalSchema> {
     let schema_value = crate::ser::to_value(schema)?;
     let mut options = jsonschema::canonical::options();
@@ -808,6 +816,22 @@ pub(crate) fn canonicalize(
     }
     if let Some(validate_formats) = validate_formats {
         options = options.should_validate_formats(validate_formats);
+    }
+    if let Some(retriever) = retriever {
+        let func = crate::retriever::into_retriever(retriever)?;
+        options = options.with_retriever(crate::retriever::Retriever { func });
+    }
+    if let Some(registry) = registry {
+        if retriever.is_none() {
+            if let Some(registry_retriever) = registry.retriever() {
+                let func = crate::retriever::into_retriever(registry_retriever.bind(schema.py()))?;
+                options = options.with_retriever(crate::retriever::Retriever { func });
+            }
+        }
+        options = options.with_registry(registry.inner.as_ref());
+    }
+    if let Some(base_uri) = base_uri {
+        options = options.with_base_uri(base_uri);
     }
     if let Some(pattern_options) = pattern_options {
         match crate::regex::extract_pattern_options(pattern_options)? {

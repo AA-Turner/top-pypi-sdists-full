@@ -1,8 +1,10 @@
-"""The locale pack layer (locales spec §2-3): lazy access, the two
-2.0.0 packs, composition, and the non-interference gate."""
+"""The locale pack layer (locales spec §2-3): lazy access, the shipped
+packs, composition, and the non-interference gate."""
 import functools
-import importlib
+import importlib.util
 import re
+import sys
+import types
 from collections.abc import Callable, Iterable
 from types import ModuleType
 
@@ -10,9 +12,14 @@ import pytest
 
 from nameparser import Locale, Parser, locales, parse, parser_for
 from nameparser._lexicon import _VOCAB_FIELDS, Lexicon
-from nameparser._policy import PatronymicRule, Policy
+from nameparser._policy import (
+    UNSET, PatronymicRule, Policy, Script, _SCRIPT_RANGES,
+)
+from nameparser._types import AmbiguityKind
+from nameparser.locales import ja as _ja
 from nameparser.locales import ru as _ru
 from nameparser.locales import tr_az as _tr_az
+from nameparser.locales import zh as _zh
 
 from .conftest import differential_corpus
 
@@ -33,11 +40,46 @@ def _pack_modules() -> dict[str, ModuleType]:
 
 _PACKS = _pack_modules()
 
+# ja is the one pack whose behavior is not pack data: it activates
+# segmentation and supplies nothing to segment WITH, so every parse
+# through it needs the optional nameparser[ja] segmenter. Probed once
+# here; without the extra the ja code has no _PACKED entry, so every
+# test that PARSES through the pack skips -- its rotator rows and its
+# non-interference run included. What still runs either way is what
+# needs no parse: the registry contract (DEVIATES and a rotator list
+# exist), the range pin, the pack's contents, and the inertness test
+# below, which is the unsegmented pack's whole observable behavior.
+_JA_AVAILABLE = importlib.util.find_spec("namedivider") is not None
+_needs_ja = pytest.mark.skipif(not _JA_AVAILABLE, reason="needs nameparser[ja]")
+
 # shared across the gate and rotator tests: the default-parser baseline
 # is identical everywhere (only the packed side varies per test), so
 # parse each name once for the whole module instead of once per test
 _DEFAULT_PARSER = Parser()
-_PACKED = {code: parser_for(locales.get(code)) for code in _PACKS}
+
+
+def _packed_parsers() -> dict[str, Parser]:
+    out: dict[str, Parser] = {}
+    for code in _PACKS:
+        if code != "ja":
+            out[code] = parser_for(locales.get(code))
+        elif _JA_AVAILABLE:
+            out[code] = parser_for(
+                locales.JA, segmenter=locales.ja_segmenter())
+    return out
+
+
+_PACKED = _packed_parsers()
+
+
+def _require_packed(code: str) -> Parser:
+    """The pack's parser, skipping the test when it needs an optional
+    extra that is not installed (ja only, today)."""
+    parser = _PACKED.get(code)
+    if parser is None:
+        pytest.skip(f"the {code!r} pack needs nameparser[{code}], "
+                    f"which is not installed")
+    return parser
 
 
 @functools.cache
@@ -55,9 +97,13 @@ def test_locales_module_attribute_access() -> None:
 
 def test_locales_get_and_available() -> None:
     assert locales.get("ru") is locales.RU
-    assert set(locales.available()) == {"ru", "tr_az"}
-    with pytest.raises(KeyError, match="ru, tr_az"):
+    assert set(locales.available()) == {"ja", "ru", "tr_az", "zh"}
+    with pytest.raises(KeyError, match="ja, ru, tr_az, zh"):
         locales.get("xx")
+    # the segmenter FACTORY is not a locale: it is an ordinary function
+    # on the package, so it must not appear among the codes
+    assert "ja_segmenter" not in locales.available()
+    assert callable(locales.ja_segmenter)
 
 
 def test_tr_az_pack_contents() -> None:
@@ -65,6 +111,501 @@ def test_tr_az_pack_contents() -> None:
     assert locales.TR_AZ.policy.patronymic_rules == frozenset(
         {PatronymicRule.TURKIC})
     assert locales.TR_AZ.lexicon == Lexicon.empty()
+
+
+def test_zh_pack_contents() -> None:
+    assert locales.ZH.code == "zh"
+    # the pack activates Han segmentation and ships vocabulary --
+    # and does NOT touch order: script_orders already reads Han
+    # family-first by default (amendment 2026-07-27)
+    assert locales.ZH.policy.segment_scripts == frozenset({Script.HAN})
+    assert locales.ZH.policy.name_order is UNSET
+    assert locales.ZH.policy.script_orders is UNSET
+    assert "王" in locales.ZH.lexicon.surnames
+    assert "欧阳" in locales.ZH.lexicon.surnames       # compound
+    assert "歐陽" in locales.ZH.lexicon.surnames       # traditional
+    assert _zh.DEVIATES("毛泽东")
+    assert _zh.DEVIATES("𠮷田")   # astral Han declared
+    assert not _zh.DEVIATES("John Smith")
+    assert not _zh.DEVIATES("김민준")   # HAN alone, not a wider union
+
+
+def test_zh_surname_entries_are_wellformed() -> None:
+    # structural integrity, not content-pinning: 1-2 chars each,
+    # every char in the stage's own Han ranges (catches a stray
+    # Latin char, a pasted full name, or a hangul entry)
+    ranges = _SCRIPT_RANGES[Script.HAN]
+    for entry in locales.ZH.lexicon.surnames:
+        assert 1 <= len(entry) <= 2, entry
+        assert all(any(lo <= ord(c) <= hi for lo, hi in ranges)
+                   for c in entry), entry
+
+
+def test_zh_parses_unspaced_names() -> None:
+    p = _PACKED["zh"]
+    n = p.parse("毛泽东")
+    assert (n.family, n.given) == ("毛", "泽东")
+    n = p.parse("欧阳修")                      # compound + 1-char given
+    assert (n.family, n.given) == ("欧阳", "修")
+    n = p.parse("司马相如")                    # compound + 2-char given
+    assert (n.family, n.given) == ("司马", "相如")
+    # the 肖/萧 census merger ships both simplified spellings
+    n = p.parse("萧红")
+    assert (n.family, n.given) == ("萧", "红")
+
+
+def test_zh_longest_match_prefers_compound_over_single_surname() -> None:
+    # The longest-first tie-break, exercised by the PACK's own data
+    # rather than by the synthetic lexicon the stage tests use. Most
+    # compounds here begin with a character that is not itself a listed
+    # surname (欧, 司, 诸 are all outside the top-100), so they would
+    # split the same way under shortest-first and prove nothing. 夏侯 is
+    # one of only three compounds that would not -- 夏 is rank 65 -- so
+    # this is the pair that shows the shipped data actually reaches the
+    # tie-break.
+    p = _PACKED["zh"]
+    n = p.parse("夏侯惇")
+    assert (n.family, n.given) == ("夏侯", "惇")
+    n = p.parse("夏雨")                        # the single-surname foil
+    assert (n.family, n.given) == ("夏", "雨")
+    # ...and the ambiguity contract on that same data: a decided fork
+    # is REPORTED (first Han coverage of the SEGMENTATION emitter --
+    # the stage tests reach it through a synthetic lexicon, and the
+    # default lexicon can only reach it through hangul), while the
+    # foil, where only one split was ever possible, stays silent.
+    assert [a.kind for a in p.parse("夏侯惇").ambiguities] == [
+        AmbiguityKind.SEGMENTATION]
+    assert p.parse("夏雨").ambiguities == ()
+
+
+# 毛泽东/欧阳修/夏侯惇/萧红 appear in _ROTATORS["zh"] below, and 毛泽东/
+# 夏侯惇 in cases.py's zh rows, as well. Not deduplicated in either
+# direction, on purpose: the rotator tests assert only THAT the packed
+# parse differs from the default and that DEVIATES declares it -- they
+# never look at a field value -- and the case rows reach the same
+# packed parser only through the shared-table runners
+# (test_cases.py/test_facade_cases.py). These tests are where the zh
+# readings are pinned at unit level, against the stage directly.
+
+
+def test_zh_composes_with_korean_defaults() -> None:
+    # the pack only ADDS (vocabulary + one union field): Korean
+    # segmentation keeps working through a zh parser
+    n = _PACKED["zh"].parse("김민준")
+    assert (n.family, n.given) == ("김", "민준")
+
+
+def test_honorific_spellings_agree_where_the_vocabulary_divides() -> None:
+    # usage.rst says a SPACED honorific is how you keep a family name
+    # whole. That holds only where a SEGMENTER divides it -- the ja
+    # tests below pin that half -- because the segmenter's precondition
+    # counts any neighbour and a spaced honorific is one. The
+    # VOCABULARY has no such precondition: the peel (#308) hands it the
+    # same remainder whichever way the honorific was written, so the
+    # two spellings agree exactly. Pinned in both scripts because the
+    # reader's escape hatch differs -- the zh pack can be declined,
+    # hangul segmentation is a DEFAULT and cannot, so a Korean-data
+    # reader has no lever at all here.
+    ko = _DEFAULT_PARSER.parse("김민준 씨")
+    assert (ko.family, ko.given, ko.suffix) == ("김", "민준", "씨")
+    assert _DEFAULT_PARSER.parse("김민준씨").as_dict() == ko.as_dict()
+    zh = _PACKED["zh"].parse("王小明 先生")
+    assert (zh.family, zh.given, zh.suffix) == ("王", "小明", "先生")
+    assert _PACKED["zh"].parse("王小明先生").as_dict() == zh.as_dict()
+
+
+def test_ja_pack_contents() -> None:
+    assert locales.JA.code == "ja"
+    # segmentation activation ONLY: no vocabulary (no list settles a
+    # kanji name) and no order (the kana license already reads
+    # Japanese family-first by default, amendment 2026-07-29 §1)
+    assert locales.JA.policy.segment_scripts == frozenset(
+        {Script.HAN, Script.HIRAGANA})
+    assert locales.JA.policy.name_order is UNSET
+    assert locales.JA.policy.script_orders is UNSET
+    assert locales.JA.lexicon == Lexicon.empty()
+    assert _ja.DEVIATES("山田太郎")
+    assert _ja.DEVIATES("𠮷田")   # astral Han declared
+    # katakana declared (see the pack's repertoire note)
+    assert _ja.DEVIATES("マイケル")
+    assert _ja.DEVIATES("みなみ")   # hiragana declared
+    assert not _ja.DEVIATES("John Smith")
+    assert not _ja.DEVIATES("김민준")   # the three JA scripts, not a wider union
+
+
+def test_ja_segmenter_without_extra_raises_helpfully() -> None:
+    if _JA_AVAILABLE:
+        pytest.skip("namedivider installed; the error path is untestable")
+    with pytest.raises(ImportError, match=r"nameparser\[ja\]"):
+        locales.ja_segmenter()
+
+
+class _FakeDivided:
+    """The shape of namedivider's DividedName, minus namedivider —
+    lets the adapter's guard stack run in the plain (no-extra) suite,
+    including the two defensive branches the real 0.4.x library can
+    never reach (reconstruction failure, an empty side)."""
+
+    def __init__(self, family: str, given: str, score: float) -> None:
+        self.family, self.given, self.score = family, given, score
+
+
+def _fake_namedivider(monkeypatch: pytest.MonkeyPatch,
+                      divide: "Callable[[str], _FakeDivided]") -> list[str]:
+    """Install a stub namedivider module and return the gbdt-call log
+    (empty unless GBDTNameDivider was constructed)."""
+    constructed: list[str] = []
+
+    class _Basic:
+        def __init__(self) -> None:
+            constructed.append("basic")
+
+        def divide_name(self, text: str) -> _FakeDivided:
+            return divide(text)
+
+    class _GBDT(_Basic):
+        def __init__(self) -> None:
+            constructed.append("gbdt")
+
+    stub = types.ModuleType("namedivider")
+    stub.BasicNameDivider = _Basic  # type: ignore[attr-defined]
+    stub.GBDTNameDivider = _GBDT  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "namedivider", stub)
+    return constructed
+
+
+def test_ja_adapter_guard_stack_against_a_stub(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    # The adapter's whole contract without the extra: this is what the
+    # coverage-bearing CI job sees, so the guards are pinned here and
+    # not only behind the nameparser[ja] integration tests.
+    divide = _fake_namedivider(
+        monkeypatch, lambda text: _FakeDivided(text[:2], text[2:], 0.5))
+    seg = locales.ja_segmenter()
+    assert divide == ["basic"]
+    answer = seg("山田太郎")
+    assert answer is not None
+    assert answer.splits == (2,) and answer.confidence == 0.5
+    assert seg("김민준") is None            # outside the repertoire
+    # contains JA chars but is not WHOLLY JA
+    assert seg("Yamada太郎") is None
+    assert seg("林") is None                # namedivider raises below 2
+
+
+def test_ja_adapter_declines_shime_tokens(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    # Since U+3006 classifies as Han, 〆木太郎 is wholly Japanese and
+    # reaches the adapter, but the divider is never consulted for 〆
+    # tokens -- see the decline comment in ja.py for the measured
+    # mis-cut it prevents.
+    calls: list[str] = []
+
+    def divide(text: str) -> _FakeDivided:
+        calls.append(text)
+        return _FakeDivided(text[:1], text[1:], 1.0)
+
+    _fake_namedivider(monkeypatch, divide)
+    assert locales.ja_segmenter()("〆木太郎") is None
+    assert calls == []          # the decline sits before divide_name
+
+
+def test_ja_adapter_defensive_branches_against_a_stub(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    # reconstruction failure -> decline; an empty side -> the stated
+    # "confidently undivided" opinion; a score a hair over 1 -> clamped,
+    # so Segmentation's [0, 1] validation cannot raise mid-parse
+    _fake_namedivider(
+        monkeypatch, lambda text: _FakeDivided("外", "れ", 0.5))
+    assert locales.ja_segmenter()("山田太郎") is None
+    _fake_namedivider(
+        monkeypatch, lambda text: _FakeDivided(text, "", 1.0000001))
+    whole = locales.ja_segmenter()("山田太郎")
+    assert whole is not None
+    assert whole.splits == () and whole.confidence == 1.0
+
+
+def test_ja_adapter_declines_a_garbage_score(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    # The other half of the score handling, and the half the old
+    # unconditional clamp got wrong: float noise at the edge of a
+    # softmax is arithmetic around a real answer and clamps (above),
+    # but 87.0 is not noise -- a divider scoring that is broken, and
+    # its DIVISION is worth no more than its score. Clamping mapped it
+    # to 1.0, i.e. "certain", which silenced the SEGMENTATION report at
+    # exactly the point of maximum brokenness. Declining leaves the
+    # token whole: safe, and observable by the report's absence.
+    _fake_namedivider(
+        monkeypatch, lambda text: _FakeDivided(text[:2], text[2:], 87.0))
+    assert locales.ja_segmenter()("山田太郎") is None
+    _fake_namedivider(
+        monkeypatch, lambda text: _FakeDivided(text[:2], text[2:], -0.5))
+    assert locales.ja_segmenter()("山田太郎") is None
+
+
+def test_ja_adapter_declines_a_nan_score(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    # NaN takes the garbage-score exit for free rather than needing one
+    # of its own: every comparison against NaN is False, so it fails
+    # BOTH bounds of the epsilon band. Worth a test precisely because
+    # it is a property of the comparison rather than a written branch
+    # -- under the old clamp, min/max propagated it straight into
+    # Segmentation, whose own range check would then have raised
+    # mid-parse.
+    _fake_namedivider(
+        monkeypatch,
+        lambda text: _FakeDivided(text[:2], text[2:], float("nan")))
+    assert locales.ja_segmenter()("山田太郎") is None
+
+
+def test_ja_adapter_gbdt_flag_selects_the_gbdt_divider(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    divide = _fake_namedivider(
+        monkeypatch, lambda text: _FakeDivided(text[:1], text[1:], 1.0))
+    locales.ja_segmenter(gbdt=True)
+    assert divide == ["gbdt"]
+
+
+def test_ja_pack_alone_is_inert() -> None:
+    # The pack's own claim, and the reason it is safe to register
+    # without the extra: activating segmentation while shipping nothing
+    # to segment WITH changes no parse at all. Pure pack data, so this
+    # runs whether or not nameparser[ja] is installed -- and it is the
+    # unsegmented pack's entire observable behavior.
+    # construction now SAYS the pack alone cannot divide anything --
+    # the segmenterless-activation warning is the loud half of this
+    # test's claim, and the inert parses below are the quiet half
+    with pytest.warns(UserWarning, match="ja_segmenter"):
+        p = parser_for(locales.JA)
+    for name in _ROTATORS["ja"]:
+        assert p.parse(name).as_dict() == _default_parse(name), name
+
+
+@_needs_ja
+def test_ja_end_to_end() -> None:
+    p = _PACKED["ja"]
+    n = p.parse("山田太郎")
+    assert (n.family, n.given) == ("山田", "太郎")
+    # the case a zh surname list corrupts (高 + 橋一郎), done right
+    n = p.parse("高橋一郎")
+    assert (n.family, n.given) == ("高橋", "一郎")
+    # kana-licensed composite: gated in through the HIRAGANA entry
+    n = p.parse("高橋みなみ")
+    assert (n.family, n.given) == ("高橋", "みなみ")
+    # the iteration mark 々 gates in as Han (Script=Han under UAX #24,
+    # but outside the ideograph blocks the classifier spans, so it
+    # rides in on a singleton range entry) and namedivider reads the
+    # repeated character correctly -- verified against 0.4.1 rather
+    # than assumed, since a divider could plausibly have choked on it
+    # or cut beside it
+    n = p.parse("佐々木健")
+    assert (n.family, n.given) == ("佐々木", "健")
+
+
+@_needs_ja
+def test_ja_keeps_a_transcribed_name_in_its_source_order() -> None:
+    # pure katakana is excluded from the pack's activation by design
+    # (amendment §1: katakana is how Japanese writes FOREIGN names), so
+    # the nakaguro form divides on the dot and keeps its given-first
+    # source order instead of being read family-first
+    n = _PACKED["ja"].parse("マイケル・ジャクソン")
+    assert (n.given, n.family) == ("マイケル", "ジャクソン")
+
+
+@_needs_ja
+def test_ja_composes_with_zh() -> None:
+    # vocabulary first, segmenter on decline (amendment §2)
+    p = parser_for(locales.ZH, locales.JA, segmenter=locales.ja_segmenter())
+    assert p.parse("毛泽东").family == "毛"      # zh surname wins
+    assert p.parse("山田太郎").family == "山田"   # zh declines, segmenter
+    # ...and a Korean name still splits on the default vocabulary,
+    # never reaching the segmenter (which would decline it anyway)
+    assert p.parse("김민준").family == "김"
+
+
+@_needs_ja
+def test_ja_segmenter_declines_what_it_cannot_read() -> None:
+    # The adapter's repertoire guard, which only a token that actually
+    # REACHES the adapter can pin: a listed Korean surname is split by
+    # the vocabulary first (the second case below), so this hangul
+    # deliberately opens with a syllable no surname list carries. It
+    # gates in on script, declines vocabulary, and reaches the adapter,
+    # which must decline it rather than let namedivider divide Korean
+    # -- without the guard it comes back as family 쿄 carrying a bogus
+    # SEGMENTATION report.
+    p = _PACKED["ja"]
+    n = p.parse("쿄쿄쿄")
+    assert (n.family, n.given) == ("쿄쿄쿄", "")
+    assert n.ambiguities == ()
+    # ...and the vocabulary-wins case, which never reaches the adapter
+    assert p.parse("김민준").family == "김"
+
+
+@_needs_ja
+def test_ja_segmenter_declines_a_lone_character() -> None:
+    # namedivider RAISES below two characters, and a segmenter's
+    # exceptions propagate by contract, so the adapter's length guard
+    # is what keeps this parse total. It takes a LONE token to reach:
+    # in "林 太郎" the stage's precondition stops the segmenter first.
+    p = _PACKED["ja"]
+    n = p.parse("林")
+    assert (n.family, n.given) == ("林", "")
+    assert n.ambiguities == ()
+
+
+@_needs_ja
+def test_ja_leaves_spaced_names_to_the_default_order() -> None:
+    # the segmenter's precondition (see test_parser.py): a spaced name
+    # is already divided, and the kana/Han family-first defaults read
+    # it correctly with no segmenter involved. Without this the pack
+    # would wreck the commonest written form -- 山田 + 太郎 divided
+    # again into 山 + 田 + 太郎.
+    p = _PACKED["ja"]
+    for name in ("山田 太郎", "高橋 みなみ", "高橋 エミ", "山田 太郎 Jr.",
+                 "山田 太郎 様"):
+        assert p.parse(name).as_dict() == _default_parse(name), name
+    assert p.parse("山田 太郎").family == "山田"
+
+
+@_needs_ja
+def test_ja_divides_a_glued_name_carrying_an_honorific() -> None:
+    # #308 end to end, with the real divider: the honorific peels off
+    # first, so namedivider is handed 山田太郎 rather than 山田太郎様
+    # -- which it would have divided somewhere wrong, answering for
+    # any string it is given. GLUED only: the writer of 山田太郎様 drew
+    # no boundary anywhere, so the tail the peel manufactured is none
+    # either and the consult goes ahead.
+    p = _PACKED["ja"]
+    n = p.parse("山田太郎様")
+    assert (n.family, n.given, n.suffix) == ("山田", "太郎", "様")
+    # the kana-licensed composite too, whose division is rule-based
+    n = p.parse("高橋みなみ様")
+    assert (n.family, n.given, n.suffix) == ("高橋", "みなみ", "様")
+    # and the spaced spelling is left alone, honorific and all: its
+    # writer wrote 山田太郎 as a unit, which the pack respects the way
+    # it respects "山田 太郎"
+    n = p.parse("山田太郎 様")
+    assert (n.family, n.given, n.suffix) == ("山田太郎", "", "様")
+
+
+@_needs_ja
+def test_ja_does_not_divide_a_spaced_surname_under_an_honorific() -> None:
+    # A spaced honorific is a neighbour, and the segmenter is asked
+    # only where an UNDIVIDED name divides, so it is never consulted
+    # here. Only a tail this stage MANUFACTURED is exempt -- a glued
+    # honorific means no boundary was typed anywhere, a spaced one
+    # means one was, and by position a spaced honorific cannot be told
+    # apart from a spaced name element besides.
+    # The bare control is what makes any of that load-bearing: without
+    # it the assertions pass vacuously, for any reason at all that the
+    # segmenter went unconsulted. Each family name here DOES divide
+    # standing alone, so the honorific is what stopped it -- and these
+    # four are the measured price of counting spaced honorifics, paid
+    # to decline the one division 山田太郎 様 (the test above).
+    p = _PACKED["ja"]
+    for name, family, divided in (("佐藤 氏", "佐藤", ("佐", "藤")),
+                                  ("田中 様", "田中", ("田", "中")),
+                                  ("鈴木 先生", "鈴木", ("鈴", "木")),
+                                  ("中村 教授", "中村", ("中", "村"))):
+        n = p.parse(name)
+        assert (n.family, n.given) == (family, ""), name
+        bare = p.parse(family)
+        assert (bare.family, bare.given) == divided, family
+
+
+@_needs_ja
+def test_ja_divides_a_two_character_name_under_a_glued_honorific() -> None:
+    # The consequence of the rule above on the commonest addressed
+    # form, pinned so it is a recorded decision rather than a side
+    # effect: with the peeled tail not blocking the consult, a
+    # two-character remainder reaches namedivider, which divides it
+    # one character each way BY RULE (score 1.0, so no SEGMENTATION
+    # report). That is the same presumption locales/ja.py already
+    # documents and test_ja_reports_statistical_divisions... pins for
+    # 原恵 -- 田中さん is simply the shortest route to it. A caller
+    # who wants 田中 kept whole is asking not to have unspaced names
+    # divided, which is what declining the pack means -- or can write
+    # the honorific spaced, which the test above pins.
+    n = _PACKED["ja"].parse("田中さん")
+    assert (n.family, n.given, n.suffix) == ("田", "中", "さん")
+    assert n.ambiguities == ()      # rule-based, so nothing to report
+    # the spaced twin, for the contrast in one place
+    n = _PACKED["ja"].parse("田中 さん")
+    assert (n.family, n.given, n.suffix) == ("田中", "", "さん")
+
+
+@_needs_ja
+def test_ja_reports_statistical_divisions_and_not_rule_based_ones() -> None:
+    # the confidence floor's measured consequence (_script_segment.py's
+    # constant): namedivider scores a rule-based division 1.0 and a
+    # kanji-statistics division far below the floor, so the ambiguity
+    # report separates exactly those two epistemic states
+    p = _PACKED["ja"]
+    assert [a.kind for a in p.parse("山田太郎").ambiguities] == [
+        AmbiguityKind.SEGMENTATION]
+    assert p.parse("高橋みなみ").ambiguities == ()     # kana boundary rule
+    assert p.parse("原恵").ambiguities == ()          # two-character rule
+
+
+@_needs_ja
+def test_ja_divides_a_lone_hiragana_token() -> None:
+    # The whole-name presumption, applied to hiragana: at token level a
+    # bare given name is indistinguishable from a full name, so the
+    # stage gates みなみ in and namedivider divides it -- み + なみ,
+    # which is wrong if the writer meant the given name alone and right
+    # if they meant a (rare) all-kana full name. Exactly the acceptance
+    # 田中 -> 田 + 中 already carries for kanji, pinned here so the kana
+    # path's version is a recorded consequence rather than a surprise.
+    # The statistical score puts a SEGMENTATION report on it, which is
+    # the caller's handle for routing it to review.
+    n = _PACKED["ja"].parse("みなみ")
+    assert (n.family, n.given) == ("み", "なみ")
+    assert [a.kind for a in n.ambiguities] == [AmbiguityKind.SEGMENTATION]
+
+
+@_needs_ja
+def test_ja_divides_an_astral_kanji_name() -> None:
+    # 𠮷 (U+20BB7, the "tsuchiyoshi" 吉) is a real surname character in
+    # the supplementary plane -- the reason _SCRIPT_RANGES carries the
+    # astral Han span at all. It has to survive the whole chain as one
+    # character and not two: the script gate, the adapter's repertoire
+    # guard, namedivider itself, and the offset arithmetic that turns
+    # the answer into spans (Python indexes by codepoint, so an offset
+    # of 2 here spans four UTF-16 units -- a surrogate-pair bug would
+    # land the split in the middle of the character).
+    n = _PACKED["ja"].parse("𠮷田太郎")
+    assert (n.family, n.given) == ("𠮷田", "太郎")
+    assert [a.kind for a in n.ambiguities] == [AmbiguityKind.SEGMENTATION]
+
+
+@_needs_ja
+def test_namedivider_still_miscuts_shime_names() -> None:
+    # The canary behind the adapter's 〆 decline: when this fails,
+    # namedivider learned the mark -- revisit the decline in ja.py
+    # rather than deleting this test.
+    import namedivider
+    result = namedivider.BasicNameDivider().divide_name("〆木太郎")
+    assert (result.family, result.given) == ("〆", "木太郎")
+    assert float(result.score) == 1.0
+
+
+@_needs_ja
+def test_ja_stacked_on_zh_pays_the_zh_packs_documented_cost() -> None:
+    # Stacking composes MECHANICALLY (the test above) but not for free,
+    # and this pins the cost so it stays a documented trade rather than
+    # a bug report. Vocabulary runs first, so a Japanese kanji name
+    # opening on a listed CHINESE surname never reaches the segmenter:
+    # 高 is a common Chinese surname, so 高橋一郎 splits 高 + 橋一郎
+    # under ZH+JA exactly as it does under ZH alone -- the same reading
+    # cases.py's zh_japanese_kanji_tradeoff row records, and the reason
+    # the docs call the two packs corpus alternatives and qualify the
+    # stack (see _script_segment.py's module docstring, usage.rst and
+    # the release log). JA alone reads it correctly (test_ja_end_to_end).
+    p = parser_for(locales.ZH, locales.JA, segmenter=locales.ja_segmenter())
+    n = p.parse("高橋一郎")
+    assert (n.family, n.given) == ("高", "橋一郎")
+    # and silently: one vocabulary match is not a fork, so nothing here
+    # flags the mis-split -- the pack choice is what has to be right
+    assert n.ambiguities == ()
 
 
 def test_pack_vocabulary_entries_are_single_words() -> None:
@@ -79,10 +620,10 @@ def test_pack_vocabulary_entries_are_single_words() -> None:
     # this file may already have forced the import, which would make a
     # warning-capture version of this test pass even on a regression.
     # Iterates every registered pack, not just ru/tr_az by name, so a
-    # future pack is covered automatically. The field loop is dormant
-    # until a pack actually ships vocabulary -- both current packs build
-    # on Lexicon.empty() -- so the registry-non-empty assert below is
-    # what keeps the test from passing vacuously today.
+    # future pack is covered automatically. zh is the pack that gives
+    # the field loop something to chew on (ru/tr_az build on
+    # Lexicon.empty()); the registry-non-empty assert below keeps the
+    # test from passing vacuously if that ever stops being true.
     assert locales.available()
     for code in locales.available():
         lexicon = locales.get(code).lexicon
@@ -290,6 +831,61 @@ _ROTATORS["tr_az"] = [
     "Токаев Касым Кемел ұлы",            # ұлы
     "Жээнбеков Сооронбай Шарип уулу",    # уулу
 ]
+# zh has no marker regexes to rotate through: its rotators cover the
+# SEGMENTATION shapes instead (single/compound surname, simplified/
+# traditional, 1- and 2-character given names). No spaced entry --
+# spaced Han already parses family-first by default, so a spaced name
+# would not deviate from the default parser at all.
+_ROTATORS["zh"] = [
+    "毛泽东",        # 1-char surname, unspaced
+    "张伟",          # 2-char name: 1-char surname + 1-char given
+    "欧阳修",        # compound surname (欧 is NOT itself listed)
+    "夏侯惇",        # compound beats single: 夏 IS listed too
+    "司马相如",      # compound + 2-char given
+    "王力宏",        # 1-char surname + 2-char given
+    "諸葛亮",        # traditional-script compound
+    "萧红",          # the 肖/萧 merger's second simplified spelling
+]
+# ja has no marker regexes and no vocabulary either: its rotators cover
+# the shapes only the pack PLUS its segmenter changes. Every row is
+# UNSPACED on purpose -- a spaced kana-licensed name (高橋 みなみ) now
+# reads family-first by DEFAULT (amendment 2026-07-29 §1), so it would
+# not deviate and would fail the must-deviate assertion below.
+_ROTATORS["ja"] = [
+    "山田太郎",      # 2-kanji family + 2-kanji given, the common shape
+    "高橋一郎",      # the name a zh surname list corrupts (高 + 橋一郎)
+    "田中花子",      # ditto (田 is a listed zh surname)
+    "原辰徳",        # 1-kanji family + 2-kanji given: the other fork
+    "高橋みなみ",    # kanji + hiragana: the kana license's carrier case
+    "山田エミ",      # kanji + katakana: licensed as a MIXED token, where
+                     # pure katakana (マイケル) is deliberately not
+    "佐々木健",      # the iteration mark 々 inside a top-20 surname
+]
+
+
+def _marker_regexes(module: ModuleType) -> list[re.Pattern]:
+    return [v for v in vars(module).values() if isinstance(v, re.Pattern)]
+
+
+# Packs whose DEVIATES surface is defined by marker REGEXES -- derived,
+# never listed, same rule as the registry itself: a pack qualifies by
+# having any module-level re.Pattern, so zh and ja (which declare by
+# codepoint range, derived from the shared table via _script_matcher,
+# so they hold no pattern of their own) drop out on their own and a
+# future marker-regex pack cannot silently miss branch coverage.
+_MARKER_REGEX_PACKS = tuple(code for code in sorted(_PACKS)
+                            if _marker_regexes(_PACKS[code]))
+
+
+def test_range_declaring_packs_stay_out_of_marker_classification() -> None:
+    # Load-bearing since the packs derive from the shared table: zh/ja
+    # hold no module-level re.Pattern because _script_matcher's closure
+    # hides the compiled class. A pack author who "simplifies" one back
+    # to a module-level pattern flips its classification into the
+    # rotator branch-coverage sweep, which a codepoint-range predicate
+    # cannot satisfy.
+    assert "zh" not in _MARKER_REGEX_PACKS
+    assert "ja" not in _MARKER_REGEX_PACKS
 
 
 def test_registry_is_the_pack_contract() -> None:
@@ -302,8 +898,23 @@ def test_registry_is_the_pack_contract() -> None:
     for code, module in _PACKS.items():
         assert callable(getattr(module, "DEVIATES", None)), (
             f"pack {code!r} does not declare DEVIATES")
+        # _MARKER_REGEX_PACKS selects on module-level patterns, so a
+        # pack that declares by regex but keeps its patterns inside a
+        # function would drop out of the branch-coverage sweep in
+        # silence. Importing `re` is the tell. The tradeoff is
+        # deliberate: a range-declaring pack that imports re for some
+        # unrelated reason trips this loudly, which beats a silent
+        # coverage gap -- and the fix is to expose the pattern.
+        if "re" in vars(module):
+            assert _marker_regexes(module), (
+                f"pack {code!r} imports re but exposes no module-level "
+                f"pattern")
     assert set(_ROTATORS) == set(_PACKS), (
         "every pack needs a rotator list (and only registered packs)")
+    # the derivation is code, not a list, so an empty result would make
+    # the branch-coverage test vanish into zero parametrizations rather
+    # than fail. Assert it found something.
+    assert _MARKER_REGEX_PACKS, "no pack declares marker regexes"
 
 
 def _alternation_branches(pattern: str) -> list[str]:
@@ -317,7 +928,7 @@ def _alternation_branches(pattern: str) -> list[str]:
     return inner[1:-1].split("|")
 
 
-@pytest.mark.parametrize("code", sorted(_PACKS))
+@pytest.mark.parametrize("code", _MARKER_REGEX_PACKS)
 def test_rotators_cover_every_marker_branch(code: str) -> None:
     # The rotator lists' per-row branch comments are a human convention;
     # this enforces them mechanically: every alternation branch of every
@@ -328,10 +939,9 @@ def test_rotators_cover_every_marker_branch(code: str) -> None:
     # pattern's own shape: '^(...)$' = whole-token marker, '(...)$' =
     # token ending.
     tokens = [tok for name in _ROTATORS[code] for tok in name.split()]
-    patterns = [v for v in vars(_PACKS[code]).values()
-                if isinstance(v, re.Pattern)]
-    assert patterns, f"pack {code!r} defines no marker regexes"
-    for regex in patterns:
+    # non-empty by construction: having marker regexes is what put this
+    # pack in _MARKER_REGEX_PACKS in the first place
+    for regex in _marker_regexes(_PACKS[code]):
         for branch in _alternation_branches(regex.pattern):
             anchored = regex.pattern.startswith("^")
             branch_re = re.compile(
@@ -347,25 +957,42 @@ def test_rotator_deviates_and_declares(code: str, name: str) -> None:
     # every branch of the pack's marker regexes both FIRES (packed parse
     # differs from default) and is DECLARED (DEVIATES says so) -- the
     # per-name proof behind the gate's declared-count floor below
-    assert _PACKED[code].parse(name).as_dict() != _default_parse(name)
+    packed = _require_packed(code)
+    assert packed.parse(name).as_dict() != _default_parse(name)
     assert _PACKS[code].DEVIATES(name)
 
 
 @pytest.mark.parametrize("code", sorted(_PACKS))
 def test_non_interference_each_pack(code: str) -> None:
+    packed = _require_packed(code)
     corpus = _default_corpus() + _ROTATORS[code]
     declared = _assert_non_interference(
-        _PACKED[code], _PACKS[code].DEVIATES, corpus)
+        packed, _PACKS[code].DEVIATES, corpus)
     # the positive side: every synthetic rotator (plus the corpus's own
     # in-scope names) must actually flow through the declared branch
     assert declared >= len(_ROTATORS[code])
 
 
 def test_non_interference_all_packs_combined() -> None:
-    all_rotators = [n for code in sorted(_ROTATORS)
+    # Every pack is applied whether or not its extra is installed (the
+    # ja pack's policy patch is pure data); only the ROTATORS of a pack
+    # that cannot act are dropped, since the count assertion below
+    # requires each listed name to actually deviate.
+    all_rotators = [n for code in sorted(_ROTATORS) if code in _PACKED
                     for n in _ROTATORS[code]]
     corpus = _default_corpus() + all_rotators
-    packed = parser_for(*(locales.get(code) for code in sorted(_PACKS)))
+    if _JA_AVAILABLE:
+        packed = parser_for(
+            *(locales.get(code) for code in sorted(_PACKS)),
+            segmenter=locales.ja_segmenter())
+    else:
+        # without the extra, the stack's hiragana activation is
+        # unservable -- which construction now SAYS (the segmenterless
+        # warning, pinned in test_parser.py); expected noise here, the
+        # gate below is what this test is about
+        with pytest.warns(UserWarning, match="ja_segmenter"):
+            packed = parser_for(
+                *(locales.get(code) for code in sorted(_PACKS)))
     declared = _assert_non_interference(
         packed,
         lambda n: any(m.DEVIATES(n) for m in _PACKS.values()),
@@ -404,6 +1031,16 @@ def test_non_interference_all_packs_combined() -> None:
     # Ukrainian "і" is single-character like "и", so the same
     # single-letter carve-out applies: pinned with a 5-piece name.
     ("проф і акад Тарас Григорович Шевченко", "title", "проф і акад"),
+    # Ukrainian "й" is the euphonic alternate of "і" (the two swap by
+    # surrounding vowel/consonant, so real data carries both) -- same
+    # single-letter carve-out, pinned with the same 5-piece shape.
+    ("проф й акад Тарас Григорович Шевченко", "title", "проф й акад"),
+    # ...and joining two given names, the shape #267's reporter raised:
+    # a bare Cyrillic letter between given names reads as the
+    # conjunction, not an initial (Cyrillic typography writes initials
+    # with periods -- see
+    # test_267_dotted_cyrillic_initial_wins_over_conjunction).
+    ("Олесь й Олена Коваленки", "given", "Олесь й Олена"),
     # Greek titles + conjunction (και has 3 letters, so the single-char
     # initial carve-out above never applies to it). Bare κ is NOT
     # shipped -- it collides with the initial+surname shape (see the
@@ -548,3 +1185,18 @@ def test_269_bare_greek_kappa_not_a_title() -> None:
     assert n.title == ""
     assert n.given == "Κ."
     assert n.family == "Παπαδόπουλος"
+
+
+def test_267_dotted_cyrillic_initial_wins_over_conjunction() -> None:
+    # Blast-radius guard for the single-letter Cyrillic conjunctions
+    # (и/і/й): each is also the first letter of real given names
+    # (Игорь, Ірина, Йосип), so the shipped entries would be a trap if
+    # membership could outrank a punctuated initial. It cannot -- the
+    # initial regex's dotted branch is Unicode-aware -- and #267 settled
+    # the BARE letter in the conjunction's favor precisely because
+    # Cyrillic typography writes initials with the period.
+    for dotted, family in (("И.", "Иванов"), ("І.", "Франко"),
+                           ("Й.", "Сліпий")):
+        n = parse(f"{dotted} {family}")
+        assert n.given == dotted
+        assert n.family == family

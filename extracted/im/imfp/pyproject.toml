@@ -1,13 +1,13 @@
 [project]
 name = "imfp"
-version = "1.3.4"
-description = "Python package for downloading economic data from the International Monetary Fund JSON RESTful API endpoint."
+version = "2.0.0"
+description = "Python package for downloading economic data from the International Monetary Fund SDMX 3.0 API, following econdataverse conventions."
 authors = [
     {name = "Christopher C. Smith", email = "christopher.smith@promptlytechnologies.com"}
 ]
 license = {file = "LICENSE"}
 readme = "README.md"
-keywords = ["economics", "finance", "IMF", "API"]
+keywords = ["economics", "finance", "IMF", "API", "SDMX", "econdataverse"]
 classifiers = [
     "Intended Audience :: Financial and Insurance Industry",
     "Programming Language :: Python :: 3",
@@ -19,7 +19,6 @@ requires-python = ">=3.10"
 dependencies = [
     "pandas == 2.2.3",
     "requests==2.33.0",
-    "type-enforced>=1.10.1",
 ]
 
 [project.urls]
@@ -107,10 +106,15 @@ insecure = false
 dist_glob_patterns = ["dist/*"]
 upload_to_vcs_release = true
 
-[tool.black]
-# Generate syntax compatible with the oldest supported runtime. Listing newer
-# targets makes Black's safety check require a matching interpreter.
-target-version = ["py310"]
+[tool.ruff]
+# Generate syntax compatible with the oldest supported runtime.
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I", "UP"]
+
+[tool.ty.rules]
+unused-ignore-comment = "error"
 
 [dependency-groups]
 dev = [
@@ -118,7 +122,6 @@ dev = [
     "responses == 0.23.3",
     "pytest==9.0.3",
     "pytest-runner == 6.0.1",
-    "black == 26.5.1",
     "pytest-mock == 3.14.0",
     "jupyter == 1.1.1",
     # Floor transitive Jupyter/docs stack packages at patched releases
@@ -136,7 +139,6 @@ dev = [
     "seaborn == 0.13.2",
     "quarto == 0.1.0",
     "scikit-learn == 1.5.2",
-    "mypy>=1.14.1",
     "pycountry>=24.6.1",
     "statsmodels>=0.14.5",
     "tabulate>=0.9.0",
@@ -145,4 +147,6 @@ dev = [
     "great-docs>=0.14.1 ; python_full_version >= '3.11'",
     "types-requests>=2.33.0.20260712",
     "pandas-stubs>=2.3.3.260113",
+    "ruff>=0.16.1",
+    "ty>=0.0.69",
 ]

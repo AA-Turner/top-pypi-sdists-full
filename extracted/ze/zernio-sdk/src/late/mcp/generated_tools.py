@@ -2203,31 +2203,35 @@ def register_generated_tools(mcp, _get_client):
         campaign_id: str,
         platform: str,
         account_id: str | None = None,
-        budget: dict[str, Any] | None = None,
         bid_strategy: str | None = None,
+        bid_amount: float | None = None,
+        roas_average_floor: float | None = None,
+        budget: dict[str, Any] | None = None,
         name: str | None = None,
         platform_specific_data: dict[str, Any] | None = None,
     ) -> str:
         """Update a campaign
 
-            Args:
-                campaign_id: Platform campaign ID (required)
-                account_id: Zernio SocialAccount id owning the ad account. Required only to update an EMPTY campaign (zero ads), which has no local Ad documents to resolve a token from.
-                platform: (required)
-                budget
-                bid_strategy: Campaign-level default. Ad sets inherit this unless they override.
-                name: Rename the campaign (Meta only; other platforms return 501). At least one of budget/bidStrategy/name/platformSpecificData is required.
-                platform_specific_data: Platform-specific campaign settings. The platform is implied by the `platform`
-        body param (same convention as platformSpecificData on POST /v1/ads/create).
-        Meta (facebook/instagram) only; other platforms return 400."""
+        Args:
+            campaign_id: Platform campaign ID (required)
+            platform: Required: platform campaign IDs are not globally unique. (required)
+            account_id: **Meta only.** Zernio SocialAccount id owning the ad account. Needed only for an EMPTY campaign (zero ads); ignored otherwise.
+            bid_strategy: **Meta + Google.** On Meta, the campaign default that ad sets inherit unless they override it. On Google, the campaign's own bidding strategy.
+            bid_amount: **Google only.** Whole currency units (USD: 12 = $12.00). Max CPC for LOWEST_COST_WITH_BID_CAP, CPA target for COST_CAP; required for both.
+            roas_average_floor: **Google only.** Decimal ROAS multiplier (2.0 = 2.0x), required for LOWEST_COST_WITH_MIN_ROAS.
+            budget: **Meta only.** The CBO budget.
+            name: **Meta only.** Rename the campaign.
+            platform_specific_data: **Meta only.** Platform implied by the `platform` body param, same convention as POST /v1/ads/create."""
         client = _get_client()
         try:
             response = client.ad_campaigns.update_ad_campaign(
                 campaign_id=campaign_id,
-                account_id=account_id,
                 platform=platform,
-                budget=budget,
+                account_id=account_id,
                 bid_strategy=bid_strategy,
+                bid_amount=bid_amount,
+                roas_average_floor=roas_average_floor,
+                budget=budget,
                 name=name,
                 platform_specific_data=platform_specific_data,
             )
@@ -2780,9 +2784,12 @@ def register_generated_tools(mcp, _get_client):
         ad_account_id: str,
         name: str,
         goal: str,
-        budget: dict[str, Any] | None,
         post_id: str | None = None,
         platform_post_id: str | None = None,
+        ad_set_id: str | None = None,
+        budget: dict[str, Any] | None = None,
+        instagram_account_id: str | None = None,
+        destination_type: str | None = None,
         currency: str | None = None,
         schedule: dict[str, Any] | None = None,
         targeting: dict[str, Any] | None = None,
@@ -2810,7 +2817,10 @@ def register_generated_tools(mcp, _get_client):
                 ad_account_id: Platform ad account ID (required)
                 name: (required)
                 goal: Available goals vary by platform. Meta (Facebook/Instagram) and TikTok support all 7. LinkedIn supports all except app_promotion. Twitter/X supports engagement, traffic, awareness, video_views, app_promotion. Pinterest and Google Ads support only engagement, traffic, awareness, video_views. (required)
-                budget: (required)
+                ad_set_id: Meta only. Attach the boosted post to this existing ad set instead of creating a campaign. The ad set then owns budget, schedule and targeting; sending those too is a 400.
+                budget: Required unless adSetId is set.
+                instagram_account_id: Meta only. Instagram identity the ad runs AS (creative.instagram_user_id), overriding the account linked to the Page. Live-verified against a Page-post creative.
+                destination_type: Meta only. Ad-set destination_type — where the click LANDS, as opposed to instagramAccountId which is who the ad runs as. Lead ads force ON_AD and ignore this.
                 currency
                 schedule
                 targeting: Same geo/demographic fields as the `TargetingSpec` used by /v1/ads/create.
@@ -2852,16 +2862,28 @@ def register_generated_tools(mcp, _get_client):
                 tracking: Meta only. Tracking specs (pixel, URL tags).
                 special_ad_categories: Meta only. Required for housing, employment, credit, or political ads.
                 special_ad_category_country: Meta (metaads) only. 2-letter ISO country codes the special ad category applies to. Requires specialAdCategories to be set (400 otherwise).
-                link_url: TikTok-only. Custom destination URL for the Spark Ad. Without this, TikTok
-        Spark Ads have no clickable destination — required for traffic / conversion
-        objectives. Maps to `landing_page_url` on the creative entry of /v2/ad/create/
-        (TikTok SDK `AdcreateCreatives.landing_page_url`). Ignored on Meta / LinkedIn /
-        Pinterest / X / Google (those infer the destination from the boosted post).
-                call_to_action: TikTok-only. Call-to-action button label on the Spark Ad creative (e.g.
-        `LEARN_MORE`, `SHOP_NOW`, `DOWNLOAD_NOW`, `SIGN_UP`, `WATCH_NOW`). Maps to
-        `call_to_action` on the creative entry of /v2/ad/create/. Pass-through —
-        the platform validates the value. See TikTok's "Enumeration - Call-to-Action"
-        reference for the full list.
+                link_url: Destination URL for the CTA button. Send it together with `callToAction`.
+
+        **Meta**: adds a top-level `call_to_action` to the post-reference creative.
+        This is what gives a `traffic` boost a clickable destination without
+        replacing the creative and losing the post's social proof. Ignored when
+        `leadGenFormId` is set, which supplies its own destination. Live-verified
+        against a Page-post creative.
+
+        **TikTok**: maps to `landing_page_url` on the Spark Ad creative
+        (`AdcreateCreatives.landing_page_url`); Spark Ads have no clickable
+        destination without it.
+
+        Ignored on LinkedIn / Pinterest / X / Google, which infer the destination
+        from the boosted post.
+                call_to_action: CTA button label. Send it together with `linkUrl` — a CTA without a
+        destination produces a button that goes nowhere, so sending one alone is a 400.
+
+        **Meta**: validated against the Meta CTA enum (same values as
+        POST /v1/ads/create), e.g. `LEARN_MORE`, `SHOP_NOW`, `SIGN_UP`.
+
+        **TikTok**: pass-through to `call_to_action` on the Spark Ad creative; the
+        platform validates the value. See TikTok's "Enumeration - Call-to-Action".
                 spark_auth_code: TikTok-only. Spark Code (creator's `auth_code`) authorizing cross-creator
         Spark Ads — the advertiser can boost a video owned by a DIFFERENT TikTok
         account. Without this, boosts are limited to videos owned by the same
@@ -2893,7 +2915,10 @@ def register_generated_tools(mcp, _get_client):
                 ad_account_id=ad_account_id,
                 name=name,
                 goal=goal,
+                ad_set_id=ad_set_id,
                 budget=budget,
+                instagram_account_id=instagram_account_id,
+                destination_type=destination_type,
                 currency=currency,
                 schedule=schedule,
                 targeting=targeting,
@@ -5795,11 +5820,14 @@ def register_generated_tools(mcp, _get_client):
         exclude_keywords: list[str] | None = None,
         typo_tolerance: bool | None = None,
         buttons: list[dict[str, Any]] | None = None,
+        template: dict[str, Any] | None = None,
         comment_reply: str | None = None,
         dm_message_variations: list[str] | None = None,
         comment_reply_variations: list[str] | None = None,
         link_tracking: bool = True,
         click_tag: str | None = None,
+        dm_delay_seconds: int | None = None,
+        comment_reply_delay_seconds: int | None = None,
         audience: dict[str, Any] | None = None,
         follow_gate: dict[str, Any] | None = None,
     ) -> str:
@@ -5819,11 +5847,14 @@ def register_generated_tools(mcp, _get_client):
             typo_tolerance: Only with matchMode=word: also fire on close misspellings of a keyword (one edit for 4-7 character keywords, two from 8 up). Keywords shorter than 4 characters are never fuzzy-matched.
             dm_message: DM text to send to commenter. Max 640 chars when buttons are set, otherwise ~1000. (required)
             buttons: Optional inline DM buttons (1-3). Phone buttons are Facebook-only. Omit or pass [] for a plain-text DM.
+            template: Optional product card sent INSTEAD of the plain dmMessage bubble. Mutually exclusive with buttons. dmMessage stays required: it is what gets sent the moment the card is cleared.
             comment_reply: Optional public reply to the comment
             dm_message_variations: Optional alternate DM texts for random rotation. When set, each triggered comment sends one picked at random from [dmMessage, ...dmMessageVariations], so repeat commenters get slightly different DMs (helps avoid identical-message patterns). Up to 5. Buttons are attached to whichever text is picked, not varied.
             comment_reply_variations: Optional alternate public replies, rotated at random alongside commentReply (picked independently of the DM). Up to 5.
             link_tracking: Wrap link buttons in the DM in a tracked redirect so clicks are counted (Link Clicks / CTR). Pass false to send links exactly as written. Defaults to on.
             click_tag: Optional tag applied to a contact when they click a tracked link (requires linkTracking). Lets you segment clickers for broadcasts/sequences.
+            dm_delay_seconds: Seconds to wait after the trigger before sending the DM. Omit or send 0 to reply immediately (the default). Max 86400 (24h). The trigger is still matched and deduplicated the moment the comment arrives, so a delay only moves when the response is sent.
+            comment_reply_delay_seconds: Seconds to wait before posting the public comment reply. Omit or send 0 to post it right after the DM (the default). The reply never goes out before the DM, so a value below dmDelaySeconds is raised to it. Ignored when trigger=story_reply, which has no public reply.
             audience
             follow_gate"""
         client = _get_client()
@@ -5842,11 +5873,14 @@ def register_generated_tools(mcp, _get_client):
                 typo_tolerance=typo_tolerance,
                 dm_message=dm_message,
                 buttons=buttons,
+                template=template,
                 comment_reply=comment_reply,
                 dm_message_variations=dm_message_variations,
                 comment_reply_variations=comment_reply_variations,
                 link_tracking=link_tracking,
                 click_tag=click_tag,
+                dm_delay_seconds=dm_delay_seconds,
+                comment_reply_delay_seconds=comment_reply_delay_seconds,
                 audience=audience,
                 follow_gate=follow_gate,
             )
@@ -5894,11 +5928,14 @@ def register_generated_tools(mcp, _get_client):
         typo_tolerance: bool | None = None,
         dm_message: str | None = None,
         buttons: list[dict[str, Any]] | None = None,
+        template: str | None = None,
         comment_reply: str | None = None,
         dm_message_variations: list[str] | None = None,
         comment_reply_variations: list[str] | None = None,
         link_tracking: bool | None = None,
         click_tag: str | None = None,
+        dm_delay_seconds: int | None = None,
+        comment_reply_delay_seconds: int | None = None,
         audience: dict[str, Any] | None = None,
         follow_gate: dict[str, Any] | None = None,
         is_active: bool | None = None,
@@ -5915,11 +5952,14 @@ def register_generated_tools(mcp, _get_client):
             typo_tolerance: Only with matchMode=word: also fire on close misspellings of a keyword (one edit for 4-7 character keywords, two from 8 up). Keywords shorter than 4 characters are never fuzzy-matched.
             dm_message
             buttons: Inline DM buttons (1-3). Pass [] to clear all buttons.
+            template: Product card sent instead of the plain dmMessage bubble. Pass null to clear it and fall back to dmMessage. Mutually exclusive with buttons, including with the buttons already stored on the automation.
             comment_reply
             dm_message_variations: Alternate DM texts for random rotation (see create). Pass [] to clear.
             comment_reply_variations: Alternate public replies for random rotation. Pass [] to clear.
             link_tracking: Wrap link buttons in a tracked redirect to count clicks. Pass false to send links untouched.
             click_tag: Tag applied to a contact when they click a tracked link (requires linkTracking). Empty string clears it.
+            dm_delay_seconds: Seconds to wait after the trigger before sending the DM. Send 0 to clear the delay and reply immediately.
+            comment_reply_delay_seconds: Seconds to wait before posting the public comment reply. Send 0 to clear it. The reply never goes out before the DM.
             audience
             follow_gate
             is_active"""
@@ -5935,11 +5975,14 @@ def register_generated_tools(mcp, _get_client):
                 typo_tolerance=typo_tolerance,
                 dm_message=dm_message,
                 buttons=buttons,
+                template=template,
                 comment_reply=comment_reply,
                 dm_message_variations=dm_message_variations,
                 comment_reply_variations=comment_reply_variations,
                 link_tracking=link_tracking,
                 click_tag=click_tag,
+                dm_delay_seconds=dm_delay_seconds,
+                comment_reply_delay_seconds=comment_reply_delay_seconds,
                 audience=audience,
                 follow_gate=follow_gate,
                 is_active=is_active,
@@ -6402,7 +6445,7 @@ def register_generated_tools(mcp, _get_client):
 
         Args:
             platform: Social media platform to connect (required)
-            profile_id: Your Zernio profile ID (get from /v1/profiles) (required)
+            profile_id: Your Zernio profile ID (get from /v1/profiles). For WhatsApp, a Zernio-provisioned number can only be connected on the profile it was provisioned to; connecting from any other profile is rejected with a 409. (required)
             redirect_url: Your custom redirect URL after connection completes. Accepts an http(s) URL, a custom app scheme for mobile deeplinks (e.g. myapp://callback), or a relative path. Result params are appended with the URL API, so an existing query string is preserved. Standard mode appends connected={platform}&profileId=X&accountId=Y&username=Z. Headless mode appends OAuth data params for platforms requiring selection (e.g. LinkedIn orgs, Facebook pages). If no selection is needed, the account is created directly and the redirect includes accountId.
             headless: When true, the user is redirected to your redirect_url with raw OAuth data (code, state) instead of Zernio's default account selection UI. Use this to build a custom connect experience."""
         client = _get_client()
@@ -10430,7 +10473,7 @@ def register_generated_tools(mcp, _get_client):
         """Send message
 
             Args:
-                conversation_id: The conversation ID (id field from list conversations endpoint). This is the platform-specific conversation identifier, not an internal database ID. (required)
+                conversation_id: Opaque conversation identifier, accepted verbatim from the list endpoint or from the conversationId on inbox webhooks. Format not to be assumed. (required)
                 account_id: Social account ID (required)
                 message: Message text
                 attachment_url: URL of the attachment to send (image, video, audio, or file). The URL must be publicly accessible. For binary file uploads, use multipart/form-data instead.
@@ -10445,6 +10488,10 @@ def register_generated_tools(mcp, _get_client):
                 quick_replies: Quick reply buttons. Mutually exclusive with buttons. Max 13 items.
                 buttons: Action buttons. Mutually exclusive with quickReplies. Max 3 items.
 
+        Instagram / Facebook: also mutually exclusive with `template`.
+        A Meta message carries one body shape, so sending both is a 400
+        rather than a silent drop of the buttons.
+
         WhatsApp: buttons always render as interactive reply buttons.
         Only `title` and `payload` are used — `type`, `url`, and `phone`
         are ignored (WhatsApp has no URL/phone button in this field; use
@@ -10458,7 +10505,9 @@ def register_generated_tools(mcp, _get_client):
 
         Instagram / Facebook: a generic template (carousel). Set `type: generic`
         and provide up to 10 `elements`, each with a `title` (required) and
-        optional `subtitle`, `imageUrl`, and `buttons`.
+        optional `subtitle`, `imageUrl`, and `buttons`. Mutually exclusive with
+        the top-level `buttons` field (sending both is a 400); put the card's
+        buttons on its `elements` instead.
 
         WhatsApp: sends an approved WhatsApp template message, the only message
         type WhatsApp accepts when the 24-hour customer-service window is closed.
@@ -10532,7 +10581,7 @@ def register_generated_tools(mcp, _get_client):
                 reply_markup: Telegram-native keyboard markup. Ignored on other platforms.
                 messaging_type: Facebook messaging type. Required when using messageTag.
                 message_tag: Facebook message tag for messaging outside 24h window. Requires messagingType MESSAGE_TAG. Instagram only supports HUMAN_AGENT.
-                reply_to: Platform message ID to quote-reply to. For WhatsApp, pass the wamid; for Telegram, the Telegram message ID; for Instagram, the Meta mid (all available in message.platformMessageId from webhooks or the list-messages endpoint). On Slack it threads the reply (thread_ts) instead of quoting. Silently ignored on platforms without reply support, including Facebook Messenger (Meta's Messenger Send API has no reply_to).
+                reply_to: Platform message ID to quote-reply to. For WhatsApp, pass the wamid; for Telegram, the Telegram message ID (both available in message.platformMessageId from webhooks or the list-messages endpoint). On Slack it threads the reply (thread_ts) instead of quoting. Silently ignored on platforms without send-side reply support, including Instagram and Facebook Messenger (Meta's Send API rejects reply_to on Instagram and does not expose it on Messenger).
                 location: WhatsApp-only. Send a location pin.
                 contacts: WhatsApp-only. Send one or more contact cards."""
         client = _get_client()
@@ -16992,6 +17041,31 @@ def register_generated_tools(mcp, _get_client):
                 area_code=area_code,
                 branding=branding,
                 redirect_url=redirect_url,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Move a number to another profile",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def whatsapp_phone_numbers_move_whats_app_number_to_profile(
+        id: str, profile_id: str
+    ) -> str:
+        """Move a number to another profile
+
+        Args:
+            id: WhatsAppPhoneNumber id. (required)
+            profile_id: Destination profile id. Must belong to the same team. (required)"""
+        client = _get_client()
+        try:
+            response = client.whatsapp_phone_numbers.move_whats_app_number_to_profile(
+                id=id, profile_id=profile_id
             )
             return _format_response(response)
         except Exception as e:

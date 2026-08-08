@@ -1,6 +1,7 @@
 use crate::parser::{
     table_driven::frame::{TableFrameResult, TableParseFrame, TableParseFrameStack},
-    FrameContext, FrameState, MatchResult, ParseError, Parser,
+    table_driven::parity,
+    FrameContext, FrameState, MatchResult, OneOfState, ParseError, Parser,
 };
 #[cfg(feature = "verbose-debug")]
 use crate::vdebug;
@@ -13,7 +14,7 @@ impl Parser<'_> {
     // ========================================================================
 
     /// Handle OneOf Initial state using table-driven approach
-    pub(crate) fn handle_oneof_table_driven_initial(
+    pub(crate) fn handle_oneof_initial(
         &mut self,
         mut frame: TableParseFrame,
         stack: &mut TableParseFrameStack,
@@ -56,23 +57,18 @@ impl Parser<'_> {
         }
 
         // Collect leading transparent tokens if allow_gaps
-        // self.skip_start_index_forward_to_code(start_pos, frame)
-        let post_skip_pos = if allow_gaps {
-            self.skip_start_index_forward_to_code(start_pos, self.tokens.len())
-        } else {
-            start_pos
-        };
+        let post_skip_pos = self.skip_to_code_if_gaps(start_pos, self.tokens.len(), allow_gaps);
 
         // Combine terminators (read parent terminators from frame directly)
         let local_terminators: Vec<GrammarId> = self.grammar_ctx.terminators(grammar_id).collect();
-        let all_terminators = Parser::combine_terminators_table_driven(
+        let all_terminators = Parser::combine_terminators(
             &local_terminators,
             &frame.table_terminators,
             reset_terminators,
         );
 
         // Calculate max_idx with terminators
-        let max_idx = self.calculate_max_idx_table_driven(
+        let max_idx = self.calculate_max_idx(
             post_skip_pos,
             &all_terminators,
             parse_mode,
@@ -90,8 +86,7 @@ impl Parser<'_> {
         );
 
         // Early termination check for GREEDY mode
-        if parse_mode == sqlfluffrs_types::ParseMode::Greedy
-            && self.is_terminated_table_driven(&all_terminators)
+        if parse_mode == sqlfluffrs_types::ParseMode::Greedy && self.is_terminated(&all_terminators)
         {
             vdebug!("OneOf[table]: Early termination - at terminator position");
             if optional {
@@ -103,7 +98,7 @@ impl Parser<'_> {
         let all_children: Vec<GrammarId> = self.grammar_ctx.element_children(grammar_id).collect();
 
         // Prune options based on simple hints
-        let pruned_children = self.prune_options_table_driven(&all_children);
+        let pruned_children = self.prune_options(&all_children);
 
         // Debug: list kept children names
         #[cfg(feature = "verbose-debug")]
@@ -137,8 +132,9 @@ impl Parser<'_> {
         }
 
         // Track match attempts (like Python's longest_match - each option is an attempt)
-        self.match_attempts
-            .set(self.match_attempts.get() + pruned_children.len());
+        self.metrics
+            .match_attempts
+            .set(self.metrics.match_attempts.get() + pruned_children.len());
 
         // Save first child before moving pruned_children into context
         let first_child = pruned_children[0];
@@ -150,7 +146,7 @@ impl Parser<'_> {
         );
 
         // Store context for WaitingForChild state (move pruned_children, no clone)
-        frame.context = FrameContext::OneOfTableDriven {
+        frame.context = FrameContext::OneOf(OneOfState {
             grammar_id,
             pruned_children,
             post_skip_pos,
@@ -159,10 +155,19 @@ impl Parser<'_> {
             max_idx,
             last_child_frame_id: Some(stack.frame_id_counter),
             current_child_id: Some(first_child),
-        };
+        });
 
         // Move terminators into frame (no clone)
         frame.table_terminators = all_terminators;
+
+        // Inline fast path: terminal candidates need no frame machinery.
+        // Feed the result straight into the shared candidate-handling logic.
+        self.pos = post_skip_pos;
+        if let Some(mr) = self.try_terminal_inline(first_child, Some(max_idx))? {
+            let end_pos = self.pos;
+            let arc = Arc::new(mr);
+            return self.handle_oneof_waiting_for_child(frame, &arc, &end_pos, stack);
+        }
 
         // Create table-driven child frame (copy terminators from frame)
         let child_frame = TableParseFrame::new_child(
@@ -184,70 +189,169 @@ impl Parser<'_> {
         Ok(stack.push_child_and_wait(frame, child_frame, 0))
     }
 
+    /// Try to match a terminal (frame-less) grammar candidate inline.
+    ///
+    /// OneOf candidates are dominated by synchronous terminal parsers
+    /// (keywords and typed/token matchers) which succeed or fail on a single
+    /// token comparison. Routing each of them through the frame machine cost
+    /// a frame allocation, two stack transitions and an empty-result Arc per
+    /// failed candidate. This evaluates them directly instead.
+    ///
+    /// Returns `Ok(None)` when the candidate is not a synchronous terminal
+    /// variant (the caller falls back to the frame path). On `Ok(Some(..))`
+    /// the parser position has been advanced past the match on success, or
+    /// left at the candidate position on a failed match, exactly as the
+    /// frame-based handlers do. The StringParser/TypedParser/MultiStringParser/
+    /// RegexParser/Token variants are never frame-cached (see
+    /// `parity::is_frame_cacheable`), so no cache semantics are lost for
+    /// them. `Ref` IS listed as frame-cacheable there, and a `Ref` resolving
+    /// to a terminal target loses that memoization by going through this
+    /// path instead of the frame path's cache check - accepted here because
+    /// the underlying match is a single-token comparison, cheap enough that
+    /// a cache lookup is unlikely to be a net win anyway.
+    pub(crate) fn try_terminal_inline(
+        &mut self,
+        grammar_id: GrammarId,
+        parent_max_idx: Option<usize>,
+    ) -> Result<Option<MatchResult>, ParseError> {
+        use sqlfluffrs_types::GrammarVariant;
+        let variant = self.grammar_ctx.variant(grammar_id);
+        // Refs resolving to a terminal target (e.g. keyword segments) are
+        // evaluated frame-free too, including the Ref wrapping.
+        let result = if matches!(variant, GrammarVariant::Ref) {
+            self.try_ref_terminal_inline(grammar_id, parent_max_idx)
+        } else if !Self::is_terminal_variant(variant) {
+            Ok(None)
+        } else {
+            self.dispatch_terminal_match(variant, grammar_id).map(Some)
+        };
+        match result {
+            Ok(Some(_)) => self
+                .metrics
+                .terminal_fast_path_hits
+                .set(self.metrics.terminal_fast_path_hits.get() + 1),
+            Ok(None) => self
+                .metrics
+                .terminal_fast_path_misses
+                .set(self.metrics.terminal_fast_path_misses.get() + 1),
+            Err(_) => {}
+        }
+        result
+    }
+
+    /// The set of `GrammarVariant`s that can be evaluated frame-free by
+    /// [`Self::dispatch_terminal_match`]: single-token parsers with no
+    /// sub-grammar of their own. Shared by `try_terminal_inline` and
+    /// `try_ref_terminal_inline`'s own terminal-target check so the two
+    /// "is this variant terminal" answers cannot drift.
+    #[inline]
+    pub(crate) fn is_terminal_variant(variant: sqlfluffrs_types::GrammarVariant) -> bool {
+        use sqlfluffrs_types::GrammarVariant;
+        matches!(
+            variant,
+            GrammarVariant::StringParser
+                | GrammarVariant::TypedParser
+                | GrammarVariant::MultiStringParser
+                | GrammarVariant::RegexParser
+                | GrammarVariant::Token
+        )
+    }
+
+    /// Dispatch a single-token terminal match for `grammar_id`, given its
+    /// already-known `variant` (one of [`Self::is_terminal_variant`]'s set).
+    /// Shared by `try_terminal_inline` and `try_ref_terminal_inline` so the
+    /// two "which handler for which variant" mappings cannot drift.
+    #[inline]
+    pub(crate) fn dispatch_terminal_match(
+        &mut self,
+        variant: sqlfluffrs_types::GrammarVariant,
+        grammar_id: GrammarId,
+    ) -> Result<MatchResult, ParseError> {
+        use sqlfluffrs_types::GrammarVariant;
+        match variant {
+            GrammarVariant::StringParser => self.handle_string_parser(grammar_id),
+            GrammarVariant::TypedParser => self.typed_parser_match(grammar_id),
+            GrammarVariant::MultiStringParser => self.handle_multi_string_parser(grammar_id),
+            GrammarVariant::RegexParser => self.handle_regex_parser(grammar_id),
+            GrammarVariant::Token => self.handle_token(grammar_id),
+            other => {
+                unreachable!("dispatch_terminal_match called with non-terminal variant {other:?}")
+            }
+        }
+    }
+
     /// Handle OneOf WaitingForChild state using table-driven approach
-    pub(crate) fn handle_oneof_table_driven_waiting_for_child(
+    pub(crate) fn handle_oneof_waiting_for_child(
         &mut self,
         mut frame: TableParseFrame,
         child_match: &Arc<MatchResult>,
         child_end_pos: &usize,
         stack: &mut TableParseFrameStack,
     ) -> Result<TableFrameResult, ParseError> {
-        let FrameContext::OneOfTableDriven {
-            pruned_children,
-            post_skip_pos,
-            longest_match,
-            tried_elements,
-            max_idx,
-            current_child_id,
-            ..
-        } = &mut frame.context
-        else {
-            unreachable!("Expected OneOfTableDriven context");
-        };
+        // Owned so the inline-terminal-candidate loop below can rebind them
+        // in place across candidates instead of recursing once per
+        // candidate - native recursion depth would otherwise be bounded
+        // only by this OneOf's candidate count.
+        let mut child_match = Arc::clone(child_match);
+        let mut child_end_pos = *child_end_pos;
 
-        let consumed = *child_end_pos - *post_skip_pos;
-        let current_child = current_child_id.expect("current_child_id should be set");
-
-        // Store the child result for reuse
-        let child_match_rc = Arc::clone(child_match);
-
-        // Values needed for logic (always computed)
-        let child_end_pos_val = *child_end_pos;
-        let child_is_clean = if child_match.is_empty() {
-            false
-        } else {
-            !child_match.contains_unparsable()
-        };
-
-        // Expensive debug-only variable collection (gated by verbose-debug feature)
-        #[cfg(feature = "verbose-debug")]
-        {
-            let child_consumed = consumed;
-            let child_name = match self.grammar_ctx.variant(current_child) {
-                sqlfluffrs_types::GrammarVariant::Ref => {
-                    self.grammar_ctx.ref_name(current_child).to_string()
-                }
-                sqlfluffrs_types::GrammarVariant::StringParser
-                | sqlfluffrs_types::GrammarVariant::TypedParser
-                | sqlfluffrs_types::GrammarVariant::RegexParser => {
-                    self.grammar_ctx.template(current_child).to_string()
-                }
-                other => format!("{:?}", other),
+        loop {
+            let FrameContext::OneOf(OneOfState {
+                pruned_children,
+                post_skip_pos,
+                longest_match,
+                tried_elements,
+                max_idx,
+                current_child_id,
+                ..
+            }) = &mut frame.context
+            else {
+                unreachable!("Expected OneOf context");
             };
 
-            // Collect the raw tokens consumed by this candidate for debugging (bounded)
-            let mut candidate_tokens: Vec<String> = Vec::new();
-            if child_end_pos_val > *post_skip_pos {
-                let start_idx = (*post_skip_pos).min(self.tokens.len());
-                let end_idx = child_end_pos_val.min(self.tokens.len());
-                if start_idx < end_idx {
-                    for tok in &self.tokens[start_idx..end_idx] {
-                        candidate_tokens.push(tok.raw().to_string());
+            let consumed = child_end_pos - *post_skip_pos;
+            let current_child = current_child_id.expect("current_child_id should be set");
+
+            // Store the child result for reuse
+            let child_match_rc = Arc::clone(&child_match);
+
+            // Values needed for logic (always computed)
+            let child_end_pos_val = child_end_pos;
+            let child_is_clean = if child_match.is_empty() {
+                false
+            } else {
+                !child_match.contains_unparsable()
+            };
+
+            // Expensive debug-only variable collection (gated by verbose-debug feature)
+            #[cfg(feature = "verbose-debug")]
+            {
+                let child_consumed = consumed;
+                let child_name = match self.grammar_ctx.variant(current_child) {
+                    sqlfluffrs_types::GrammarVariant::Ref => {
+                        self.grammar_ctx.ref_name(current_child).to_string()
+                    }
+                    sqlfluffrs_types::GrammarVariant::StringParser
+                    | sqlfluffrs_types::GrammarVariant::TypedParser
+                    | sqlfluffrs_types::GrammarVariant::RegexParser => {
+                        self.grammar_ctx.template(current_child).to_string()
+                    }
+                    other => format!("{:?}", other),
+                };
+
+                // Collect the raw tokens consumed by this candidate for debugging (bounded)
+                let mut candidate_tokens: Vec<String> = Vec::new();
+                if child_end_pos_val > *post_skip_pos {
+                    let start_idx = (*post_skip_pos).min(self.tokens.len());
+                    let end_idx = child_end_pos_val.min(self.tokens.len());
+                    if start_idx < end_idx {
+                        for tok in &self.tokens[start_idx..end_idx] {
+                            candidate_tokens.push(tok.raw().to_owned());
+                        }
                     }
                 }
-            }
 
-            vdebug!(
+                vdebug!(
                 "OneOf[table] WaitingForChild: frame_id={}, child_empty={}, consumed={}, tried={}/{}, candidate_id={}, candidate_name={}, candidate_end_pos={}, candidate_consumed={}, candidate_clean={}, candidate_tokens={:?}",
                 frame.frame_id,
                 child_match.is_empty(),
@@ -261,179 +365,138 @@ impl Parser<'_> {
                 child_is_clean,
                 candidate_tokens
             );
-        }
+            }
 
-        // PYTHON PARITY: Check for COMPLETE match first (matched all available segments)
-        // If we matched up to max_idx, we can return immediately without trying other options
-        // This is a major optimization for expressions with many alternatives
-        // See Python's longest_match() lines 245-246
-        if !child_match.is_empty() && child_end_pos_val >= *max_idx {
-            vdebug!(
+            // PYTHON PARITY: Check for COMPLETE match first (matched all available segments)
+            // If we matched up to max_idx, we can return immediately without trying other options
+            // This is a major optimization for expressions with many alternatives
+            // See Python's longest_match() lines 245-246
+            if !child_match.is_empty() && child_end_pos_val >= *max_idx {
+                vdebug!(
                 "OneOf[table]: COMPLETE MATCH - child {} matched all segments up to max_idx={}, returning immediately",
                 current_child.0,
                 max_idx
             );
-            // Track early exit for stats
-            self.complete_match_early_exits
-                .set(self.complete_match_early_exits.get() + 1);
-            *longest_match = Some((child_match_rc, consumed, current_child));
-            // Skip directly to Combining state
-            frame.state = FrameState::Combining;
-            stack.push(frame);
-            return Ok(TableFrameResult::Done);
-        }
-
-        // Update longest match if this is better
-        let mut should_early_terminate = false;
-        if !child_match.is_empty() {
-            let is_better = if let Some((ref current_best, current_consumed, _)) = longest_match {
-                // Use MatchResult's contains_unparsable instead of is_node_clean
-                let current_is_clean = !current_best.contains_unparsable();
-
-                if child_is_clean && !current_is_clean {
-                    // Clean beats unclean only if it consumed at least as much.
-                    // A shorter clean match that leaves content unparsed is worse
-                    // than a longer unclean match that covers everything.
-                    consumed >= *current_consumed
-                } else if !child_is_clean && current_is_clean {
-                    // Unclean only beats clean if strictly longer (same length: prefer clean).
-                    consumed > *current_consumed
-                } else {
-                    consumed > *current_consumed
-                }
-            } else {
-                true
-            };
-
-            if is_better {
+                // Track early exit for stats
+                self.metrics
+                    .complete_match_early_exits
+                    .set(self.metrics.complete_match_early_exits.get() + 1);
                 *longest_match = Some((child_match_rc, consumed, current_child));
-                vdebug!(
-                    "OneOf[table]: longest_match set: child_id={}, consumed={}",
-                    current_child.0,
-                    consumed
-                );
+                // Skip directly to Combining state
+                frame.state = FrameState::Combining;
+                stack.push(frame);
+                return Ok(TableFrameResult::Done);
+            }
 
-                // Python parity: Check for early termination with terminators
-                // If we have a match and there's a terminator at the next position,
-                // we can stop trying other options (significant performance improvement)
-                let next_pos_after_match = child_end_pos_val;
+            // Update longest match if this is better
+            let mut should_early_terminate = false;
+            if !child_match.is_empty() {
+                let is_better = if let Some((ref current_best, current_consumed, _)) = longest_match
+                {
+                    // Use MatchResult's contains_unparsable instead of is_node_clean
+                    let current_is_clean = !current_best.contains_unparsable();
+                    parity::is_better_candidate(
+                        parity::MatchQualityPolicy::LongestClean,
+                        consumed,
+                        child_is_clean,
+                        *current_consumed,
+                        current_is_clean,
+                    )
+                } else {
+                    true
+                };
 
-                // Skip to next code position to check for terminators
-                let next_code_pos =
-                    self.skip_start_index_forward_to_code(next_pos_after_match, *max_idx);
+                if is_better {
+                    *longest_match = Some((child_match_rc, consumed, current_child));
+                    vdebug!(
+                        "OneOf[table]: longest_match set: child_id={}, consumed={}",
+                        current_child.0,
+                        consumed
+                    );
 
-                // If we've reached the end, consider it terminated
-                if next_code_pos >= self.tokens.len() {
-                    vdebug!("OneOf[table]: Early termination - reached end of tokens");
-                    should_early_terminate = true;
-                } else if !frame.table_terminators.is_empty() {
-                    // Check if any terminator matches at this position
-                    for terminator_id in &frame.table_terminators {
-                        // Skip NONCODE sentinel value - it's handled separately in is_terminated
-                        if *terminator_id == sqlfluffrs_types::GrammarId::NONCODE {
-                            // Check if there's a non-code token at the current position
-                            if next_code_pos < self.tokens.len() {
-                                let tok = &self.tokens[next_code_pos];
-                                if !tok.is_code() {
-                                    vdebug!(
-                                        "OneOf[table]: Early termination - NONCODE terminator matched non-code token at pos {}",
-                                        next_code_pos
-                                    );
-                                    should_early_terminate = true;
-                                    break;
-                                }
-                            }
-                            continue;
-                        }
-
-                        self.pos = next_code_pos;
-                        if let Ok(term_result) =
-                            self.parse_table_iterative_match_result(*terminator_id, &[])
-                        {
-                            if !term_result.is_empty() {
-                                vdebug!(
-                                    "OneOf[table]: Early termination - terminator {} matched at pos {}",
-                                    terminator_id.0,
-                                    next_code_pos
-                                );
-                                should_early_terminate = true;
-                                break;
-                            }
-                        }
-                    }
+                    let next_code_pos =
+                        self.skip_start_index_forward_to_code(child_end_pos_val, *max_idx);
+                    self.pos = next_code_pos;
+                    should_early_terminate = self.is_terminated(&frame.table_terminators);
                 }
             }
-        }
 
-        *tried_elements += 1;
+            *tried_elements += 1;
 
-        // Early termination: If last option OR terminated by terminators, go straight to Combining
-        let is_last_option = *tried_elements >= pruned_children.len();
-        if should_early_terminate || is_last_option {
-            vdebug!(
-                "OneOf[table]: {} - transitioning to Combining (tried {}/{})",
-                if should_early_terminate {
-                    "Early termination"
-                } else {
-                    "Last option"
-                },
-                tried_elements,
-                pruned_children.len()
-            );
-            frame.state = FrameState::Combining;
-            stack.push(frame);
-            return Ok(TableFrameResult::Done);
-        }
+            // Early termination: If last option OR terminated by terminators, go straight to Combining
+            let is_last_option = *tried_elements >= pruned_children.len();
+            if should_early_terminate || is_last_option {
+                vdebug!(
+                    "OneOf[table]: {} - transitioning to Combining (tried {}/{})",
+                    if should_early_terminate {
+                        "Early termination"
+                    } else {
+                        "Last option"
+                    },
+                    tried_elements,
+                    pruned_children.len()
+                );
+                frame.state = FrameState::Combining;
+                stack.push(frame);
+                return Ok(TableFrameResult::Done);
+            }
 
-        // Try next child
-        if *tried_elements < pruned_children.len() {
-            self.pos = *post_skip_pos;
-            let next_child = pruned_children[*tried_elements];
-            *current_child_id = Some(next_child);
+            // Try next child
+            if *tried_elements < pruned_children.len() {
+                self.pos = *post_skip_pos;
+                let next_child = pruned_children[*tried_elements];
+                *current_child_id = Some(next_child);
 
-            vdebug!(
-                "OneOf[table]: Trying next child grammar_id={}",
-                next_child.0
-            );
+                vdebug!(
+                    "OneOf[table]: Trying next child grammar_id={}",
+                    next_child.0
+                );
 
-            frame.state = FrameState::WaitingForChild { child_index: 0 };
+                // Inline fast path for terminal candidates (see
+                // try_terminal_inline): loop back to the top with the new
+                // candidate's result instead of recursing, so a run of
+                // consecutive terminal candidates costs no extra native stack.
+                if let Some(mr) = self.try_terminal_inline(next_child, Some(*max_idx))? {
+                    child_end_pos = self.pos;
+                    child_match = Arc::new(mr);
+                    continue;
+                }
 
-            // Build child frame using same table_terminators as parent
-            let child_frame = TableParseFrame::new_child(
-                stack.frame_id_counter,
-                next_child,
-                *post_skip_pos,
-                &frame.table_terminators,
-                Some(*max_idx),
-            );
+                frame.state = FrameState::WaitingForChild { child_index: 0 };
 
-            stack.push_child_and_update_parent(frame, child_frame, GrammarVariant::OneOf);
-            Ok(TableFrameResult::Done)
-        } else {
-            // Should never reach here due to early termination logic above
-            unreachable!("OneOf should have terminated in early termination check")
+                // Build child frame using same table_terminators as parent
+                let child_frame = TableParseFrame::new_child(
+                    stack.frame_id_counter,
+                    next_child,
+                    *post_skip_pos,
+                    &frame.table_terminators,
+                    Some(*max_idx),
+                );
+
+                stack.push_child_and_update_parent(frame, child_frame, GrammarVariant::OneOf);
+                return Ok(TableFrameResult::Done);
+            } else {
+                // Should never reach here due to early termination logic above
+                unreachable!("OneOf should have terminated in early termination check")
+            }
         }
     }
 
     /// Handle OneOf Combining state using table-driven approach
-    pub(crate) fn handle_oneof_table_driven_combining(
+    pub(crate) fn handle_oneof_combining(
         &mut self,
         mut frame: TableParseFrame,
         stack: &mut TableParseFrameStack,
     ) -> Result<TableFrameResult, ParseError> {
         // Extract values from context by moving them out
         let (post_skip_pos, longest_match) = match &mut frame.context {
-            FrameContext::OneOfTableDriven {
-                post_skip_pos,
-                longest_match,
-                ..
-            } => {
+            FrameContext::OneOf(state) => {
                 // Take ownership to avoid clones
-                (*post_skip_pos, longest_match.take())
+                (state.post_skip_pos, state.longest_match.take())
             }
             _ => {
                 return Err(ParseError::new(
-                    "Expected OneOfTableDriven context in combining".to_string(),
+                    "Expected OneOf context in combining".to_string(),
                 ));
             }
         };
@@ -458,7 +521,9 @@ impl Parser<'_> {
         let result_match = if let Some((best_match, best_consumed, _best_child_id)) = longest_match
         {
             // Track successful match (like Python's longest_match returning a match)
-            self.match_successes.set(self.match_successes.get() + 1);
+            self.metrics
+                .match_successes
+                .set(self.metrics.match_successes.get() + 1);
             self.pos = post_skip_pos + best_consumed;
 
             best_match

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pysae-ai-tools
-Version: 0.1.1714
+Version: 0.1.1732
 Summary: Shared Python tools for Pysae Claude Code skills
 Project-URL: repository, https://gitlab.com/pysae/tools/ai-tools
 Requires-Python: >=3.11
@@ -45,6 +45,16 @@ irm https://tools.pysae.com/pysae-ai-tools/install.ps1 | iex
 winget install -e --id cURL.cURL
 curl -fsSL https://tools.pysae.com/pysae-ai-tools/install.cmd -o install.cmd && install.cmd
 ```
+
+Le package vit dans la **registry PyPI privée du projet** : il faut donc un compte GitLab avec au moins le rôle **Reporter** sur `pysae/tools/ai-tools` (le rôle Guest ne permet pas de lire le package registry d'un projet privé).
+
+L'installeur ouvre la page de création du token — nom, description et scopes pré-remplis — puis demande de le coller, une seule fois par machine. Les réinstallations et les `self-update` suivants réutilisent le credential déjà posé dans uv et ne redemandent rien. Pour éviter la saisie (et en CI, où aucune question n'est posée), fournir le token par l'environnement :
+
+```bash
+curl -fsSL https://tools.pysae.com/pysae-ai-tools/install.sh | GITLAB_REGISTRY_TOKEN=<token> bash
+```
+
+`install.cmd` fait exception : le batch pur ne sait pas lire un secret sans l'afficher, et cet installeur se passe volontairement de PowerShell. Il ne demande donc rien — il affiche le lien de création et la variable à définir. Pour la saisie guidée sous Windows, préférer `install.ps1`.
 
 ### Depuis un clone git (mode éditable, pour contribuer)
 
@@ -158,7 +168,7 @@ Le manifest plugin Codex ne supporte pas encore les hooks. Les hooks d'usage, de
 
 Les paquets internes sont distribués par les registries GitLab — paquets Python, paquets npm, images de conteneurs — toutes privées : leur lecture exige un credential. `tools install` en pose **un seul** dans les trois écosystèmes.
 
-**Le credential est ton propre PAT**, avec les scopes `read_api` (paquets Python et npm), `read_registry` (container registry) et `self_rotate` (renouvellement). Au premier `tools install` sans credential enregistré, la CLI affiche le lien de création avec le nom et les scopes déjà pré-remplis, attend la saisie, puis pose la valeur partout. Elle est mise en cache localement : la saisie n'a lieu qu'une fois. En CI ou pour dépanner, `GITLAB_REGISTRY_TOKEN` dans l'environnement est utilisée directement, sans prompt.
+**Le credential est ton propre PAT**, avec les scopes `read_api` (paquets Python et npm), `read_registry` (container registry) et `self_rotate` (renouvellement). Au premier `tools install` sans credential enregistré, la CLI **ouvre la page de création dans le navigateur** — nom, description et scopes déjà pré-remplis — attend la saisie, puis pose la valeur partout. La date d'expiration reste à ton choix : GitLab ne la relit pas depuis le lien, et la CLI reconduit ensuite la durée que tu as retenue à chaque renouvellement. Le lien reste affiché dans le terminal : c'est le recours si aucun navigateur ne s'ouvre, si l'onglet s'ouvre derrière une autre fenêtre, ou si tu le fermes par mégarde. Elle est mise en cache localement : la saisie n'a lieu qu'une fois. En CI ou pour dépanner, `GITLAB_REGISTRY_TOKEN` dans l'environnement est utilisée directement, sans prompt.
 
 Le token de `glab` ne peut pas servir ici : c'est un token OAuth d'environ 34 minutes de durée de vie, et l'index PyPI le refuse de toute façon puisqu'il s'authentifie en HTTP Basic, où GitLab n'accepte que PAT, deploy token ou job token. GitLab ne permet pas non plus de créer ce PAT par API : son endpoint self-serve n'accorde qu'une liste blanche de scopes (`self_rotate`, `k8s_proxy`) dont `read_api` et `read_registry` sont exclus — d'où la saisie.
 
@@ -203,20 +213,20 @@ pysae-ai-tools tools rotate-tokens           # vérifie la validité, renouvelle
 pysae-ai-tools tools rotate-tokens --force   # renouvelle même loin de l'échéance (credential fuité)
 ```
 
-Sous le seuil de renouvellement — 14 jours avant l'expiration, ou la moitié de la durée de vie du token si elle est plus courte — la CLI fait tourner le PAT et repose la nouvelle valeur dans **tous** les écosystèmes déjà configurés — la rotation invalidant l'ancien token, en laisser une copie périmée quelque part casserait cet écosystème dès le lendemain. Le remplaçant est demandé pour **la même durée de vie que l'original** : sans expiration explicite, GitLab n'accorde qu'une semaine, ce qui replacerait aussitôt le token sous le seuil et le ferait tourner à chaque exécution.
+Sous le seuil de renouvellement — 30 jours avant l'expiration, ou la moitié de la durée de vie du token si elle est plus courte — la CLI fait tourner le PAT et repose la nouvelle valeur dans **tous** les écosystèmes déjà configurés — la rotation invalidant l'ancien token, en laisser une copie périmée quelque part casserait cet écosystème dès le lendemain. Le remplaçant est demandé pour **la même durée de vie que l'original** : sans expiration explicite, GitLab n'accorde qu'une semaine, ce qui replacerait aussitôt le token sous le seuil et le ferait tourner à chaque exécution.
 
 **Jamais en CI** : là le token vient d'une variable de groupe partagée qu'aucun job ne peut réécrire — le faire tourner le révoquerait pour tous les autres jobs. Le veto est porté par la couche credential elle-même, donc aucun chemin (pas même `tools install` sur un runner) ne peut roter dans un pipeline.
 
 ## Mise à jour
 
-La CLI **s'auto-met à jour automatiquement** : après n'importe quelle commande, au plus une fois par heure (cache TTL 1h), elle vérifie si une version plus récente existe (PyPI en install registre, nouveaux commits sur `origin/main` en clone git) et lance `self-update` toute seule. C'est activé par défaut (`auto_update = true` dans `~/.config/pysae-ai-tools/config.toml`) ; à désactiver pour ne recevoir qu'une notification. La vérification est silencieuse en CI et en sortie non-interactive.
+La CLI **s'auto-met à jour automatiquement** : après n'importe quelle commande, au plus une fois par heure (cache TTL 1h), elle vérifie si une version plus récente existe (registry privée GitLab en install registre, nouveaux commits sur `origin/main` en clone git) et lance `self-update` toute seule. C'est activé par défaut (`auto_update = true` dans `~/.config/pysae-ai-tools/config.toml`) ; à désactiver pour ne recevoir qu'une notification. La vérification est silencieuse en CI et en sortie non-interactive — ainsi que lorsque `GITLAB_REGISTRY_TOKEN` n'est pas résolvable, la registry étant privée : elle se tait plutôt que d'annoncer à tort que tout est à jour.
 
 Sur le même rythme mais avec un interrupteur distinct (`auto_rotate_tokens`), les tokens gérés par la CLI se renouvellent avant leur échéance — voir [Renouvellement automatique](#renouvellement-automatique).
 
 Mise à jour manuelle à tout moment :
 
 ```bash
-pysae-ai-tools self-update    # git pull + reinstall depuis un clone, ou bump PyPI
+pysae-ai-tools self-update    # git pull + reinstall depuis un clone, ou bump depuis la registry
 ```
 
 ## Charger un environnement dans le shell (`env activate`)

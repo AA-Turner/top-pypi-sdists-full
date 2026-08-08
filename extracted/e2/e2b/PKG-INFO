@@ -1,12 +1,12 @@
 Metadata-Version: 2.4
 Name: e2b
-Version: 2.37.0
+Version: 2.37.1
 Summary: E2B SDK that give agents cloud environments
 Author: e2b
 Author-email: e2b <hello@e2b.dev>
 License-Expression: MIT
 Requires-Dist: python-dateutil>=2.8.2
-Requires-Dist: wcmatch>=10.1,<11
+Requires-Dist: wcmatch>=10.1,<12
 Requires-Dist: protobuf-py>=0.1.1,<0.2
 Requires-Dist: httpx>=0.27.0,<1.0.0
 Requires-Dist: h2>=4,<5

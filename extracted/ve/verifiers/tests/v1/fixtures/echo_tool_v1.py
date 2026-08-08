@@ -1,15 +1,17 @@
 """echo (v1, MCP tool): retrieve a stamped echo from a `vf.Toolset`, then report it.
 
-The v1 tool fixture for the e2e matrix. The task declares an `EchoToolset` (`vf.Toolset`)
-with one `@vf.tool` method whose placement is CLI-tunable (`--taskset.task.tools.colocated`,
-`--taskset.task.tools.runtime.type`): it runs colocated in the harness's runtime or in its
-own runtime, and the harness must reach it wherever it lives. The tool stamps its output
-with a token the prompt never reveals, so the reward is 1.0 only if the model actually
-called the tool — trivial when the infra works, impossible when it doesn't. The tool is
-task-agnostic, so it would also serve taskset-scoped (`Taskset.tools`).
+The v1 tool fixture for the e2e matrix. The task constructs an `EchoToolset`
+(`vf.Toolset`) in `Task.toolsets`, with one `@vf.tool` method whose placement is
+CLI-tunable (`--taskset.task.tools.colocated`, `--taskset.task.tools.runtime.type`):
+it runs colocated in the harness's runtime or in its own runtime, and the harness
+must reach it wherever it lives. The tool stamps its output with a token the prompt
+never reveals, so the reward is 1.0 only if the model actually called the tool —
+trivial when the infra works, impossible when it doesn't. The tool is task-agnostic,
+so it would also serve taskset-scoped (`Taskset.toolsets`).
 """
 
 import verifiers.v1 as vf
+from verifiers.v1.types import content_text
 
 PHRASE = "hello world"
 ECHO_TOKEN = "ok-7f3"  # the tool stamps this; only a real tool call can surface it
@@ -29,14 +31,15 @@ class EchoToolTaskConfig(vf.TaskConfig):
 
 
 class EchoToolTask(vf.Task[vf.TaskData, vf.State, EchoToolTaskConfig]):
-    tools = (EchoToolset,)
+    @classmethod
+    def toolsets(cls, config: EchoToolTaskConfig) -> list[vf.Toolset]:
+        return [EchoToolset(config.tools)]
 
     @vf.reward(weight=1.0)
     async def echoed(self, trace: vf.Trace) -> float:
-        # The stamped token reaches the answer only if the model called the MCP tool.
-        last = trace.assistant_messages[-1].content if trace.assistant_messages else ""
-        last = (last or "").lower()
-        return float(PHRASE in last and ECHO_TOKEN in last)
+        # A stamped TOOL result proves the tool really ran with the phrase.
+        results = (content_text(m.content).lower() for m in trace.tool_messages)
+        return float(any(PHRASE in r and ECHO_TOKEN in r for r in results))
 
 
 class EchoToolConfig(vf.TasksetConfig):

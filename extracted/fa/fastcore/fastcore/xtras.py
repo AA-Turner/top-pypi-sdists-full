@@ -43,7 +43,7 @@ from .ansi import strip_ansi
 
 from importlib import import_module
 from functools import wraps
-import string,time,dataclasses,difflib
+import string,time,dataclasses,difflib,json
 from enum import Enum
 from contextlib import contextmanager,ExitStack
 from configparser import ConfigParser
@@ -250,8 +250,6 @@ def bunzip(fn):
 def loads(s, **kw):
     "Same as `json.loads`, but handles `None`"
     if not s: return {}
-    try: import ujson as json
-    except ModuleNotFoundError: import json
     return json.loads(s, **kw)
 
 # %% ../nbs/03_xtras.ipynb #131170f7
@@ -268,10 +266,7 @@ def loads_multi(s:str):
 
 # %% ../nbs/03_xtras.ipynb #ed688ac4
 def dumps(obj, **kw):
-    "Same as `json.dumps`, but uses `ujson` if available"
-    try: import ujson as json
-    except ModuleNotFoundError: import json
-    else: kw['escape_forward_slashes']=False
+    "Same as `json.dumps`"
     return json.dumps(obj, **kw)
 
 # %% ../nbs/03_xtras.ipynb #ac84300c
@@ -741,15 +736,16 @@ def asave_iter(g):
     return _
 
 # %% ../nbs/03_xtras.ipynb #d2757e2a
-def frontmatter(txt:str)->tuple:
-    "Tuple of (dict, body) from frontmatter in `txt`; invalid/missing frontmatter returns ({}, txt)"
+def frontmatter(txt:str, strvals:bool=False)->tuple:
+    "Tuple of (dict, body) from frontmatter in `txt`; missing frontmatter returns ({}, txt), malformed YAML raises"
     import yaml
     if not txt.startswith('---\n'): return {},txt
-    fm,part,body = txt[4:].partition('\n---\n')
-    if not part: return {},txt
-    try: res = yaml.safe_load(fm)
-    except yaml.parser.ParserError: return {},txt
-    return (res,body) if isinstance(res,dict) else ({},txt)
+    end = min((i for i in (txt.find(f'\n{c}\n', 3) for c in ('---','...')) if i >= 0), default=-1)
+    if end < 0:
+        if not txt.endswith(('\n---','\n...')): return {},txt
+        end = len(txt) - 4
+    res = yaml.load(txt[4:end], Loader=yaml.BaseLoader if strvals else yaml.SafeLoader)
+    return (res,txt[end+5:]) if isinstance(res,dict) else ({},txt)
 
 # %% ../nbs/03_xtras.ipynb #45eb5141
 def clean_cli_output(txt:str, strip:bool=True):

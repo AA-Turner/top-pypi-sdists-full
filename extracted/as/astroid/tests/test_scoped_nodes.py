@@ -1569,6 +1569,22 @@ class ClassNodeTest(ModuleLoader, unittest.TestCase):
         cls = module["B"]
         self.assertIsNone(cls.slots())
 
+    def test_slots_annotation_only_without_value(self) -> None:
+        """An annotation-only ``__slots__`` has no inferable value.
+
+        Regression test for https://github.com/pylint-dev/astroid/issues/3067
+        """
+        module = builder.parse("""
+        class Klass:
+            __slots__: None
+
+            def method(self):
+                self.attr = 1
+        """)
+        # ``__slots__`` is in ``locals`` but cannot be inferred; ``slots()``
+        # must return None instead of raising ``InferenceError``.
+        self.assertIsNone(module["Klass"].slots())
+
     def test_slots_added_dynamically_still_inferred(self) -> None:
         code = """
         class NodeBase(object):
@@ -1717,6 +1733,30 @@ class ClassNodeTest(ModuleLoader, unittest.TestCase):
         self.assertEqualMro(
             astroid["CustomPdb"],
             ["CustomPdb", "Pdb", "Bdb", "Cmd", "object"],
+        )
+
+    def test_mro_circular_name_rebinding_with_gap(self) -> None:
+        """MRO computation should handle circular name rebinding.
+
+        The MRO computation should resolve the cycle by falling back
+        to the original class.
+
+        Regression test for https://github.com/pylint-dev/pylint/issues/10821
+        """
+        astroid = builder.parse("""
+        import pdb
+
+        class PatchedPdb(pdb.Pdb):
+            pass
+
+        class CustomPdb(PatchedPdb):
+            pass
+
+        pdb.Pdb = CustomPdb
+        """)
+        self.assertEqualMro(
+            astroid["CustomPdb"],
+            ["CustomPdb", "PatchedPdb", "Pdb", "Bdb", "Cmd", "object"],
         )
 
     def test_mro_with_factories(self) -> None:
@@ -2587,6 +2627,27 @@ def test_metaclass_cannot_infer_call_yields_an_instance() -> None:
     assert isinstance(inferred, Instance)
 
 
+def test_metaclass_call_result_without_context() -> None:
+    # Regression: ClassDef.infer_call_result may be called through the public
+    # API without a context (it defaults to None). For a class whose metaclass
+    # defines __call__, that path set context.callcontext.callee without
+    # guarding, crashing with "AttributeError: 'NoneType' object has no
+    # attribute 'callee'". It should infer the __call__ result instead.
+    call = builder.extract_node("""
+    class Meta(type):
+        def __call__(cls, *args, **kwargs):
+            return 42
+    class C(metaclass=Meta):
+        pass
+    C() #@
+    """)
+    cls = next(call.func.infer())
+    assert isinstance(cls, nodes.ClassDef)
+    for caller in (call, None):
+        inferred = list(cls.infer_call_result(caller=caller))
+        assert [getattr(n, "value", None) for n in inferred] == [42]
+
+
 @pytest.mark.parametrize(
     "func",
     [
@@ -2658,6 +2719,28 @@ def test_ancestor_with_generic() -> None:
         "A",
         "Generic",
         "object",
+    ]
+
+
+@pytest.mark.skipif(not PY312_PLUS, reason="PEP 695 syntax requires Python 3.12")
+def test_ancestor_with_generic_typevartuple() -> None:
+    # https://github.com/pylint-dev/pylint/issues/10972
+    tree = builder.parse("""
+    from abc import ABC, abstractmethod
+    class Base(ABC):
+        @abstractmethod
+        def get_item(self) -> None: ...
+    class Middle[*Shape]:
+        def get_item(self) -> None:
+            raise NotImplementedError
+    class Concrete[*Shape](Middle[*Shape], Base): pass
+    """)
+    inferred_concrete = next(tree["Concrete"].infer())
+    assert [cdef.name for cdef in inferred_concrete.ancestors()] == [
+        "Middle",
+        "object",
+        "Base",
+        "ABC",
     ]
 
 

@@ -29,7 +29,6 @@ from vercel._internal.core.polyfills import Self
 from vercel.queue import SanitizedName
 
 T = TypeVar("T")
-QueueKind: TypeAlias = Literal["workflow", "step"]
 QueuePrefix: TypeAlias = str
 # OpenTelemetry trace context for distributed tracing
 TraceCarrier: TypeAlias = dict[str, str]
@@ -46,23 +45,20 @@ def validate_queue_namespace(namespace: str | None) -> None:
         )
 
 
-def get_queue_topic_prefix(kind: QueueKind, namespace: str | None = None) -> QueuePrefix:
-    """Build the workflow or step queue prefix for an optional namespace."""
-    if kind not in ("workflow", "step"):
-        raise ValueError(f"Invalid queue kind: {kind}")
+def get_queue_topic_prefix(namespace: str | None = None) -> QueuePrefix:
+    """Build the workflow queue prefix for an optional namespace."""
     validate_queue_namespace(namespace)
     if namespace is not None:
-        return f"__{namespace}_wkf_{kind}_"
-    return f"__wkf_{kind}_"
+        return f"__{namespace}_wkf_workflow_"
+    return "__wkf_workflow_"
 
 
 def get_queue_name(
-    kind: QueueKind,
     identifier: str,
     namespace: str | None = None,
 ) -> str:
     """Build a queue name for an optional namespace."""
-    return f"{get_queue_topic_prefix(kind, namespace)}{identifier}"
+    return f"{get_queue_topic_prefix(namespace)}{identifier}"
 
 
 # The consumer group our subscribers register under. The Python builder
@@ -96,35 +92,42 @@ def get_physical_topic(queue_name: str) -> SanitizedName:
     )
 
 
+# Spec versions, mirroring `@workflow/world`'s `spec-version.ts`. The number a
+# row carries is a capability claim read by the *other* SDK, not a stamp of
+# which SDK wrote it:
+#
+#   1  legacy: direct entity mutation, unprefixed JSON payloads
+#   2  event sourcing, format-prefixed (`devl`) payloads
+#   3  CBOR queue transport
+#   4  native attributes (`attr_set`)
+#   5  payloads may be zstd- or gzip-compressed
+#
+SPEC_VERSION_CURRENT: Literal[2] = 2
+
+
 class BaseModel(pydantic.BaseModel):
     model_config = pydantic.ConfigDict(serialize_by_alias=True)
 
 
 class WorkflowInvokePayload(BaseModel):
-    """Payload for invoking a workflow."""
+    """Payload for invoking a workflow.
+
+    Step invocations ride this same payload on the workflow topic: a message
+    carrying ``stepId`` asks the receiver to execute that step before the run
+    is replayed, rather than to replay straight away.
+    """
 
     run_id: str = pydantic.Field(alias="runId")
-    trace_carrier: TraceCarrier | None = pydantic.Field(
-        default=None, alias="traceCarrier", exclude_if=lambda e: e is None
+    # Step ID for step execution on the combined handler. When present, the
+    # receiver executes that step instead of replaying the run.
+    step_id: str | None = pydantic.Field(
+        default=None, alias="stepId", exclude_if=lambda e: e is None
     )
-    requested_at: datetime | None = pydantic.Field(
-        default=None, alias="requestedAt", exclude_if=lambda e: e is None
+    # Step name, sent alongside stepId because the merged topic no longer
+    # encodes it: the queue name identifies the workflow, not the step.
+    step_name: str | None = pydantic.Field(
+        default=None, alias="stepName", exclude_if=lambda e: e is None
     )
-
-    @pydantic.field_serializer("requested_at", mode="plain")
-    def ser_requested_at(self, value: Any) -> Any:
-        if isinstance(value, datetime):
-            return value.isoformat()
-        return value
-
-
-class StepInvokePayload(BaseModel):
-    """Payload for invoking a step within a workflow."""
-
-    workflow_name: str = pydantic.Field(alias="workflowName")
-    workflow_run_id: str = pydantic.Field(alias="workflowRunId")
-    workflow_started_at: float = pydantic.Field(alias="workflowStartedAt")
-    step_id: str = pydantic.Field(alias="stepId")
     trace_carrier: TraceCarrier | None = pydantic.Field(
         default=None, alias="traceCarrier", exclude_if=lambda e: e is None
     )
@@ -142,14 +145,14 @@ class StepInvokePayload(BaseModel):
 class HealthCheckPayload(BaseModel):
     """
     Health check payload - used to verify that the queue pipeline
-    can deliver messages to workflow/step endpoints.
+    can deliver messages to the combined workflow endpoint.
     """
 
     health_check: Literal[True] = pydantic.Field(default=True, alias="__healthCheck")
     correlation_id: str = pydantic.Field(alias="correlationId")
 
 
-QueuePayload: TypeAlias = WorkflowInvokePayload | StepInvokePayload | HealthCheckPayload
+QueuePayload: TypeAlias = WorkflowInvokePayload | HealthCheckPayload
 QueuePayloadAdaptor: pydantic.TypeAdapter[QueuePayload] = pydantic.TypeAdapter(QueuePayload)
 
 
@@ -188,9 +191,12 @@ class BaseWorkflowRun(BaseModel):
     )
     # run_created returns input as str `'[Circular]'`,
     # while run_completed returns input_ref
-    input: list[bytes] | str | None = None
-    output: list[bytes] | None = None
+    input: bytes | str | None = None
+    output: bytes | None = None
     error: StructuredError | None = None
+    # Plaintext string-string metadata. Always materialized (as `{}` when
+    # unset) so a run row carries the same field set the TS SDK writes.
+    attributes: dict[str, str] = pydantic.Field(default_factory=dict)
     expired_at: datetime | None = pydantic.Field(default=None, alias="expiredAt")
     started_at: datetime | None = pydantic.Field(default=None, alias="startedAt")
     completed_at: datetime | None = pydantic.Field(default=None, alias="completedAt")
@@ -214,7 +220,7 @@ class CancelledWorkflowRun(BaseWorkflowRun):
 
 class CompletedWorkflowRun(BaseWorkflowRun):
     status: Literal["completed"]
-    output: list[bytes] | None = None  # create run_completed event returns run without output
+    output: bytes | None = None  # create run_completed event returns run without output
     error: None = None
     completed_at: datetime = pydantic.Field(alias="completedAt")
 
@@ -240,8 +246,8 @@ class BaseWorkflowStep(BaseModel):
     step_id: str = pydantic.Field(alias="stepId")
     step_name: str = pydantic.Field(alias="stepName")
     status: StepStatus
-    input: list[bytes] | None = None
-    output: list[bytes] | None = None
+    input: bytes | None = None
+    output: bytes | None = None
     """
     The error from a step_retrying or step_failed event.
     This tracks the most recent error the step encountered, which may
@@ -275,7 +281,7 @@ class CancelledWorkflowStep(BaseWorkflowStep):
 
 class CompletedWorkflowStep(BaseWorkflowStep):
     status: Literal["completed"]
-    output: list[bytes] | None = None
+    output: bytes | None = None
     completed_at: datetime = pydantic.Field(alias="completedAt")
 
 
@@ -304,9 +310,9 @@ class BaseEvent(BaseModel):
     correlation_id: str | None = pydantic.Field(
         default=None, alias="correlationId", exclude_if=lambda e: e is None
     )
-    spec_version: Literal[1, 2] = pydantic.Field(
-        default=2, alias="specVersion"
-    )  # 1: legacy JSON, 2: devalue
+    spec_version: Literal[1, 2, 3, 4, 5] = pydantic.Field(
+        default=SPEC_VERSION_CURRENT, alias="specVersion"
+    )
     server_props: ServerProps | None = pydantic.Field(default=None, exclude=True)
 
     @pydantic.model_validator(mode="before")
@@ -326,7 +332,7 @@ class BaseEvent(BaseModel):
 class RunCreatedEventData(BaseModel):
     deployment_id: str = pydantic.Field(alias="deploymentId")
     workflow_name: str = pydantic.Field(alias="workflowName")
-    input: list[bytes]
+    input: bytes
     execution_context: dict[str, Any] | None = pydantic.Field(
         default=None, alias="executionContext", exclude_if=lambda e: e is None
     )
@@ -358,7 +364,7 @@ class RunStartedEvent(BaseEvent):
 
 
 class RunCompletedEventData(BaseModel):
-    output: list[bytes]
+    output: bytes
 
     def into_event(self) -> "RunCompletedEvent":
         return RunCompletedEvent(eventData=self)
@@ -400,7 +406,7 @@ class RunFailedEvent(BaseEvent):
 
 class StepCreatedEventData(BaseModel):
     step_name: str = pydantic.Field(alias="stepName")
-    input: list[bytes] | dict[str, Any]
+    input: bytes | dict[str, Any]
 
     def into_event(self, correlation_id: str) -> "StepCreatedEvent":
         return StepCreatedEvent(correlationId=correlation_id, eventData=self)
@@ -465,7 +471,7 @@ class StepRetryingEvent(BaseEvent):
 
 
 class StepCompletedEventData(BaseModel):
-    result: list[bytes] | Any = None
+    result: bytes | Any = None
 
     def into_event(self, correlation_id: str) -> "StepCompletedEvent":
         return StepCompletedEvent(correlationId=correlation_id, eventData=self)
@@ -504,7 +510,7 @@ class Hook(BaseModel):
     owner_id: str = pydantic.Field(alias="ownerId")
     project_id: str = pydantic.Field(alias="projectId")
     environment: str
-    metadata: list[bytes] | None = None
+    metadata: bytes | None = None
     created_at: datetime = pydantic.Field(alias="createdAt")
     spec_version: int | None = pydantic.Field(default=None, alias="specVersion")
     is_webhook: bool | None = pydantic.Field(default=None, alias="isWebhook")
@@ -513,7 +519,7 @@ class Hook(BaseModel):
 
 class HookCreatedEventData(BaseModel):
     token: str
-    metadata: list[bytes] | None = pydantic.Field(default=None, exclude_if=lambda e: e is None)
+    metadata: bytes | None = pydantic.Field(default=None, exclude_if=lambda e: e is None)
 
     def into_event(self, correlation_id: str) -> "HookCreatedEvent":
         return HookCreatedEvent(correlationId=correlation_id, eventData=self)
@@ -534,7 +540,7 @@ class HookCreatedEvent(BaseEvent):
 
 
 class HookReceivedEventData(BaseModel):
-    payload: list[bytes]
+    payload: bytes
 
     def into_event(self, correlation_id: str) -> "HookReceivedEvent":
         return HookReceivedEvent(correlationId=correlation_id, eventData=self)

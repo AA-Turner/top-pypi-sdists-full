@@ -35,7 +35,7 @@ dependencies = [
     "openai>=2.9.0",
     "openai-agents>=0.8.2",
     "prime-tunnel>=0.1.8",
-    "prime-sandboxes>=0.2.31",
+    "prime-sandboxes>=0.2.35",
     "pydantic>=2.12.3",
     "requests",
     "rich>=11.0.0",
@@ -51,15 +51,15 @@ dependencies = [
     "uvloop>=0.21.0; sys_platform != 'win32' and sys_platform != 'cygwin' and platform_python_implementation != 'PyPy'",
     "loguru>=0.7.0",
     "tomli-w>=1.0.0",
-    "renderers>=0.1.8",
+    "renderers>=0.1.9",
     "typing_extensions>=4.12.2",
 ]
 
 [dependency-groups]
 dev = [
-    "ruff>=0.9.0",
+    "ruff>=0.16.0",
     "pre-commit>=2.19.0",
-    "ty>=0.0.1a29,<0.0.22",
+    "ty>=0.0.63",
     "pytest>=7.0.0,<9.1.0",
     "pytest-asyncio>=0.21.0",
     "pytest-cov>=4.0.0",
@@ -72,13 +72,14 @@ dev = [
     "textarena==0.7.4",
 ]
 # V1 examples and support packages, resolved from their local sources below.
-# Installed by default (tool.uv.default-groups) so the v1 CLIs (eval <id>, serve) run straight
+# Installed by default (tool.uv.default-groups) so the v1 CLIs (eval <id>, validate) run straight
 # from this repo. The built-in tasksets/harnesses ship inside verifiers (verifiers/v1/...).
 examples = [
     "compact",
     "gsm8k-v1", "glossary-v1", "deepwiki-v1", "wiki-search-v1", "code-golf-v1",
-    "reverse-text-v1", "color-codeword-v1",
+    "proposer-solver-v1", "reverse-text-v1", "color-codeword-v1",
     "wordle-v1", "openenv-wordle-v1", "alphabet-sort-v1", "scratchpad-v1",
+    "kuhn-poker-v1",
 ]
 
 [project.optional-dependencies]
@@ -95,7 +96,7 @@ browser = [
 ]
 harbor = [
     # Harbor currently publishes Python 3.12+ packages; keep core verifiers installable on 3.11.
-    "harbor==0.14.0; python_version >= '3.12'",
+    "harbor==0.20.0; python_version >= '3.12'",
 ]
 modal = [
     "modal>=1.4.0",
@@ -106,11 +107,42 @@ notebook = [
 openenv = [
     "openenv>=0.4.1",
 ]
+nemo-gym = [
+    # NeMo Gym currently publishes Python 3.12+ packages; keep core verifiers installable on 3.11.
+    "nemo-gym==0.4.0; python_version >= '3.12'",
+]
 [tool.uv]
 preview = true
 required-version = ">=0.11.1"
 exclude-newer = "7 days"
 default-groups = ["dev", "examples"]
+
+# NeMo Gym declares its full platform stack; this integration only starts resource servers.
+[[tool.uv.dependency-metadata]]
+name = "nemo-gym"
+version = "0.4.0"
+requires-python = ">=3.12"
+requires-dist = [
+    "aiohttp>=3.14.1",
+    "fastapi",
+    "gprof2dot",
+    "hydra-core",
+    "itsdangerous",
+    "mcp>=1.27,<2",
+    "omegaconf",
+    "openai>=2.9",
+    "orjson",
+    "pandas",
+    "pydantic",
+    "pydot",
+    "ray>=2.55.1",
+    "requests",
+    "rich",
+    "typing-extensions",
+    "uvicorn",
+    "wandb",
+    "yappi",
+]
 
 [[tool.uv.index]]
 name = "pypi"
@@ -124,14 +156,21 @@ deepwiki-v1 = { path = "environments/deepwiki_v1", editable = true }
 wiki-search-v1 = { path = "environments/wiki_search_v1", editable = true }
 gsm8k-v1 = { path = "environments/gsm8k_v1", editable = true }
 code-golf-v1 = { path = "environments/code_golf_v1", editable = true }
+proposer-solver-v1 = { path = "environments/proposer_solver_v1", editable = true }
 reverse-text-v1 = { path = "environments/reverse_text_v1", editable = true }
 wordle-v1 = { path = "environments/wordle_v1", editable = true }
 openenv-wordle-v1 = { path = "environments/openenv_wordle_v1", editable = true }
 color-codeword-v1 = { path = "environments/color_codeword_v1", editable = true }
 alphabet-sort-v1 = { path = "environments/alphabet_sort_v1", editable = true }
 scratchpad-v1 = { path = "environments/scratchpad_v1", editable = true }
+kuhn-poker-v1 = { path = "environments/kuhn_poker_v1", editable = true }
 
 [tool.uv.exclude-newer-package]
+# Bounded cutoffs for the explicitly requested tool upgrades.
+# Full UTC timestamps: bare dates resolve to local-tz midnight and churn the
+# lockfile across timezones.
+ruff = "2026-07-28T00:00:00Z"
+ty = "2026-07-28T00:00:00Z"
 # PrimeIntellect-published on PyPI (trusted publisher)
 prime-tunnel = false
 prime-sandboxes = false
@@ -144,7 +183,6 @@ eval = "verifiers.v1.cli.eval.main:main"
 validate = "verifiers.v1.cli.validate:main"
 debug = "verifiers.v1.cli.debug:main"
 replay = "verifiers.v1.cli.replay:main"
-serve = "verifiers.v1.cli.serve:main"
 init = "verifiers.v1.cli.init:main"
 gepa = "verifiers.v1.cli.gepa:main"
 vf-gepa = "verifiers.scripts.gepa:main"
@@ -226,8 +264,11 @@ markers = [
     "colocated: v1 e2e cases with a user/tool server colocated in the harness runtime",
     "null: v1 e2e cases on the null harness",
     "bash: v1 e2e cases on the bash harness",
+    "browser_use: v1 e2e cases on the browser_use harness",
     "rlm: v1 e2e cases on the rlm harness",
     "kimi_code: v1 e2e cases on the kimi-code harness",
+    "pi: v1 e2e cases on the pi harness",
+    "pool: v1 e2e cases on the pool harness",
     "codex: v1 e2e cases on the codex harness",
     "unit: marks tests as unit tests",
     "asyncio: marks tests as async tests",

@@ -10,6 +10,7 @@ use jsonschema::{
         OperandMismatch,
     },
     canonicalize, validator_for, CanonicalizationError, Draft, JsonType, PatternOptions, Registry,
+    Retrieve, Uri,
 };
 use serde_json::{json, Map, Number, Value};
 use test_case::test_case;
@@ -113,6 +114,54 @@ fn dynamic_reference_only_in_an_external_resource_is_modeled() {
         jsonschema::validator_for(&emitted).expect("canonical output is self-contained");
     assert!(validator.is_valid(&json!(1)));
     assert!(!validator.is_valid(&json!("x")));
+}
+
+struct StaticRetriever;
+
+impl Retrieve for StaticRetriever {
+    fn retrieve(
+        &self,
+        uri: &Uri<String>,
+    ) -> Result<Value, Box<dyn std::error::Error + Send + Sync>> {
+        if uri.as_str() == "https://example.com/remote" {
+            Ok(json!({"type": "string"}))
+        } else {
+            Err(format!("Unknown reference: {uri}").into())
+        }
+    }
+}
+
+#[test]
+fn retriever_fetches_a_reference_absent_from_the_registry() {
+    let canonical = options()
+        .with_retriever(StaticRetriever)
+        .canonicalize(&json!({"$ref": "https://example.com/remote"}))
+        .expect("canonicalizes");
+
+    let emitted = canonical.to_json_schema();
+    let validator = validator_for(&emitted).expect("canonical output is self-contained");
+    assert!(validator.is_valid(&json!("value")));
+    assert!(!validator.is_valid(&json!(1)));
+}
+
+#[test]
+fn base_uri_resolves_a_relative_reference_into_the_registry() {
+    let external = json!({"type": "string"});
+    let registry = Registry::new()
+        .add("https://example.com/external", &external)
+        .expect("resource URI is valid")
+        .prepare()
+        .expect("registry prepares");
+    let canonical = options()
+        .with_registry(&registry)
+        .with_base_uri("https://example.com/root")
+        .canonicalize(&json!({"$ref": "external"}))
+        .expect("canonicalizes");
+
+    let emitted = canonical.to_json_schema();
+    let validator = validator_for(&emitted).expect("canonical output is self-contained");
+    assert!(validator.is_valid(&json!("value")));
+    assert!(!validator.is_valid(&json!(1)));
 }
 
 fn assert_validation_parity(schema: &Value, instances: &[Value]) {
@@ -1552,6 +1601,196 @@ fn definition_looks_up_one_target() {
     assert_eq!(schema.definition("#/$defs/absent"), None);
 }
 
+// A target naming `#` keeps the document it was written in, so the pointer resolves to that
+// document rather than to the target standing in for it.
+#[test_case(
+    &json!({
+        "$ref": "#/$defs/A",
+        "$defs": {"A": {"type": "object", "properties": {"child": {"$ref": "#"}}}}
+    }),
+    "#/$defs/A";
+    "direct"
+)]
+#[test_case(
+    &json!({
+        "$ref": "#/$defs/A",
+        "$defs": {
+            "A": {"type": "object", "properties": {"a": {"$ref": "#/$defs/B"}}},
+            "B": {"type": "object", "properties": {"child": {"$ref": "#"}}}
+        }
+    }),
+    "#/$defs/A";
+    "through another target"
+)]
+fn definition_binds_a_target_naming_the_document_root(schema: &Value, uri: &str) {
+    let canonical = canonicalize(schema).expect("canonicalizes");
+    let target = canonical.definition(uri).expect("target");
+    assert!(canonical.definitions().any(|(name, _)| name == uri));
+    let document = target.definition("#").expect("document");
+    assert_eq!(document.to_json_schema(), canonical.to_json_schema());
+}
+
+// A target emitted on its own carries the document it named, so `#` still points at that document
+// and not at the target standing in for it.
+#[test]
+fn emitting_a_target_carries_the_document_it_named() {
+    let canonical = canonicalize(&json!({
+        "type": "object",
+        "properties": {"allOf": {"$ref": "#/$defs/schemaArray"}},
+        "$defs": {"schemaArray": {"type": "array", "minItems": 1, "items": {"$ref": "#"}}}
+    }))
+    .expect("canonicalizes");
+    assert_eq!(
+        canonical
+            .definition("#/$defs/schemaArray")
+            .expect("target")
+            .to_json_schema(),
+        json!({
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "$defs": {
+                "schemaArray": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/root"}},
+                "root": {"type": "object", "properties": {"allOf": {"$ref": "#/$defs/schemaArray"}}}
+            },
+            "type": "array",
+            "minItems": 1,
+            "items": {"$ref": "#/$defs/root"}
+        })
+    );
+}
+
+// The document takes a name of its own, so an entry already holding that name keeps it.
+#[test]
+fn emitting_a_target_names_the_document_around_a_taken_name() {
+    let canonical = canonicalize(&json!({
+        "type": "object",
+        "properties": {"allOf": {"$ref": "#/$defs/schemaArray"}, "root": {"$ref": "#/$defs/root"}},
+        "$defs": {
+            "schemaArray": {"type": "array", "minItems": 1, "items": {"$ref": "#"}},
+            "root": {"type": "string"}
+        }
+    }))
+    .expect("canonicalizes");
+    assert_eq!(
+        canonical
+            .definition("#/$defs/schemaArray")
+            .expect("target")
+            .to_json_schema(),
+        json!({
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "$defs": {
+                "schemaArray": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/root0"}},
+                "root": {"type": "string"},
+                "root0": {"type": "object", "properties": {
+                    "allOf": {"$ref": "#/$defs/schemaArray"}, "root": {"$ref": "#/$defs/root"}
+                }}
+            },
+            "type": "array",
+            "minItems": 1,
+            "items": {"$ref": "#/$defs/root0"}
+        })
+    );
+}
+
+// A key naming the document root is a pointer only where a schema sits; under `properties` it is a
+// property name, and the schema it holds carries pointers of its own.
+#[test]
+fn emitting_a_target_reaches_a_property_named_after_a_value_keyword() {
+    let canonical = canonicalize(&json!({
+        "type": "object",
+        "properties": {"body": {"$ref": "#/$defs/body"}},
+        "$defs": {"body": {"type": "object", "properties": {"const": {"$ref": "#"}}}}
+    }))
+    .expect("canonicalizes");
+    assert_eq!(
+        canonical
+            .definition("#/$defs/body")
+            .expect("target")
+            .to_json_schema(),
+        json!({
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "$defs": {
+                "body": {"type": "object", "properties": {"const": {"$ref": "#/$defs/root"}}},
+                "root": {"type": "object", "properties": {"body": {"$ref": "#/$defs/body"}}}
+            },
+            "type": "object",
+            "properties": {"const": {"$ref": "#/$defs/root"}}
+        })
+    );
+}
+
+// A `const` holds an instance, so a value spelled like a pointer stays the value it is.
+#[test]
+fn emitting_a_target_leaves_a_value_spelled_like_a_pointer() {
+    let canonical = canonicalize(&json!({
+        "type": "object",
+        "properties": {"body": {"$ref": "#/$defs/body"}},
+        "$defs": {"body": {"type": "object", "properties": {
+            "kind": {"const": {"$ref": "#"}},
+            "self": {"$ref": "#"}
+        }}}
+    }))
+    .expect("canonicalizes");
+    let emitted = canonical
+        .definition("#/$defs/body")
+        .expect("target")
+        .to_json_schema();
+    assert_eq!(
+        emitted["properties"]["kind"],
+        json!({"const": {"$ref": "#"}})
+    );
+    assert_eq!(
+        emitted["properties"]["self"],
+        json!({"$ref": "#/$defs/root"})
+    );
+}
+
+// The emitted document admits what the target admits, which the pointer it carries decides.
+#[test]
+fn an_emitted_target_admits_what_the_target_admits() {
+    let canonical = canonicalize(&json!({
+        "type": "object",
+        "properties": {"allOf": {"$ref": "#/$defs/schemaArray"}},
+        "$defs": {"schemaArray": {"type": "array", "minItems": 1, "items": {"$ref": "#"}}}
+    }))
+    .expect("canonicalizes");
+    let emitted = canonical
+        .definition("#/$defs/schemaArray")
+        .expect("target")
+        .to_json_schema();
+    let emitted = jsonschema::validator_for(&emitted).expect("emitted builds");
+    for (instance, valid) in [
+        (json!([{}]), true),
+        (json!([{"allOf": [{}]}]), true),
+        (json!([[]]), false),
+        (json!([]), false),
+    ] {
+        assert_eq!(emitted.is_valid(&instance), valid, "{instance}");
+    }
+}
+
+// A target naming no document root stands alone already, so it takes no copy of one.
+#[test]
+fn emitting_a_target_naming_no_document_root_adds_nothing() {
+    let canonical = canonicalize(&json!({
+        "type": "object",
+        "properties": {"a": {"$ref": "#/$defs/A"}},
+        "$defs": {"A": {"type": "string", "minLength": 2}}
+    }))
+    .expect("canonicalizes");
+    assert_eq!(
+        canonical
+            .definition("#/$defs/A")
+            .expect("target")
+            .to_json_schema(),
+        json!({
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "$defs": {"A": {"type": "string", "minLength": 2}},
+            "type": "string",
+            "minLength": 2
+        })
+    );
+}
+
 // Same `Reference` root, different targets: unequal handles the hash no longer separates.
 #[test]
 fn hash_ignores_the_definition_map() {
@@ -1593,6 +1832,26 @@ fn intersect_folds(left: &Value, right: &Value, expected: &Value) {
         left.intersect(&right).expect("intersects").to_json_schema(),
         Value::Object(expected)
     );
+}
+
+#[test]
+fn intersect_is_commutative_and_idempotent() {
+    let schemas = [
+        json!({"type": "string", "minLength": 2}),
+        json!({"anyOf": [{"type": "string"}, {"type": "integer"}]}),
+        json!({"const": "a"}),
+        json!({"type": "object", "properties": {"id": {"type": "integer"}}}),
+    ]
+    .map(|schema| canonicalize(&schema).expect("canonicalizes"));
+    for left in &schemas {
+        assert_eq!(left.intersect(left).expect("intersects"), *left);
+        for right in &schemas {
+            assert_eq!(
+                left.intersect(right).expect("intersects"),
+                right.intersect(left).expect("intersects")
+            );
+        }
+    }
 }
 
 // A pattern the canonical form does not model keeps the whole document raw.
@@ -2291,11 +2550,9 @@ fn is_subset_of_rejects_operands_with_distinct_definition_maps() {
 #[test_case(
     &json!({"$defs": {"a": {"type": "string"}}, "oneOf": [{"$ref": "#/$defs/a"}, {"type": "integer"}]}),
     &json!({
-        "$defs": {"a": {"type": "string"}},
         "anyOf": [
             {"type": ["null", "boolean", "array", "object"]},
-            {"type": "number", "not": {"multipleOf": 1}},
-            {"allOf": [{"type": "integer"}, {"$ref": "#/$defs/a"}]}
+            {"type": "number", "not": {"multipleOf": 1}}
         ]
     });
     "choice between disjoint branches"
@@ -2325,14 +2582,126 @@ fn is_subset_of_rejects_operands_with_distinct_definition_maps() {
         "$ref": "#/$defs/node"
     }),
     &json!({
-        "$defs": {"a": {"type": "string"}},
         "anyOf": [
             {"type": ["null", "boolean", "array", "object"]},
-            {"type": "number", "not": {"multipleOf": 1}},
-            {"allOf": [{"type": "integer"}, {"$ref": "#/$defs/a"}]}
+            {"type": "number", "not": {"multipleOf": 1}}
         ]
     });
     "pointer at a choice"
+)]
+// A pointer back to a target already being negated keeps its complement symbolic, so the walk
+// spells one level and stops instead of unrolling a cycle that has no end.
+#[test_case(
+    &json!({
+        "$defs": {"A": {"type": "object", "properties": {"a": {"$ref": "#/$defs/A"}}}},
+        "$ref": "#/$defs/A"
+    }),
+    &json!({
+        "$defs": {"A": {"type": "object", "properties": {"a": {"$ref": "#/$defs/A"}}}},
+        "anyOf": [
+            {"type": ["null", "boolean", "number", "string", "array"]},
+            {"type": "object", "required": ["a"],
+             "properties": {"a": {"not": {"$ref": "#/$defs/A"}}}}
+        ]
+    });
+    "self-recursive reference"
+)]
+#[test_case(
+    &json!({
+        "$defs": {
+            "A": {"type": "object", "properties": {"b": {"$ref": "#/$defs/B"}}},
+            "B": {"type": "object", "properties": {"a": {"$ref": "#/$defs/A"}}}
+        },
+        "$ref": "#/$defs/A"
+    }),
+    &json!({
+        "$defs": {
+            "A": {"type": "object", "properties": {"b": {"$ref": "#/$defs/B"}}},
+            "B": {"type": "object", "properties": {"a": {"$ref": "#/$defs/A"}}}
+        },
+        "anyOf": [
+            {"type": ["null", "boolean", "number", "string", "array"]},
+            {"type": "object", "required": ["b"], "properties": {"b": {"anyOf": [
+                {"type": ["null", "boolean", "number", "string", "array"]},
+                {"type": "object", "required": ["a"],
+                 "properties": {"a": {"not": {"$ref": "#/$defs/A"}}}}
+            ]}}}
+        ]
+    });
+    "mutually recursive references"
+)]
+#[test_case(
+    &json!({
+        "$defs": {"A": {"type": "array", "items": {"$ref": "#/$defs/A"}}},
+        "$ref": "#/$defs/A"
+    }),
+    &json!({
+        "$defs": {"A": {"type": "array", "items": {"$ref": "#/$defs/A"}}},
+        "anyOf": [
+            {"type": ["null", "boolean", "number", "string", "object"]},
+            {"type": "array", "contains": {"not": {"$ref": "#/$defs/A"}}}
+        ]
+    });
+    "recursive array reference"
+)]
+#[test_case(
+    &json!({
+        "$defs": {"node": {"oneOf": [
+            {"type": "string"},
+            {"type": "object", "properties": {"next": {"$ref": "#/$defs/node"}}, "required": ["next"]}
+        ]}},
+        "$ref": "#/$defs/node"
+    }),
+    &json!({
+        "$defs": {"node": {"anyOf": [
+            {"type": "string"},
+            {"type": "object", "required": ["next"],
+             "properties": {"next": {"$ref": "#/$defs/node"}}}
+        ]}},
+        "anyOf": [
+            {"type": ["null", "boolean", "number", "array"]},
+            {"type": "object", "properties": {"next": {"not": {"$ref": "#/$defs/node"}}}}
+        ]
+    });
+    "recursive choice reference"
+)]
+#[test_case(
+    &json!({
+        "$defs": {
+            "left": {"oneOf": [
+                {"type": "string"},
+                {"type": "object", "properties": {"next": {"$ref": "#/$defs/right"}}, "required": ["next"]}
+            ]},
+            "right": {"oneOf": [
+                {"type": "integer"},
+                {"type": "object", "properties": {"back": {"$ref": "#/$defs/left"}}, "required": ["back"]}
+            ]}
+        },
+        "$ref": "#/$defs/left"
+    }),
+    &json!({
+        "$defs": {
+            "left": {"anyOf": [
+                {"type": "string"},
+                {"type": "object", "required": ["next"],
+                 "properties": {"next": {"$ref": "#/$defs/right"}}}
+            ]},
+            "right": {"anyOf": [
+                {"type": "integer"},
+                {"type": "object", "required": ["back"],
+                 "properties": {"back": {"$ref": "#/$defs/left"}}}
+            ]}
+        },
+        "anyOf": [
+            {"type": ["null", "boolean", "number", "array"]},
+            {"type": "object", "properties": {"next": {"anyOf": [
+                {"type": ["null", "boolean", "string", "array"]},
+                {"type": "number", "not": {"multipleOf": 1}},
+                {"type": "object", "properties": {"back": {"not": {"$ref": "#/$defs/left"}}}}
+            ]}}}
+        ]
+    });
+    "mutually recursive choice references"
 )]
 fn negate_spells_the_complement(schema: &Value, expected: &Value) {
     let canonical = canonicalize(schema).expect("canonicalizes");
@@ -2489,6 +2858,45 @@ fn negate_spells_the_draft_4_complement(schema: &Value, expected: &Value) {
     &json!({"type": "object", "properties": {"a": {"type": "integer"}}, "additionalProperties": {"type": "string"}});
     "value shield beside a declared property"
 )]
+#[test_case(
+    &json!({
+        "$defs": {"A": {"type": "object", "properties": {"a": {"$ref": "#/$defs/A"}}}},
+        "$ref": "#/$defs/A"
+    });
+    "self-recursive reference"
+)]
+#[test_case(
+    &json!({
+        "$defs": {
+            "A": {"type": "object", "properties": {"b": {"$ref": "#/$defs/B"}}},
+            "B": {"type": "object", "properties": {"a": {"$ref": "#/$defs/A"}}}
+        },
+        "$ref": "#/$defs/A"
+    });
+    "mutually recursive references"
+)]
+#[test_case(
+    &json!({
+        "$defs": {"A": {"type": "array", "items": {"$ref": "#/$defs/A"}}},
+        "$ref": "#/$defs/A"
+    });
+    "recursive array reference"
+)]
+#[test_case(
+    &json!({
+        "$defs": {"node": {"oneOf": [
+            {"type": "string"},
+            {"type": "object", "properties": {"next": {"$ref": "#/$defs/node"}}, "required": ["next"]}
+        ]}},
+        "$ref": "#/$defs/node"
+    });
+    "recursive choice reference"
+)]
+#[test_case(
+    &json!({"type": "array", "minItems": 2, "maxItems": 2,
+        "prefixItems": [{"type": "string"}, {"type": "integer"}], "items": {"type": "boolean"}});
+    "array tuple with a tail beyond its ceiling"
+)]
 fn negate_admits_exactly_what_the_source_rejects(schema: &Value) {
     let complement = canonicalize(schema)
         .expect("canonicalizes")
@@ -2522,6 +2930,12 @@ fn negate_admits_exactly_what_the_source_rejects(schema: &Value) {
         json!({"inner": {}}),
         json!({"inner": {"x": "s"}}),
         json!({"inner": {"x": 1}}),
+        json!({"a": {"a": 1}}),
+        json!({"a": {"a": {}}}),
+        json!({"next": "a"}),
+        json!({"next": {"next": 1}}),
+        json!([[1]]),
+        json!([["a"]]),
     ] {
         assert_ne!(
             source.is_valid(&instance),
@@ -2536,58 +2950,6 @@ fn negate_admits_exactly_what_the_source_rejects(schema: &Value) {
 #[test_case(
     &json!({"type": "array", "contains": {"type": "string"}, "minContains": 2});
     "counted array existential demand"
-)]
-#[test_case(
-    &json!({
-        "$defs": {
-            "A": {"type": "object", "properties": {"a": {"$ref": "#/$defs/A"}}}
-        },
-        "$ref": "#/$defs/A"
-    });
-    "self-recursive reference"
-)]
-#[test_case(
-    &json!({
-        "$defs": {
-            "A": {"type": "object", "properties": {"b": {"$ref": "#/$defs/B"}}},
-            "B": {"type": "object", "properties": {"a": {"$ref": "#/$defs/A"}}}
-        },
-        "$ref": "#/$defs/A"
-    });
-    "mutually recursive references"
-)]
-#[test_case(
-    &json!({
-        "$defs": {"A": {"type": "array", "items": {"$ref": "#/$defs/A"}}},
-        "$ref": "#/$defs/A"
-    });
-    "recursive array reference"
-)]
-#[test_case(
-    &json!({
-        "$defs": {"node": {"oneOf": [
-            {"type": "string"},
-            {"type": "object", "properties": {"next": {"$ref": "#/$defs/node"}}, "required": ["next"]}
-        ]}},
-        "$ref": "#/$defs/node"
-    });
-    "recursive choice reference"
-)]
-#[test_case(
-    &json!({
-        "$defs": {
-            "left": {"oneOf": [
-                {"type": "string"},
-                {"type": "object", "properties": {"next": {"$ref": "#/$defs/right"}}, "required": ["next"]}
-            ]},
-            "right": {"oneOf": [
-                {"type": "integer"},
-                {"type": "object", "properties": {"back": {"$ref": "#/$defs/left"}}, "required": ["back"]}
-            ]}
-        },
-        "$ref": "#/$defs/left"
-    });
-    "mutually recursive choice references"
 )]
 #[test_case(
     &json!({"type": "object", "properties": {"a": {"$ref": "#"}}});

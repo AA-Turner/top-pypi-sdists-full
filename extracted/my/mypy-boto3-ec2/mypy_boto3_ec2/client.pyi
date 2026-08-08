@@ -292,6 +292,8 @@ from .type_defs import (
     AuthorizeSecurityGroupEgressResultTypeDef,
     AuthorizeSecurityGroupIngressRequestTypeDef,
     AuthorizeSecurityGroupIngressResultTypeDef,
+    BatchModifyIpamRoutingPolicyRegistrationsRequestTypeDef,
+    BatchModifyIpamRoutingPolicyRegistrationsResultTypeDef,
     BundleInstanceRequestTypeDef,
     BundleInstanceResultTypeDef,
     CancelBundleTaskRequestTypeDef,
@@ -382,6 +384,8 @@ from .type_defs import (
     CreateInterruptibleCapacityReservationAllocationResultTypeDef,
     CreateIpamExternalResourceVerificationTokenRequestTypeDef,
     CreateIpamExternalResourceVerificationTokenResultTypeDef,
+    CreateIpamInternetRegistryAssociationRequestTypeDef,
+    CreateIpamInternetRegistryAssociationResultTypeDef,
     CreateIpamPolicyRequestTypeDef,
     CreateIpamPolicyResultTypeDef,
     CreateIpamPoolRequestTypeDef,
@@ -394,6 +398,8 @@ from .type_defs import (
     CreateIpamResourceDiscoveryRequestTypeDef,
     CreateIpamResourceDiscoveryResultTypeDef,
     CreateIpamResultTypeDef,
+    CreateIpamRoutingPolicyRegistrationRequestTypeDef,
+    CreateIpamRoutingPolicyRegistrationResultTypeDef,
     CreateIpamScopeRequestTypeDef,
     CreateIpamScopeResultTypeDef,
     CreateKeyPairRequestTypeDef,
@@ -566,6 +572,8 @@ from .type_defs import (
     DeleteInternetGatewayRequestTypeDef,
     DeleteIpamExternalResourceVerificationTokenRequestTypeDef,
     DeleteIpamExternalResourceVerificationTokenResultTypeDef,
+    DeleteIpamInternetRegistryAssociationRequestTypeDef,
+    DeleteIpamInternetRegistryAssociationResultTypeDef,
     DeleteIpamPolicyRequestTypeDef,
     DeleteIpamPolicyResultTypeDef,
     DeleteIpamPoolRequestTypeDef,
@@ -578,6 +586,8 @@ from .type_defs import (
     DeleteIpamResourceDiscoveryRequestTypeDef,
     DeleteIpamResourceDiscoveryResultTypeDef,
     DeleteIpamResultTypeDef,
+    DeleteIpamRoutingPolicyRegistrationRequestTypeDef,
+    DeleteIpamRoutingPolicyRegistrationResultTypeDef,
     DeleteIpamScopeRequestTypeDef,
     DeleteIpamScopeResultTypeDef,
     DeleteKeyPairRequestTypeDef,
@@ -872,6 +882,8 @@ from .type_defs import (
     DescribeIpamByoasnResultTypeDef,
     DescribeIpamExternalResourceVerificationTokensRequestTypeDef,
     DescribeIpamExternalResourceVerificationTokensResultTypeDef,
+    DescribeIpamInternetRegistryAssociationsRequestTypeDef,
+    DescribeIpamInternetRegistryAssociationsResultTypeDef,
     DescribeIpamPoliciesRequestTypeDef,
     DescribeIpamPoliciesResultTypeDef,
     DescribeIpamPoolAllocationsRequestTypeDef,
@@ -1216,6 +1228,8 @@ from .type_defs import (
     EnableImageResultTypeDef,
     EnableInstanceSqlHaStandbyDetectionsRequestTypeDef,
     EnableInstanceSqlHaStandbyDetectionsResultTypeDef,
+    EnableIpamInternetRegistryAssociationRequestTypeDef,
+    EnableIpamInternetRegistryAssociationResultTypeDef,
     EnableIpamOrganizationAdminAccountRequestTypeDef,
     EnableIpamOrganizationAdminAccountResultTypeDef,
     EnableIpamPolicyRequestTypeDef,
@@ -1308,6 +1322,12 @@ from .type_defs import (
     GetIpamDiscoveredPublicAddressesResultTypeDef,
     GetIpamDiscoveredResourceCidrsRequestTypeDef,
     GetIpamDiscoveredResourceCidrsResultTypeDef,
+    GetIpamDiscoveredRoutesRequestTypeDef,
+    GetIpamDiscoveredRoutesResultTypeDef,
+    GetIpamInternetRegistryAssociationAsnsRequestTypeDef,
+    GetIpamInternetRegistryAssociationAsnsResultTypeDef,
+    GetIpamInternetRegistryAssociationCidrsRequestTypeDef,
+    GetIpamInternetRegistryAssociationCidrsResultTypeDef,
     GetIpamPolicyAllocationRulesRequestTypeDef,
     GetIpamPolicyAllocationRulesResultTypeDef,
     GetIpamPolicyOrganizationTargetsRequestTypeDef,
@@ -1324,6 +1344,14 @@ from .type_defs import (
     GetIpamPrefixListResolverVersionsResultTypeDef,
     GetIpamResourceCidrsRequestTypeDef,
     GetIpamResourceCidrsResultTypeDef,
+    GetIpamRouteOriginAuthorizationsRequestTypeDef,
+    GetIpamRouteOriginAuthorizationsResultTypeDef,
+    GetIpamRouteProtectionFindingsRequestTypeDef,
+    GetIpamRouteProtectionFindingsResultTypeDef,
+    GetIpamRoutingPolicyRegistrationDeltasRequestTypeDef,
+    GetIpamRoutingPolicyRegistrationDeltasResultTypeDef,
+    GetIpamRoutingPolicyRegistrationsRequestTypeDef,
+    GetIpamRoutingPolicyRegistrationsResultTypeDef,
     GetLaunchTemplateDataRequestTypeDef,
     GetLaunchTemplateDataResultTypeDef,
     GetManagedPrefixListAssociationsRequestTypeDef,
@@ -1475,6 +1503,8 @@ from .type_defs import (
     ModifyIpamResourceDiscoveryRequestTypeDef,
     ModifyIpamResourceDiscoveryResultTypeDef,
     ModifyIpamResultTypeDef,
+    ModifyIpamRoutingPolicyRegistrationRequestTypeDef,
+    ModifyIpamRoutingPolicyRegistrationResultTypeDef,
     ModifyIpamScopeRequestTypeDef,
     ModifyIpamScopeResultTypeDef,
     ModifyLaunchTemplateRequestTypeDef,
@@ -2300,6 +2330,16 @@ class EC2Client(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#authorize_security_group_ingress)
         """
 
+    def batch_modify_ipam_routing_policy_registrations(
+        self, **kwargs: Unpack[BatchModifyIpamRoutingPolicyRegistrationsRequestTypeDef]
+    ) -> BatchModifyIpamRoutingPolicyRegistrationsResultTypeDef:
+        """
+        Modifies multiple routing policy registrations in a single operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/batch_modify_ipam_routing_policy_registrations.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#batch_modify_ipam_routing_policy_registrations)
+        """
+
     def bundle_instance(
         self, **kwargs: Unpack[BundleInstanceRequestTypeDef]
     ) -> BundleInstanceResultTypeDef:
@@ -2766,6 +2806,17 @@ class EC2Client(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#create_ipam_external_resource_verification_token)
         """
 
+    def create_ipam_internet_registry_association(
+        self, **kwargs: Unpack[CreateIpamInternetRegistryAssociationRequestTypeDef]
+    ) -> CreateIpamInternetRegistryAssociationResultTypeDef:
+        """
+        Creates an association between an IPAM and a Regional Internet Registry (RIR)
+        for Resource Public Key Infrastructure (RPKI) management.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/create_ipam_internet_registry_association.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#create_ipam_internet_registry_association)
+        """
+
     def create_ipam_policy(
         self, **kwargs: Unpack[CreateIpamPolicyRequestTypeDef]
     ) -> CreateIpamPolicyResultTypeDef:
@@ -2814,6 +2865,17 @@ class EC2Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/create_ipam_resource_discovery.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#create_ipam_resource_discovery)
+        """
+
+    def create_ipam_routing_policy_registration(
+        self, **kwargs: Unpack[CreateIpamRoutingPolicyRegistrationRequestTypeDef]
+    ) -> CreateIpamRoutingPolicyRegistrationResultTypeDef:
+        """
+        Creates a routing policy registration and publishes Route Origin Authorizations
+        (ROAs) to the RPKI for the specified CIDR prefix and ASNs.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/create_ipam_routing_policy_registration.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#create_ipam_routing_policy_registration)
         """
 
     def create_ipam_scope(
@@ -3758,6 +3820,16 @@ class EC2Client(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#delete_ipam_external_resource_verification_token)
         """
 
+    def delete_ipam_internet_registry_association(
+        self, **kwargs: Unpack[DeleteIpamInternetRegistryAssociationRequestTypeDef]
+    ) -> DeleteIpamInternetRegistryAssociationResultTypeDef:
+        """
+        Deletes an IPAM internet registry association.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/delete_ipam_internet_registry_association.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#delete_ipam_internet_registry_association)
+        """
+
     def delete_ipam_policy(
         self, **kwargs: Unpack[DeleteIpamPolicyRequestTypeDef]
     ) -> DeleteIpamPolicyResultTypeDef:
@@ -3806,6 +3878,16 @@ class EC2Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/delete_ipam_resource_discovery.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#delete_ipam_resource_discovery)
+        """
+
+    def delete_ipam_routing_policy_registration(
+        self, **kwargs: Unpack[DeleteIpamRoutingPolicyRegistrationRequestTypeDef]
+    ) -> DeleteIpamRoutingPolicyRegistrationResultTypeDef:
+        """
+        Deletes a routing policy registration for a specified CIDR prefix.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/delete_ipam_routing_policy_registration.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#delete_ipam_routing_policy_registration)
         """
 
     def delete_ipam_scope(
@@ -5408,6 +5490,16 @@ class EC2Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/describe_ipam_external_resource_verification_tokens.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#describe_ipam_external_resource_verification_tokens)
+        """
+
+    def describe_ipam_internet_registry_associations(
+        self, **kwargs: Unpack[DescribeIpamInternetRegistryAssociationsRequestTypeDef]
+    ) -> DescribeIpamInternetRegistryAssociationsResultTypeDef:
+        """
+        Describes one or more IPAM internet registry associations.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/describe_ipam_internet_registry_associations.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#describe_ipam_internet_registry_associations)
         """
 
     def describe_ipam_policies(
@@ -7205,6 +7297,18 @@ class EC2Client(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#enable_instance_sql_ha_standby_detections)
         """
 
+    def enable_ipam_internet_registry_association(
+        self, **kwargs: Unpack[EnableIpamInternetRegistryAssociationRequestTypeDef]
+    ) -> EnableIpamInternetRegistryAssociationResultTypeDef:
+        """
+        Enables Resource Public Key Infrastructure (RPKI) on an existing IPAM internet
+        registry association by providing BGP Public Key Infrastructure (BPKI)
+        certificate details.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/enable_ipam_internet_registry_association.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#enable_ipam_internet_registry_association)
+        """
+
     def enable_ipam_organization_admin_account(
         self, **kwargs: Unpack[EnableIpamOrganizationAdminAccountRequestTypeDef]
     ) -> EnableIpamOrganizationAdminAccountResultTypeDef:
@@ -7700,6 +7804,39 @@ class EC2Client(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#get_ipam_discovered_resource_cidrs)
         """
 
+    def get_ipam_discovered_routes(
+        self, **kwargs: Unpack[GetIpamDiscoveredRoutesRequestTypeDef]
+    ) -> GetIpamDiscoveredRoutesResultTypeDef:
+        """
+        Retrieves Border Gateway Protocol (BGP) routes discovered by IPAM resource
+        discovery for a specified Region.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/get_ipam_discovered_routes.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#get_ipam_discovered_routes)
+        """
+
+    def get_ipam_internet_registry_association_asns(
+        self, **kwargs: Unpack[GetIpamInternetRegistryAssociationAsnsRequestTypeDef]
+    ) -> GetIpamInternetRegistryAssociationAsnsResultTypeDef:
+        """
+        Retrieves Autonomous System Numbers (ASNs) registered with an internet registry
+        for an IPAM internet registry association.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/get_ipam_internet_registry_association_asns.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#get_ipam_internet_registry_association_asns)
+        """
+
+    def get_ipam_internet_registry_association_cidrs(
+        self, **kwargs: Unpack[GetIpamInternetRegistryAssociationCidrsRequestTypeDef]
+    ) -> GetIpamInternetRegistryAssociationCidrsResultTypeDef:
+        """
+        Retrieves IP address CIDRs registered with an internet registry for an IPAM
+        internet registry association.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/get_ipam_internet_registry_association_cidrs.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#get_ipam_internet_registry_association_cidrs)
+        """
+
     def get_ipam_policy_allocation_rules(
         self, **kwargs: Unpack[GetIpamPolicyAllocationRulesRequestTypeDef]
     ) -> GetIpamPolicyAllocationRulesResultTypeDef:
@@ -7779,6 +7916,49 @@ class EC2Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/get_ipam_resource_cidrs.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#get_ipam_resource_cidrs)
+        """
+
+    def get_ipam_route_origin_authorizations(
+        self, **kwargs: Unpack[GetIpamRouteOriginAuthorizationsRequestTypeDef]
+    ) -> GetIpamRouteOriginAuthorizationsResultTypeDef:
+        """
+        Retrieves the current Route Origin Authorizations (ROAs) published to the RPKI
+        for an IPAM internet registry association.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/get_ipam_route_origin_authorizations.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#get_ipam_route_origin_authorizations)
+        """
+
+    def get_ipam_route_protection_findings(
+        self, **kwargs: Unpack[GetIpamRouteProtectionFindingsRequestTypeDef]
+    ) -> GetIpamRouteProtectionFindingsResultTypeDef:
+        """
+        Retrieves route protection findings for an IPAM.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/get_ipam_route_protection_findings.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#get_ipam_route_protection_findings)
+        """
+
+    def get_ipam_routing_policy_registration_deltas(
+        self, **kwargs: Unpack[GetIpamRoutingPolicyRegistrationDeltasRequestTypeDef]
+    ) -> GetIpamRoutingPolicyRegistrationDeltasResultTypeDef:
+        """
+        Retrieves the history of routing policy registration changes for an IPAM
+        internet registry association.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/get_ipam_routing_policy_registration_deltas.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#get_ipam_routing_policy_registration_deltas)
+        """
+
+    def get_ipam_routing_policy_registrations(
+        self, **kwargs: Unpack[GetIpamRoutingPolicyRegistrationsRequestTypeDef]
+    ) -> GetIpamRoutingPolicyRegistrationsResultTypeDef:
+        """
+        Retrieves routing policy registrations for an IPAM internet registry
+        association.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/get_ipam_routing_policy_registrations.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#get_ipam_routing_policy_registrations)
         """
 
     def get_launch_template_data(
@@ -8566,6 +8746,16 @@ class EC2Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/modify_ipam_resource_discovery.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#modify_ipam_resource_discovery)
+        """
+
+    def modify_ipam_routing_policy_registration(
+        self, **kwargs: Unpack[ModifyIpamRoutingPolicyRegistrationRequestTypeDef]
+    ) -> ModifyIpamRoutingPolicyRegistrationResultTypeDef:
+        """
+        Modifies an existing routing policy registration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/modify_ipam_routing_policy_registration.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#modify_ipam_routing_policy_registration)
         """
 
     def modify_ipam_scope(

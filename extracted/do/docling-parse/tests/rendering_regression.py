@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
 
-from PIL import Image, ImageChops, ImageDraw, ImageEnhance, ImageFont, ImageStat
+from PIL import Image, ImageChops, ImageDraw, ImageFont, ImageStat
 
 from tests.data_utils import (
     RENDER_GROUNDTRUTH_BITMAPS_DIR,
@@ -15,10 +15,6 @@ from tests.test_parse import _round_floats
 
 RENDER_DELTA_FOLDER = Path("tests/data/render_deltas")
 RENDER_VISUALIZATION_FOLDER = Path("tests/data/visualizations")
-
-# amplification of the per-pixel difference in the visualization panel: raw
-# deltas of a few grey levels are invisible on screen
-DIFFERENCE_AMPLIFICATION = 8
 
 
 @dataclass(frozen=True)
@@ -42,6 +38,9 @@ class ImageComparison:
     changed_pixels_ratio: float
     changed_pixels: int
     total_pixels: int
+    # Page-level dissimilarity in [0, 1]; see normalized_delta() for what it
+    # measures and why it is not mean_abs_error/255.
+    normalized_delta: float = 0.0
 
 
 def renderer_artifact_prefix(doc_name: str, page_no: int) -> str:
@@ -194,18 +193,23 @@ def resize_to_match(actual: Image.Image, expected: Image.Image) -> Image.Image:
     return actual.resize(expected.size, Image.Resampling.LANCZOS)
 
 
-def amplified_difference(
-    actual: Image.Image,
-    expected: Image.Image,
-    *,
-    amplification: int = DIFFERENCE_AMPLIFICATION,
-) -> Image.Image:
-    """Brightened per-pixel difference of both images, on the size of `expected`."""
-    diff = ImageChops.difference(
+def difference_image(actual: Image.Image, expected: Image.Image) -> Image.Image:
+    """Per-pixel absolute difference of both images, on the size of `expected`.
+
+    The difference is shown as it is, with no brightness scaling. A panel is
+    then directly readable -- a grey level of 40 means the two renders are 40
+    apart there -- and, more importantly, two panels of different pages are
+    produced by the same fixed transform, so they can be held next to each
+    other and compared. Any per-image or even constant amplification breaks
+    that: it makes a near-identical page look as damaged as a broken one.
+
+    The cost is that an accurate page renders as an almost black panel, which
+    is the honest depiction of "these two renders agree".
+    """
+    return ImageChops.difference(
         resize_to_match(actual.convert("RGB"), expected),
         expected.convert("RGB"),
     )
-    return ImageEnhance.Brightness(diff).enhance(amplification)
 
 
 def _write_diff_artifacts(
@@ -217,9 +221,44 @@ def _write_diff_artifacts(
     RENDER_DELTA_FOLDER.mkdir(parents=True, exist_ok=True)
     actual.save(_diff_artifact_path(doc_name, page_no, "actual.png"))
     expected.save(_diff_artifact_path(doc_name, page_no, "expected.png"))
-    amplified_difference(actual, expected).save(
+    difference_image(actual, expected).save(
         _diff_artifact_path(doc_name, page_no, "diff.png")
     )
+
+
+def normalized_delta(actual: Image.Image, expected: Image.Image) -> float:
+    """Dissimilarity of two same-size renders on a 0.0 - 1.0 scale.
+
+    Per pixel the deviation is the *largest* of the three channel differences,
+    divided by 255; the score is the mean of that over the page. So 0.0 is a
+    pixel-identical render and 1.0 is every pixel maximally inverted -- a bound
+    that is actually attainable, which is what makes the number comparable
+    across pages and documents.
+
+    Two deliberate differences to `mean_abs_error`:
+
+    - Alpha is excluded. Both renders are flattened onto an opaque background
+      before they are compared, so their alpha channels are identical by
+      construction and averaging over four channels only scales the result by
+      3/4.
+    - Channels are combined with max() rather than with a mean or a luma
+      weighting. A glyph painted pure blue where it should be black differs by
+      255 in one channel; averaging reports 85 and luma reports 29, both of
+      which understate a difference that is entirely obvious on screen.
+
+    The score stays an average over the whole page, so it is dominated by page
+    area: a mostly-white page with badly wrong text scores low in absolute
+    terms. It ranks pages against each other, it does not say "this render is
+    4% wrong".
+    """
+    diff = ImageChops.difference(
+        resize_to_match(actual.convert("RGB"), expected.convert("RGB")),
+        expected.convert("RGB"),
+    )
+    red, green, blue = diff.split()
+    per_pixel_max = ImageChops.lighter(ImageChops.lighter(red, green), blue)
+
+    return ImageStat.Stat(per_pixel_max).mean[0] / 255.0
 
 
 def measure_image_pair(
@@ -278,6 +317,7 @@ def measure_image_pair(
         changed_pixels_ratio=changed_pixels_ratio,
         changed_pixels=changed_pixels,
         total_pixels=actual_rgba.width * actual_rgba.height,
+        normalized_delta=normalized_delta(actual_full, expected_full),
     )
 
 
@@ -321,17 +361,19 @@ def format_image_comparison_table(comparisons: list[ImageComparison]) -> str:
         *(len(comparison.document) for comparison in comparisons),
     )
     lines = [
-        "Per-page image metrics",
+        "Per-page image metrics (worst first)",
         (
             f"  {'document':{document_width}}  page  actual_size  expected_size  "
-            "size_match  mean_abs_error  changed_pixels_ratio  max_abs_error  "
-            "changed_pixels"
+            "size_match  delta  mean_abs_error  changed_pixels_ratio  "
+            "max_abs_error  changed_pixels"
         ),
     ]
 
+    # worst first: the pages worth looking at are the ones at the top, and the
+    # long tail of near-identical pages scrolls off the bottom
     for comparison in sorted(
         comparisons,
-        key=lambda item: (item.document, item.page),
+        key=lambda item: (-item.mean_abs_error, item.document, item.page),
     ):
         actual_size = f"{comparison.actual_width}x{comparison.actual_height}"
         expected_size = f"{comparison.expected_width}x{comparison.expected_height}"
@@ -341,6 +383,7 @@ def format_image_comparison_table(comparisons: list[ImageComparison]) -> str:
             f"{actual_size:11}  "
             f"{expected_size:13}  "
             f"{comparison.size_matches!s:10}  "
+            f"{comparison.normalized_delta:.4f}  "
             f"{comparison.mean_abs_error:14.4f}  "
             f"{comparison.changed_pixels_ratio:20.4f}  "
             f"{comparison.max_abs_error:13d}  "
@@ -497,8 +540,12 @@ def visualization_path(
     *,
     folder: Path = RENDER_VISUALIZATION_FOLDER,
 ) -> Path:
+    # `delta` is normalized_delta, so every name is "0.xxxx" and a plain
+    # alphabetical listing of the folder is also a worst-last ranking. An
+    # unbounded score does not have that property: "delta_16.308" sorts
+    # between "delta_1.6" and "delta_2.0".
     return (
-        folder / f"delta_{delta:.3f}_{renderer_artifact_prefix(doc_name, page_no)}.png"
+        folder / f"delta_{delta:.4f}_{renderer_artifact_prefix(doc_name, page_no)}.png"
     )
 
 
@@ -507,7 +554,7 @@ def write_comparison_visualization(
     page_no: int,
     reference: Image.Image,
     actual: Image.Image,
-    delta: float,
+    delta: float,  # normalized_delta of the pair, used in the name and the label
     *,
     reference_label: str = "pypdfium2",
     actual_label: str = "docling-parse",
@@ -517,7 +564,7 @@ def write_comparison_visualization(
     """Write a three-panel png: reference, actual and their amplified difference."""
     reference_rgb = flatten_on_white(reference)
     actual_rgb = flatten_on_white(actual)
-    difference = amplified_difference(actual_rgb, reference_rgb)
+    difference = difference_image(actual_rgb, reference_rgb)
 
     panel_width = max(reference_rgb.width, actual_rgb.width, difference.width)
     panel_height = max(reference_rgb.height, actual_rgb.height, difference.height)
@@ -553,7 +600,7 @@ def write_comparison_visualization(
         ),
         _labelled_panel(
             difference,
-            f"difference (x{DIFFERENCE_AMPLIFICATION}, mean_abs_error={delta:.3f})",
+            f"difference (delta={delta:.4f})",
             size=panel_size,
             label_height=label_height,
             font_size=font_size,
@@ -577,4 +624,120 @@ def write_comparison_visualization(
     path = visualization_path(doc_name, page_no, delta, folder=folder)
     path.parent.mkdir(parents=True, exist_ok=True)
     canvas.save(path)
+    return path
+
+
+def histogram_path(metric: str, *, folder: Path = RENDER_VISUALIZATION_FOLDER) -> Path:
+    return folder / f"histogram_{metric}.png"
+
+
+def write_metric_histogram(
+    values: list[float],
+    *,
+    metric: str,
+    title: str,
+    xlabel: str,
+    threshold: float | None = None,
+    threshold_label: str = "tolerance",
+    folder: Path = RENDER_VISUALIZATION_FOLDER,
+    bins: int = 40,
+) -> Path | None:
+    """Write the distribution of one per-page metric over a whole comparison run.
+
+    The per-page panels answer "what is wrong with this page"; this answers
+    "how is the corpus doing", which is the number that moves when a decoder
+    changes. Returns the written path, or None when there is nothing to plot or
+    matplotlib is unavailable -- it lives in the `perf` dependency group, so a
+    run without that group still gets the table and the panels.
+    """
+    if not values:
+        return None
+
+    try:
+        import matplotlib
+    except ImportError:
+        return None
+
+    matplotlib.use("Agg")  # headless: never try to open a window in CI
+
+    import matplotlib.pyplot as plt
+
+    # same palette as the three-panel visualizations, so the folder reads as
+    # one set of artifacts
+    background = "#181818"
+    foreground = "#f0f0f0"
+    bar_color = "#4da3ff"
+    median_color = "#ffc14d"
+    threshold_color = "#ff6b6b"
+
+    ordered = sorted(values)
+    count = len(ordered)
+    mean_value = sum(ordered) / count
+    median_value = (
+        ordered[count // 2]
+        if count % 2
+        else 0.5 * (ordered[count // 2 - 1] + ordered[count // 2])
+    )
+    # a degenerate range (every page pixel-identical) has no bin edges to place,
+    # so fall back to a nominal axis rather than plotting a 1e-9-wide one
+    upper = ordered[-1] if ordered[-1] > 0.0 else 1.0
+
+    figure, axes = plt.subplots(figsize=(9.0, 5.0), dpi=160)
+    figure.patch.set_facecolor(background)
+    axes.set_facecolor(background)
+
+    axes.hist(
+        ordered, bins=bins, range=(0.0, upper), color=bar_color, edgecolor=background
+    )
+
+    # Counts are heavily skewed -- most pages sit in the first bin and the tail
+    # that matters is one or two pages deep. On a linear count axis that tail is
+    # invisible, so the y axis is logarithmic and the floor is held below 1 to
+    # keep single-page bins on screen.
+    axes.set_yscale("log")
+    axes.set_ylim(bottom=0.5)
+
+    axes.axvline(
+        median_value,
+        color=median_color,
+        linestyle="--",
+        linewidth=1.4,
+        label=f"median {median_value:.4f}",
+    )
+    axes.axvline(
+        mean_value,
+        color=foreground,
+        linestyle=":",
+        linewidth=1.4,
+        label=f"mean {mean_value:.4f}",
+    )
+    if threshold is not None:
+        above = sum(1 for value in ordered if value > threshold)
+        axes.axvline(
+            threshold,
+            color=threshold_color,
+            linestyle="-",
+            linewidth=1.4,
+            label=f"{threshold_label} {threshold:g} ({above} page(s) above)",
+        )
+
+    axes.set_title(f"{title}  --  {count} page(s)", color=foreground, fontsize=12)
+    axes.set_xlabel(xlabel, color=foreground)
+    axes.set_ylabel("pages (log scale)", color=foreground)
+    axes.tick_params(colors=foreground)
+    for spine in axes.spines.values():
+        spine.set_color("#404040")
+    axes.grid(axis="y", color="#303030", linewidth=0.6)
+    axes.set_axisbelow(True)
+
+    legend = axes.legend(facecolor=background, edgecolor="#404040", fontsize=9)
+    for text in legend.get_texts():
+        text.set_color(foreground)
+
+    figure.tight_layout()
+
+    path = histogram_path(metric, folder=folder)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    figure.savefig(path, facecolor=background)
+    plt.close(figure)
     return path

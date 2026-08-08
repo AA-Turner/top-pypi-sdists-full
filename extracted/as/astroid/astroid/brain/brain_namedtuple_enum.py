@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import functools
 import keyword
+import unicodedata
 from collections.abc import Iterator
 from textwrap import dedent
 from typing import Final
@@ -16,9 +17,11 @@ from astroid import arguments, bases, nodes, util
 from astroid.builder import AstroidBuilder, _extract_single_node, extract_node
 from astroid.context import InferenceContext
 from astroid.exceptions import (
+    AstroidError,
     AstroidTypeError,
     AstroidValueError,
     InferenceError,
+    MroError,
     UseInferenceDefault,
 )
 from astroid.inference_tip import inference_tip
@@ -90,7 +93,11 @@ def infer_func_form(
         name, names = _find_func_form_arguments(node, context)
         try:
             attributes: list[str] = names.value.replace(",", " ").split()
-        except AttributeError as exc:
+        except (AttributeError, TypeError) as exc:
+            # ``names`` is not a whitespace-separated string: it is either a
+            # container node, which has no ``value`` (AttributeError), or a
+            # constant of another type such as bytes (TypeError).
+
             # Handle attributes of NamedTuples
             if not enum:
                 attributes = []
@@ -137,6 +144,11 @@ def infer_func_form(
         attributes = [str(attr) for attr in attributes]
         # XXX this should succeed *unless* __str__/__repr__ is incorrect or throws
         # in which case we should not have inferred these values and raised earlier
+    if any(not isinstance(attr, str) for attr in attributes):
+        # Enum members must be named by strings; a non-string attribute (e.g.
+        # ``Enum("e", (1,))``) means the definition is invalid, so fall back to
+        # the default inference instead of crashing.
+        raise UseInferenceDefault
     attributes = [attr for attr in attributes if " " not in attr]
 
     # If we can't infer the name of the class, don't crash, up to this point
@@ -246,7 +258,12 @@ class {name}(tuple):
     class_node.locals["_replace"] = fake.body[0].locals["_replace"]
     class_node.locals["_fields"] = fake.body[0].locals["_fields"]
     for attr in attributes:
-        class_node.locals[attr] = fake.body[0].locals[attr]
+        # Python normalises identifiers to NFKC, so a field named "\u00b5" (MICRO SIGN)
+        # is stored by the parser as "\u03bc" (GREEK SMALL LETTER MU). Looking the
+        # attribute up under the name as written raises KeyError on a definition
+        # namedtuple itself accepts, so use the name the parser actually used.
+        normalized = unicodedata.normalize("NFKC", attr)
+        class_node.locals[normalized] = fake.body[0].locals[normalized]
     # we use UseInferenceDefault, we can't be a generator so return an iterator
     return iter([class_node])
 
@@ -264,7 +281,7 @@ def _get_renamed_namedtuple_attributes(field_names):
             or name.startswith("_")
             or name in seen
         ):
-            names[i] = "_%d" % i
+            names[i] = f"_{i}"
         seen.add(name)
     return tuple(names)
 
@@ -386,7 +403,13 @@ INT_FLAG_ADDITION_METHODS = """
 
 def infer_enum_class(node: nodes.ClassDef) -> nodes.ClassDef:
     """Specific inference for enums."""
-    for basename in (b for cls in node.mro() for b in cls.basenames):
+    try:
+        mro = node.mro()
+    except MroError:
+        # A malformed class hierarchy (e.g. duplicate bases) has no resolvable
+        # MRO; leave the node untransformed rather than crashing.
+        return node
+    for basename in (b for cls in mro for b in cls.basenames):
         if node.root().name == "enum":
             # Skip if the class is directly from enum module.
             break
@@ -554,8 +577,12 @@ def infer_typing_namedtuple_class(class_node, context: InferenceContext | None =
     for body_node in class_node.body:
         if isinstance(body_node, nodes.Assign):
             for target in body_node.targets:
-                attr = target.name
-                generated_class_node.locals[attr] = class_node.locals[attr]
+                # A target is not necessarily a single name: ``cat.color = ...``
+                # and ``basket[0] = ...`` define no class attribute at all, while
+                # ``apple, banana = ...`` defines one per unpacked element.
+                for assign_name in target.nodes_of_class(nodes.AssignName):
+                    attr = assign_name.name
+                    generated_class_node.locals[attr] = class_node.locals[attr]
         elif isinstance(body_node, nodes.ClassDef):
             generated_class_node.locals[body_node.name] = [body_node]
 
@@ -642,7 +669,10 @@ def _get_namedtuple_fields(node: nodes.Call) -> str:
 
 def _is_enum_subclass(cls: nodes.ClassDef) -> bool:
     """Return whether cls is a subclass of an Enum."""
-    return cls.is_subtype_of("enum.Enum")
+    try:
+        return cls.is_subtype_of("enum.Enum")
+    except AstroidError:
+        return False
 
 
 def register(manager: AstroidManager) -> None:

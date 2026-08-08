@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "seltz"
-version = "1.7.0"
+version = "1.9.0"
 description = "Seltz Python SDK for AI-powered search"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -35,7 +35,10 @@ classifiers = [
 ]
 dependencies = [
     "grpcio>=1.76.0",
-    "protobuf<6.0",
+    # Supported runtime window of the generated stubs (gencode 5.29.5): protobuf
+    # guarantees gencode runs on its own major and the next, so 5.29.5 works on
+    # 5.29.5+ and all of 6.x, and provably fails on 7.x. Verified across the range.
+    "protobuf>=5.29.5,<7",
 ]
 
 [project.urls]

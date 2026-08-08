@@ -1099,24 +1099,12 @@ class BaseResultsHandler(System.Object, metaclass=abc.ABCMeta):
         """
         ...
 
-    @overload
     def save_logs(self, id: str, logs: typing.List[QuantConnect.Logging.LogEntry]) -> str:
         """
         Returns the location of the logs
         
         :param id: Id that will be incorporated into the algorithm log name
         :param logs: The logs to save
-        :returns: The path to the logs.
-        """
-        ...
-
-    @overload
-    def save_logs(self, id: str, log_lines: typing.List[str]) -> str:
-        """
-        Returns the location of the logs
-        
-        :param id: Id that will be incorporated into the algorithm log name
-        :param log_lines: The log lines to save
         :returns: The path to the logs.
         """
         ...

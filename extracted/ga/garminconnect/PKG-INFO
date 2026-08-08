@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: garminconnect
-Version: 0.3.8
+Version: 0.3.9
 Summary: Python 3 API wrapper for Garmin Connect
 Keywords: garmin connect,api,garmin
 Author-Email: Ron Klinkien <ron@cyberjunky.nl>
@@ -92,11 +92,11 @@ Make your selection:
 
 ## API Coverage Statistics
 
-- **Total API Methods**: 142+ unique endpoints (snapshot)
+- **Total API Methods**: 143+ unique endpoints (snapshot)
 - **Categories**: 13 organized sections
 - **User & Profile**: 4 methods (basic user info, settings)
-- **Daily Health & Activity**: 9 methods (today's health data)
-- **Advanced Health Metrics**: 15 methods (fitness metrics, HRV, VO2, training readiness, training zones, running tolerance)
+- **Daily Health & Activity**: 10 methods (today's health data plus daily calories, resting HR and sleep ranges)
+- **Advanced Health Metrics**: 16 methods (fitness metrics, HRV, VO2, FTP range, training readiness, training zones, running tolerance)
 - **Historical Data & Trends**: 9 methods (date range queries, weekly aggregates)
 - **Activities & Workouts**: 41 methods (comprehensive activity, workout management, typed workout uploads including strength, in-place edit, scheduling, push to device, import, edit description / exercise sets)
 - **Body Composition & Weight**: 8 methods (weight tracking, body composition)
@@ -365,7 +365,7 @@ from garminconnect import Garmin
 # First run: logs in and saves tokens to ~/.garminconnect
 # Subsequent runs: loads saved tokens and auto-refreshes
 client = Garmin(
-    os.getenv("EMAIL"),
+    os.getenv("GARMIN_EMAIL"),
     getpass("Garmin password: "),
     prompt_mfa=lambda: input("MFA code: "),
 )
@@ -470,6 +470,34 @@ client.upload_strength_workout(workout)
 **Helper functions:** `create_warmup_step`, `create_interval_step`, `create_distance_interval_step`, `create_recovery_step`, `create_cooldown_step`, `create_repeat_group`, `create_strength_exercise_step`, `create_strength_rest_step`, `create_strength_set`
 
 Use `create_distance_interval_step(600.0, step_order=1)` for interval steps that should end after a distance in meters instead of after a duration.
+
+### Golf
+
+The library supports reading Garmin Golf scorecards, shot-level data, club statistics, and golf user statistics.
+
+```python
+# List recent golf scorecards
+summary = client.get_golf_summary(limit=10)
+scorecard_id = summary["scorecardSummaries"][0]["id"]
+
+# Get the full scorecard details
+scorecard = client.get_golf_scorecard(scorecard_id)
+
+# Get shot-by-shot data
+# - Omit hole_numbers to receive every hole (recommended for holes 10-18).
+# - Single-digit holes work as a comma- or dash-separated list, e.g. "1,2,3".
+#   Commas are normalized to dashes because Garmin only accepts '-' as the
+#   separator.
+# - Double-digit holes (10-18) cannot be fetched with a filter at all; the
+#   API either drops them or returns an empty response. If you request holes
+#   10-18, the library falls back to returning all 18 holes.
+shots = client.get_golf_shot_data(scorecard_id)
+shots = client.get_golf_shot_data(scorecard_id, hole_numbers="1,2,3")
+
+# Club and player statistics
+club_stats = client.get_golf_club_stats()
+user_stats = client.get_golf_user_stats()
+```
 
 ### Additional Resources
 - **Simple Example**: [example.py](https://raw.githubusercontent.com/cyberjunky/python-garminconnect/master/example.py) - Getting started guide

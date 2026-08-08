@@ -5,6 +5,7 @@
 
 #include <render/template_renderer.h>
 #include <render/config.h>
+#include <parse/utils/color/device_cmyk.h>
 #include <render/blend2d_font_resolver.h>
 #include <render/blend2d_embedded_font_cache.h>
 #include <render/freetype_embedded_font_cache.h>
@@ -77,9 +78,11 @@ namespace pdflib
     // text bbox fallback so the cell remains visible.
     void render_text(text_instruction& instr);
 
-    // Draws a text widget annotation as a translucent filled quadrilateral with
-    // a blue outline. This currently visualizes the widget bounds only; it does
-    // not render the widget's text value.
+    // Draws a text widget annotation as a translucent filled quadrilateral
+    // outlined in render_config::color_widgets, and only when
+    // render_config::display_widgets is set. This visualizes the widget bounds
+    // only; the widget's text value arrives as ordinary text instructions from
+    // its appearance stream and is rendered either way.
     void render_widget(text_widget_instruction& instr);
 
     // Renders one bitmap/image XObject. The method validates the image buffers,
@@ -94,6 +97,14 @@ namespace pdflib
     // join parameters, honoring the paint mode (stroke / fill / both) and
     // axis-aligned rectangular clips. Curve segments render as true cubics.
     void render_shape(shape_instruction& instr);
+
+    // Paints one `sh` shading over the current clip region as a Blend2D
+    // gradient. The shading's colour ramp arrives pre-sampled, and its
+    // geometry is transformed from shading space to canvas space through the
+    // gradient's own matrix, so a flipped or skewed CTM stays exact. The clip
+    // region is the only bound on the paint, so a non-rectangular clip becomes
+    // the filled outline rather than a reason to skip the shading.
+    void render_shading(shading_instruction& instr);
 
     // Returns the rendered canvas as RGBA bytes, row-major top-to-bottom, in
     // display orientation. The associated shape is {height, width, 4}.
@@ -578,6 +589,194 @@ namespace pdflib
 
       return applied_clip ? CLIP_APPLIED : CLIP_NONE;
     }
+
+    // Builds a closed canvas-space path from a clip path. The parse layer
+    // stores clip geometry as a flattened polyline, so curved clip outlines
+    // arrive already sampled. A fill treats every subpath as closed (8.5.3.2),
+    // hence the unconditional close().
+    BLPath make_clip_path(const clip_path_instruction& clip) const
+    {
+      BLPath path;
+
+      const auto& xs = clip.get_x();
+      const auto& ys = clip.get_y();
+      const size_t n = clip.size();
+
+      if(n < 3)
+        {
+          return path;
+        }
+
+      path.move_to(canvas_x(xs[0]), canvas_y(ys[0]));
+      for(size_t i = 1; i < n; i++)
+        {
+          path.line_to(canvas_x(xs[i]), canvas_y(ys[i]));
+        }
+      path.close();
+
+      return path;
+    }
+
+    // What a shading should paint once its clip state has been applied.
+    struct shading_clip
+    {
+      bool   empty = false;    // the clip leaves no area on the canvas
+      bool   bounded = false;  // at least one clip path could be honored
+      bool   has_path = false; // fill `path` instead of the whole canvas
+      BLPath path;
+    };
+
+    // Restricts `ctx` to a shading's clip region and reports the geometry to
+    // fill. `sh` paints the entire clip region, so the clip is the only thing
+    // bounding the paint. Blend2D clips to rectangles only, so a rectangular
+    // clip path becomes a context clip while a non-rectangular one becomes the
+    // fill geometry itself -- filling its outline covers exactly the region the
+    // operator reaches. Additional non-rectangular paths can only be
+    // approximated, and are applied as their bounding box so the paint stays
+    // bounded.
+    //
+    // The caller must have saved `ctx` beforehand: this leaves clips on it.
+    shading_clip apply_shading_clip(BLContext& ctx,
+                                    const clip_state_instruction& clip_state,
+                                    const BLRect& canvas_rect) const
+    {
+      shading_clip result;
+
+      for(const auto& clip_path : clip_state.get_paths())
+        {
+          BLRect clip_rect;
+          if(get_axis_aligned_clip_rect(clip_path, clip_rect))
+            {
+              if(not rects_intersect(clip_rect, canvas_rect))
+                {
+                  result.empty = true;
+                  return result;
+                }
+
+              ctx.clip_to_rect(clip_rect);
+              result.bounded = true;
+              continue;
+            }
+
+          BLPath path = make_clip_path(clip_path);
+          if(path.is_empty())
+            {
+              LOG_S(WARNING) << "apply_shading_clip: skipping degenerate clip path";
+              continue;
+            }
+
+          if(not result.has_path)
+            {
+              result.path = std::move(path);
+              result.has_path = true;
+              result.bounded = true;
+              continue;
+            }
+
+          // several non-rectangular paths: their intersection is not
+          // expressible, so bound the fill by this one's bounding box
+          BLBox box;
+          if(path.get_bounding_box(&box) == BL_SUCCESS)
+            {
+              const BLRect box_rect(box.x0, box.y0,
+                                    box.x1 - box.x0, box.y1 - box.y0);
+
+              if(not rects_intersect(box_rect, canvas_rect))
+                {
+                  result.empty = true;
+                  return result;
+                }
+
+              ctx.clip_to_rect(box_rect);
+              result.bounded = true;
+            }
+
+          LOG_S(WARNING) << "apply_shading_clip: more than one non-rectangular"
+                         << " clip path, approximating the extra one by its"
+                         << " bounding box";
+        }
+
+      return result;
+    }
+
+    // Converts one CMYK image sample to sRGB. `CMYK_CONVENTION_ADOBE_INVERTED`
+    // is how Adobe writes CMYK into a JPEG: the bytes hold 255 minus the ink
+    // amount, so the only difference from the process convention is how the
+    // four bytes are read.
+    static std::array<int, 3> cmyk_bytes_to_rgb(uint8_t c, uint8_t m,
+                                                uint8_t y, uint8_t k,
+                                                cmyk_convention convention)
+    {
+      const double ink[4] = {c / 255.0, m / 255.0, y / 255.0, k / 255.0};
+
+      if (convention == CMYK_CONVENTION_PROCESS)
+        {
+          return color::cmyk_to_rgb255(ink[0], ink[1], ink[2], ink[3]);
+        }
+
+      return color::cmyk_to_rgb255(1.0 - ink[0], 1.0 - ink[1],
+                                   1.0 - ink[2], 1.0 - ink[3]);
+    }
+
+    // Maps an ExtGState /BM to the Blend2D compositing operator (11.3.5,
+    // Table 136). The four non-separable modes of Table 137 -- Hue,
+    // Saturation, Color and Luminosity -- have no Blend2D counterpart and fall
+    // back to Normal, which is what they degrade to anyway when a reader does
+    // not implement them.
+    static BLCompOp to_comp_op(blend_mode_name mode)
+    {
+      switch(mode)
+        {
+        case BLEND_MODE_MULTIPLY:    { return BL_COMP_OP_MULTIPLY; }
+        case BLEND_MODE_SCREEN:      { return BL_COMP_OP_SCREEN; }
+        case BLEND_MODE_OVERLAY:     { return BL_COMP_OP_OVERLAY; }
+        case BLEND_MODE_DARKEN:      { return BL_COMP_OP_DARKEN; }
+        case BLEND_MODE_LIGHTEN:     { return BL_COMP_OP_LIGHTEN; }
+        case BLEND_MODE_COLOR_DODGE: { return BL_COMP_OP_COLOR_DODGE; }
+        case BLEND_MODE_COLOR_BURN:  { return BL_COMP_OP_COLOR_BURN; }
+        case BLEND_MODE_HARD_LIGHT:  { return BL_COMP_OP_HARD_LIGHT; }
+        case BLEND_MODE_SOFT_LIGHT:  { return BL_COMP_OP_SOFT_LIGHT; }
+        case BLEND_MODE_DIFFERENCE:  { return BL_COMP_OP_DIFFERENCE; }
+        case BLEND_MODE_EXCLUSION:   { return BL_COMP_OP_EXCLUSION; }
+
+        default: { return BL_COMP_OP_SRC_OVER; }
+        }
+    }
+
+    // Sets the compositing operator for one painting operation and reports
+    // whether the context has to be restored afterwards. Blend2D holds the
+    // operator on the context, so anything but Normal is bracketed by
+    // save/restore rather than left behind for the next instruction.
+    static bool push_blend_mode(BLContext& ctx, blend_mode_name mode)
+    {
+      const BLCompOp comp_op = to_comp_op(mode);
+      if(comp_op == BL_COMP_OP_SRC_OVER)
+        {
+          return false;
+        }
+
+      ctx.save();
+      ctx.set_comp_op(comp_op);
+      return true;
+    }
+
+    // Scoped form of push_blend_mode(), for painting paths that leave through
+    // more than one exit.
+    class blend_mode_scope
+    {
+    public:
+
+      blend_mode_scope(BLContext& ctx, blend_mode_name mode);
+      ~blend_mode_scope();
+
+      blend_mode_scope(const blend_mode_scope&) = delete;
+      blend_mode_scope& operator=(const blend_mode_scope&) = delete;
+
+    private:
+
+      BLContext& ctx_;
+      bool       active_;
+    };
 
     // Converts a parsed 0-255 RGB triple and a [0, 1] alpha into a Blend2D
     // color (straight alpha; the context premultiplies while compositing).
@@ -1242,9 +1441,11 @@ namespace pdflib
         const uint8_t m = (sc >= 2) ? src_data->at(1) : 0;
         const uint8_t y = (sc >= 3) ? src_data->at(2) : 0;
         const uint8_t k = (sc >= 4) ? src_data->at(3) : 0;
-        const uint8_t r = static_cast<uint8_t>(((255u - c) * (255u - k)) / 255u);
-        const uint8_t g = static_cast<uint8_t>(((255u - m) * (255u - k)) / 255u);
-        const uint8_t b = static_cast<uint8_t>(((255u - y) * (255u - k)) / 255u);
+        const std::array<int, 3> sample =
+          cmyk_bytes_to_rgb(c, m, y, k, instr.get_cmyk_convention());
+        const int r = sample[0];
+        const int g = sample[1];
+        const int b = sample[2];
         LOG_S(INFO) << "render_bitmap: cmyk_sample[0]"
                     << " raw=(" << static_cast<int>(c) << ","
                     << static_cast<int>(m) << ","
@@ -1275,23 +1476,17 @@ namespace pdflib
               }
             else if (fmt == PIXEL_FORMAT_CMYK and sc >= 4)
               {
-                const uint8_t c = src_data->at(idx + 0);
-                const uint8_t m = src_data->at(idx + 1);
-                const uint8_t y = src_data->at(idx + 2);
-                const uint8_t k = src_data->at(idx + 3);
+                // The Adobe convention stores the ink amounts inverted, so
+                // both conventions reach the same conversion; only the reading
+                // of the four bytes differs.
+                const std::array<int, 3> rgb =
+                  cmyk_bytes_to_rgb(src_data->at(idx + 0), src_data->at(idx + 1),
+                                    src_data->at(idx + 2), src_data->at(idx + 3),
+                                    instr.get_cmyk_convention());
 
-                if(instr.get_cmyk_convention() == CMYK_CONVENTION_PROCESS)
-                  {
-                    r = static_cast<uint8_t>(((255u - c) * (255u - k)) / 255u);
-                    g = static_cast<uint8_t>(((255u - m) * (255u - k)) / 255u);
-                    b = static_cast<uint8_t>(((255u - y) * (255u - k)) / 255u);
-                  }
-                else
-                  {
-                    r = static_cast<uint8_t>((static_cast<unsigned int>(c) * k) / 255u);
-                    g = static_cast<uint8_t>((static_cast<unsigned int>(m) * k) / 255u);
-                    b = static_cast<uint8_t>((static_cast<unsigned int>(y) * k) / 255u);
-                  }
+                r = static_cast<uint8_t>(rgb[0]);
+                g = static_cast<uint8_t>(rgb[1]);
+                b = static_cast<uint8_t>(rgb[2]);
               }
             else if (fmt == PIXEL_FORMAT_GRAY)
               {
@@ -1394,6 +1589,20 @@ namespace pdflib
   // bbox measurement before text is drawn with fill_utf8_text().
   // ---------------------------------------------------------------------------
 
+  inline renderer<BLEND2D>::blend_mode_scope::blend_mode_scope(BLContext& ctx,
+                                                               blend_mode_name mode):
+    ctx_(ctx),
+    active_(push_blend_mode(ctx, mode))
+  {}
+
+  inline renderer<BLEND2D>::blend_mode_scope::~blend_mode_scope()
+  {
+    if (active_)
+      {
+        ctx_.restore();
+      }
+  }
+
   inline void renderer<BLEND2D>::render_text(text_instruction& instr)
   {
     // LOG_S(INFO) << __FUNCTION__;
@@ -1428,6 +1637,8 @@ namespace pdflib
     //             << " a_norm=" << a_norm << " d_norm=" << d_norm
     //             << " cell_span=" << cell_span
     //             << " em_size=" << em_size << " size=" << size;
+
+    const blend_mode_scope blend(page_context(), instr.get_blend_mode());
 
     // Resolution order: embedded font program — natively in Blend2D (SFNT)
     // or as FreeType outline paths (Type 1, bare CFF) — then the system font
@@ -1812,6 +2023,22 @@ namespace pdflib
     const bool can_use_axis_aligned_fast_path =
       axis_aligned and right_angle and quarter_turns == 0;
 
+    // ExtGState constant alpha (/ca) in force at the `Do`. It is applied as a
+    // context-global alpha so that it *multiplies* the per-pixel soft-mask
+    // alpha baked into src_img instead of replacing it.
+    static constexpr double min_visible_alpha = 1.0 / 512.0;
+    const double fill_alpha =
+      std::min(1.0, std::max(0.0, instr.get_fill_alpha()));
+
+    if (fill_alpha <= min_visible_alpha)
+      {
+        LOG_S(INFO) << "render_bitmap: fill-alpha " << fill_alpha
+                    << " is invisible, skipping xobject_key=" << instr.get_key();
+        return;
+      }
+
+    const bool blend_active = push_blend_mode(ctx, instr.get_blend_mode());
+
     const bool has_clip = instr.has_clip_state();
     bool clip_active = false;
     if(has_clip)
@@ -1827,6 +2054,7 @@ namespace pdflib
         if(clip_result == CLIP_EMPTY)
           {
             ctx.restore();
+            if(blend_active) { ctx.restore(); }
             return;
           }
 
@@ -1835,6 +2063,14 @@ namespace pdflib
           {
             ctx.restore();
           }
+      }
+
+    const bool alpha_active = fill_alpha < 1.0;
+    if(alpha_active)
+      {
+        LOG_S(INFO) << "render_bitmap: applying constant alpha " << fill_alpha;
+        ctx.save();
+        ctx.set_global_alpha(fill_alpha);
       }
 
     if (can_use_axis_aligned_fast_path)
@@ -1850,7 +2086,19 @@ namespace pdflib
         render_bitmap_affine(ctx, src_img, q, sw, sh);
       }
 
+    // the save/restore pairs nest: the alpha is pushed inside the clip, and
+    // the clip inside the blend mode
+    if(alpha_active)
+      {
+        ctx.restore();
+      }
+
     if(clip_active)
+      {
+        ctx.restore();
+      }
+
+    if(blend_active)
       {
         ctx.restore();
       }
@@ -1859,8 +2107,10 @@ namespace pdflib
   // ---------------------------------------------------------------------------
   // render_widget
   //
-  // Draws the widget's rotated bounding quad as a semi-transparent light-blue
-  // filled polygon.  The text value is not rendered.
+  // Draws the widget's rotated bounding quad as a semi-transparent filled
+  // polygon in config_.color_widgets. The text value is not rendered here: the
+  // widget's appearance stream is decoded into ordinary text and shape
+  // instructions, which are drawn regardless of config_.display_widgets.
   // ---------------------------------------------------------------------------
 
   inline void renderer<BLEND2D>::render_widget(text_widget_instruction& instr)
@@ -1868,6 +2118,8 @@ namespace pdflib
     LOG_S(INFO) << __FUNCTION__ << "  text='" << instr.get_text() << "'";
 
     if (not has_canvas()) { return; }
+
+    if (not config_.display_widgets) { return; }
 
     BLPath path;
     path.move_to(canvas_x(instr.get_r_x0()), canvas_y(instr.get_r_y0()));
@@ -1877,9 +2129,9 @@ namespace pdflib
     path.close();
 
     BLContext& ctx = page_context();
-    ctx.set_fill_style(BLRgba32(0x660099FFu));   // A=40%, light blue
+    ctx.set_fill_style(make_rgba32(config_.color_widgets, 0.4));   // translucent body
     ctx.fill_path(path);
-    ctx.set_stroke_style(BLRgba32(0xFF0099FFu));  // A=100%, blue border
+    ctx.set_stroke_style(make_rgba32(config_.color_widgets, 1.0)); // opaque border
     ctx.set_stroke_width(1);
     ctx.stroke_path(path);
   }
@@ -1989,11 +2241,18 @@ namespace pdflib
     if (not has_canvas()) { return; }
     if (not config_.render_shapes) { return; }
 
+    LOG_S(INFO) << __FUNCTION__ << ": "
+		<< " shape_paint_mode: " << instr.get_paint_mode()
+      		<< ", shape_fill_rule: " << instr.get_fill_rule()
+		<< ", length: " << instr.get_subpaths_length();
+    
     BLRect bbox;
     const BLPath path = make_shape_path(instr, bbox);
     if (path.is_empty()) { return; }
 
     BLContext& ctx = page_context();
+
+    const bool blend_active = push_blend_mode(ctx, instr.get_blend_mode());
 
     bool clip_active = false;
     if (instr.has_clip_state())
@@ -2004,6 +2263,7 @@ namespace pdflib
         if (clip_result == CLIP_EMPTY)
           {
             ctx.restore();
+            if (blend_active) { ctx.restore(); }
             return;
           }
 
@@ -2040,10 +2300,11 @@ namespace pdflib
 
         // the line width arrives in page space; scale to canvas and keep
         // sub-pixel strokes visible (PDF `0 w` means hairline)
-        static constexpr double min_visible_width = 0.75;
         const double width =
           instr.get_line_width() * 0.5 * (scale_x_ + scale_y_);
-        ctx.set_stroke_width(std::max(width, min_visible_width));
+        ctx.set_stroke_width(std::max(
+          width,
+          static_cast<double>(config_.min_stroke_width)));
 
         ctx.set_stroke_caps(to_stroke_cap(instr.get_line_cap()));
         ctx.set_stroke_join(to_stroke_join(instr.get_line_join()));
@@ -2059,6 +2320,271 @@ namespace pdflib
       }
 
     if (clip_active)
+      {
+        ctx.restore();
+      }
+
+    if (blend_active)
+      {
+        ctx.restore();
+      }
+  }
+
+  // ---------------------------------------------------------------------------
+  // render_shading
+  //
+  // Paints an axial or radial shading (`sh`) over the current clip region.
+  //
+  // The gradient geometry is left in shading space and handed to Blend2D
+  // together with a style transform, so the shading's level sets stay correct
+  // under a flipped or skewed CTM. /Extend controls what happens beyond the
+  // axis: `true` is Blend2D's pad mode, `false` is emulated with a transparent
+  // guard stop, since the pad mode is the only one that keeps the interior
+  // ramp intact.
+  // ---------------------------------------------------------------------------
+
+  inline void renderer<BLEND2D>::render_shading(shading_instruction& instr)
+  {
+    if (not has_canvas()) { return; }
+    if (not config_.render_shapes) { return; }
+
+    const std::vector<shading_stop>& stops = instr.get_stops();
+    const std::vector<double>& coords = instr.get_coords();
+
+    LOG_S(INFO) << __FUNCTION__ << ": key='" << instr.get_key() << "'"
+                << ", geometry: " << static_cast<int>(instr.get_geometry())
+                << ", #-stops: " << stops.size()
+                << ", alpha: " << instr.get_fill_alpha();
+
+    if (stops.size() < 2)
+      {
+        LOG_S(WARNING) << "render_shading: shading " << instr.get_key()
+                       << " has fewer than two colour stops, skipping";
+        return;
+      }
+
+    static constexpr double min_visible_alpha = 1.0 / 512.0;
+    const double fill_alpha =
+      std::min(1.0, std::max(0.0, instr.get_fill_alpha()));
+
+    if (fill_alpha <= min_visible_alpha)
+      {
+        LOG_S(INFO) << "render_shading: fill-alpha " << fill_alpha
+                    << " is invisible, skipping " << instr.get_key();
+        return;
+      }
+
+    // shading space -> canvas space: the PDF matrix [a b c d e f] composed
+    // with the page-to-canvas mapping (which flips y).
+    const std::array<double, 6>& m = instr.get_matrix();
+    const BLMatrix2D transform(
+       scale_x_ * m[0], -scale_y_ * m[1],
+       scale_x_ * m[2], -scale_y_ * m[3],
+       scale_x_ * (m[4] - origin_x_),
+       static_cast<double>(canvas_height_) - scale_y_ * (m[5] - origin_y_));
+
+    // Average canvas-space scale of that transform, used to size the guard
+    // band of a non-extended end in axis units.
+    const double det = transform.m00 * transform.m11 - transform.m01 * transform.m10;
+    const double canvas_scale = std::sqrt(std::abs(det));
+
+    BLGradient gradient;
+
+    bool extend_start = instr.get_extend_start();
+    bool extend_end = instr.get_extend_end();
+    bool reversed = false;
+    double axis_length = 0.0;
+
+    if (instr.get_geometry() == SHADING_GEOMETRY_AXIAL)
+      {
+        if (coords.size() < 4)
+          {
+            LOG_S(WARNING) << "render_shading: axial shading " << instr.get_key()
+                           << " has " << coords.size() << " coordinates, skipping";
+            return;
+          }
+
+        const double dx = coords[2] - coords[0];
+        const double dy = coords[3] - coords[1];
+        axis_length = std::sqrt(dx * dx + dy * dy);
+
+        if (axis_length <= 0.0)
+          {
+            LOG_S(WARNING) << "render_shading: axial shading " << instr.get_key()
+                           << " has a zero-length axis, skipping";
+            return;
+          }
+
+        gradient = BLGradient(BLLinearGradientValues(coords[0], coords[1],
+                                                     coords[2], coords[3]));
+      }
+    else
+      {
+        if (coords.size() < 6)
+          {
+            LOG_S(WARNING) << "render_shading: radial shading " << instr.get_key()
+                           << " has " << coords.size() << " coordinates, skipping";
+            return;
+          }
+
+        // Blend2D's radial gradient runs from a focal circle (offset 0) to a
+        // center circle (offset 1) and expects the focal circle to be the
+        // smaller one, so a PDF shading that shrinks is fed in reverse.
+        reversed = coords[5] < coords[2];
+
+        const std::size_t focal = reversed ? 3 : 0;
+        const std::size_t center = reversed ? 0 : 3;
+
+        axis_length = std::abs(coords[5] - coords[2]);
+
+        if (axis_length <= 0.0)
+          {
+            LOG_S(WARNING) << "render_shading: radial shading " << instr.get_key()
+                           << " has two equal radii, skipping";
+            return;
+          }
+
+        gradient = BLGradient(BLRadialGradientValues(coords[center + 0],
+                                                     coords[center + 1],
+                                                     coords[focal + 0],
+                                                     coords[focal + 1],
+                                                     coords[center + 2],
+                                                     coords[focal + 2]));
+
+        if (reversed)
+          {
+            std::swap(extend_start, extend_end);
+          }
+      }
+
+    gradient.set_extend_mode(BL_EXTEND_MODE_PAD);
+    gradient.set_transform(transform);
+
+    // Guard band for a non-extended end: wide enough to stay sub-pixel on the
+    // canvas, so the transparent-to-colour transition is not visible.
+    const double axis_pixels = std::max(1.0, axis_length * canvas_scale);
+    const double guard = std::min(0.25, 0.5 / axis_pixels);
+
+    // The ramp in gradient-offset order. A reversed radial shading flips both
+    // the offsets and the traversal, so everything below works on offsets that
+    // already ascend.
+    std::vector<std::pair<double, std::array<int, 3>>> ramp;
+    ramp.reserve(stops.size());
+    for (std::size_t i = 0; i < stops.size(); i++)
+      {
+        const shading_stop& stop = reversed ? stops[stops.size() - 1 - i] : stops[i];
+        ramp.emplace_back(reversed ? 1.0 - stop.get_offset() : stop.get_offset(),
+                          stop.get_rgb());
+      }
+
+    // Colour of the ramp at an arbitrary offset, so a guard stop can carry the
+    // colour of the point it replaces.
+    auto color_at = [&ramp](double offset) -> std::array<int, 3>
+      {
+        if (offset <= ramp.front().first) { return ramp.front().second; }
+        if (offset >= ramp.back().first)  { return ramp.back().second; }
+
+        for (std::size_t i = 1; i < ramp.size(); i++)
+          {
+            const double o0 = ramp[i - 1].first;
+            const double o1 = ramp[i].first;
+            if (offset > o1) { continue; }
+
+            const double f = (o1 > o0) ? (offset - o0) / (o1 - o0) : 0.0;
+            const auto& c0 = ramp[i - 1].second;
+            const auto& c1 = ramp[i].second;
+
+            return {static_cast<int>(std::lround(c0[0] + f * (c1[0] - c0[0]))),
+                    static_cast<int>(std::lround(c0[1] + f * (c1[1] - c0[1]))),
+                    static_cast<int>(std::lround(c0[2] + f * (c1[2] - c0[2])))};
+          }
+
+        return ramp.back().second;
+      };
+
+    const double low = extend_start ? 0.0 : guard;
+    const double high = extend_end ? 1.0 : 1.0 - guard;
+
+    if (not extend_start)
+      {
+        // pad replicates this stop backwards, leaving t < 0 unpainted
+        gradient.add_stop(0.0, make_rgba32(color_at(low), 0.0));
+        gradient.add_stop(low, make_rgba32(color_at(low), fill_alpha));
+      }
+
+    for (const auto& entry : ramp)
+      {
+        if (entry.first < low or entry.first > high) { continue; }
+
+        gradient.add_stop(entry.first, make_rgba32(entry.second, fill_alpha));
+      }
+
+    if (not extend_end)
+      {
+        gradient.add_stop(high, make_rgba32(color_at(high), fill_alpha));
+        gradient.add_stop(1.0, make_rgba32(color_at(high), 0.0));
+      }
+
+    // `sh` covers the whole clip region, so the fill is the entire canvas and
+    // the clip is what bounds it. With no clip at all the region is the page
+    // itself; with a clip that cannot be applied an unbounded fill would flood
+    // the page, which is worse than not painting at all.
+    const BLRect canvas_rect(0.0, 0.0,
+                             static_cast<double>(canvas_width_),
+                             static_cast<double>(canvas_height_));
+
+    BLContext& ctx = page_context();
+
+    const bool blend_active = push_blend_mode(ctx, instr.get_blend_mode());
+
+    shading_clip clip;
+    const bool has_clip_state = instr.has_clip_state();
+
+    if (has_clip_state)
+      {
+        ctx.save();
+        clip = apply_shading_clip(ctx, instr.get_clip_state(), canvas_rect);
+
+        if (clip.empty)
+          {
+            ctx.restore();
+            if (blend_active) { ctx.restore(); }
+            LOG_S(INFO) << "render_shading: shading " << instr.get_key()
+                        << " is fully clipped away";
+            return;
+          }
+
+        if (not clip.bounded)
+          {
+            ctx.restore();
+            if (blend_active) { ctx.restore(); }
+            LOG_S(WARNING) << "render_shading: shading " << instr.get_key()
+                           << " has a clip that could not be applied, skipping"
+                           << " rather than flooding the page";
+            return;
+          }
+      }
+
+    ctx.set_fill_style(gradient);
+
+    if (clip.has_path)
+      {
+        ctx.set_fill_rule(instr.get_clip_state().get_rule() == CLIP_RULE_EVEN_ODD
+                            ? BL_FILL_RULE_EVEN_ODD
+                            : BL_FILL_RULE_NON_ZERO);
+        ctx.fill_path(clip.path);
+      }
+    else
+      {
+        ctx.fill_rect(canvas_rect);
+      }
+
+    if (has_clip_state)
+      {
+        ctx.restore();
+      }
+
+    if (blend_active)
       {
         ctx.restore();
       }

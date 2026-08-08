@@ -509,13 +509,13 @@ main (void)
     dll_state_t *d   = dll_create (code, 31, 2, 0.0, 0.01, 0.707, 0.5, 1);
     CHECK (tlm != NULL && d != NULL);
     CHECK (dll_set_telemetry (d, tlm, "code", 1) == DP_OK);
-    CHECK (dp_tlm_lookup (tlm, "code.e") == d->tlm.id_e);
-    CHECK (dp_tlm_lookup (tlm, "code.rate") == d->tlm.id_rate);
-    CHECK (dp_tlm_lookup (tlm, "code.lock") == d->tlm.id_lock);
-    CHECK (dp_tlm_lookup (tlm, "code.locked") == d->tlm.id_locked);
+    CHECK (dp_tlm_probe_id (tlm, "code.e") == d->tlm.id_e);
+    CHECK (dp_tlm_probe_id (tlm, "code.rate") == d->tlm.id_rate);
+    CHECK (dp_tlm_probe_id (tlm, "code.lock") == d->tlm.id_lock);
+    CHECK (dp_tlm_probe_id (tlm, "code.locked") == d->tlm.id_locked);
 
     size_t k     = dll_steps (d, rx, L, out, 256);
-    size_t n_rec = dp_tlm_read (tlm, recs, 512);
+    size_t n_rec = dp_tlm_read (tlm, 512, recs, 512);
     CHECK (k > 0 && n_rec == 4 * k); /* e + rate + lock + locked / epoch */
     /* The final epoch's rate/lock/locked records mirror the tracked state
      * (flush order per epoch: e, rate, lock, locked). */
@@ -529,7 +529,7 @@ main (void)
     CHECK (s2 != NULL);
     CHECK (dll_set_telemetry (s2, tlm, "code2", 1) == DP_OK);
     size_t k2 = dll_steps (s2, rx, L, out, 256);
-    size_t n2 = dp_tlm_read (tlm, recs, 512);
+    size_t n2 = dp_tlm_read (tlm, 512, recs, 512);
     CHECK (k2 > 0 && n2 > 0 && n2 % 4 == 0);
     CHECK (n2 <= 4 * (k2 / 2 + 1)); /* one flush per epoch, not per partial */
     dll_destroy (s2);
@@ -544,7 +544,7 @@ main (void)
     CHECK (dll_set_telemetry (d3, tlm, "code3", 2) == DP_OK);
     CHECK (dll_set_state (d3, b1) == DP_OK);
     CHECK (d3->tlm.ctx == tlm);
-    CHECK (d3->tlm.id_e == dp_tlm_lookup (tlm, "code3.e"));
+    CHECK (d3->tlm.id_e == dp_tlm_probe_id (tlm, "code3.e"));
     dll_get_state (d3, b2);
     CHECK (memcmp (b1, b2, sb) == 0); /* attachment-independent bytes */
     free (b1);
@@ -555,7 +555,7 @@ main (void)
     CHECK (dll_set_telemetry (d, NULL, "code", 1) == DP_OK);
     CHECK (d->tlm.ctx == NULL);
     (void)dll_steps (d, rx, L, out, 256);
-    CHECK (dp_tlm_read (tlm, recs, 512) == 0);
+    CHECK (dp_tlm_read (tlm, 512, recs, 512) == 0);
 
     /* A full probe table fails the attach whole. */
     char pname[DP_TLM_NAME_MAX];

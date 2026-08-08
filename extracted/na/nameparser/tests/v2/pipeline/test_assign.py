@@ -7,7 +7,9 @@ from nameparser._pipeline._group import group
 from nameparser._pipeline._segment import segment
 from nameparser._pipeline._state import ParseState
 from nameparser._pipeline._tokenize import tokenize
-from nameparser._policy import FAMILY_FIRST, FAMILY_FIRST_GIVEN_LAST, Policy
+from nameparser._policy import (
+    FAMILY_FIRST, FAMILY_FIRST_GIVEN_LAST, Policy, Script,
+)
 from nameparser._types import AmbiguityKind, Role
 
 _LEX = Lexicon(
@@ -169,3 +171,68 @@ def test_family_first_given_last_order() -> None:
     assert _by_role(out, Role.FAMILY) == "Nguyen"
     assert _by_role(out, Role.GIVEN) == "Van Anh Thu"
     assert _by_role(out, Role.MIDDLE) == ""
+
+
+def test_script_order_applies_when_every_piece_is_one_script() -> None:
+    out = _assigned("毛 泽东")
+    assert _by_role(out, Role.FAMILY) == "毛"
+    assert _by_role(out, Role.GIVEN) == "泽东"
+
+
+def test_script_order_declines_on_a_mixed_piece_set() -> None:
+    # {None, HAN}: one Latin piece is enough to put the name back on
+    # the positional default, even though the other piece is Han.
+    out = _assigned("毛 Smith")
+    assert _by_role(out, Role.GIVEN) == "毛"
+    assert _by_role(out, Role.FAMILY) == "Smith"
+
+
+def test_script_order_declines_when_no_piece_has_a_script() -> None:
+    # all-None: the ordinary Latin path, unreachable by the table.
+    out = _assigned("John Smith")
+    assert _by_role(out, Role.GIVEN) == "John"
+    assert _by_role(out, Role.FAMILY) == "Smith"
+
+
+def test_kana_licensed_piece_resolves_via_hiragana_entry() -> None:
+    # a kanji+hiragana mixed piece set takes the license (#272) and
+    # resolves through the HIRAGANA table entry, family-first
+    out = _assigned("高橋 みなみ")
+    assert _by_role(out, Role.FAMILY) == "高橋"
+    assert _by_role(out, Role.GIVEN) == "みなみ"
+
+
+def test_pure_katakana_piece_falls_back_to_name_order() -> None:
+    # katakana alone is not in the table (transcription ambiguity), so
+    # a pure-katakana piece set falls back to the positional default
+    out = _assigned("マイケル ジャクソン")
+    assert _by_role(out, Role.GIVEN) == "マイケル"
+    assert _by_role(out, Role.FAMILY) == "ジャクソン"
+
+
+def test_interpunct_divided_name_reads_positionally() -> None:
+    # 威廉·莎士比亚 is William Shakespeare: a 间隔号-divided name is a
+    # transcription and keeps source order (spec 2026-07-30) -- the
+    # B7 is the marker, playing the role pure katakana plays in the
+    # kana license
+    out = _assigned("威廉·莎士比亚")
+    assert _by_role(out, Role.GIVEN) == "威廉"
+    assert _by_role(out, Role.FAMILY) == "莎士比亚"
+
+
+def test_interpunct_suppression_yields_to_explicit_name_order() -> None:
+    # the suppression falls back to name_order, it does not force
+    # given-first: an explicit FAMILY_FIRST governs the transcription
+    out = _assigned("威廉·莎士比亚", Policy(name_order=FAMILY_FIRST))
+    assert _by_role(out, Role.FAMILY) == "威廉"
+    assert _by_role(out, Role.GIVEN) == "莎士比亚"
+
+
+def test_script_with_no_table_entry_falls_back() -> None:
+    # A single, well-defined script the table simply does not list:
+    # resolution must fall through to name_order rather than pick an
+    # arbitrary entry.
+    hangul_only = Policy(script_orders={Script.HANGUL: FAMILY_FIRST})  # type: ignore[arg-type]
+    out = _assigned("毛 泽东", hangul_only)
+    assert _by_role(out, Role.GIVEN) == "毛"
+    assert _by_role(out, Role.FAMILY) == "泽东"

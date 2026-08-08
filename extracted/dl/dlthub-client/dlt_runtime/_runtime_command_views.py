@@ -1,6 +1,10 @@
+# Python internals
+import getpass
+import sys
 from datetime import datetime
 from typing import Any, Optional, Sequence, Union
 
+# Other libraries
 import humanize
 from dlt._workspace.cli import echo as fmt
 from dlt._workspace.cli.utils import open_url
@@ -13,14 +17,23 @@ from dlt._workspace.deployment.exceptions import (
 )
 from dlt._workspace.deployment.typing import TJobRef
 from dlt.common.time import ensure_datetime
-
-from dlt_runtime.exceptions import RuntimeClientException
 from tabulate import tabulate
 
-from dlt_runtime.runtime_clients.api.models.dataplane_info import DataplaneInfo
-from dlt_runtime.runtime_clients.api.models.run_status import RunStatus
+# Current package
+from dlt_runtime.exceptions import RuntimeClientException
+from dlt_runtime.runtime_clients.api.models import DataplaneInfo, RunStatus
 from dlt_runtime.runtime_clients.api.types import Unset
+from dlt_runtime.runtime_clients.dataplane_api.models import (
+    ScopeVariablesResponse,
+    VariableChangeResult,
+    VariableChangeResultStatus,
+)
 from dlt_runtime.strings import (
+    JOB_ALREADY_PAUSED_MESSAGE,
+    JOB_NOT_PAUSED_MESSAGE,
+    JOB_PAUSE_MESSAGE,
+    JOB_PAUSED_LIST_TAG,
+    JOB_RESUME_MESSAGE,
     NON_INTERACTIVE_PICKER_CREATE_LINE,
     NON_INTERACTIVE_PICKER_HEADER,
     NON_INTERACTIVE_PICKER_SELECT_LINE,
@@ -42,7 +55,6 @@ from dlt_runtime.typing import (
     TriggerSkipInfo,
     WorkspaceInfo,
 )
-
 
 # dltHub brand lavender (#AAA8D4, web --dlt-lightest-purple) as a chip bg with
 # dark-navy ink (#191937, --dlt-dark-purple) — mirrors the web dark-mode chip.
@@ -111,7 +123,14 @@ def _format_active_run_duration(elapsed: float, max_run_time_seconds: float) -> 
 
 # Row keys (from API model `to_dict()`) that `_humanize_row` reformats.
 _DATETIME_ROW_KEYS = frozenset(
-    {"date_added", "date_updated", "time_started", "time_ended"}
+    {
+        "date_added",
+        "date_updated",
+        "time_started",
+        "time_ended",
+        "next_scheduled_run",
+        "updated_at",
+    }
 )
 _DURATION_ROW_KEYS = frozenset({"duration"})
 
@@ -183,6 +202,13 @@ CONFIGURATION_HEADERS = {
     "content_hash": fmt.bold("Content hash"),
     "profiles": fmt.bold("Profiles"),
 }
+VARIABLE_HEADERS = {
+    "name": fmt.bold("Name"),
+    "value": fmt.bold("Value"),
+    "type": fmt.bold("Type"),
+    "profile": fmt.bold("Profile"),
+    "updated_at": fmt.bold("Updated at"),
+}
 JOB_HEADERS = {
     "name": fmt.bold("Job name"),
     "version": fmt.bold("Version #"),
@@ -201,6 +227,7 @@ JOB_INFO_HEADERS = {
     "script_type": fmt.bold("Type"),
     "date_added": fmt.bold("Created at"),
     "default_trigger": fmt.bold("Default trigger"),
+    "next_scheduled_run": fmt.bold("Next run"),
     "script_url": fmt.bold("Script URL"),
 }
 JOB_RUN_HEADERS = {
@@ -974,9 +1001,11 @@ def _preprocess_job_output(
     result = _humanize_row(_extract_keys(job, headers))
     jd = job["job_definition"]
     name = format_job_selector(jd["job_ref"], all_job_refs)
-    # Tag archived rows inline so the listing flags them when --archived is on.
+    # Tag inline so the listing flags these states the way the web UI does.
     if job.get("archived"):
         name = f"{name} (archived)"
+    elif job.get("paused"):
+        name = f"{name} ({fmt.warning_style(JOB_PAUSED_LIST_TAG)})"
     result["name"] = name
     # Detail-view-only columns: canonical job_ref and humanised display_name.
     if "job_ref" in headers:
@@ -984,6 +1013,10 @@ def _preprocess_job_output(
     if "display_name" in headers:
         expose = jd.get("expose") or {}
         result["display_name"] = expose.get("display_name") or ""
+    # The scheduler keeps advancing next_scheduled_run while paused, so showing the
+    # timestamp would promise a run that cannot happen.
+    if "next_scheduled_run" in headers and job.get("paused"):
+        result["next_scheduled_run"] = fmt.warning_style(JOB_PAUSED_LIST_TAG)
     ep = jd["entry_point"]
     result["entry_point"] = (
         f"{ep['module']}::{ep['function']}" if ep["function"] else ep["module"]
@@ -1021,6 +1054,20 @@ def _print_job_info(job: Any) -> None:
     archived = getattr(job, "archived", False)
     if not isinstance(archived, Unset) and archived:
         fmt.secho("This job is archived", fg="red")
+
+
+def _print_job_paused(job_ref: str, *, already_paused: bool = False) -> None:
+    if already_paused:
+        fmt.warning(JOB_ALREADY_PAUSED_MESSAGE.format(job_ref=job_ref))
+        return
+    fmt.echo(JOB_PAUSE_MESSAGE.format(job_ref=job_ref))
+
+
+def _print_job_resumed(job_ref: str, *, was_paused: bool = True) -> None:
+    if not was_paused:
+        fmt.warning(JOB_NOT_PAUSED_MESSAGE.format(job_ref=job_ref))
+        return
+    fmt.echo(JOB_RESUME_MESSAGE.format(job_ref=job_ref))
 
 
 def _script_label_with_trigger(
@@ -1154,3 +1201,70 @@ def _print_trigger_skip(info: TriggerSkipInfo, *, terse: bool = False) -> None:
         web_url = info.get("web_url")
         if web_url:
             fmt.echo(TRIGGER_CONCURRENCY_OPEN_LINE.format(url=web_url))
+
+
+# A redacted secret arrives as `null`, which must not read as an empty value.
+_SECRET_PLACEHOLDER = "********"
+
+
+def _variable_rows(scopes: list[ScopeVariablesResponse]) -> list[dict[str, Any]]:
+    """Flatten every scope into rows, turning the scope itself into a column."""
+    rows: list[dict[str, Any]] = []
+    for scope in scopes:
+        for variable in scope.variables:
+            row = _extract_keys(variable.to_dict(), VARIABLE_HEADERS)
+            row["profile"] = scope.profile or ""
+            if row["value"] is None:
+                row["value"] = _SECRET_PLACEHOLDER
+            rows.append(_humanize_row(row))
+    return rows
+
+
+def _print_variables(scopes: list[ScopeVariablesResponse]) -> None:
+    rows = _variable_rows(scopes)
+    if not rows:
+        fmt.echo("No variables set.")
+        return
+    fmt.echo(tabulate(rows, headers=VARIABLE_HEADERS))
+
+
+def _print_variable_change(
+    results: list[VariableChangeResult], *, scope_label: str
+) -> None:
+    for result in results:
+        if result.status is VariableChangeResultStatus.NOT_FOUND:
+            fmt.warning(f"{result.name} not found in {scope_label}")
+        elif result.status is VariableChangeResultStatus.REMOVED:
+            fmt.echo(f"Removed {fmt.bold(result.name)} from {scope_label}")
+        else:
+            fmt.echo(f"Set {fmt.bold(result.name)} in {scope_label}")
+
+
+def _prompt_variable_value(name: str) -> str:
+    """Read a value off stdin so it never reaches argv, the process table, or history."""
+    if not sys.stdin.isatty():
+        piped = sys.stdin.read().rstrip("\n")
+        # `""` is a legal value, so nothing-piped must not silently become one.
+        if not piped:
+            raise RuntimeClientException(
+                f"No value for {name} on stdin. Pass --value (use --value '' to set"
+                " an empty value)."
+            )
+        return piped
+    if not fmt.is_interactive():
+        raise RuntimeClientException(
+            f"Non-interactive mode: cannot prompt for the value of {name}. Pass"
+            " --value or pipe it on stdin."
+        )
+    # dlt's echo layer has no hidden-input primitive, and a secret must not be echoed.
+    return getpass.getpass(f"Value for {name}: ")
+
+
+def _confirm_variable_delete(name: str, *, scope_label: str) -> bool:
+    # Prompt defaults would decline, turning an intended delete into a silent no-op.
+    if not fmt.is_interactive() and not fmt.ALWAYS_CONFIRM:
+        raise RuntimeClientException(
+            f"Non-interactive mode: cannot prompt to delete {name}. Re-run with -y to"
+            " confirm."
+        )
+    return fmt.confirm(f"Delete {fmt.bold(name)} from {scope_label}?", default=False)

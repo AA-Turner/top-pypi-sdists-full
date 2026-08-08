@@ -103,7 +103,7 @@ def dataclass_transform(node: nodes.ClassDef) -> nodes.ClassDef | None:
         node.locals["__init__"] = [init_node]
 
         root = node.root()
-        if DEFAULT_FACTORY not in root.locals:
+        if DEFAULT_FACTORY in init_str and DEFAULT_FACTORY not in root.locals:
             new_assign = parse(f"{DEFAULT_FACTORY} = object()").body[0]
             new_assign.parent = root
             root.locals[DEFAULT_FACTORY] = [new_assign.targets[0]]
@@ -188,8 +188,14 @@ def _find_arguments_from_base_classes(
         if not base.is_dataclass:
             continue
         try:
-            base_init: nodes.FunctionDef = base.locals["__init__"][0]
+            base_init = base.locals["__init__"][0]
         except KeyError:
+            continue
+
+        # A base can bind "__init__" to something that is not a function, for
+        # example by annotating it as a field: "__init__: int". There are no
+        # arguments to inherit from such a base.
+        if not isinstance(base_init, nodes.FunctionDef):
             continue
 
         pos_only, kw_only = base_init.args._get_arguments_data()
@@ -388,9 +394,9 @@ def _generate_dataclass_init(
         prev_pos_only_store, prev_kw_only_store
     )
 
-    # Construct the new init method paramter string
+    # Construct the new init method parameter string
     # First we do the positional only parameters, making sure to add the
-    # the self parameter and the comma to allow adding keyword only parameters
+    # self parameter and the comma to allow adding keyword only parameters
     params_string = "" if "self" in prev_pos_only else "self, "
     params_string += prev_pos_only + ", ".join(params)
     if not params_string.endswith(", "):
@@ -571,10 +577,27 @@ def _get_field_default(field_call: nodes.Call) -> _FieldDefaultReturn:
 def _is_keyword_only_sentinel(node: nodes.NodeNG) -> bool:
     """Return True if node is the KW_ONLY sentinel."""
     inferred = safe_infer(node)
-    return (
-        isinstance(inferred, bases.Instance)
-        and inferred.qname() == "dataclasses._KW_ONLY_TYPE"
-    )
+    if not isinstance(inferred, bases.Instance):
+        return False
+    if inferred.qname() == "dataclasses._KW_ONLY_TYPE":
+        return True
+    if inferred.qname() != "builtins.sentinel":
+        return False
+    if isinstance(node, nodes.Name):
+        _, assignments = node.lookup(node.name)
+        return any(
+            isinstance(assignment, nodes.ImportFrom)
+            and assignment.modname == "dataclasses"
+            and any(imported == "KW_ONLY" for imported, _ in assignment.names)
+            for assignment in assignments
+        )
+    if isinstance(node, nodes.Attribute) and node.attrname == "KW_ONLY":
+        inferred_expr = safe_infer(node.expr)
+        return (
+            isinstance(inferred_expr, nodes.Module)
+            and inferred_expr.qname() == "dataclasses"
+        )
+    return False
 
 
 def _is_init_var(node: nodes.NodeNG) -> bool:

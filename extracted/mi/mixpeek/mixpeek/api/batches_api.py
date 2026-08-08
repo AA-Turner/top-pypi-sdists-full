@@ -881,7 +881,7 @@ class BatchesApi:
     ) -> ListBatchesResponse:
         """List All Batches
 
-        List batches across all buckets. Supports status and namespace filters.
+        List batches across all buckets in the organization. Filter with `status`, `bucket_id`, `collection_id`, or `namespace_id` in the request body. NOTE: the X-Namespace header does NOT narrow this endpoint — it is organization-scoped by design. Pass `namespace_id` in the body instead.
 
         :param list_batches_request:
         :type list_batches_request: ListBatchesRequest
@@ -954,7 +954,7 @@ class BatchesApi:
     ) -> ApiResponse[ListBatchesResponse]:
         """List All Batches
 
-        List batches across all buckets. Supports status and namespace filters.
+        List batches across all buckets in the organization. Filter with `status`, `bucket_id`, `collection_id`, or `namespace_id` in the request body. NOTE: the X-Namespace header does NOT narrow this endpoint — it is organization-scoped by design. Pass `namespace_id` in the body instead.
 
         :param list_batches_request:
         :type list_batches_request: ListBatchesRequest
@@ -1027,7 +1027,7 @@ class BatchesApi:
     ) -> RESTResponseType:
         """List All Batches
 
-        List batches across all buckets. Supports status and namespace filters.
+        List batches across all buckets in the organization. Filter with `status`, `bucket_id`, `collection_id`, or `namespace_id` in the request body. NOTE: the X-Namespace header does NOT narrow this endpoint — it is organization-scoped by design. Pass `namespace_id` in the body instead.
 
         :param list_batches_request:
         :type list_batches_request: ListBatchesRequest

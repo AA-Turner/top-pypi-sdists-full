@@ -14,10 +14,16 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
+#: Tool dirs prepended to PATH on VMs: the pre-baked venv and common install
+#: locations. Single source of truth — the SSH export below, the daemon
+#: bootstrap command, and the daemon's spawn env all derive from it (a
+#: hand-copied variant once shipped without /usr/local/bin).
+VM_PATH_PREFIX = "/opt/plato-venv/bin:/root/.local/bin:/usr/local/bin"
+
 #: Shell snippet that sets PATH to include the pre-baked venv and common install
 #: locations.  Use in any SSH command that needs to find SDK entry-points
 #: (plato-agent-runner, plato-world-runner, plato-git-ops-server, etc.).
-VM_PATH_EXPORT = 'export PATH="/opt/plato-venv/bin:/root/.local/bin:/usr/local/bin:$PATH"'
+VM_PATH_EXPORT = f'export PATH="{VM_PATH_PREFIX}:$PATH"'
 
 #: Canonical Python interpreter inside Plato world/agent VM images.
 VM_VENV_PYTHON = "/opt/plato-venv/bin/python"

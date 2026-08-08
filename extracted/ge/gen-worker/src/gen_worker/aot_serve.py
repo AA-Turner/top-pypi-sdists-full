@@ -81,9 +81,13 @@ import threading
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
+from typing import (
+    Any, Callable, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple,
+    Union,
+)
 
 from . import activity as activity_mod
+from . import aot_flatten
 from . import host_isa
 from .cell_adopt import AdoptOutcome
 from . import shape_growth
@@ -119,7 +123,7 @@ REALIGN_EVENT = "aot_input_realigned"
 AOTI_ALIGNMENT = 16
 #: Format 2 = multi-graph cells (pgw#758): the envelope carries an
 #: ``entries`` map instead of one flat contract. Format-1 cells are RETIRED
-#: (ck5 exact identity: a recipe change strands old cells, which is fine).
+#: (exact identity: a recipe change strands old cells, which is fine).
 ARTIFACT_FORMAT = 2
 #: Separator between the entry name and the constant FQN in
 #: ``constants.safetensors`` keys. Entry names never contain it (targets are
@@ -236,8 +240,8 @@ def flavor_label(sku: str, version: str, precision: str) -> str:
     return f"aot-{sku}-torch{mm}-{precision}"
 
 
-# Stamped ck5 cell keys this process LEARNED name aot-inductor artifacts
-# (pgw#722 F1 discovery). Published AOT cells ride the ck5 key space as
+# Stamped cell keys this process LEARNED name aot-inductor artifacts
+# (pgw#722 F1 discovery). Published AOT cells ride the same key space as
 # their store flavor — indistinguishable from a dynamo cell's flavor by
 # string shape alone — so discovery registers each learned key here and
 # :func:`is_aot_ref` consults the set. Without this the executor's kind
@@ -248,7 +252,7 @@ _KNOWN_AOT_KEYS_LOCK = threading.Lock()
 
 
 def note_aot_key(cell_key: str) -> None:
-    """Record that ``cell_key`` (a stamped ck5 digest) is an AOT cell."""
+    """Record that ``cell_key`` (a stamped cell-key digest) is an AOT cell."""
     key = str(cell_key or "").strip()
     if not key:
         return
@@ -260,7 +264,7 @@ def is_aot_ref(ref: str, family: str = "") -> bool:
     """True when ``ref`` names an AOTI cell (optionally of one family).
 
     Recognizes both the label form (``#aot-<sku>-...``) and any stamped
-    ck5 key this process learned via :func:`note_aot_key`.
+    cell key this process learned via :func:`note_aot_key`.
     """
     fam, flavor = parse_cell_ref(ref)
     if not fam or (family and fam != family):
@@ -285,6 +289,14 @@ class InputContract:
     in :attr:`ArtifactContract.symbols`. ``position`` is the positional
     index in the exported call convention; ``name`` is the keyword the
     pipeline's own forward uses, so a call can be matched either way.
+
+    :attr:`param` / :attr:`param_position` / :attr:`path` are the input's
+    IDENTITY IN THE CALL (pgw#994): which argument it lives in, where that
+    argument sits, and the path into it. ``position`` counts FLATTENED graph
+    inputs and a container argument occupies one caller slot while producing
+    N of them, so position alone binds the wrong value the moment any input is
+    a list or a dict. Defaults are the trivial identity — an input that IS its
+    argument — which is what every row published before pgw#994 declares.
     """
 
     name: str
@@ -292,6 +304,31 @@ class InputContract:
     dtype: str
     shape: Tuple[Any, ...]
     optional: bool = False
+    param: str = ""
+    param_position: int = -1
+    path: Tuple[Union[int, str], ...] = ()
+
+    @property
+    def call_param(self) -> str:
+        """The argument this input lives in (itself, when trivial)."""
+        return self.param or self.name
+
+    @property
+    def call_position(self) -> int:
+        """The argument's own position (this input's, when trivial)."""
+        return self.position if self.param_position < 0 else self.param_position
+
+    @property
+    def trivial_identity(self) -> bool:
+        """True when the identity says exactly what its absence would say.
+
+        Defined on the RESOLVED identity, not on which fields were written, so
+        a row that spells its trivial identity out and one that omits it are
+        the same contract — which is what ``range_digest`` needs in order to
+        key the field without re-keying anything already published.
+        """
+        return (not self.path and self.call_param == self.name
+                and self.call_position == self.position)
 
 
 @dataclass(frozen=True)
@@ -353,12 +390,24 @@ def contract_from_meta(meta: Mapping[str, Any]) -> ArtifactContract:
                 shape.append(dim.strip())
             else:
                 raise ValueError(f"input {name!r} has a malformed dim {dim!r}")
+        raw_path = row.get("path", [])
+        if not isinstance(raw_path, list):
+            raise ValueError(f"input {name!r} has a malformed path {raw_path!r}")
+        path: List[Union[int, str]] = []
+        for step in raw_path:
+            if isinstance(step, bool) or not isinstance(step, (int, str)):
+                raise ValueError(
+                    f"input {name!r} has a malformed path step {step!r}")
+            path.append(int(step) if isinstance(step, int) else str(step))
         inputs.append(InputContract(
             name=name,
             position=int(row.get("position", idx)),
             dtype=dtype,
             shape=tuple(shape),
             optional=bool(row.get("optional", False)),
+            param=str(row.get("param") or ""),
+            param_position=int(row.get("param_position", -1)),
+            path=tuple(path),
         ))
 
     symbols: Dict[str, Tuple[int, int]] = {}
@@ -439,7 +488,7 @@ def constants_from_meta(meta: Mapping[str, Any]) -> Tuple[ConstantSpec, ...]:
 def range_digest(meta: Mapping[str, Any]) -> str:
     """Canonical digest of the DECLARED admissible traffic of one artifact.
 
-    Owed to the ck6 identity lane (pgw#716/#717): declared dim ranges live
+    Owed to the exact-identity lane (pgw#716/#717): declared dim ranges live
     in ``ep.range_constraints``, NOT in the graph nodes — three exports
     differing only in declared range produced the identical node-only
     digest. A node-only ``graph_hashes`` therefore collides artifacts that
@@ -448,22 +497,37 @@ def range_digest(meta: Mapping[str, Any]) -> str:
     the contract's canonical form.
     """
     contract = contract_from_meta(meta)
+
+    def _row(s: InputContract) -> Dict[str, Any]:
+        row: Dict[str, Any] = {
+            "name": s.name,
+            "position": s.position,
+            "dtype": s.dtype,
+            "shape": list(s.shape),
+            "optional": s.optional,
+        }
+        if not s.trivial_identity:
+            # pgw#994, on the `excluded` precedent below: the call identity is
+            # part of the declared traffic (two classes that take the same
+            # tensors in different argument structures are different graphs),
+            # but it is keyed only when it is not the trivial identity. Every
+            # row published before pgw#994 is trivial, so no live cell is
+            # re-keyed by this field existing.
+            row["param"] = s.call_param
+            row["param_position"] = s.call_position
+            row["path"] = list(s.path)
+        return row
+
     canon = {
         "inputs": [
-            {
-                "name": s.name,
-                "position": s.position,
-                "dtype": s.dtype,
-                "shape": list(s.shape),
-                "optional": s.optional,
-            }
+            _row(s)
             for s in sorted(contract.inputs, key=lambda s: (s.position, s.name))
         ],
         "symbols": {k: list(v) for k, v in sorted(contract.symbols.items())},
     }
     # pgw#790: the NEGATIVE half of the declared admissible traffic. Two
     # classes that differ only in what they REFUSE admit different traffic,
-    # so the digest must see it or the ck6 collision this function exists to
+    # so the digest must see it or the collision this function exists to
     # close reopens for adapter forks. Keyed only when non-empty: a contract
     # that excludes nothing is the contract every already-published cell
     # declares, and re-keying the fleet's 144 live checkpoints to add a field
@@ -502,7 +566,7 @@ def class_hash(
 
 
 def combined_graph_hash(hashes: Iterable[str]) -> str:
-    """The ck6 combined hash, VERBATIM per pgw#716: the first 16 hex chars
+    """The combined hash, VERBATIM per pgw#716: the first 16 hex chars
     of the sha256 over the newline-joined SORTED per-class hash values
     (sorted by the hash string itself, single ``\\n`` joins, no trailing
     newline, UTF-8 bytes)."""
@@ -560,7 +624,7 @@ def artifact_metadata(
     into two interpretations of the same bytes. Each entry block carries
     ``target``/``fork``/``class_dims``/``inputs``/``symbols``/``constants``
     (+ ``graph``); this function validates every one, stamps its
-    ``range_digest`` and ``class_hash``, and stamps the ck6
+    ``range_digest`` and ``class_hash``, and stamps the
     ``combined_graph_hash`` over the sorted per-class hashes. A malformed
     contract must fail at MINT, on the pod, not at serve time on a paying
     request.
@@ -600,41 +664,44 @@ def artifact_metadata(
     return meta
 
 
-#: The bounded stand-ins for the ``entries`` map in a publish DECLARE. The
-#: map itself is unbounded (per-class contracts + constant manifests, 98% of a
-#: real cell's envelope) and rides the ARTIFACT; the declare carries its digest
-#: and its size, which is what a pre-download filter can actually use.
-ENTRIES_DIGEST_KEY = "entries_digest"
-ENTRIES_COUNT_KEY = "entries_count"
+#: The metadata keys :func:`verify_declared` rules on — every axis a cell's
+#: publish DECLARE carries, and therefore everything discovery may refuse a
+#: cell for before it has downloaded a byte.
+#:
+#: pgw#988: this set and ``fleet_cells.control_plane_metadata`` are two halves
+#: of ONE contract, and they used to be two independent computations of it.
+#: th#1645 moved ``entries`` out of the declare (correctly — it is unbounded in
+#: the model and the declare is control-plane) while the pre-download filter
+#: still demanded it, so every AOT cell published for the next day was rejected
+#: as ``malformed declared contract`` by every pod, and a pod that finds no cell
+#: mints its own — the fleet paid a full compile per cold boot and the symptom
+#: presented as cost, not as an error. ``fleet_cells`` now asserts at import
+#: that nothing it strips appears here.
+DECLARED_AXES: Tuple[str, ...] = (
+    "format", "kind", "package_constants_in_so", *IDENTITY_AXES,
+    "host_isa", "family",
+)
 
 
-def entries_digest(entries: Mapping[str, Any]) -> str:
-    """16-hex canonical digest of an ``entries`` map — the bounded summary a
-    declare carries in place of the map (pgw#988)."""
-    blob = json.dumps(
-        dict(entries), sort_keys=True, separators=(",", ":"), default=str,
-    ).encode("utf-8")
-    return hashlib.sha256(blob).hexdigest()[:16]
+def verify_declared(meta: Dict[str, Any], *, family: str = "") -> str:
+    """'' when a cell's DECLARE matches this runtime, else the reason.
 
+    The pre-download half of :func:`verify`: exactly the axes a bounded
+    control-plane declare carries (:data:`DECLARED_AXES`). Discovery rules on
+    this against the hub listing row, so an unloadable cell costs no bytes.
 
-def entries_summary(meta: Mapping[str, Any]) -> Dict[str, Any]:
-    """``{entries_digest, entries_count}`` for a full envelope, or ``{}`` when
-    it declares no entries map. The ONE place the summary is computed, so a
-    publisher and a consumer can never disagree about its shape."""
-    raw = meta.get("entries")
-    if not isinstance(raw, Mapping) or not raw:
-        return {}
-    return {ENTRIES_DIGEST_KEY: entries_digest(raw),
-            ENTRIES_COUNT_KEY: len(raw)}
+    An AOTI ``.pt2`` is a ``dlopen``-ed ELF built against one exact torch
+    C++ ABI on one compute capability — the FULL torch version must match,
+    not maj.min, or the load either fails obscurely or is undefined.
 
-
-def _runtime_reason(meta: Mapping[str, Any], family: str) -> str:
-    """The half of the contract a BOUNDED declare can state: envelope format,
-    artifact kind, weights-baked refusal, the identity axes, host ISA, family.
-
-    Shared by :func:`verify_declared` (pre-download, over the hub listing) and
-    :func:`verify` (post-download, over the artifact's own metadata) so the two
-    can never drift into different answers about the same axis.
+    Fail-closed on every REAL axis (:data:`IDENTITY_AXES` + host ISA), each of
+    them STRICTLY — an axis a cell is silent on is refused by name, never
+    skipped. Never on ``sku`` (pgw#765): a cell minted on an l4
+    and a cell minted on an rtx-4090 are the same sm_89 compiled code, and
+    refusing the cross-SKU adoption discards the whole point of the pgw#691
+    collapse, the FX inner-key shim, and the pgw#754 ISA clamp. The JIT lane
+    (``compile_cache.verify``) carried the identical hard sku pin and shed it
+    in the ck3 wave; this is the same defect on the exported lane.
     """
     if int(meta.get("format") or 0) != ARTIFACT_FORMAT:
         return f"format {meta.get('format')!r} != {ARTIFACT_FORMAT}"
@@ -663,64 +730,16 @@ def _runtime_reason(meta: Mapping[str, Any], family: str) -> str:
     return ""
 
 
-def verify_declared(meta: Dict[str, Any], *, family: str = "") -> str:
-    """'' when a cell's DECLARE says this runtime could serve it, else the
-    reason. The pre-download filter (``aot_cells._candidates``).
+def verify_contract(meta: Dict[str, Any]) -> str:
+    """'' when the artifact's ``entries`` contract is self-consistent, else
+    the reason.
 
-    pgw#988: a declare is a CONTROL-plane body and th#1645 bounds it, so the
-    ``entries`` map is not in it — only :func:`entries_summary`'s digest and
-    count are. This verifies exactly what a bounded declare can carry and no
-    more; the per-entry contract, its ``class_hash`` chain and the combined
-    graph hash are verified by :func:`verify` after the artifact is staged,
-    from the artifact's OWN metadata, where the map actually lives.
-
-    The two halves used to be one function run against the declare, so when
-    the publisher stopped carrying ``entries`` the consumer rejected every
-    published cell with ``malformed declared contract`` and the whole fleet
-    re-minted forever. One contract, two levels, named.
-
-    A cell SILENT on the summary is not refused here. This level is a
-    prefilter — its job is to avoid paying for a 200 MB download, and the
-    gate is :func:`verify`, which the arm path runs over the staged artifact
-    and which fails closed on every entry. A prefilter that refuses whatever
-    it does not recognise is exactly the failure pgw#988 was: it turns one
-    publisher-side omission into a fleet that adopts nothing. What the
-    summary IS present for is verified strictly.
+    The post-download half of :func:`verify`. ``entries`` is unbounded in the
+    size of the model and rides INSIDE the artifact — :func:`unpack` reads it
+    off ``metadata.json``, which is where ``aot_serve`` has always served it
+    from. It is verified HERE, on the staged bytes, and never against a
+    control-plane declare that is not required to carry it (pgw#988).
     """
-    reason = _runtime_reason(meta, family)
-    if reason:
-        return reason
-    count = meta.get(ENTRIES_COUNT_KEY)
-    if count is not None:
-        if not isinstance(count, int) or isinstance(count, bool) or count < 1:
-            return f"declare states {ENTRIES_COUNT_KEY}={count!r}, not a positive count"
-    digest = meta.get(ENTRIES_DIGEST_KEY)
-    if digest is not None:
-        text = str(digest)
-        if len(text) != 16 or any(c not in "0123456789abcdef" for c in text):
-            return f"declare states {ENTRIES_DIGEST_KEY}={digest!r}, not a 16-hex digest"
-    return ""
-
-
-def verify(meta: Dict[str, Any], *, family: str = "") -> str:
-    """'' when the artifact matches this runtime, else the mismatch reason.
-
-    An AOTI ``.pt2`` is a ``dlopen``-ed ELF built against one exact torch
-    C++ ABI on one compute capability — the FULL torch version must match,
-    not maj.min, or the load either fails obscurely or is undefined.
-
-    Fail-closed on every REAL axis (:data:`IDENTITY_AXES` + host ISA +
-    contract hashes), each of them STRICTLY — an axis a cell is silent on is
-    refused by name, never skipped. Never on ``sku`` (pgw#765): a cell minted on an l4
-    and a cell minted on an rtx-4090 are the same sm_89 compiled code, and
-    refusing the cross-SKU adoption discards the whole point of the pgw#691
-    collapse, the FX inner-key shim, and the pgw#754 ISA clamp. The JIT lane
-    (``compile_cache.verify``) carried the identical hard sku pin and shed it
-    in the ck3 wave; this is the same defect on the exported lane.
-    """
-    reason = _runtime_reason(meta, family)
-    if reason:
-        return reason
     try:
         entries = entries_from_meta(meta)
     except ValueError as exc:
@@ -743,6 +762,16 @@ def verify(meta: Dict[str, Any], *, family: str = "") -> str:
     if stamped_combined and stamped_combined != combined_graph_hash(hashes):
         return "combined_graph_hash does not match the per-entry class hashes"
     return ""
+
+
+def verify(meta: Dict[str, Any], *, family: str = "") -> str:
+    """'' when a cell's FULL metadata matches this runtime, else the reason.
+
+    Both halves, for callers holding an artifact's own ``metadata.json``
+    (:func:`stage_artifact`). Discovery, which holds only a declare, calls
+    :func:`verify_declared` and reaches this one after the fetch.
+    """
+    return verify_declared(meta, family=family) or verify_contract(meta)
 
 
 #: :func:`host_isa_reason`'s refusal for a cell that stamped no requirement.
@@ -997,38 +1026,49 @@ def _dtype_name(value: Any) -> str:
 def bind_call_inputs(
     contract: ArtifactContract, args: Sequence[Any], kwargs: Mapping[str, Any],
 ) -> Dict[str, Any]:
-    """Match one call's actual arguments to the declared inputs by keyword
-    first, then by position, then INSIDE any mapping-valued kwarg. Missing
-    non-optional input => named refusal.
+    """Match one call's actual arguments to the declared inputs by REPLAYING
+    each input's recorded identity in the call. Missing non-optional input =>
+    named refusal.
 
-    The nested lookup is the serve-side half of the mint's flat calling
-    convention (live-proven missing on the 0.76.x line, pod ae2uc81yub0gyq
-    2026-07-29): the export flattens ``added_cond_kwargs`` entries
-    (``text_embeds``, ``time_ids``) into declared inputs, but a diffusers
-    pipeline calls the denoiser with them NESTED in one dict kwarg —
-    without this resolution an armed artifact refuses every real call by
-    name (``input_missing: text_embeds``) and the cell serves nothing."""
+    THE RULE (pgw#994): an input is found at ``kwargs[param]`` — or at
+    ``args[param_position]`` — followed by its ``path`` into that argument.
+    The mint recorded that identity with ``aot_flatten.flatten_call``; this
+    replays it with ``aot_flatten.resolve_leaf``, so the two sides of the
+    flattening are one rule and not two spellings that agree by luck.
+
+    WHAT THIS REPLACES, because both halves were luck. The old resolution
+    tried ``kwargs[name]``, then ``args[position]``, then a SEARCH inside any
+    mapping-valued kwarg for ``name``.
+
+    * ``position`` counts FLATTENED graph inputs, but ``args`` is the call
+      BEFORE flattening. sdxl escaped because diffusers passes its dict by
+      keyword and the positional branch never fired. z-image, whose ``x`` is
+      a ``list[Tensor]``, could not escape: ``x.0`` bound the whole list,
+      ``x.1`` bound the NEXT argument, and the last input then refused
+      ``input_missing`` — measured off-GPU, and it is what pgw#994 filed.
+    * the nested search found ``text_embeds`` in ``added_cond_kwargs``
+      because no other kwarg happened to carry that key. It is deleted here:
+      the contract now SAYS where the value is, so nothing needs to hunt for
+      it, and a dict that carries a colliding key can no longer decide a bind.
+    """
     out: Dict[str, Any] = {}
     for spec in contract.inputs:
-        if spec.name in kwargs:
-            out[spec.name] = kwargs[spec.name]
-        elif 0 <= spec.position < len(args):
-            out[spec.name] = args[spec.position]
+        found, value = aot_flatten.resolve_leaf(
+            spec.call_param, spec.call_position, spec.path, args, kwargs)
+        if found:
+            out[spec.name] = value
+        elif spec.optional:
+            continue
         else:
-            nested = next(
-                (v[spec.name] for v in kwargs.values()
-                 if isinstance(v, Mapping) and spec.name in v),
-                None)
-            if nested is not None:
-                out[spec.name] = nested
-            elif spec.optional:
-                continue
-            else:
-                raise IngressContractError(
-                    "input_missing",
-                    f"declared input {spec.name!r} (position {spec.position}) "
-                    f"is absent from the call ({len(args)} positional, "
-                    f"kwargs {sorted(kwargs)[:8]!r})")
+            where = f"argument {spec.call_param!r}"
+            if spec.path:
+                where += " path " + "".join(
+                    f"[{step!r}]" for step in spec.path)
+            raise IngressContractError(
+                "input_missing",
+                f"declared input {spec.name!r} ({where}, position "
+                f"{spec.call_position}) is absent from the call "
+                f"({len(args)} positional, kwargs {sorted(kwargs)[:8]!r})")
     return out
 
 
@@ -1083,11 +1123,19 @@ def excluded_inputs_present(
 ) -> Tuple[str, ...]:
     """The contract's EXCLUDED inputs this call actually carries (pgw#790).
 
-    Keyword and nested-mapping only, mirroring :func:`bind_call_inputs`'
-    resolution order minus the positional leg: an excluded input has no
-    position in this graph's signature, so a positional index would name a
-    different argument entirely. A ``None`` value does not count as carrying
-    it — that is how a diffusers pipeline says "absent".
+    Keyword and nested-mapping only: an excluded input has no position in this
+    graph's signature, so a positional index would name a different argument
+    entirely. A ``None`` value does not count as carrying it — that is how a
+    diffusers pipeline says "absent".
+
+    This still SEARCHES, and deliberately (pgw#994, which deleted the search
+    in :func:`bind_call_inputs`). The two questions are not the same one: a
+    declared input has a contract row, so its location is recorded and can be
+    replayed; an EXCLUDED input has no row by definition, and the question
+    asked of it is "does this call carry such a value anywhere" — for which
+    there is nothing to replay. A diffusers pipeline can hand an adapter down
+    nested (``cross_attention_kwargs``), and a branchless class that missed it
+    would silently serve the base model.
     """
     if not contract.excluded:
         return ()
@@ -2087,14 +2135,6 @@ def load_and_wrap(
     staged = stage_artifact(Path(artifact), family, cache_dir=cache_dir)
     try:
         meta = staged.metadata
-        # pgw#988: THE gate. `verify` runs here, over the artifact's OWN
-        # metadata, because that is the only place the entries map exists —
-        # the publish declare is bounded (th#1645) and carries a digest and a
-        # count instead. Every axis the prefilter could only sample is decided
-        # here, fail-closed, before a single package is dlopen'd.
-        reason = verify(dict(meta), family=family)
-        if reason:
-            raise AdoptError("contract_invalid", reason)
         try:
             entries = entries_from_meta(meta)
         except ValueError as exc:
@@ -2429,6 +2469,7 @@ __all__ = [
     "ArtifactRunner",
     "ConstantSpec",
     "ConstantsUnboundError",
+    "DECLARED_AXES",
     "EntryDispatch",
     "IDENTITY_AXES",
     "IngressContractError",
@@ -2452,11 +2493,6 @@ __all__ = [
     "contract_from_meta",
     "enable",
     "entries_from_meta",
-    "entries_digest",
-    "entries_summary",
-    "verify_declared",
-    "ENTRIES_COUNT_KEY",
-    "ENTRIES_DIGEST_KEY",
     "execution_count",
     "proven_since",
     "find_artifact",
@@ -2487,6 +2523,8 @@ __all__ = [
     "unpack_metadata",
     "unwrap",
     "verify",
+    "verify_contract",
+    "verify_declared",
     "verify_package_compute_capability",
     "wrap_module",
 ]

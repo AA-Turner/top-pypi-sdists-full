@@ -48,7 +48,9 @@ from .cli_options import (
 )
 from .gitlab_api import (
     Pipeline,
+    PipelineContext,
     create_pipeline,
+    describe_context,
     find_pipeline,
     list_jobs,
     retry_pipeline,
@@ -58,6 +60,15 @@ WAIT_POLL_INTERVAL = 15  # seconds between status checks
 WAIT_DEFAULT_TIMEOUT = 3600  # 1 hour max
 
 app = typer.Typer(help="GitLab CI pipeline and job runner")
+
+
+def _resolve_pipeline(ctx: PipelineContext) -> Pipeline:
+    """Resolve the pipeline for ``ctx``, or exit reporting what was searched."""
+    pipeline = find_pipeline(ctx)
+    if not pipeline:
+        print(f"ERROR: aucune pipeline trouvée ({describe_context(ctx)})", file=sys.stderr)
+        raise typer.Exit(code=1)
+    return pipeline
 
 
 def _print_chain_result(result: ChainResult) -> None:
@@ -189,10 +200,7 @@ def status(
 ) -> None:
     """Show pipeline status overview."""
     ctx = build_context(ContextOptions(project_id, project_url, pipeline_id, mr_iid, branch))
-    pipeline = find_pipeline(ctx)
-    if not pipeline:
-        print("ERROR: aucune pipeline trouvee", file=sys.stderr)
-        raise typer.Exit(code=1)
+    pipeline = _resolve_pipeline(ctx)
 
     output: dict[str, object] = {
         "pipeline_id": pipeline.id,
@@ -219,10 +227,7 @@ def retry(
 ) -> None:
     """Retry all failed jobs in the pipeline."""
     ctx = build_context(ContextOptions(project_id, project_url, pipeline_id, mr_iid, branch))
-    pipeline = find_pipeline(ctx)
-    if not pipeline:
-        print("ERROR: aucune pipeline trouvee", file=sys.stderr)
-        raise typer.Exit(code=1)
+    pipeline = _resolve_pipeline(ctx)
 
     result = retry_pipeline(ctx, pipeline.id)
     if result:
@@ -273,10 +278,7 @@ def jobs(
 ) -> None:
     """List all jobs in the pipeline."""
     ctx = build_context(ContextOptions(project_id, project_url, pipeline_id, mr_iid, branch))
-    pipeline = find_pipeline(ctx)
-    if not pipeline:
-        print("ERROR: aucune pipeline trouvee", file=sys.stderr)
-        raise typer.Exit(code=1)
+    pipeline = _resolve_pipeline(ctx)
 
     jobs_list = list_jobs(ctx, pipeline.id)
     output = [
@@ -311,10 +313,7 @@ def wait(
     that point (rare — only if another system will trigger the manual job).
     """
     ctx = build_context(ContextOptions(project_id, project_url, pipeline_id, mr_iid, branch))
-    pipeline = find_pipeline(ctx)
-    if not pipeline:
-        print("ERROR: aucune pipeline trouvee", file=sys.stderr)
-        raise typer.Exit(code=1)
+    pipeline = _resolve_pipeline(ctx)
 
     def _tick(current: Pipeline, elapsed: float) -> None:
         print(f"Pipeline #{pipeline.id} : {current.status}... ({int(elapsed)}s)", file=sys.stderr)

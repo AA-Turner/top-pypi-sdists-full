@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: jupyter_builder
-Version: 1.2.1
+Version: 1.2.2
 Summary: JupyterLab build tools
 Project-URL: Homepage, https://jupyter.org
 Project-URL: Source, https://github.com/jupyterlab/jupyter-builder
@@ -34,7 +34,7 @@ Requires-Dist: build; extra == 'dev'
 Requires-Dist: hatch; extra == 'dev'
 Requires-Dist: mypy; extra == 'dev'
 Requires-Dist: pre-commit; extra == 'dev'
-Requires-Dist: ruff==0.15.20; extra == 'dev'
+Requires-Dist: ruff==0.16.0; extra == 'dev'
 Provides-Extra: test
 Requires-Dist: copier<10,>=9.3; extra == 'test'
 Requires-Dist: coverage[toml]>=7.10.6; extra == 'test'

@@ -1,6 +1,6 @@
 [package]
 name = "kadmin"
-version = "0.7.2"
+version = "0.7.3"
 authors = [
   "Marc 'risson' Schmitt <marc.schmitt@risson.space>",
   "authentik community <hello@goauthentik.io>",
@@ -9,8 +9,8 @@ edition = "2021"
 rust-version = "1.77"
 description = "Rust bindings for the Kerberos administration interface (kadm5)"
 readme = "README.md"
-homepage = "https://github.com/authentik-community/kadmin-rs"
-repository = "https://github.com/authentik-community/kadmin-rs.git"
+homepage = "https://github.com/authentik-labs/kadmin-rs"
+repository = "https://github.com/authentik-labs/kadmin-rs.git"
 license = "MIT"
 keywords = ["kerberos", "krb5", "kadm5", "kadmin"]
 categories = ["api-bindings", "authentication"]
@@ -26,12 +26,12 @@ python = ["dep:pyo3", "dep:indoc"]
 
 [dependencies]
 chrono = "0.4"
-dlopen2 = "0.8"
+dlopen2 = "0.9"
 getset = "0.1"
 indoc = { version = "2", optional = true }
 libc = "0.2"
 log = { version = "0.4", optional = true }
-pyo3 = { version = "0.28", features = [
+pyo3 = { version = "0.29", features = [
   "extension-module",
   "chrono",
   "chrono-tz",
@@ -42,15 +42,15 @@ thiserror = "2"
 [build-dependencies]
 bindgen = "0.72"
 pkg-config = "0.3"
-prettyplease = "0.2"
+prettyplease = "0.3"
 quote = "1.0"
 strum = { version = "0.28", features = ["derive"] }
-syn = { version = "2.0", features = ["full", "parsing"] }
-goblin = "0.10.5"
+syn = { version = "3.0", features = ["full", "parsing"] }
+goblin = "0.10.7"
 
 [dev-dependencies]
 anyhow = "1"
-pyo3 = { version = "0.28", features = ["auto-initialize"] }
+pyo3 = { version = "0.29", features = ["auto-initialize"] }
 rand = "0.10"
 serial_test = { version = "3.1", default-features = false, features = [
   "log",

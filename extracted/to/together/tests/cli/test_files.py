@@ -67,6 +67,8 @@ class TestFilesCheck:
         sample.write_text('{"text": "hello"}\n', encoding="utf-8")
         result = cli_runner.invoke(["files", "check", str(sample)])
         assert result.exit_code == 0
+        assert result.output.startswith("OK ")
+        result.output.encode("cp1252")
 
     def test_check_missing_file(self, tmp_path: Path, cli_runner: CliRunner) -> None:
         missing = tmp_path / "nope.jsonl"
@@ -82,6 +84,8 @@ class TestFilesCheck:
         assert result.exit_code == 1
         assert "Checks passed" not in result.output
         assert "Unknown extension" in result.output
+        assert result.output.startswith("X ")
+        result.output.encode("cp1252")
 
 
 class TestFilesDelete:
@@ -149,6 +153,66 @@ class TestFilesRetrieveContent:
         # Rich may soft-wrap long paths across lines
         assert str(out) in result.output.replace("\n", "")
 
+    @pytest.mark.parametrize(
+        ("directory_name", "create_directory"), [("existing.with-dot", True), ("new-directory", False)]
+    )
+    @pytest.mark.respx(base_url=base_url)
+    def test_specifying_output_directory(
+        self,
+        directory_name: str,
+        create_directory: bool,
+        respx_mock: MockRouter,
+        tmp_path: Path,
+        cli_runner: CliRunner,
+    ) -> None:
+        content_route = respx_mock.get("/files/file-1/content").mock(
+            return_value=httpx.Response(200, content=b"line1\nline2\n")
+        )
+        respx_mock.get("/files/file-1").mock(return_value=httpx.Response(200, json=FILE_ROW_NEWER))
+        out = tmp_path / directory_name
+        if create_directory:
+            out.mkdir()
+
+        result = cli_runner.invoke(["files", "download", "file-1", "--output", str(out)])
+
+        assert result.exit_code == 0
+        assert (out / "newer.jsonl").read_bytes() == b"line1\nline2\n"
+        assert content_route.call_count == 1
+
+    @pytest.mark.parametrize(
+        "malicious_filename",
+        [
+            "../../etc/cron.d/malicious",
+            "..\\..\\windows\\system32\\malicious",
+            "/etc/passwd",
+            "../outside.jsonl",
+        ],
+    )
+    @pytest.mark.respx(base_url=base_url)
+    def test_output_directory_rejects_path_traversal_filename(
+        self,
+        malicious_filename: str,
+        respx_mock: MockRouter,
+        tmp_path: Path,
+        cli_runner: CliRunner,
+    ) -> None:
+        respx_mock.get("/files/file-1/content").mock(return_value=httpx.Response(200, content=b"safe-bytes"))
+        row = {**FILE_ROW_NEWER, "filename": malicious_filename}
+        respx_mock.get("/files/file-1").mock(return_value=httpx.Response(200, json=row))
+        out = tmp_path / "downloads"
+        out.mkdir()
+
+        result = cli_runner.invoke(["files", "download", "file-1", "--output", str(out)])
+
+        assert result.exit_code == 0
+        saved = list(out.iterdir())
+        assert len(saved) == 1
+        assert saved[0].is_file()
+        assert saved[0].read_bytes() == b"safe-bytes"
+        assert saved[0].resolve().is_relative_to(out.resolve())
+        assert not (tmp_path / "outside.jsonl").exists()
+        assert not (tmp_path / "etc").exists()
+
     @pytest.mark.respx(base_url=base_url)
     def test_specifying_stdout(self, respx_mock: MockRouter, cli_runner: CliRunner) -> None:
         respx_mock.get("/files/file-1/content").mock(return_value=httpx.Response(200, content=b"stdout-bytes"))
@@ -186,6 +250,8 @@ class TestFilesUpload:
             check_mock.return_value = {"is_check_passed": False, "message": "failed validation"}
             result = cli_runner.invoke(["files", "upload", str(f)])
         assert result.exit_code == 1
+        assert "X failed validation" in result.output
+        result.output.encode("cp1252")
         check_mock.assert_called_once()
         upload_mock.assert_not_called()
 

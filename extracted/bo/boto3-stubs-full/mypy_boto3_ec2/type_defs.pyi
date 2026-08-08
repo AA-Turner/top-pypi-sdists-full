@@ -92,6 +92,7 @@ from .literals import (
     CapacityReservationTypeType,
     CapacityTenancyType,
     CarrierGatewayStateType,
+    ChronologicalOrderType,
     ClientCertificateRevocationListStatusCodeType,
     ClientVpnAuthenticationTypeType,
     ClientVpnAuthorizationRuleStatusCodeType,
@@ -205,9 +206,12 @@ from .literals import (
     IpAddressTypeType,
     IpamAddressHistoryResourceTypeType,
     IpamAssociatedResourceDiscoveryStatusType,
+    IpamByoipAdvertisementTypeType,
+    IpamByoipCidrStateType,
     IpamComplianceStatusType,
     IpamDiscoveryFailureCodeType,
     IpamExternalResourceVerificationTokenStateType,
+    IpamInternetRegistryAssociationStateType,
     IpamManagementStateType,
     IpamMeteredAccountType,
     IpamNetworkInterfaceAttachmentStatusType,
@@ -233,6 +237,10 @@ from .literals import (
     IpamResourceDiscoveryAssociationStateType,
     IpamResourceDiscoveryStateType,
     IpamResourceTypeType,
+    IpamRoutingPolicyRegistrationDeltaStateType,
+    IpamRoutingPolicyRegistrationStateType,
+    IpamRpkiStatusType,
+    IpamRpkiStrengthType,
     IpamScopeStateType,
     IpamScopeTypeType,
     IpamStateType,
@@ -319,6 +327,7 @@ from .literals import (
     ReservedInstanceStateType,
     ResourceTypeType,
     RIProductDescriptionType,
+    RirType,
     RootDeviceTypeType,
     RouteOriginType,
     RouteServerAssociationStateType,
@@ -621,6 +630,8 @@ __all__ = (
     "BaselinePerformanceFactorsRequestTypeDef",
     "BaselinePerformanceFactorsTypeDef",
     "BaselinePerformanceFactorsUnionTypeDef",
+    "BatchModifyIpamRoutingPolicyRegistrationsRequestTypeDef",
+    "BatchModifyIpamRoutingPolicyRegistrationsResultTypeDef",
     "BlobTypeDef",
     "BlockDeviceMappingResponseTypeDef",
     "BlockDeviceMappingTypeDef",
@@ -807,6 +818,8 @@ __all__ = (
     "CreateInterruptibleCapacityReservationAllocationResultTypeDef",
     "CreateIpamExternalResourceVerificationTokenRequestTypeDef",
     "CreateIpamExternalResourceVerificationTokenResultTypeDef",
+    "CreateIpamInternetRegistryAssociationRequestTypeDef",
+    "CreateIpamInternetRegistryAssociationResultTypeDef",
     "CreateIpamPolicyRequestTypeDef",
     "CreateIpamPolicyResultTypeDef",
     "CreateIpamPoolRequestTypeDef",
@@ -819,6 +832,8 @@ __all__ = (
     "CreateIpamResourceDiscoveryRequestTypeDef",
     "CreateIpamResourceDiscoveryResultTypeDef",
     "CreateIpamResultTypeDef",
+    "CreateIpamRoutingPolicyRegistrationRequestTypeDef",
+    "CreateIpamRoutingPolicyRegistrationResultTypeDef",
     "CreateIpamScopeRequestTypeDef",
     "CreateIpamScopeResultTypeDef",
     "CreateKeyPairRequestServiceResourceCreateKeyPairTypeDef",
@@ -1042,6 +1057,8 @@ __all__ = (
     "DeleteInternetGatewayRequestTypeDef",
     "DeleteIpamExternalResourceVerificationTokenRequestTypeDef",
     "DeleteIpamExternalResourceVerificationTokenResultTypeDef",
+    "DeleteIpamInternetRegistryAssociationRequestTypeDef",
+    "DeleteIpamInternetRegistryAssociationResultTypeDef",
     "DeleteIpamPolicyRequestTypeDef",
     "DeleteIpamPolicyResultTypeDef",
     "DeleteIpamPoolRequestTypeDef",
@@ -1054,6 +1071,8 @@ __all__ = (
     "DeleteIpamResourceDiscoveryRequestTypeDef",
     "DeleteIpamResourceDiscoveryResultTypeDef",
     "DeleteIpamResultTypeDef",
+    "DeleteIpamRoutingPolicyRegistrationRequestTypeDef",
+    "DeleteIpamRoutingPolicyRegistrationResultTypeDef",
     "DeleteIpamScopeRequestTypeDef",
     "DeleteIpamScopeResultTypeDef",
     "DeleteKeyPairRequestKeyPairDeleteTypeDef",
@@ -1444,6 +1463,8 @@ __all__ = (
     "DescribeIpamByoasnResultTypeDef",
     "DescribeIpamExternalResourceVerificationTokensRequestTypeDef",
     "DescribeIpamExternalResourceVerificationTokensResultTypeDef",
+    "DescribeIpamInternetRegistryAssociationsRequestTypeDef",
+    "DescribeIpamInternetRegistryAssociationsResultTypeDef",
     "DescribeIpamPoliciesRequestTypeDef",
     "DescribeIpamPoliciesResultTypeDef",
     "DescribeIpamPoolAllocationsRequestPaginateTypeDef",
@@ -1967,6 +1988,8 @@ __all__ = (
     "EnableImageResultTypeDef",
     "EnableInstanceSqlHaStandbyDetectionsRequestTypeDef",
     "EnableInstanceSqlHaStandbyDetectionsResultTypeDef",
+    "EnableIpamInternetRegistryAssociationRequestTypeDef",
+    "EnableIpamInternetRegistryAssociationResultTypeDef",
     "EnableIpamOrganizationAdminAccountRequestTypeDef",
     "EnableIpamOrganizationAdminAccountResultTypeDef",
     "EnableIpamPolicyRequestTypeDef",
@@ -2119,6 +2142,12 @@ __all__ = (
     "GetIpamDiscoveredResourceCidrsRequestPaginateTypeDef",
     "GetIpamDiscoveredResourceCidrsRequestTypeDef",
     "GetIpamDiscoveredResourceCidrsResultTypeDef",
+    "GetIpamDiscoveredRoutesRequestTypeDef",
+    "GetIpamDiscoveredRoutesResultTypeDef",
+    "GetIpamInternetRegistryAssociationAsnsRequestTypeDef",
+    "GetIpamInternetRegistryAssociationAsnsResultTypeDef",
+    "GetIpamInternetRegistryAssociationCidrsRequestTypeDef",
+    "GetIpamInternetRegistryAssociationCidrsResultTypeDef",
     "GetIpamPolicyAllocationRulesRequestTypeDef",
     "GetIpamPolicyAllocationRulesResultTypeDef",
     "GetIpamPolicyOrganizationTargetsRequestTypeDef",
@@ -2141,6 +2170,14 @@ __all__ = (
     "GetIpamResourceCidrsRequestPaginateTypeDef",
     "GetIpamResourceCidrsRequestTypeDef",
     "GetIpamResourceCidrsResultTypeDef",
+    "GetIpamRouteOriginAuthorizationsRequestTypeDef",
+    "GetIpamRouteOriginAuthorizationsResultTypeDef",
+    "GetIpamRouteProtectionFindingsRequestTypeDef",
+    "GetIpamRouteProtectionFindingsResultTypeDef",
+    "GetIpamRoutingPolicyRegistrationDeltasRequestTypeDef",
+    "GetIpamRoutingPolicyRegistrationDeltasResultTypeDef",
+    "GetIpamRoutingPolicyRegistrationsRequestTypeDef",
+    "GetIpamRoutingPolicyRegistrationsResultTypeDef",
     "GetLaunchTemplateDataRequestTypeDef",
     "GetLaunchTemplateDataResultTypeDef",
     "GetManagedPrefixListAssociationsRequestPaginateTypeDef",
@@ -2374,8 +2411,12 @@ __all__ = (
     "IpamDiscoveredAccountTypeDef",
     "IpamDiscoveredPublicAddressTypeDef",
     "IpamDiscoveredResourceCidrTypeDef",
+    "IpamDiscoveredRouteTypeDef",
     "IpamDiscoveryFailureReasonTypeDef",
     "IpamExternalResourceVerificationTokenTypeDef",
+    "IpamInternetRegistryAssociationAsnTypeDef",
+    "IpamInternetRegistryAssociationCidrTypeDef",
+    "IpamInternetRegistryAssociationTypeDef",
     "IpamOperatingRegionTypeDef",
     "IpamOrganizationalUnitExclusionTypeDef",
     "IpamPolicyAllocationRuleRequestTypeDef",
@@ -2404,6 +2445,12 @@ __all__ = (
     "IpamResourceDiscoveryAssociationTypeDef",
     "IpamResourceDiscoveryTypeDef",
     "IpamResourceTagTypeDef",
+    "IpamRouteOriginAuthorizationInfoTypeDef",
+    "IpamRouteOriginAuthorizationTypeDef",
+    "IpamRouteOverlapTypeDef",
+    "IpamRouteProtectionFindingTypeDef",
+    "IpamRoutingPolicyRegistrationDeltaTypeDef",
+    "IpamRoutingPolicyRegistrationTypeDef",
     "IpamScopeExternalAuthorityConfigurationTypeDef",
     "IpamScopeTypeDef",
     "IpamTypeDef",
@@ -2586,6 +2633,8 @@ __all__ = (
     "ModifyIpamResourceDiscoveryRequestTypeDef",
     "ModifyIpamResourceDiscoveryResultTypeDef",
     "ModifyIpamResultTypeDef",
+    "ModifyIpamRoutingPolicyRegistrationRequestTypeDef",
+    "ModifyIpamRoutingPolicyRegistrationResultTypeDef",
     "ModifyIpamScopeRequestTypeDef",
     "ModifyIpamScopeResultTypeDef",
     "ModifyLaunchTemplateRequestTypeDef",
@@ -3882,6 +3931,19 @@ class BaselineEbsBandwidthMbpsTypeDef(TypedDict):
     Min: NotRequired[int]
     Max: NotRequired[int]
 
+class BatchModifyIpamRoutingPolicyRegistrationsRequestTypeDef(TypedDict):
+    IpamInternetRegistryAssociationId: str
+    DeltaJson: str
+    DryRun: NotRequired[bool]
+    Force: NotRequired[bool]
+    ClientToken: NotRequired[str]
+
+class IpamRoutingPolicyRegistrationDeltaTypeDef(TypedDict):
+    DeltaId: NotRequired[str]
+    DeltaJson: NotRequired[str]
+    State: NotRequired[IpamRoutingPolicyRegistrationDeltaStateType]
+    StateMessage: NotRequired[str]
+
 BlobTypeDef = Union[str, bytes, IO[Any], StreamingBody]
 
 class EbsBlockDeviceResponseTypeDef(TypedDict):
@@ -4402,6 +4464,17 @@ class RequestIpamResourceTagTypeDef(TypedDict):
     Key: NotRequired[str]
     Value: NotRequired[str]
 
+class CreateIpamRoutingPolicyRegistrationRequestTypeDef(TypedDict):
+    IpamInternetRegistryAssociationId: str
+    Cidr: str
+    Asns: Sequence[str]
+    DryRun: NotRequired[bool]
+    PermitMoreSpecificAnnouncements: NotRequired[bool]
+    MaxLength: NotRequired[int]
+    Description: NotRequired[str]
+    Force: NotRequired[bool]
+    ClientToken: NotRequired[str]
+
 ExternalAuthorityConfigurationTypeDef = TypedDict(
     "ExternalAuthorityConfigurationTypeDef",
     {
@@ -4819,6 +4892,10 @@ class DeleteIpamExternalResourceVerificationTokenRequestTypeDef(TypedDict):
     IpamExternalResourceVerificationTokenId: str
     DryRun: NotRequired[bool]
 
+class DeleteIpamInternetRegistryAssociationRequestTypeDef(TypedDict):
+    IpamInternetRegistryAssociationId: str
+    DryRun: NotRequired[bool]
+
 class DeleteIpamPolicyRequestTypeDef(TypedDict):
     IpamPolicyId: str
     DryRun: NotRequired[bool]
@@ -4844,6 +4921,13 @@ class DeleteIpamRequestTypeDef(TypedDict):
 class DeleteIpamResourceDiscoveryRequestTypeDef(TypedDict):
     IpamResourceDiscoveryId: str
     DryRun: NotRequired[bool]
+
+class DeleteIpamRoutingPolicyRegistrationRequestTypeDef(TypedDict):
+    IpamInternetRegistryAssociationId: str
+    Cidr: str
+    DryRun: NotRequired[bool]
+    Force: NotRequired[bool]
+    ClientToken: NotRequired[str]
 
 class DeleteIpamScopeRequestTypeDef(TypedDict):
     IpamScopeId: str
@@ -6126,6 +6210,16 @@ class EnableInstanceSqlHaStandbyDetectionsRequestTypeDef(TypedDict):
     SqlServerCredentials: NotRequired[str]
     DryRun: NotRequired[bool]
 
+class EnableIpamInternetRegistryAssociationRequestTypeDef(TypedDict):
+    IpamInternetRegistryAssociationId: str
+    RpkiVersion: str
+    ServiceUri: str
+    ChildHandle: str
+    ParentHandle: str
+    ParentBpkiTa: str
+    DryRun: NotRequired[bool]
+    ClientToken: NotRequired[str]
+
 class EnableIpamOrganizationAdminAccountRequestTypeDef(TypedDict):
     DelegatedAdminAccountId: str
     DryRun: NotRequired[bool]
@@ -6483,6 +6577,27 @@ class IpamAddressHistoryRecordTypeDef(TypedDict):
     SampledStartTime: NotRequired[datetime]
     SampledEndTime: NotRequired[datetime]
 
+class IpamDiscoveredRouteTypeDef(TypedDict):
+    IpamResourceDiscoveryId: NotRequired[str]
+    ResourceRegion: NotRequired[str]
+    ResourceOwnerId: NotRequired[str]
+    Cidr: NotRequired[str]
+    Asn: NotRequired[str]
+    State: NotRequired[IpamByoipCidrStateType]
+    AdvertisementType: NotRequired[IpamByoipAdvertisementTypeType]
+    NetworkBorderGroup: NotRequired[str]
+    PoolId: NotRequired[str]
+    IpamPoolId: NotRequired[str]
+    SampleTime: NotRequired[datetime]
+
+class IpamInternetRegistryAssociationAsnTypeDef(TypedDict):
+    Asn: NotRequired[str]
+    LastObservedAt: NotRequired[datetime]
+
+class IpamInternetRegistryAssociationCidrTypeDef(TypedDict):
+    Cidr: NotRequired[str]
+    LastObservedAt: NotRequired[datetime]
+
 class IpamPolicyOrganizationTargetTypeDef(TypedDict):
     OrganizationTargetId: NotRequired[str]
 
@@ -6498,6 +6613,34 @@ class IpamPrefixListResolverVersionEntryTypeDef(TypedDict):
 
 class IpamPrefixListResolverVersionTypeDef(TypedDict):
     Version: NotRequired[int]
+
+class GetIpamRouteOriginAuthorizationsRequestTypeDef(TypedDict):
+    IpamInternetRegistryAssociationId: str
+    DryRun: NotRequired[bool]
+    Cidr: NotRequired[str]
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+
+class IpamRouteOriginAuthorizationInfoTypeDef(TypedDict):
+    Cidr: NotRequired[str]
+    Asn: NotRequired[str]
+    MaxLength: NotRequired[int]
+
+class GetIpamRoutingPolicyRegistrationsRequestTypeDef(TypedDict):
+    IpamInternetRegistryAssociationId: str
+    DryRun: NotRequired[bool]
+    Cidr: NotRequired[str]
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+
+class IpamRoutingPolicyRegistrationTypeDef(TypedDict):
+    Cidr: NotRequired[str]
+    Asns: NotRequired[list[str]]
+    PermitMoreSpecificAnnouncements: NotRequired[bool]
+    MaxLength: NotRequired[int]
+    Description: NotRequired[str]
+    LatestDeltaId: NotRequired[str]
+    State: NotRequired[IpamRoutingPolicyRegistrationStateType]
 
 class GetLaunchTemplateDataRequestTypeDef(TypedDict):
     InstanceId: str
@@ -7016,6 +7159,22 @@ class IpamPublicAddressTagTypeDef(TypedDict):
     Key: NotRequired[str]
     Value: NotRequired[str]
 
+IpamRouteOriginAuthorizationTypeDef = TypedDict(
+    "IpamRouteOriginAuthorizationTypeDef",
+    {
+        "Asn": NotRequired[str],
+        "Prefix": NotRequired[str],
+        "MaxLength": NotRequired[int],
+        "Match": NotRequired[bool],
+        "Expiration": NotRequired[datetime],
+    },
+)
+
+class IpamRouteOverlapTypeDef(TypedDict):
+    Prefix: NotRequired[str]
+    Asn: NotRequired[str]
+    DetectedAt: NotRequired[datetime]
+
 IpamScopeExternalAuthorityConfigurationTypeDef = TypedDict(
     "IpamScopeExternalAuthorityConfigurationTypeDef",
     {
@@ -7399,6 +7558,17 @@ class ModifyIpamResourceCidrRequestTypeDef(TypedDict):
 
 class RemoveIpamOrganizationalUnitExclusionTypeDef(TypedDict):
     OrganizationsEntityPath: NotRequired[str]
+
+class ModifyIpamRoutingPolicyRegistrationRequestTypeDef(TypedDict):
+    IpamInternetRegistryAssociationId: str
+    Cidr: str
+    Asns: Sequence[str]
+    DryRun: NotRequired[bool]
+    PermitMoreSpecificAnnouncements: NotRequired[bool]
+    MaxLength: NotRequired[int]
+    Description: NotRequired[str]
+    Force: NotRequired[bool]
+    ClientToken: NotRequired[str]
 
 class ModifyLaunchTemplateRequestTypeDef(TypedDict):
     DryRun: NotRequired[bool]
@@ -9677,6 +9847,19 @@ class IpamExternalResourceVerificationTokenTypeDef(TypedDict):
     Tags: NotRequired[list[TagTypeDef]]
     State: NotRequired[IpamExternalResourceVerificationTokenStateType]
 
+class IpamInternetRegistryAssociationTypeDef(TypedDict):
+    OwnerId: NotRequired[str]
+    IpamInternetRegistryAssociationId: NotRequired[str]
+    IpamInternetRegistryAssociationArn: NotRequired[str]
+    IpamId: NotRequired[str]
+    IpamRegion: NotRequired[str]
+    Rir: NotRequired[RirType]
+    OrganizationHandle: NotRequired[str]
+    Description: NotRequired[str]
+    State: NotRequired[IpamInternetRegistryAssociationStateType]
+    ChildRequestXml: NotRequired[str]
+    Tags: NotRequired[list[TagTypeDef]]
+
 class IpamPolicyTypeDef(TypedDict):
     OwnerId: NotRequired[str]
     IpamPolicyId: NotRequired[str]
@@ -10241,6 +10424,8 @@ class ByoipCidrTypeDef(TypedDict):
     State: NotRequired[ByoipCidrStateType]
     NetworkBorderGroup: NotRequired[str]
     AdvertisementType: NotRequired[str]
+    PoolId: NotRequired[str]
+    IpamPoolId: NotRequired[str]
 
 class DisassociateIpamByoasnResultTypeDef(TypedDict):
     AsnAssociation: AsnAssociationTypeDef
@@ -10442,6 +10627,16 @@ class GetIpamAddressHistoryRequestTypeDef(TypedDict):
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
 
+class GetIpamRoutingPolicyRegistrationDeltasRequestTypeDef(TypedDict):
+    IpamInternetRegistryAssociationId: str
+    DryRun: NotRequired[bool]
+    DeltaId: NotRequired[str]
+    StartTime: NotRequired[TimestampTypeDef]
+    EndTime: NotRequired[TimestampTypeDef]
+    ChronologicalOrder: NotRequired[ChronologicalOrderType]
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+
 class LaunchTemplateSpotMarketOptionsRequestTypeDef(TypedDict):
     MaxPrice: NotRequired[str]
     SpotInstanceType: NotRequired[SpotInstanceTypeType]
@@ -10623,6 +10818,27 @@ AvailabilityZoneTypeDef = TypedDict(
 class AvailableCapacityTypeDef(TypedDict):
     AvailableInstanceCapacity: NotRequired[list[InstanceCapacityTypeDef]]
     AvailableVCpus: NotRequired[int]
+
+class BatchModifyIpamRoutingPolicyRegistrationsResultTypeDef(TypedDict):
+    IpamRoutingPolicyRegistrationDelta: IpamRoutingPolicyRegistrationDeltaTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class CreateIpamRoutingPolicyRegistrationResultTypeDef(TypedDict):
+    IpamRoutingPolicyRegistrationDelta: IpamRoutingPolicyRegistrationDeltaTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DeleteIpamRoutingPolicyRegistrationResultTypeDef(TypedDict):
+    IpamRoutingPolicyRegistrationDelta: IpamRoutingPolicyRegistrationDeltaTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class GetIpamRoutingPolicyRegistrationDeltasResultTypeDef(TypedDict):
+    IpamRoutingPolicyRegistrationDeltas: list[IpamRoutingPolicyRegistrationDeltaTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+class ModifyIpamRoutingPolicyRegistrationResultTypeDef(TypedDict):
+    IpamRoutingPolicyRegistrationDelta: IpamRoutingPolicyRegistrationDeltaTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class S3StorageTypeDef(TypedDict):
     AWSAccessKeyId: NotRequired[str]
@@ -12049,6 +12265,13 @@ class DescribeIpamExternalResourceVerificationTokensRequestTypeDef(TypedDict):
     MaxResults: NotRequired[int]
     IpamExternalResourceVerificationTokenIds: NotRequired[Sequence[str]]
 
+class DescribeIpamInternetRegistryAssociationsRequestTypeDef(TypedDict):
+    DryRun: NotRequired[bool]
+    IpamInternetRegistryAssociationIds: NotRequired[Sequence[str]]
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+    Filters: NotRequired[Sequence[FilterTypeDef]]
+
 class DescribeIpamPoliciesRequestTypeDef(TypedDict):
     DryRun: NotRequired[bool]
     Filters: NotRequired[Sequence[FilterTypeDef]]
@@ -13353,6 +13576,28 @@ class GetIpamDiscoveredResourceCidrsRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
 
+class GetIpamDiscoveredRoutesRequestTypeDef(TypedDict):
+    IpamResourceDiscoveryId: str
+    ResourceRegion: str
+    DryRun: NotRequired[bool]
+    Filters: NotRequired[Sequence[FilterTypeDef]]
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
+
+class GetIpamInternetRegistryAssociationAsnsRequestTypeDef(TypedDict):
+    IpamInternetRegistryAssociationId: str
+    DryRun: NotRequired[bool]
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+    Filters: NotRequired[Sequence[FilterTypeDef]]
+
+class GetIpamInternetRegistryAssociationCidrsRequestTypeDef(TypedDict):
+    IpamInternetRegistryAssociationId: str
+    DryRun: NotRequired[bool]
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+    Filters: NotRequired[Sequence[FilterTypeDef]]
+
 class GetIpamPolicyAllocationRulesRequestTypeDef(TypedDict):
     IpamPolicyId: str
     DryRun: NotRequired[bool]
@@ -13447,6 +13692,13 @@ class GetIpamResourceCidrsRequestTypeDef(TypedDict):
     ResourceType: NotRequired[IpamResourceTypeType]
     ResourceTag: NotRequired[RequestIpamResourceTagTypeDef]
     ResourceOwner: NotRequired[str]
+
+class GetIpamRouteProtectionFindingsRequestTypeDef(TypedDict):
+    IpamId: str
+    DryRun: NotRequired[bool]
+    Filters: NotRequired[Sequence[FilterTypeDef]]
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
 
 class GetRouteServerRoutingDatabaseRequestTypeDef(TypedDict):
     RouteServerId: str
@@ -14526,6 +14778,21 @@ class GetIpamAddressHistoryResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
+class GetIpamDiscoveredRoutesResultTypeDef(TypedDict):
+    IpamDiscoveredRoutes: list[IpamDiscoveredRouteTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+class GetIpamInternetRegistryAssociationAsnsResultTypeDef(TypedDict):
+    IpamInternetRegistryAssociationAsns: list[IpamInternetRegistryAssociationAsnTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+class GetIpamInternetRegistryAssociationCidrsResultTypeDef(TypedDict):
+    IpamInternetRegistryAssociationCidrs: list[IpamInternetRegistryAssociationCidrTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
 class GetIpamPolicyOrganizationTargetsResultTypeDef(TypedDict):
     OrganizationTargets: list[IpamPolicyOrganizationTargetTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -14538,6 +14805,16 @@ class GetIpamPrefixListResolverVersionEntriesResultTypeDef(TypedDict):
 
 class GetIpamPrefixListResolverVersionsResultTypeDef(TypedDict):
     IpamPrefixListResolverVersions: list[IpamPrefixListResolverVersionTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+class GetIpamRouteOriginAuthorizationsResultTypeDef(TypedDict):
+    IpamRouteOriginAuthorizations: list[IpamRouteOriginAuthorizationInfoTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+class GetIpamRoutingPolicyRegistrationsResultTypeDef(TypedDict):
+    IpamRoutingPolicyRegistrations: list[IpamRoutingPolicyRegistrationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -14951,6 +15228,23 @@ class IpamPoolTypeDef(TypedDict):
 
 class IpamPublicAddressTagsTypeDef(TypedDict):
     EipTags: NotRequired[list[IpamPublicAddressTagTypeDef]]
+
+class IpamRouteProtectionFindingTypeDef(TypedDict):
+    ResourceOwnerId: NotRequired[str]
+    ResourceRegion: NotRequired[str]
+    IpamPoolId: NotRequired[str]
+    Cidr: NotRequired[str]
+    State: NotRequired[IpamByoipCidrStateType]
+    AdvertisementType: NotRequired[IpamByoipAdvertisementTypeType]
+    NetworkBorderGroup: NotRequired[str]
+    PoolId: NotRequired[str]
+    Asn: NotRequired[str]
+    RpkiStatus: NotRequired[IpamRpkiStatusType]
+    RpkiStrength: NotRequired[IpamRpkiStrengthType]
+    Roas: NotRequired[list[IpamRouteOriginAuthorizationTypeDef]]
+    RouteOverlaps: NotRequired[list[IpamRouteOverlapTypeDef]]
+    SampleTime: NotRequired[datetime]
+    RoaSampleTime: NotRequired[datetime]
 
 class IpamScopeTypeDef(TypedDict):
     OwnerId: NotRequired[str]
@@ -16104,6 +16398,23 @@ class DescribeIpamExternalResourceVerificationTokensResultTypeDef(TypedDict):
     IpamExternalResourceVerificationTokens: list[IpamExternalResourceVerificationTokenTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+class CreateIpamInternetRegistryAssociationResultTypeDef(TypedDict):
+    IpamInternetRegistryAssociation: IpamInternetRegistryAssociationTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DeleteIpamInternetRegistryAssociationResultTypeDef(TypedDict):
+    IpamInternetRegistryAssociation: IpamInternetRegistryAssociationTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DescribeIpamInternetRegistryAssociationsResultTypeDef(TypedDict):
+    IpamInternetRegistryAssociations: list[IpamInternetRegistryAssociationTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+class EnableIpamInternetRegistryAssociationResultTypeDef(TypedDict):
+    IpamInternetRegistryAssociation: IpamInternetRegistryAssociationTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateIpamPolicyResultTypeDef(TypedDict):
     IpamPolicy: IpamPolicyTypeDef
@@ -17836,6 +18147,12 @@ class IpamDiscoveredPublicAddressTypeDef(TypedDict):
     SecurityGroups: NotRequired[list[IpamPublicAddressSecurityGroupTypeDef]]
     SampleTime: NotRequired[datetime]
 
+class GetIpamRouteProtectionFindingsResultTypeDef(TypedDict):
+    IpamId: str
+    RouteProtectionFindings: list[IpamRouteProtectionFindingTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
 class CreateIpamScopeResultTypeDef(TypedDict):
     IpamScope: IpamScopeTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -19052,6 +19369,15 @@ class CreateInterruptibleCapacityReservationAllocationRequestTypeDef(TypedDict):
 class CreateIpamExternalResourceVerificationTokenRequestTypeDef(TypedDict):
     IpamId: str
     DryRun: NotRequired[bool]
+    TagSpecifications: NotRequired[Sequence[TagSpecificationUnionTypeDef]]
+    ClientToken: NotRequired[str]
+
+class CreateIpamInternetRegistryAssociationRequestTypeDef(TypedDict):
+    IpamId: str
+    Rir: RirType
+    OrganizationHandle: str
+    DryRun: NotRequired[bool]
+    Description: NotRequired[str]
     TagSpecifications: NotRequired[Sequence[TagSpecificationUnionTypeDef]]
     ClientToken: NotRequired[str]
 

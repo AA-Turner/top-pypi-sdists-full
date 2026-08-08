@@ -16,6 +16,7 @@ if TYPE_CHECKING:  # pragma: no cover
 from . import slc
 from .mud import (
     zmp_decode,
+    zmp_encode,
     atcp_decode,
     gmcp_decode,
     gmcp_encode,
@@ -107,6 +108,11 @@ _EMPTY_SB_OK = frozenset({MXP, MSP, ZMP, AARDWOLF, ATCP, MCCP2_COMPRESS, MCCP3_C
 
 #: MUD protocol options that a plain telnet client should decline by default.
 _MUD_PROTOCOL_OPTIONS = frozenset({GMCP, MSDP, MSSP, MSP, MXP, ZMP, AARDWOLF, ATCP})
+
+#: Maximum number of bytes buffered between ``IAC SB`` and ``IAC SE``.
+#: A sub-negotiation exceeding this bound is discarded and subsequent
+#: bytes are dropped until the terminating ``IAC SE``.
+_MAX_SUBNEGOTIATION = 1 << 20
 
 
 class TelnetWriter:
@@ -251,6 +257,12 @@ class TelnetWriter:
         #: in response to a server WILL (passive negotiation).
         self.passive_do: set[bytes] = set()
 
+        #: Per-option will callbacks invoked after :meth:`handle_will`
+        #: completes standard negotiation.  Keys are option bytes, values
+        #: are lists of ``callable(bytes)``.  Use :meth:`add_will_callback`
+        #: and :meth:`remove_will_callback` to manage.
+        self.will_callbacks: dict[bytes, list[Callable[[bytes], None]]] = {}
+
         #: Whether the encoding was explicitly set (not just the default
         #: ``"ascii"``).  Used by fingerprinting and client connection logic
         #: to decide whether to negotiate CHARSET.
@@ -282,31 +294,6 @@ class TelnetWriter:
         #: buffer limit of some telnet clients).
         self._environ_batches: list[list[Union[str, bytes]]] = []
 
-        #: Decoded MSSP variables received via subnegotiation.
-        #: ``None`` until a ``SB MSSP`` payload is received and decoded.
-        self.mssp_data: Optional[dict[str, str | list[str]]] = None
-
-        #: Accumulated ZMP messages (list of [command, arg, ...] lists).
-        #: Empty until ``SB ZMP`` payloads are received and decoded.
-        self.zmp_data: list[list[str]] = []
-
-        #: Accumulated ATCP messages (list of (package, value) tuples).
-        #: Empty until ``SB ATCP`` payloads are received and decoded.
-        self.atcp_data: list[tuple[str, str]] = []
-
-        #: Accumulated Aardwolf messages (list of decoded dicts).
-        #: Empty until ``SB AARDWOLF`` payloads are received and decoded.
-        self.aardwolf_data: list[dict[str, Any]] = []
-
-        #: Accumulated MXP subnegotiation payloads (list of raw bytes).
-        #: Empty until ``SB MXP`` payloads are received.  An empty payload
-        #: (``b""``) signals MXP mode activation.
-        self.mxp_data: list[bytes] = []
-
-        #: COM-PORT-OPTION (RFC 2217) data received via subnegotiation.
-        #: ``None`` until an ``SB COM-PORT-OPTION`` payload is received.
-        self.comport_data: Optional[dict[str, Any]] = None
-
         #: Compression policy: ``None`` = passively accept (default),
         #: ``True`` = actively request, ``False`` = reject.
         self.compression: Optional[bool] = None
@@ -334,6 +321,10 @@ class TelnetWriter:
 
         #: Sub-negotiation buffer
         self._sb_buffer: collections.deque[bytes] = collections.deque()
+
+        #: True when a sub-negotiation exceeded :data:`_MAX_SUBNEGOTIATION`;
+        #: remaining bytes are dropped until the terminating ``IAC SE``.
+        self._sb_overflow = False
 
         #: SLC buffer
         self._slc_buffer: collections.deque[bytes] = collections.deque()
@@ -454,6 +445,55 @@ class TelnetWriter:
         """Return the underlying transport."""
         return self._transport
 
+    # -- Deprecated MUD data properties, delegated to ctx ------------------
+
+    @property
+    def mssp_data(self) -> Optional[dict[str, str | list[str]]]:
+        """Deprecated: use ``writer.ctx.mssp_data``."""
+        return self.ctx.mssp_data
+
+    @mssp_data.setter
+    def mssp_data(self, value: Optional[dict[str, str | list[str]]]) -> None:
+        self.ctx.mssp_data = value
+
+    @property
+    def atcp_data(self) -> list[tuple[str, str]]:
+        """Deprecated: use ``writer.ctx.atcp_data``."""
+        return self.ctx.atcp_data
+
+    @atcp_data.setter
+    def atcp_data(self, value: list[tuple[str, str]]) -> None:
+        self.ctx.atcp_data = value
+
+    @property
+    def aardwolf_data(self) -> list[dict[str, Any]]:
+        """Deprecated: use ``writer.ctx.aardwolf_data``."""
+        return self.ctx.aardwolf_data
+
+    @aardwolf_data.setter
+    def aardwolf_data(self, value: list[dict[str, Any]]) -> None:
+        self.ctx.aardwolf_data = value
+
+    @property
+    def mxp_data(self) -> list[bytes]:
+        """Deprecated: use ``writer.ctx.mxp_data``."""
+        return self.ctx.mxp_data
+
+    @mxp_data.setter
+    def mxp_data(self, value: list[bytes]) -> None:
+        self.ctx.mxp_data = value
+
+    @property
+    def comport_data(self) -> Optional[dict[str, Any]]:
+        """Deprecated: use ``writer.ctx.comport_data``."""
+        return self.ctx.comport_data
+
+    @comport_data.setter
+    def comport_data(self, value: Optional[dict[str, Any]]) -> None:
+        self.ctx.comport_data = value
+
+    # -- end deprecated properties -----------------------------------------
+
     def close(self) -> None:
         """Close the connection and release resources."""
         if self.connection_closed:
@@ -474,6 +514,7 @@ class TelnetWriter:
         self._ext_callback.clear()
         self._ext_send_callback.clear()
         self._ext_offer_callback.clear()
+        self.will_callbacks.clear()
         self._slc_callback.clear()
         self._iac_callback.clear()
         self._protocol = None
@@ -728,8 +769,11 @@ class TelnetWriter:
         if byte == IAC:
             self.iac_received = not self.iac_received
             if not self.iac_received and self.cmd_received == SB:
-                # SB buffer receives escaped IAC values
-                self._sb_buffer.append(IAC)
+                if self._sb_overflow or len(self._sb_buffer) >= _MAX_SUBNEGOTIATION:
+                    self._sb_overflow = True
+                else:
+                    # SB buffer receives escaped IAC values
+                    self._sb_buffer.append(IAC)
 
         elif self.iac_received and not self.cmd_received:
             # parse 2nd byte of IAC
@@ -761,6 +805,15 @@ class TelnetWriter:
                     name_command(cmd),
                 )
                 self._sb_buffer.clear()
+            elif not self._sb_buffer:
+                if self._sb_overflow:
+                    self.log.warning(
+                        "sub-negotiation SB exceeds %d bytes, discarded", _MAX_SUBNEGOTIATION
+                    )
+                else:
+                    self.log.warning(
+                        "sub-negotiation SB with no option byte (IAC SB IAC SE), discarded"
+                    )
             else:
                 # sub-negotiation end (SE), fire handle_subnegotiation
                 self.log.debug(
@@ -772,12 +825,24 @@ class TelnetWriter:
                     self._sb_buffer.clear()
                     self.iac_received = False
             self.iac_received = False
+            self._sb_overflow = False
 
         elif self.cmd_received == SB:
             # continue buffering of sub-negotiation command.
             if not self._sb_buffer:
                 self.log.debug("begin sub-negotiation SB %s", name_command(byte))
-            self._sb_buffer.append(byte)
+            if self._sb_overflow or len(self._sb_buffer) >= _MAX_SUBNEGOTIATION:
+                if not self._sb_overflow:
+                    sb_opt = name_command(self._sb_buffer[0]) if self._sb_buffer else "?"
+                    self.log.warning(
+                        "sub-negotiation SB %s exceeds %d bytes, discarding until IAC SE",
+                        sb_opt,
+                        _MAX_SUBNEGOTIATION,
+                    )
+                self._sb_buffer.clear()
+                self._sb_overflow = True
+            else:
+                self._sb_buffer.append(byte)
 
         elif self.cmd_received:
             # parse 3rd and final byte of IAC DO, DONT, WILL, WONT.
@@ -1083,6 +1148,23 @@ class TelnetWriter:
         payload = self._escape_iac(gmcp_encode(package, data))
         self.log.debug("send IAC SB GMCP %s IAC SE", package)
         self.send_iac(IAC + SB + GMCP + payload + IAC + SE)
+
+    def send_zmp(self, command: str, *args: str) -> None:
+        """
+        Transmit a ZMP message via subnegotiation.
+
+        :param command: ZMP command name (e.g., ``"zmp.ident"``).
+        :param args: Zero or more argument strings.
+        """
+        if not (self.local_option.enabled(ZMP) or self.remote_option.enabled(ZMP)):
+            self.log.debug("cannot send ZMP without negotiation")
+            return
+        payload = self._escape_iac(zmp_encode(command, *args))
+        maybe_args = ""
+        if args:
+            maybe_args = " " + " ".join(args)
+        self.log.debug("send IAC SB ZMP %s%s IAC SE", command, maybe_args)
+        self.send_iac(IAC + SB + ZMP + payload + IAC + SE)
 
     def send_msdp(self, variables: dict[str, Any]) -> None:
         """
@@ -1705,6 +1787,35 @@ class TelnetWriter:
         """
         self._ext_callback[cmd] = func
 
+    def add_will_callback(self, opt: bytes, func: Callable[[bytes], None]) -> None:
+        """
+        Register *func* to be called after :meth:`handle_will` processes *opt*.
+
+        Multiple callbacks may be registered for the same option.  They are
+        invoked in registration order after the standard negotiation logic
+        in :meth:`handle_will` completes.
+
+        :param opt: Telnet option byte (e.g. ``GMCP``, ``ZMP``, ``CHARSET``).
+        :param func: Callable receiving the option byte ``opt``.
+        """
+        self.will_callbacks.setdefault(opt, []).append(func)
+
+    def remove_will_callback(self, opt: bytes, func: Callable[[bytes], None]) -> None:
+        """
+        Remove a previously registered will callback for *opt*.
+
+        :param opt: Telnet option byte.
+        :param func: The exact callable previously passed to
+            :meth:`add_will_callback`.
+        :raises ValueError: If *func* is not registered for *opt*.
+        """
+        try:
+            self.will_callbacks[opt].remove(func)
+        except (KeyError, ValueError):
+            raise ValueError(f"{func} not registered for option {opt!r}") from None
+        if not self.will_callbacks[opt]:
+            del self.will_callbacks[opt]
+
     def handle_xdisploc(self, xdisploc: str) -> None:
         """Receive XDISPLAY value ``xdisploc``, :rfc:`1096`."""
         #   xdisploc string format is '<host>:<dispnum>[.<screennum>]'.
@@ -1787,7 +1898,7 @@ class TelnetWriter:
         Receive GMCP message with ``package`` name and ``data``.
 
         :param package: GMCP package name (e.g., ``"Char.Vitals"``).
-        :param data: Decoded JSON value -- may be any JSON type
+        :param data: Decoded JSON value, can be any JSON type
             (``str``, ``int``, ``float``, ``bool``, ``None``,
             ``list``, or ``dict``).
         """
@@ -1817,10 +1928,10 @@ class TelnetWriter:
         self.log.debug("MXP: %r", data)
         self.mxp_data.append(data)
 
-    def handle_zmp(self, parts: list[str]) -> None:
-        """Receive decoded ZMP message as list of ``[command, arg, ...]``."""
-        self.log.debug("ZMP: %r", parts)
-        self.zmp_data.append(parts)
+    def handle_zmp(self, command: str, *args: str) -> None:
+        """Receive decoded ZMP message as ``command`` and ``*args``."""
+        self.log.debug("ZMP: %s %r", command, args)
+        self.ctx.zmp_data[command] = list(args)
 
     def handle_aardwolf(self, data: dict[str, Any]) -> None:
         """Receive decoded Aardwolf message as dict."""
@@ -1967,7 +2078,10 @@ class TelnetWriter:
                     if not self.local_option.enabled(opt):
                         self.iac(WILL, opt)
                     return True
-                self.log.debug("DO %s: MUD protocol, declining on client.", name_command(opt))
+                self.log.debug(
+                    "DO %s: MUD protocol, declining on client (enable with always_will).",
+                    name_command(opt),
+                )
                 if not self.local_option.enabled(opt):
                     self.iac(WONT, opt)
                 return False
@@ -2096,7 +2210,14 @@ class TelnetWriter:
                     if not self.remote_option.enabled(opt):
                         self.iac(DO, opt)
                         self.remote_option[opt] = True
+                    for callback in self.will_callbacks.get(opt, ()):
+                        callback(opt)
                     return
+                self.log.debug(
+                    "WILL %s: MUD protocol, declining on client "
+                    "(enable with always_do or passive_do).",
+                    name_command(opt),
+                )
                 self.iac(DONT, opt)
                 return
             # Reject MCCP when compression is disabled or TLS is active
@@ -2197,6 +2318,9 @@ class TelnetWriter:
             self.log.debug("Unhandled: WILL %s.", name_command(opt))
             if self.pending_option.enabled(DO + opt):
                 self.pending_option[DO + opt] = False
+
+        for callback in self.will_callbacks.get(opt, ()):
+            callback(opt)
 
     def handle_wont(self, opt: bytes) -> None:
         """
@@ -3199,7 +3323,8 @@ class TelnetWriter:
         payload = b"".join(buf)
         encoding = self.environ_encoding or "utf-8"
         parts = zmp_decode(payload, encoding=encoding)
-        self._ext_callback[ZMP](parts)
+        if parts:
+            self._ext_callback[ZMP](*parts)
 
     def _handle_sb_aardwolf(self, buf: collections.deque[bytes]) -> None:
         """

@@ -15,6 +15,7 @@ from tests.functional.adapter.indexes.fixtures import (
 INDEX_DEFINITION_PATTERN = re.compile(r"\((.*?)\)")
 
 
+@pytest.mark.skip_database_type("ducklake", reason="DuckLake does not support indexes")
 class TestIndex:
     @pytest.fixture(scope="class")
     def models(self):
@@ -73,6 +74,20 @@ class TestIndex:
                 {"columns": "column_a, column_b", "unique": True},
             ]
             assert len(indexes) == len(expected)
+
+            # Regression for #660: full-refresh must clean up the __dbt_backup table.
+            backup_tables = project.run_sql(
+                f"""
+                SELECT table_name
+                FROM information_schema.tables
+                WHERE lower(table_schema) = lower('{unique_schema}')
+                  AND table_name LIKE '%__dbt_backup'
+                """,
+                fetch="all",
+            )
+            assert backup_tables == [], (
+                f"__dbt_backup tables leaked after run: {backup_tables}"
+            )
 
     def test_seed(self, project, unique_schema):
         for additional_argument in [[], [], ["--full-refresh"]]:

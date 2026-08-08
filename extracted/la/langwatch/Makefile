@@ -102,13 +102,13 @@ ensure-openapi-python-client:
 
 generate/api-client: ensure-openapi-python-client
 	@echo "Generating OpenAPI spec..."
-	@cd ../langwatch && pnpm run task generateOpenAPISpec
+	@cd ../../platform/app && pnpm run task generateOpenAPISpec
 	@echo "Deleting old API client..."
 	@rm -rf src/langwatch/generated/langwatch_rest_api_client
 	@echo "Building API client..."
 	@mkdir -p .tmp/api-client
 	@python3 scripts/spec-for-python-generator.py \
-		../langwatch/src/app/api/openapiLangWatch.json \
+		../../platform/app/src/app/api/openapiLangWatch.json \
 		.tmp/openapiLangWatch.python.json
 	uv run openapi-python-client generate \
 		--path .tmp/openapiLangWatch.python.json \

@@ -35,7 +35,7 @@ import msgpack
 import zmq
 import zmq.asyncio
 
-from verifiers.v1.env import EnvConfig
+from verifiers.v1.configs.env import EnvConfig
 from verifiers.v1.serve.server import EnvServer
 from verifiers.v1.serve.types import HealthResponse, RunGroupRequest
 
@@ -261,12 +261,11 @@ class EnvServerPool:
         logger.info("EnvServerPool down")
 
 
-def env_config_data(config) -> dict:
-    """The picklable `EnvConfig` fields of a (possibly dynamically-narrowed, unpicklable)
-    config object — ship this across a process boundary, then rebuild via
-    `EnvConfig.model_validate` (its validator re-resolves the concrete taskset/harness)."""
-    data = config.model_dump(mode="json")
-    return {k: v for k, v in data.items() if k in EnvConfig.model_fields}
+def env_config_data(env: EnvConfig) -> dict:
+    """A picklable dict of a (possibly dynamically-narrowed, unpicklable) env config —
+    ship this across a process boundary, then rebuild via `resolve_env_config`
+    (re-narrowing to the env's concrete config class)."""
+    return env.model_dump(mode="json")
 
 
 def serve_env(
@@ -313,9 +312,10 @@ def serve_env(
             if (
                 "config" in server_kwargs
             ):  # dict-ify for the workers (config_data is picklable)
-                server_kwargs = {
-                    "config_data": env_config_data(server_kwargs["config"])
-                }
+                server_kwargs = {**server_kwargs}
+                server_kwargs["config_data"] = env_config_data(
+                    server_kwargs.pop("config")
+                )
             pool = EnvServerPool(
                 server_kwargs,
                 max_workers,
@@ -334,9 +334,12 @@ def serve_env(
             if (
                 "config_data" in server_kwargs
             ):  # rebuild the env config for an in-process server
-                server_kwargs = {
-                    "config": EnvConfig.model_validate(server_kwargs["config_data"])
-                }
+                from verifiers.v1.utils.loaders import resolve_env_config
+
+                server_kwargs = {**server_kwargs}
+                server_kwargs["config"] = resolve_env_config(
+                    server_kwargs.pop("config_data")
+                )
             cls = LegacyEnvServer if legacy else EnvServer
             cls.run_server(
                 address=address, address_queue=address_queue, **server_kwargs

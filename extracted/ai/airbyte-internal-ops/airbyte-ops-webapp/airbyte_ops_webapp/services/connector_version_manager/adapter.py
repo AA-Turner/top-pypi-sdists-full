@@ -30,6 +30,7 @@ from airbyte_ops_mcp.connector_ops.rollouts.constants import CustomerTier
 from airbyte_ops_mcp.gcp_auth import get_gcp_credentials_for_tier_gcs_ro
 from airbyte_ops_mcp.prod_db_access.queries import (
     query_actor_population_by_org,
+    query_connector_rollout_siblings,
     query_connector_rollouts,
     query_connector_rollouts_for_connector,
     query_connector_versions,
@@ -37,16 +38,20 @@ from airbyte_ops_mcp.prod_db_access.queries import (
     query_org_connector_pins,
     query_org_pin_stats,
     query_raw_pins_for_version,
+    query_rollout_pinned_actor_sync_by_version,
     query_versions_with_pins,
 )
 from airbyte_ops_mcp.registry._constants import PROD_METADATA_SERVICE_BUCKET_NAME
 from airbyte_ops_mcp.registry.yank import get_yank_marker, list_yanked_versions
-from airbyte_ops_mcp.tier_cache import resolve_workspace
+from airbyte_ops_mcp.tier_cache import (
+    enrich_rows_by_org,
+    filter_rows_by_tier,
+    resolve_workspace,
+)
 from airbyte_ops_mcp.version_summaries import (
     PopulationSummary,
     TierSummary,
     summarize_population,
-    summarize_sync_info,
 )
 
 from airbyte_ops_webapp.models import (
@@ -318,6 +323,51 @@ class OpsMcpAdapter:
         )
         return tuple(self._rollout_from_row(row) for row in rollout_rows)
 
+    def list_active_rollouts_with_siblings(
+        self,
+        connector_id: str,
+    ) -> tuple[ConnectorRollout, ...]:
+        """List active rollouts and all sibling tiers for a connector's RCs."""
+        active_rows = query_connector_rollouts_for_connector(
+            actor_definition_id=connector_id,
+            active_only=True,
+        )
+        pairs = [
+            (
+                str(row.get("actor_definition_id") or ""),
+                str(row.get("release_candidate_version_id") or ""),
+            )
+            for row in active_rows
+            if row.get("actor_definition_id")
+            and row.get("release_candidate_version_id")
+        ]
+        sibling_rows = query_connector_rollout_siblings(pairs)
+        rows_by_id = {
+            str(row.get("rollout_id") or ""): row
+            for row in sibling_rows + active_rows
+            if row.get("rollout_id")
+        }
+        rows_by_pair: dict[tuple[str, str], list[Mapping[str, object]]] = {}
+        for row in sibling_rows:
+            pair = (
+                str(row.get("actor_definition_id") or ""),
+                str(row.get("release_candidate_version_id") or ""),
+            )
+            rows_by_pair.setdefault(pair, []).append(row)
+        return tuple(
+            self._rollout_from_row(
+                row,
+                sibling_rows=rows_by_pair.get(
+                    (
+                        str(row.get("actor_definition_id") or ""),
+                        str(row.get("release_candidate_version_id") or ""),
+                    ),
+                    [],
+                ),
+            )
+            for row in rows_by_id.values()
+        )
+
     def list_progressive_rollouts(
         self,
         *,
@@ -326,6 +376,50 @@ class OpsMcpAdapter:
         """List active progressive rollouts across connector definitions."""
         rollout_rows = query_connector_rollouts(active_only=True, limit=limit)
         return tuple(self._rollout_from_row(row) for row in rollout_rows)
+
+    def list_progressive_rollouts_with_siblings(
+        self,
+        *,
+        limit: int | None = None,
+    ) -> tuple[ConnectorRollout, ...]:
+        """List active rollouts and all sibling tiers for their RCs."""
+        active_rows = query_connector_rollouts(active_only=True, limit=limit)
+        pairs = [
+            (
+                str(row.get("actor_definition_id") or ""),
+                str(row.get("release_candidate_version_id") or ""),
+            )
+            for row in active_rows
+            if row.get("actor_definition_id")
+            and row.get("release_candidate_version_id")
+        ]
+        sibling_rows = query_connector_rollout_siblings(pairs)
+        rows_by_id = {
+            str(row.get("rollout_id") or ""): row
+            for row in sibling_rows + active_rows
+            if row.get("rollout_id")
+        }
+        rows_to_parse = list(rows_by_id.values())
+        rows_by_pair: dict[tuple[str, str], list[Mapping[str, object]]] = {}
+        for row in sibling_rows:
+            pair = (
+                str(row.get("actor_definition_id") or ""),
+                str(row.get("release_candidate_version_id") or ""),
+            )
+            rows_by_pair.setdefault(pair, []).append(row)
+        return tuple(
+            self._rollout_from_row(
+                row,
+                sibling_rows=rows_by_pair.get(
+                    (
+                        str(row.get("actor_definition_id") or ""),
+                        str(row.get("release_candidate_version_id") or ""),
+                    ),
+                    [],
+                ),
+            )
+            for row in rows_to_parse
+        )
 
     def list_version_pins(
         self,
@@ -346,43 +440,163 @@ class OpsMcpAdapter:
         pins = [self._pin_row_from_db(row) for row in page]
         return pins, total
 
-    def get_rollout_sync_summary(self, rollout_id: str) -> RolloutSyncSummary:
+    def get_rollout_sync_summary(
+        self,
+        rollout_id: str,
+        *,
+        tier: str = "",
+        is_destination: bool,
+    ) -> RolloutSyncSummary:
         """Build health + population summaries for an active rollout.
 
-        Calls the platform `get_actor_sync_info` endpoint — the cheapest correct
-        path for an active rollout, since it filters syncs to the RC version and
-        returns per-actor success/failure counts plus selection totals — and
-        rolls the response up with `summarize_sync_info`. Returns empty strings
-        when `rollout_id` is missing or the call fails, so the caller can render
-        the rollout card without the summaries.
+        Reads the replica-backed actor sync rows, applies the cached customer-tier
+        filter, and computes the webapp aggregate. Returns empty counts when
+        `rollout_id` is missing or a query fails.
         """
         if not rollout_id:
             return RolloutSyncSummary()
         try:
-            sync_info = api_client.get_actor_sync_info(
-                rollout_id=rollout_id,
-                config_api_root=self.config_api_root,
-                client_id=self.client_id,
-                client_secret=self.client_secret,
-                bearer_token=self.bearer_token,
+            rollout_rows: list[dict[str, object]] | None = None
+            if not tier:
+                rollout_rows = query_connector_rollouts(rollout_id=rollout_id)
+                rollout = rollout_rows[0] if rollout_rows else {}
+                tier = str(rollout.get("tag") or "")
+                if not tier:
+                    rollout_filters = rollout.get("filters")
+                    tier = (
+                        self._tier_from_filters(rollout_filters)
+                        if rollout_filters
+                        else "ALL"
+                    )
+            tier = tier or "ALL"
+            rollout_parameters = self._resolve_rollout_sync_parameters(
+                rollout_id,
+                rollout_rows=rollout_rows,
             )
-        except (PyAirbyteInputError, api_client.requests.RequestException):
+            if rollout_parameters is None:
+                return RolloutSyncSummary()
+            enriched_rows = self._get_rollout_sync_rows(
+                rollout_parameters,
+                is_destination=is_destination,
+            )
+        except (sqlalchemy.exc.SQLAlchemyError, RuntimeError, ValueError):
             return RolloutSyncSummary()
+        if tier == "ALL":
+            return self._rollout_sync_summary_from_rows(enriched_rows)
+        return self._rollout_sync_summary_from_rows(
+            filter_rows_by_tier(enriched_rows, tier)
+        )
 
-        summary = summarize_sync_info(sync_info)
+    def get_rollout_sync_summaries_by_tier(
+        self,
+        rollout_id: str,
+        *,
+        is_destination: bool,
+    ) -> dict[str, RolloutSyncSummary]:
+        """Return one replica-backed rollout summary per customer tier."""
+        try:
+            rollout_parameters = self._resolve_rollout_sync_parameters(rollout_id)
+            if rollout_parameters is None:
+                return {}
+            enriched_rows = self._get_rollout_sync_rows(
+                rollout_parameters,
+                is_destination=is_destination,
+            )
+        except (sqlalchemy.exc.SQLAlchemyError, RuntimeError, ValueError):
+            return {}
+        rows_by_tier: dict[str, list[dict[str, object]]] = {}
+        for row in enriched_rows:
+            rows_by_tier.setdefault(
+                str(row.get("customer_tier") or CustomerTier.TIER_2.value),
+                [],
+            ).append(row)
+        return {
+            tier: self._rollout_sync_summary_from_rows(rows)
+            for tier, rows in rows_by_tier.items()
+        }
+
+    @staticmethod
+    def _resolve_rollout_sync_parameters(
+        rollout_id: str,
+        *,
+        rollout_rows: list[dict[str, object]] | None = None,
+    ) -> tuple[str, str, datetime] | None:
+        rollout_rows = (
+            rollout_rows
+            if rollout_rows is not None
+            else query_connector_rollouts(rollout_id=rollout_id)
+        )
+        if not rollout_rows:
+            return None
+        rollout = rollout_rows[0]
+        actor_definition_id = str(rollout.get("actor_definition_id") or "")
+        release_candidate_version_id = str(
+            rollout.get("release_candidate_version_id") or ""
+        )
+        if not actor_definition_id or not release_candidate_version_id:
+            return None
+        rollout_created_at = rollout.get("earliest_created_at")
+        if rollout_created_at is None:
+            return None
+        return (
+            actor_definition_id,
+            release_candidate_version_id,
+            rollout_created_at,
+        )
+
+    @staticmethod
+    def _get_rollout_sync_rows(
+        rollout_parameters: tuple[str, str, datetime],
+        *,
+        is_destination: bool,
+    ) -> list[dict[str, object]]:
+        pinned_rows = query_rollout_pinned_actor_sync_by_version(
+            *rollout_parameters,
+            is_destination=is_destination,
+        )
+        gcs_credentials = get_gcp_credentials_for_tier_gcs_ro()
+        return enrich_rows_by_org(
+            rows=[dict(row) for row in pinned_rows],
+            credentials=gcs_credentials,
+            allow_degraded=False,
+        )
+
+    @staticmethod
+    def _rollout_sync_summary_from_rows(
+        tier_pinned_rows: list[dict[str, object]],
+    ) -> RolloutSyncSummary:
+        if not tier_pinned_rows:
+            return RolloutSyncSummary()
+        healthy_count = sum(
+            int(row.get("num_connections_succeeded", 0) or 0) > 0
+            for row in tier_pinned_rows
+        )
+        unhealthy_count = sum(
+            int(row.get("num_connections_succeeded", 0) or 0) == 0
+            and int(row.get("num_connections_failed", 0) or 0) > 0
+            for row in tier_pinned_rows
+        )
+        awaiting_count = sum(
+            bool(row.get("has_connection_on_rollout_version"))
+            and int(row.get("num_connections_succeeded", 0) or 0) == 0
+            and int(row.get("num_connections_failed", 0) or 0) == 0
+            for row in tier_pinned_rows
+        )
+        disabled_count = sum(
+            not bool(row.get("has_connection_on_rollout_version"))
+            for row in tier_pinned_rows
+        )
         health = (
-            f"{summary.healthy} healthy | "
-            f"{summary.unhealthy} unhealthy | "
-            f"{summary.awaiting} awaiting | "
-            f"{summary.disabled} disabled"
+            f"{healthy_count} healthy | "
+            f"{unhealthy_count} unhealthy | "
+            f"{awaiting_count} awaiting | "
+            f"{disabled_count} disabled"
         )
         return RolloutSyncSummary(
             health=health,
-            num_pinned=summary.num_pinned,
-            num_eligible=summary.num_eligible,
-            num_actors=summary.num_actors,
-            num_healthy=summary.healthy,
-            num_unhealthy=summary.unhealthy,
+            num_pinned=len(tier_pinned_rows),
+            num_healthy=healthy_count,
+            num_unhealthy=unhealthy_count,
         )
 
     def get_connector_population(
@@ -1024,9 +1238,28 @@ class OpsMcpAdapter:
         return tier
 
     @staticmethod
-    def _rollout_from_row(row: Mapping[str, object]) -> ConnectorRollout:
+    def _rollout_from_row(
+        row: Mapping[str, object],
+        *,
+        sibling_rows: list[Mapping[str, object]] | None = None,
+    ) -> ConnectorRollout:
         docker_repository = OpsMcpAdapter._string_field(row, "rc_docker_repository")
         rc_pin_count_raw = row.get("rc_pin_count", 0)
+        declared_tag = OpsMcpAdapter._string_field(row, "tag")
+        tier = declared_tag or OpsMcpAdapter._tier_from_filters(row.get("filters"))
+        if not declared_tag and not row.get("filters"):
+            has_explicit_progressive_sibling = any(
+                sibling.get("tag") in {"TIER_2", "TIER_1"}
+                or OpsMcpAdapter._tier_from_filters(sibling.get("filters"))
+                in {"TIER_2", "TIER_1"}
+                for sibling in sibling_rows or []
+                if sibling is not row
+            )
+            tier = (
+                CustomerTier.TIER_0.value
+                if has_explicit_progressive_sibling
+                else CustomerTier.ALL.value
+            )
         return ConnectorRollout(
             rollout_id=OpsMcpAdapter._string_field(row, "rollout_id"),
             connector_id=OpsMcpAdapter._string_field(row, "actor_definition_id"),
@@ -1058,11 +1291,15 @@ class OpsMcpAdapter:
             updated_at=OpsMcpAdapter._string_field(row, "updated_at"),
             rollout_strategy=OpsMcpAdapter._string_field(row, "rollout_strategy"),
             rc_pin_count=int(rc_pin_count_raw) if rc_pin_count_raw else 0,
-            tier=OpsMcpAdapter._tier_from_filters(row.get("filters")),
+            tier=tier,
+            tier_is_explicit=bool(row.get("tag") or row.get("filters")),
             release_candidate_version_id=OpsMcpAdapter._string_field(
                 row,
                 "release_candidate_version_id",
             ),
+            error_msg=OpsMcpAdapter._string_field(row, "error_msg"),
+            failed_reason=OpsMcpAdapter._string_field(row, "failed_reason"),
+            paused_reason=OpsMcpAdapter._string_field(row, "paused_reason"),
         )
 
     @staticmethod

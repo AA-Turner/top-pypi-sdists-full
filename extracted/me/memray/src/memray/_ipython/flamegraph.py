@@ -20,6 +20,11 @@ from memray import FileReader
 from memray.commands.common import warn_if_not_enough_symbols
 from memray.reporters.flamegraph import FlameGraphReporter
 
+_typed_cell_magic = cast(
+    Callable[[Callable[..., Any]], Callable[..., Any]],
+    cell_magic,
+)
+
 TEMPLATE = """\
 from memray import Tracker, FileFormat
 with Tracker(
@@ -133,7 +138,7 @@ def argument_parser() -> argparse.ArgumentParser:
 
 @magics_class
 class FlamegraphMagics(Magics):
-    @cell_magic  # type: ignore
+    @_typed_cell_magic
     def memray_flamegraph(self, line: str, cell: str) -> None:
         """Memory profile the code in the cell and display a flame graph."""
         if self.shell is None:
@@ -159,6 +164,8 @@ class FlamegraphMagics(Magics):
         results_dir.mkdir(exist_ok=True)
 
         tempdir = Path(tempfile.mkdtemp(dir=results_dir))
+        if tempdir.is_absolute():
+            tempdir = tempdir.relative_to(Path.cwd())
         dump_file = Path(tempdir) / "memray.dump"
         code = TEMPLATE.format(
             dump_file=dump_file,
@@ -229,7 +236,7 @@ class FlamegraphMagics(Magics):
                 )
 
         assert reporter is not None
-        flamegraph_path = Path(tempdir) / "flamegraph.html"
+        flamegraph_path = tempdir / "flamegraph.html"
         with open(flamegraph_path, "w") as f:
             reporter.render(
                 outfile=f,
@@ -240,7 +247,7 @@ class FlamegraphMagics(Magics):
             )
         dump_file.unlink()
         pprint(f"Results saved to [bold cyan]{flamegraph_path}")
-        _display_iframe(IFrame(flamegraph_path, width="100%", height="600"))
+        _display_iframe(IFrame(str(flamegraph_path), width="100%", height="600"))
 
 
 assert FlamegraphMagics.memray_flamegraph.__doc__ is not None

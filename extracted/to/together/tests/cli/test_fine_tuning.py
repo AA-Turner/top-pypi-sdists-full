@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import re
 import json
 import importlib
 from typing import cast
@@ -13,6 +14,16 @@ from respx import MockRouter
 from respx.models import Call
 
 from tests.cli.utils import CliRunner
+
+_ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
+
+
+def _normalize_cli_help(output: str) -> str:
+    # Rich help wraps table cells across panel borders and can interleave the
+    # type/description columns with ANSI padding; normalize for both agent
+    # (plain) and human (rich) formatters.
+    return " ".join(_ANSI_RE.sub("", output).replace("│", " ").split())
+
 
 _ft_download_mod = importlib.import_module("together.lib.cli.api.fine_tuning.download")
 
@@ -70,6 +81,7 @@ _FT_CHECKPOINT = {
     "checkpoint": "model",
     "created_at": "2024-01-01T00:00:00Z",
     "object_id": "ml-checkpoint",
+    "object_name": "project-slug/model-checkpoint",
     "object_revision_id": "rv-checkpoint",
     "path": "/p",
     "step": 5,
@@ -103,6 +115,16 @@ _FT_PREVIEW_BODY = {
     ],
 }
 
+_FT_TOKENIZED_DATASET_URL = "https://download.example/tokenized-dataset.tar.gz"
+
+_FT_TOKENIZED_DATASET_BODY = {
+    "content_type": "application/gzip",
+    "expires_at": "2024-01-01T01:00:00Z",
+    "filename": "tokenized-dataset.tar.gz",
+    "size": len(b"tokenized-bytes"),
+    "url": _FT_TOKENIZED_DATASET_URL,
+}
+
 _MODEL_LIMITS_BODY = {
     "max_num_epochs": 10,
     "max_learning_rate": 1,
@@ -119,6 +141,17 @@ _FT_CREATE_BODY = {
 
 
 class TestFineTuningCreate:
+    def test_create_help_describes_lora_options(self, cli_runner: CliRunner) -> None:
+        result = cli_runner.invoke(["fine-tuning", "create", "--help"])
+        output = _normalize_cli_help(result.output)
+
+        assert result.exit_code == 0
+        assert "Rank of the LoRA adapter matrices" in output
+        assert "Dropout probability applied to LoRA adapter inputs" in output
+        assert "Scaling factor applied to the LoRA adapter weights" in output
+        assert "MoE expert modules" in output
+        assert "adapter-only output" in output
+
     @pytest.mark.respx(base_url=base_url)
     def test_create_handles_unavailable_price_estimation(self, respx_mock: MockRouter, cli_runner: CliRunner) -> None:
         respx_mock.get("/fine-tunes/models/limits").mock(
@@ -153,6 +186,39 @@ class TestFineTuningCreate:
         assert "Do you want to proceed?" not in result.output
         assert "ft-created" in result.output
         assert estimate.calls
+        assert create.calls
+
+    @pytest.mark.respx(base_url=base_url)
+    def test_create_handles_missing_estimated_price(self, respx_mock: MockRouter, cli_runner: CliRunner) -> None:
+        respx_mock.get("/fine-tunes/models/limits").mock(return_value=httpx.Response(200, json=_MODEL_LIMITS_BODY))
+        respx_mock.post("/fine-tunes/estimate-price").mock(
+            return_value=httpx.Response(
+                200,
+                json={
+                    "estimation_available": True,
+                    "estimated_total_price": None,
+                    "allowed_to_proceed": True,
+                },
+            )
+        )
+        create = respx_mock.post("/fine-tunes").mock(return_value=httpx.Response(200, json=_FT_CREATE_BODY))
+
+        result = cli_runner.invoke(
+            [
+                "fine-tuning",
+                "create",
+                "--training-file",
+                "file-train",
+                "--model",
+                "meta-llama/Llama-3-8b",
+                "--non-interactive",
+            ],
+        )
+
+        output = " ".join(result.output.split())
+        assert result.exit_code == 0
+        assert "Price estimation is not available for this job." in output
+        assert "ft-created" in result.output
         assert create.calls
 
     @pytest.mark.respx(base_url=base_url)
@@ -370,8 +436,23 @@ class TestFineTuningEventsAndCheckpoints:
         assert result.exit_code == 0
         assert "ft-1:5" in result.output
         assert "Registry artifacts" in result.output
-        assert "ml-checkpoint@rv-checkpoint" in result.output
+        assert "project-slug/model-checkpoint" in result.output
         assert "intermediate" in result.output
+        # The revision is deliberately not rendered; it stays available in --json output.
+        assert "rv-checkpoint" not in result.output
+
+    @pytest.mark.respx(base_url=base_url)
+    def test_list_checkpoints_table_falls_back_to_object_id(
+        self, respx_mock: MockRouter, cli_runner: CliRunner
+    ) -> None:
+        checkpoint = {**_FT_CHECKPOINT, "object_name": None}
+        respx_mock.get("/fine-tunes/ft-1/checkpoints").mock(
+            return_value=httpx.Response(200, json={"data": [checkpoint]})
+        )
+        result = cli_runner.invoke(["fine-tuning", "list-checkpoints", "ft-1"])
+        assert result.exit_code == 0
+        assert "ml-checkpoint" in result.output
+        assert "rv-checkpoint" not in result.output
 
     @pytest.mark.respx(base_url=base_url)
     def test_list_checkpoints_empty_message(self, respx_mock: MockRouter, cli_runner: CliRunner) -> None:
@@ -561,3 +642,70 @@ class TestFineTuningDownload:
             )
 
         assert result.exit_code == 0
+
+
+class TestFineTuningDownloadTokenizedDataset:
+    @pytest.mark.respx(base_url=base_url)
+    def test_download_tokenized_dataset_writes_file_json(
+        self, respx_mock: MockRouter, tmp_path: Path, cli_runner: CliRunner
+    ) -> None:
+        metadata = respx_mock.get("/fine-tunes/ft-abcd-12/download-tokenized-dataset").mock(
+            return_value=httpx.Response(200, json=_FT_TOKENIZED_DATASET_BODY)
+        )
+        download = respx_mock.get(_FT_TOKENIZED_DATASET_URL).mock(
+            return_value=httpx.Response(200, content=b"tokenized-bytes")
+        )
+
+        result = cli_runner.invoke(
+            [
+                "fine-tuning",
+                "download-tokenized-dataset",
+                "ft-abcd-12",
+                "--output-dir",
+                str(tmp_path),
+                "--json",
+            ]
+        )
+
+        assert result.exit_code == 0
+        out_path = tmp_path / "tokenized-dataset.tar.gz"
+        assert out_path.read_bytes() == b"tokenized-bytes"
+        payload = json.loads(result.output)
+        assert payload == {
+            "object": "local",
+            "id": "ft-abcd-12",
+            "filename": str(out_path),
+            "size": len(b"tokenized-bytes"),
+        }
+        assert _FT_TOKENIZED_DATASET_URL not in result.output
+        assert metadata.calls
+        assert download.calls
+
+    @pytest.mark.respx(base_url=base_url)
+    def test_download_tokenized_dataset_rejects_path_traversal_filename(
+        self, respx_mock: MockRouter, tmp_path: Path, cli_runner: CliRunner
+    ) -> None:
+        body = {**_FT_TOKENIZED_DATASET_BODY, "filename": "../../outside.tar.gz"}
+        respx_mock.get("/fine-tunes/ft-abcd-12/download-tokenized-dataset").mock(
+            return_value=httpx.Response(200, json=body)
+        )
+        respx_mock.get(_FT_TOKENIZED_DATASET_URL).mock(return_value=httpx.Response(200, content=b"tokenized-bytes"))
+        out_dir = tmp_path / "downloads"
+
+        result = cli_runner.invoke(
+            [
+                "fine-tuning",
+                "download-tokenized-dataset",
+                "ft-abcd-12",
+                "--output-dir",
+                str(out_dir),
+            ]
+        )
+
+        assert result.exit_code == 0
+        saved = list(out_dir.iterdir())
+        assert len(saved) == 1
+        assert saved[0].is_file()
+        assert saved[0].read_bytes() == b"tokenized-bytes"
+        assert saved[0].resolve().is_relative_to(out_dir.resolve())
+        assert not (tmp_path / "outside.tar.gz").exists()

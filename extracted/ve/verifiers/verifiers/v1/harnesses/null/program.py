@@ -1,6 +1,6 @@
 # /// script
 # requires-python = ">=3.11"
-# dependencies = ["openai", "mcp", "httpx", "tenacity"]
+# dependencies = ["openai", "mcp>=1.24.0,<2", "httpx", "tenacity"]
 # ///
 """The interception endpoint and secret arrive through argv rather than the environment."""
 
@@ -15,7 +15,7 @@ from openai import AsyncOpenAI
 from tenacity import AsyncRetrying, stop_after_attempt, wait_exponential_jitter
 
 MCP_CALL_ATTEMPTS = 6
-MCP_TIMEOUT = httpx.Timeout(600.0, connect=5.0)  # the OpenAI SDK client defaults
+MCP_TIMEOUT = 600.0
 
 
 async def chat(
@@ -43,7 +43,8 @@ async def mcp_session(spec: dict):
     try:
         http_client = await stack.enter_async_context(
             create_mcp_http_client(
-                headers=spec.get("headers") or None, timeout=MCP_TIMEOUT
+                headers=spec.get("headers") or None,
+                timeout=httpx.Timeout(spec.get("timeout", MCP_TIMEOUT), connect=5.0),
             )
         )
         read, write, *_ = await stack.enter_async_context(
@@ -158,7 +159,11 @@ async def main() -> None:
         payload = path.read_bytes()
         path.unlink()
         initial = json.loads(payload)
-    client = AsyncOpenAI(base_url=args.base_url, api_key=args.api_key)
+    client = AsyncOpenAI(
+        base_url=args.base_url,
+        api_key=args.api_key,
+        timeout=httpx.Timeout(None, connect=5.0),
+    )
     config = json.loads(args.mcp_config or "{}")
     if config.get("mcpServers"):
         # Bound only tool enumeration; each session is opened and closed within this task.

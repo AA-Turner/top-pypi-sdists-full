@@ -2,25 +2,25 @@
 
 One `RolloutSession` per rollout, registered on an interception server under the rollout's
 secret. The rollout constructs it (model ctx, trace, task `@stop`s, limits) and the server
-drives it: routes each intercepted model call to it, runs `refused()` before each turn,
-injects the user simulator's replies, and stashes the real failure on `error`.
-`RolloutLimits` is the framework's per-rollout budget (turns / tokens), checked between
-turns.
+drives it: assigns its model client at register, routes each intercepted model call to it,
+runs `refused()` before each turn, and stashes the real failure on `error`. `RolloutLimits` is the framework's per-rollout
+budget (turns / tokens), checked between turns.
 """
 
 import asyncio
 import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
+from functools import cached_property
 from typing import TYPE_CHECKING
 
-from verifiers.v1.clients import ModelContext
+from pydantic import TypeAdapter
+
+from verifiers.v1.clients import Client, ModelContext
 from verifiers.v1.trace import Trace
-from verifiers.v1.types import Messages
 
 if TYPE_CHECKING:
     from verifiers.v1.errors import RolloutError
-    from verifiers.v1.mcp import Respond
 
 logger = logging.getLogger(__name__)
 
@@ -67,16 +67,10 @@ class RolloutSession:
     trace: Trace
     stops: list[Callable[[Trace], Awaitable[bool]]] = field(default_factory=list)
     limits: RolloutLimits = field(default_factory=RolloutLimits)
-    user: "Respond | None" = None
-    """A user simulator the rollout sets before the harness runs (see `verifiers.v1.mcp.user`).
-    When set, each model turn with no tool call is followed by the simulator's reply,
-    injected as a user turn, and the model is re-prompted — all within one program request,
-    transparently to the harness."""
-    opening: Messages | None = None
-    """Cached opening `respond("")` messages for a no-prompt task. Computed once and re-injected on
-    every request until the first turn lands on the trace — so a retried opening request (e.g. the
-    harness SDK retrying a transient model 502, before any turn is recorded) never calls `respond`
-    twice and advances the simulator's queue past the opening."""
+    client: Client | None = None
+    """The model client serving this rollout's turns. The interception server assigns it at
+    `register` (one server-owned client per distinct endpoint config), so every rollout it
+    multiplexes shares one keepalive connection pool instead of opening its own."""
     error: "RolloutError | None" = None
     """The latest unresolved model-call failure. The harness only sees it as an HTTP error
     (and may swallow it, or exit non-zero), so the rollout re-raises this original error once the
@@ -99,11 +93,43 @@ class RolloutSession:
     covers a retry after the attempt finished). Because a slow turn is coalesced rather than
     re-sampled, retries stay safe without an inflated client timeout. The future resolves to the
     served response, or to None if the attempt produced no servable response (error/refuse)."""
+    released: bool = False
+    """Set when the rollout unregisters the session: the trace is sealed (its conclusion is
+    what scored and persisted), so a handler still in flight must not commit turns, record
+    calls, or write state onto it — the in-memory trace must stay what the run produced."""
+    tasks: set["asyncio.Task"] = field(default_factory=set)
+    """Handler tasks currently serving this session. aiohttp does not cancel a handler when
+    its client disconnects, so a request whose program died at teardown would keep driving
+    the exchange (upstream call, simulator turn) — unregistering cancels these instead."""
+
+    @cached_property
+    def state_adapter(self) -> TypeAdapter:
+        """The rollout's state codec, built only when a state channel is used."""
+        return TypeAdapter(type(self.trace.state))
+
+    def adopt(self, task: "asyncio.Task | None") -> None:
+        """Track a handler task serving this session, for cancellation at release.
+        Callers adopt in the same synchronous stretch that fetched the session, so
+        `release()` can't interleave; the released check keeps the seal even if a
+        future caller breaks that invariant (an await before adopting)."""
+        if task is None:
+            return
+        if self.released:  # sealed while this handler was scheduled — don't serve
+            task.cancel()
+            return
+        self.tasks.add(task)
+        task.add_done_callback(self.tasks.discard)
+
+    def release(self) -> None:
+        """Seal the session: no further trace mutation, and in-flight handlers cancel."""
+        self.released = True
+        for task in list(self.tasks):
+            task.cancel()
 
     async def refused(self) -> str | None:
         """The framework's limits (turns / token budget) and `@stop` checks, run before each
         model call. Sets the stop condition and returns its name, else None. A refused first
-        call halts the harness (its model call errors out); Harness.run treats it as clean. A task
+        call halts the harness (its model call errors out); HarnessSession.turn treats it as clean. A task
         that ends a trajectory from `trace.state` does it with its own `@stop` (run here generically),
         so the interception server holds no opinion about the state's contents."""
         if (limit := self.limits.reached(self.trace)) is not None:

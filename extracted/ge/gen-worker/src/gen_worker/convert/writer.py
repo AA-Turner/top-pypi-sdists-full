@@ -30,10 +30,12 @@ import struct
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Iterator, Mapping, Optional, Sequence
 import os
+from gen_worker.models.cozy_cas import fsync_dir, fsync_file
 from gen_worker.models.loading import (_fp8_block_windows, _fp8_block_windows_whole)
 from fnmatch import fnmatch
 import random
 from gen_worker.models.w8a8 import detect_w8a8_artifact
+from gen_worker.models.safetensors_header import header_len_ok
 
 if TYPE_CHECKING:
     import torch
@@ -117,10 +119,18 @@ class IncrementalSafetensorsWriter:
     """Write a safetensors file one tensor at a time (no full dict in memory).
 
     ``metadata`` (string-valued) is emitted as the header's ``__metadata__``.
+
+    pgw#1003: bytes go to a same-directory temp and reach ``output_path`` only
+    via fsync -> os.replace -> fsync(dir), the durable-finalize shape the
+    download side already uses (``s3_transfer.py``, ``models/cozy_cas.py``).
+    A hard-killed pod therefore leaves no truncated cast output under the
+    real name — the output either exists whole or does not exist. An
+    incomplete tensor set is never committed either.
     """
 
     def __init__(self, output_path: Path, *, metadata: Mapping[str, str] | None = None) -> None:
         self._output_path = Path(output_path)
+        self._temp_path = self._output_path.with_name(f".{self._output_path.name}.partial")
         self._meta: list[tuple[str, str, list[int]]] = []  # (name, st_dtype, shape)
         self._metadata = {str(k): str(v) for k, v in (metadata or {}).items()}
         self._header_written = False
@@ -131,8 +141,10 @@ class IncrementalSafetensorsWriter:
     def __enter__(self) -> "IncrementalSafetensorsWriter":
         return self
 
-    def __exit__(self, *args: Any) -> None:
-        self.close()
+    def __exit__(self, exc_type: Any, exc: Any, tb: Any) -> None:
+        # A body that raised produced a partial file: discard it rather than
+        # publish a truncated artifact under the real name.
+        self.close(commit=exc_type is None)
 
     def add_tensor_metadata(self, name: str, *, dtype: str, shape: list[int]) -> None:
         if self._header_written:
@@ -143,7 +155,7 @@ class IncrementalSafetensorsWriter:
         if self._header_written:
             raise RuntimeError("header already written")
         self._output_path.parent.mkdir(parents=True, exist_ok=True)
-        self._fh = open(self._output_path, "wb")
+        self._fh = open(self._temp_path, "wb")
         header: dict[str, Any] = {}
         if self._metadata:
             # Sorted for byte-determinism: safe_open().metadata() iterates in
@@ -184,10 +196,37 @@ class IncrementalSafetensorsWriter:
         self._fh.write(data)
         self._written.add(name)
 
-    def close(self) -> None:
-        if self._fh is not None:
+    def close(self, *, commit: bool = True) -> None:
+        """Durably finalize (or discard) the output.
+
+        ``commit=False`` — or a tensor set that never completed — drops the
+        temp and leaves ``output_path`` absent.
+        """
+        if self._fh is None:
+            self._discard()
+            return
+        try:
+            self._fh.flush()
+        finally:
             self._fh.close()
             self._fh = None
+        complete = len(self._written) == len(self._meta)
+        if not commit or not complete:
+            if not complete and commit:
+                logger.warning(
+                    "safetensors writer: %d of %d tensors written — discarding %s",
+                    len(self._written), len(self._meta), self._output_path)
+            self._discard()
+            return
+        fsync_file(self._temp_path)
+        os.replace(self._temp_path, self._output_path)
+        fsync_dir(self._output_path.parent)
+
+    def _discard(self) -> None:
+        try:
+            self._temp_path.unlink(missing_ok=True)
+        except OSError:
+            pass
 
 
 def _tensor_to_bytes(t: "torch.Tensor") -> Any:
@@ -855,6 +894,9 @@ def component_stored_tensor_names(component_dir: Path) -> frozenset[str]:
     for f in sorted(component_dir.glob("*.safetensors")):
         with open(f, "rb") as fh:
             header_len = struct.unpack("<Q", fh.read(8))[0]
+            if not header_len_ok(header_len):
+                raise ValueError(
+                    f"safetensors: implausible header_length={header_len} in {f.name}")
             header = json.loads(fh.read(header_len))
         names.update(k for k in header if k != "__metadata__")
     return frozenset(names)
@@ -1391,7 +1433,6 @@ def verify_w8a8_snapshot(
 # ---------------------------------------------------------------------------
 
 _HEADER_LEN_PREFIX = 8
-_MAX_HEADER_BYTES = 512 * 1024 * 1024
 _RAW_COPY_CHUNK = 8 * 1024 * 1024
 
 
@@ -1402,7 +1443,7 @@ def _read_safetensors_header(fd: int) -> tuple[dict, int]:
     if len(prefix) != _HEADER_LEN_PREFIX:
         raise ValueError("safetensors: short read on header length prefix")
     header_len = int.from_bytes(prefix, "little")
-    if header_len <= 0 or header_len > _MAX_HEADER_BYTES:
+    if not header_len_ok(header_len):
         raise ValueError(f"safetensors: implausible header_length={header_len}")
     body = os.read(fd, header_len)
     if len(body) != header_len:
@@ -1601,6 +1642,11 @@ def deshard_indexed_safetensors(index_path: Path) -> Path:
     # here, at ingest, instead of at load time on a GPU pod.
     with open(merged, "rb") as f:
         header_len = int.from_bytes(f.read(8), "little")
+        # bound-justified: `merged` was written by merge_safetensors_by_offset in
+        # this same call, from shard headers each already refused by
+        # header_len_ok. This length is our own output, not external input, so a
+        # second check here would bound us rather than an attacker (§4.24: a
+        # limit must name a runaway nothing else prevents).
         header = json.loads(f.read(header_len).decode("utf-8"))
     got = {k for k in header if k != "__metadata__"}
     want = {str(k) for k in weight_map}

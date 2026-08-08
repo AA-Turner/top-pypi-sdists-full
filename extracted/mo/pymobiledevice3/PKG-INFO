@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pymobiledevice3
-Version: 10.3.1
+Version: 10.4.0
 Summary: Pure python3 implementation for working with iDevices (iPhone, etc...)
 Author-email: doronz88 <doron88@gmail.com>, matan <matan1008@gmail.com>
 Maintainer-email: doronz88 <doron88@gmail.com>, matan <matan1008@gmail.com>
@@ -52,7 +52,7 @@ Requires-Dist: ifaddr
 Requires-Dist: hyperframe
 Requires-Dist: srptools
 Requires-Dist: qh3<2,>=1.0.0
-Requires-Dist: developer_disk_image>=0.0.2
+Requires-Dist: developer_disk_image>=0.3.0
 Requires-Dist: opack2
 Requires-Dist: psutil
 Requires-Dist: pytun-pmd3>=3.0.3
@@ -127,6 +127,26 @@ The docs are built from [`docs/`](docs/) with MkDocs (`mkdocs.yml`).
 ## Community
 
 Questions, ideas, or want to help? Join the community on [Discord](https://discord.gg/52mZGC3JXJ).
+
+## Sponsors
+
+A huge thank you to our sponsors for supporting this project! 💖
+
+<!-- markdownlint-disable MD013 -->
+<a href="https://www.testmuai.com/?utm_medium=sponsor&utm_source=doron">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/doronz88/pymobiledevice3/18b75e567decdb4d1f0a213ec92ba014fa35d1c0/misc/sponsors/testmu-ai-dark.svg">
+    <img alt="TestMu AI (formerly LambdaTest)" src="https://raw.githubusercontent.com/doronz88/pymobiledevice3/18b75e567decdb4d1f0a213ec92ba014fa35d1c0/misc/sponsors/testmu-ai.svg" width="320">
+  </picture>
+</a>
+<!-- markdownlint-enable MD013 -->
+
+[![SmartDust](https://github.com/smartdust-me.png?size=48)](https://smartdust.me) [**SmartDust**](https://smartdust.me)
+
+[![AnNEDoMini](https://github.com/AnNEDoMini.png?size=48)](https://github.com/AnNEDoMini) [**AnNEDoMini**](https://github.com/AnNEDoMini)
+
+Want to support the project as well? Sponsor it via [GitHub Sponsors](https://github.com/sponsors/doronz88) or
+[Ko-fi](https://ko-fi.com/doronz).
 
 ## Contributing
 

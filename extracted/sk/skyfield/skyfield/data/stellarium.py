@@ -1,25 +1,15 @@
 """Parse Stellarium data files."""
 
+import json
 from collections import namedtuple
 
 StarName = namedtuple('StarName', 'hip name')
 
 def parse_constellations(lines):
-    """Return a list of constellation outlines.
+    """Parse an old-fashioned ``constellationship.fab`` file.
 
-    Each constellation outline is a list of edges, each of which is
-    drawn between a pair of specific stars::
-
-        [
-            (name, [(star1, star2), (star3, star4), ...]),
-            (name, [(star1, star2), (star3, star4), ...]),
-            ...
-        ]
-
-    Each name is a 3-letter constellation abbreviation; each star is an
-    integer Hipparcos catalog number.  See :ref:`neowise-chart` for an
-    example of how to combine this data with the Hipparcos star catalog
-    to draw constellation lines on a chart.
+    Stellarium has deprecated this file format.  See the docstring of
+    the next function for the structure of the return value.
 
     """
     constellations = []
@@ -34,6 +24,34 @@ def parse_constellations(lines):
         edges = [(int(fields[i]), int(fields[i+1]))
                  for i in range(2, len(fields), 2)]
         constellations.append((name.decode('utf-8'), edges))
+    return constellations
+
+def parse_constellations_json(lines):
+    """Parse Stellarium ``/skycultures/modern_st/index.json`` constellations.
+
+    The return value is a Python list of tuples, each giving a 3-letter
+    constellation abbreviation and a list of line segments to be drawn
+    between pairs of stars in that constellation::
+
+        [
+            ('And', [(677, 3092), (3092, 5447), ...]),
+            ('Ant', [(53502, 51172), (51172, 46515)]),
+            ('Aps', [(72370, 81065), (80047, 81852), ...]),
+            ...
+        ]
+
+    Each star is identified by its integer Hipparcos catalog number.
+
+    """
+    j = json.load(lines)
+    constellations = []
+    for item in j['constellations']:
+        name = item['id'][-3:]
+        lines = []
+        for segment in item['lines']:
+            count = len(segment) - 1
+            lines.extend((segment[i], segment[i+1]) for i in range(count))
+        constellations.append((name, lines))
     return constellations
 
 def parse_star_names(lines):

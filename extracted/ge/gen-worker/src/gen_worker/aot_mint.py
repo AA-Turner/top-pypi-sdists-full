@@ -88,6 +88,7 @@ later step could upload.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import logging
 import os
@@ -95,11 +96,12 @@ import sys
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple
+from typing import (
+    Any, Callable, Dict, Iterator, List, Mapping, Optional, Sequence, Tuple)
 
 from . import activity as activity_mod
 from . import (
-    aot_compile_pool, aot_export_parallel, aot_export_reuse, aot_package,
+    aot_compile_pool, aot_export_parallel, aot_package,
     aot_serve, aot_wrapper_split, cell_key, graph_hash, kernel_path)
 from .aot_contract import (  # re-exported: the declaration layer's vocabulary
     ADAPTER_FORK,
@@ -107,6 +109,7 @@ from .aot_contract import (  # re-exported: the declaration layer's vocabulary
     ExportSpec,
     MintRefused,
 )
+from .aot_preconditions import LIFTED_LORA_TORCH_FLOOR, torch_version_gap
 from .compile_cache import (
     _resolve_target,
     toolchain_present,
@@ -114,6 +117,7 @@ from .compile_cache import (
 from dataclasses import replace
 import inspect
 from .models.memory import is_cuda_oom
+from . import aot_flatten
 from . import aot_inputs
 from . import aot_declaration as _decl
 from .api.export_contract import export_declaration
@@ -198,39 +202,21 @@ def raise_if_device_oom(exc: BaseException, where: str) -> None:
 # ---------------------------------------------------------------------------
 
 
-#: The lifted-LoRA mint's torch floor (pgw#723 residuals, pod 8): torch 2.9
-#: strict export refuses ``bind_views``' in-trace ``mod.lora_a = ...`` setattr
-#: ("AssertionError: Mutating module attribute lora_a during export") that
-#: 2.13 traces fine. 2.9 is NOT a valid fallback for this lane.
-LIFTED_LORA_TORCH_FLOOR = (2, 13)
-
-
 def lifted_torch_gap(spec: ExportSpec) -> str:
     """'' when torch meets the lifted-LoRA floor (or the spec has no lifted
-    fork declared), else the named refusal reason."""
+    fork declared), else the named refusal reason.
+
+    pgw#996: the floor arithmetic lives in ``aot_preconditions`` because the
+    BUILD gate asks the same question of the same image — a second spelling
+    here is how a build proves one thing and a pod discovers another. This
+    wrapper survives for the mint-request CLI, which can be handed a spec the
+    build gate never saw.
+    """
     if not (spec.lora_bucket or spec.lifted_inputs or spec.lora_fqns):
         return ""
     import torch
 
-    version = str(getattr(torch, "__version__", "") or "")
-    parts = version.split("+")[0].split(".")
-    try:
-        found = (int(parts[0]), int(parts[1]))
-    except (IndexError, ValueError):
-        return (
-            f"cannot parse torch version {version!r} to check the "
-            f"lifted-LoRA mint floor (torch >= "
-            f"{'.'.join(map(str, LIFTED_LORA_TORCH_FLOOR))})")
-    if found < LIFTED_LORA_TORCH_FLOOR:
-        floor = ".".join(map(str, LIFTED_LORA_TORCH_FLOOR))
-        return (
-            f"lifted-LoRA mint requires torch >= {floor}, got {version}: "
-            f"torch 2.9 strict export refuses bind_views' in-trace setattr "
-            f"('Mutating module attribute lora_a during export') that 2.13 "
-            f"traces fine — measured on pod 8 (pgw#723 residuals), so the "
-            f"2.13 prod floor is a mint PRECONDITION for this lane, not a "
-            f"preference")
-    return ""
+    return torch_version_gap(str(getattr(torch, "__version__", "") or ""))
 
 
 # ---------------------------------------------------------------------------
@@ -259,12 +245,17 @@ def exported_input_names(
     program (inputs: [… 'x_0', 'x_1'])" while the export it gated succeeded.
 
     The arity comes from the SAME class row the example feed was built from
-    (``aot_declaration.container_arities``), never re-guessed.
+    (``aot_declaration.container_arities``), never re-guessed, and the spelling
+    comes from ``aot_flatten.exported_name`` — the ONE naming rule the ingress
+    contract and the serve-side bind also read (pgw#994). A declared container
+    is the leaf path ``(0,), (1,), …`` of its parameter, so this function is a
+    special case of that rule rather than a second copy of it.
     """
     arity = (containers or {}).get(name)
     if arity is None:
-        return (str(name),)
-    return tuple(f"{name}_{index}" for index in range(int(arity)))
+        return (aot_flatten.exported_name(name),)
+    return tuple(aot_flatten.exported_name(name, (index,))
+                 for index in range(int(arity)))
 
 
 def dynamic_shapes_spec(
@@ -829,6 +820,19 @@ _PHASE_KEYS: Dict[str, Tuple[str, ...]] = {
     ),
 }
 
+#: pgw#1006. NOT a member of ``_PHASE_KEYS`` — these nest INSIDE ``codegen_s``
+#: (``autotune_at_compile_time`` resolves True for AOTI, so the autotune block
+#: runs during codegen), exactly as ``triton_s`` does. Named because it answers
+#: two questions that were being read out of a residual: the whole ceiling of a
+#: shared autotune cache, and whether the selected config moved between two
+#: mints of one key — it is baked into the generated wrapper's grid expression
+#: and ``num_warps``. Same keys as ``aot_compile_spans.OVERLAY_KEYS``.
+_AUTOTUNE_KEYS: Tuple[str, ...] = (
+    "CachingAutotuner.benchmark_all_configs",
+    "CachingAutotuner.coordinate_descent_tuning",
+    "CachingAutotuner.combo_sequential_autotune",
+)
+
 
 def _phase_snapshot() -> Dict[str, float]:
     try:
@@ -846,8 +850,11 @@ def _phase_delta(
 ) -> Dict[str, float]:
     """Named phase seconds spent between two snapshots. ``triton_s`` sums
     every async-compile/triton key so GPU kernel compilation is one
-    labeled number; the remainder of inductor time is NOT invented — the
-    coarse wall clocks around export/compile hold the totals."""
+    labeled number; ``autotune_s`` (pgw#1006) does the same for the
+    compile-time autotune benchmark. Both NEST inside the named phases above
+    them and must not be summed with them. The remainder of inductor time is
+    NOT invented — the coarse wall clocks around export/compile hold the
+    totals."""
     raw = {
         k: round(float(after.get(k, 0.0)) - float(before.get(k, 0.0)), 3)
         for k in set(after) | set(before)
@@ -862,6 +869,9 @@ def _phase_delta(
         if ("async_compile" in k or "triton" in k.lower()) and v > 0), 3)
     if triton:
         out["triton_s"] = triton
+    autotune = round(sum(raw.get(k, 0.0) for k in _AUTOTUNE_KEYS), 3)
+    if autotune > 0:
+        out["autotune_s"] = autotune
     return out
 
 
@@ -915,7 +925,7 @@ class _MintedEntry:
     owner: Any
     program: Any
     input_names: Tuple[str, ...]
-    flat_names: Tuple[str, ...]
+    flat_leaves: Tuple[aot_flatten.Leaf, ...]
     files: List[Any]
     timings: Dict[str, Any]
 
@@ -1004,22 +1014,12 @@ def _export_entry(
     *,
     inductor_configs: Optional[Mapping[str, Any]] = None,
     compile_now: bool = True,
-    reuse: Optional[aot_export_reuse.ReuseState] = None,
-    reuse_key: Any = None,
     rows: int = 0,
 ) -> _MintedEntry:
     """Resolve, feed, (warm,) export, gate, and compile ONE declared graph
     class. Every refusal is prefixed with the entry name — a multi-graph
     mint that cannot say WHICH class failed is the silent-failure path in
     a new hat (pgw#758).
-
-    ``reuse`` (pgw#847, OFF unless `GEN_WORKER_AOT_EXPORT_REUSE` is set) may
-    hand back a program re-specialized from an earlier row's graph instead of
-    a fresh `torch.export.export`, but only after its own gate has PROVEN, by
-    byte-comparing every emitted file including the linked `.so`, that the two
-    routes agree for this family. It falls back to a full export on anything
-    it cannot prove, so this parameter can only change how long the export
-    takes, never what comes out.
 
     ``compile_now=False`` stops after the export-side gates and returns the
     entry with no files: pgw#809's pool then compiles every entry K-wide out
@@ -1099,7 +1099,7 @@ def _export_entry(
         timings["warm_s"] = _run_declared_warm(module, args, entry)
 
     input_names = _input_names(module, args, kwargs)
-    flat_names = flat_input_names(module, args, kwargs)
+    flat_leaves = flat_input_leaves(module, args, kwargs)
     # ONE arity map for this arm: the spec builder mirrors the container
     # structure with it and the gates below resolve declared names against
     # the exported ones with it (pgw#993).
@@ -1116,17 +1116,12 @@ def _export_entry(
             raise MintRefused(f"entry {entry!r}: {exc}") from exc
 
     t0 = time.monotonic()
-    if reuse is None:
-        program, how = _full_export(), "full"
-    else:
-        program, how = reuse.program(
-            (espec.target, reuse_key), entry=entry, rows=rows,
-            args=args, kwargs=kwargs, full_export=_full_export)
+    program = _full_export()
     timings["export_s"] = round(time.monotonic() - t0, 2)
-    if how != "full":
-        timings["export_how"] = how
-    # pgw#847, telemetry only: the one number that sizes "export once,
-    # re-propagate per row". Once per process, so a 36-entry mint pays it once.
+    # pgw#1000, telemetry only: the one number that sized "export once,
+    # re-propagate per row". Kept after pgw#847 was deleted because it prices
+    # the SAME question the export pool now answers with processes, and it is
+    # free. Once per process, so a 36-entry mint pays it once.
     prop_probe = _probe_prop_s(program)
     if prop_probe is not None:
         timings["prop_probe_s"] = prop_probe
@@ -1181,7 +1176,7 @@ def _export_entry(
 
     return _MintedEntry(
         name=entry, spec=espec, module=module, owner=owner, program=program,
-        input_names=input_names, flat_names=flat_names, files=files,
+        input_names=input_names, flat_leaves=flat_leaves, files=files,
         timings=timings)
 
 
@@ -1724,6 +1719,107 @@ def _attach_partial_phases(exc: BaseException, progress: MintProgress) -> None:
         logger.debug("aot-mint: partial phase table unavailable", exc_info=True)
 
 
+class _ExportFootprint:
+    """What ONE export costs a card, as distinct from what the whole export
+    PHASE costs one.
+
+    pgw#1000 — the measurement that kept export parallelism dark. The width
+    rule needs "how much device memory does one export worker hold"; the only
+    figure ever recorded was ``max_memory_allocated`` over the ENTIRE serial
+    loop, taken against a resident pipeline:
+
+        export_peak_device_bytes  16,558,897,664   (15.4 GiB, sdxl, attempt 26)
+
+    That is a cumulative high-water across 36 rows *including* the resident
+    module — so dividing free VRAM by it answers "how many whole mint children
+    fit", which is 1, forever. ``aot_export_parallel.width_for`` then returned
+    1 with ``binding='export-footprint-unmeasured'`` and the feature could
+    never turn on. The number was not missing; it was the wrong number, and
+    nothing said so.
+
+    A row's DELTA over the resident baseline is the right one: it is what a
+    worker adds to a card that already holds the module it traces. Export runs
+    on fake tensors and launches no kernel, so it should be small — but
+    "should be" is the claim this class exists to replace, and the fallback
+    when it cannot be read is still a refusal to widen.
+
+    Reported both ways, because they answer different questions and conflating
+    them is the defect: ``per_export_device_bytes`` (the MAX row delta — sizes
+    a pool) and ``export_peak_device_bytes`` (the phase high-water — sizes the
+    mint child itself, and is what pgw#992's CardCensus already prices).
+    """
+
+    __slots__ = ("baseline", "rows", "readable", "census")
+
+    def __init__(self, baseline: int, readable: bool,
+                 census: Optional[Any] = None) -> None:
+        self.baseline = baseline
+        self.rows: List[int] = []
+        self.readable = readable
+        #: pgw#992's card census, taken HERE — before the first row traces.
+        #: The budget it feeds is `total - co-tenant - own high-water`, and
+        #: that only bounds anything if the census predates the growth it is
+        #: meant to price. Taken at `decide()` time instead it would read the
+        #: mint child's own grown footprint as the baseline and hand the
+        #: export pool back everything the phase had already consumed.
+        self.census = census
+
+    @classmethod
+    def open(cls) -> "_ExportFootprint":
+        from . import aot_compile_pool
+
+        census = aot_compile_pool.card_census()
+        try:
+            import torch as _t
+
+            if not _t.cuda.is_available():
+                return cls(0, False, census)
+            return cls(int(_t.cuda.memory_reserved()), True, census)
+        except Exception:  # noqa: BLE001 — a probe never changes an outcome
+            return cls(0, False, census)
+
+    @contextlib.contextmanager
+    def row(self) -> Iterator[None]:
+        """Measure ONE row's export. Never raises: the row's own exception
+        propagates untouched and its measurement is simply absent."""
+        if not self.readable:
+            yield
+            return
+        try:
+            import torch as _t
+
+            _t.cuda.reset_peak_memory_stats()
+            before = int(_t.cuda.memory_reserved())
+        except Exception:  # noqa: BLE001
+            yield
+            return
+        try:
+            yield
+        finally:
+            try:
+                import torch as _t2
+
+                peak = int(_t2.cuda.max_memory_reserved())
+                # Against the row's OWN entry level, not the phase baseline:
+                # rows that leave allocations behind (a cached graph, a lifted
+                # constant) would otherwise charge every later row for them.
+                self.rows.append(max(0, peak - before))
+            except Exception:  # noqa: BLE001
+                pass
+
+    def facts(self) -> Dict[str, float]:
+        """Flat scalars for ``timings``. Absent keys where nothing was read —
+        a measured zero and an unread card are different facts, and the width
+        rule must be able to tell them apart."""
+        if not self.readable or not self.rows:
+            return {}
+        return {
+            "per_export_device_bytes": float(max(self.rows)),
+            "per_export_device_rows": float(len(self.rows)),
+            "export_resident_baseline_bytes": float(self.baseline),
+        }
+
+
 def _mint_cell(
     pipeline: Any,
     spec: ExportSpec,
@@ -1841,12 +1937,6 @@ def _mint_cell(
     # forward. Arming it is this function's job, not the caller's — see
     # `_arm_branches`.
     _arm_branches(pipeline, int(spec.lora_bucket or 0))
-    # pgw#847, OFF unless opted in: one export per (target, adapter arm) and a
-    # re-specialization per row, admitted only by a gate that byte-compares
-    # every emitted file. Built HERE, per mint, so a verdict can never outlive
-    # the family it was reached for.
-    reuse_state = aot_export_reuse.ReuseState(
-        work, inductor_configs=inductor_configs)
     t_export = time.monotonic()
     # pgw#868 A4: the EXPORT phase's own device high-water, which nothing has
     # ever measured. `aot_compile_child` resets and samples around the INDUCTOR
@@ -1866,6 +1956,11 @@ def _mint_cell(
             _t.cuda.reset_peak_memory_stats()
     except Exception:  # noqa: BLE001 — a probe never changes an outcome
         pass
+    # pgw#1000: the RESIDENT baseline, read before the first row traces. Every
+    # per-row figure below is a DELTA over this, because what a hypothetical
+    # export worker adds to a card is what it allocates on top of the module
+    # it holds — not the module plus everything the parent already had.
+    export_footprint = _ExportFootprint.open()
     progress.beat(
         PHASE_TRACE_GRAPH, 0, len(rows),
         f"{len(rows)} declared class row(s)")
@@ -1884,36 +1979,14 @@ def _mint_cell(
             progress.beat(
                 PHASE_TRACE_GRAPH, index, len(rows),
                 _decl.plan_entry_name(plan))
-            minted.append(_export_entry(
-                pipeline, spec, plan, decl,
-                inductor_configs=inductor_configs,
-                compile_now=not parallel,
-                reuse=reuse_state, reuse_key=bool(arm), rows=len(rows)))
+            with export_footprint.row():
+                minted.append(_export_entry(
+                    pipeline, spec, plan, decl,
+                    inductor_configs=inductor_configs,
+                    compile_now=not parallel, rows=len(rows)))
     finally:
         if disarmed:
             _arm_branches(pipeline, int(spec.lora_bucket or 0))
-    # pgw#868 A4: ALWAYS recorded, flag or no flag, because it is free — the
-    # mint already exported these rows. 1.0 = one export could serve this
-    # family's rows; 0.0 = its graph text moves with the row (measured true of
-    # sdxl, whose Transformer2DModel bakes the sequence length and the spatial
-    # extents), so reuse can never fire and no lane should spend a mint
-    # proving it. -1.0 = not determinable (fewer than two rows for any key).
-    if reuse_state.eligible:
-        timings["export_reuse_eligible"] = (
-            1.0 if all(reuse_state.eligible.values()) else 0.0)
-    else:
-        timings["export_reuse_eligible"] = -1.0
-    if reuse_state.active:
-        # FLAT scalars: `timings` is a float table and a nested dict there
-        # would be a shape nothing downstream parses. The gate's REASONS are
-        # logged at INFO by ReuseState, where a reader needs prose anyway.
-        timings["export_reuse_rows_full"] = float(reuse_state.exported)
-        timings["export_reuse_rows_reused"] = float(reuse_state.reused)
-        timings["export_reuse_respecialize_s"] = round(
-            reuse_state.respecialize_s, 2)
-        timings["export_reuse_gate_s"] = round(sum(
-            float(e.get("gate_s") or 0.0) for e in reuse_state.events), 2)
-
     # Asked of the EXPORTED programs: a cell whose entries cannot be told
     # apart at dispatch must cost seconds to refuse, not a full compile bill
     # (the pgw#825 discipline, one gate over). Exact on the parallel path,
@@ -1945,6 +2018,11 @@ def _mint_cell(
                     _t.cuda.max_memory_reserved())
         except Exception:  # noqa: BLE001 — a probe never changes an outcome
             pass
+        # pgw#1000: and the PER-ROW figure beside it. The two are different
+        # questions — phase high-water sizes the mint child, one row's delta
+        # sizes a pool — and the width rule spent its whole life dividing by
+        # the first one, which is why it always answered 1.
+        timings.update(export_footprint.facts())
         # pgw#868 A4: THE CONNECTION. The probe above is exactly
         # `aot_export_parallel.width_for(per_export_device_bytes=)`. Both were
         # built and neither ever called the other, so the flag was inert.
@@ -1953,7 +2031,8 @@ def _mint_cell(
         # have run at — and which fact bound it — from a mint that changed
         # nothing.
         try:
-            timings.update(aot_export_parallel.decide(rows, timings))
+            timings.update(aot_export_parallel.decide(
+                rows, timings, census=export_footprint.census))
         except Exception:  # noqa: BLE001 — telemetry never fails a mint
             logger.debug("aot-mint: export-parallel decision failed",
                          exc_info=True)
@@ -2246,7 +2325,7 @@ def _entry_ingress_declaration(
     the midpoint), deduplicated. A fully specialized entry — the sdxl case —
     yields exactly one call, which is the call its class row exists to serve.
     """
-    inputs, symbols = aot_package.input_contract(row.program, row.flat_names)
+    inputs, symbols = aot_package.input_contract(row.program, row.flat_leaves)
     meta: Dict[str, Any] = {"inputs": inputs, "symbols": symbols}
     if adapter_arm(row.spec.fork) is False:
         # The NEGATIVE half of a branchless class's contract, exactly as
@@ -2514,7 +2593,7 @@ def _gate_and_declare_entry(
             "(e.g. %s)", entry, len(fused), fused[:3])
     try:
         inputs, symbols = aot_package.input_contract(
-            row.program, row.flat_names)
+            row.program, row.flat_leaves)
         constants = aot_package.constants_manifest(package, entry)
     except aot_package.PackageIntrospectionError as exc:
         raise MintRefused(f"entry {entry!r}: declaration: {exc}") from exc
@@ -2782,7 +2861,7 @@ def entry_graph_block(
 
 
 def shared_identity_blocks(spec: ExportSpec) -> Dict[str, Any]:
-    """The cell-level ck5 identity facts an exported cell must record.
+    """The cell-level identity facts an exported cell must record.
 
     ``aot_serve.artifact_metadata`` takes ``cell_key`` as a STRING, so the
     envelope on its own would carry a stamp WITHOUT the axes the stamp
@@ -2864,7 +2943,7 @@ def cell_identity(meta: Mapping[str, Any], spec: ExportSpec) -> cell_key.CellKey
 
     CONTRACT-FACTS SHAPE CHANGE (v1 -> v2, pgw#758): this re-keys every
     published ``aot-inductor`` cell; single-graph format-1 cells are RETIRED —
-    correct and expected under ck5 exact identity.
+    correct and expected under exact identity.
 
     CONTRACT-FACTS SHAPE CHANGE (v2 -> v3, pgw#817): ``shell_digest`` joined
     the facts for the (since-retired) regional kind. pgw#846 retires regional
@@ -3001,11 +3080,11 @@ def _input_names(
     return tuple(positional) + tuple(keyword)
 
 
-def flat_input_names(
+def flat_input_leaves(
     module: Any, args: Tuple[Any, ...], kwargs: Mapping[str, Any],
-) -> Tuple[str, ...]:
-    """ONE name per EXPORTED user input — containers FLATTENED the way export
-    flattens them.
+) -> Tuple[aot_flatten.Leaf, ...]:
+    """ONE leaf per EXPORTED user input — containers FLATTENED the way export
+    flattens them, each carrying WHERE IN THE CALL it came from.
 
     MEASURED (pgw#790 lane, real sdxl UNet, torch 2.13): `aot_package.
     input_contract` zips the caller-side parameter names against the exported
@@ -3027,29 +3106,20 @@ def flat_input_names(
     treated the symptom, but a nested lookup cannot help when the NAMES it
     searches for are the wrong ones.
 
-    Mapping leaves take their BARE KEY, which is exactly what the serve-side
-    nested resolution looks for, and dicts flatten in SORTED key order because
-    that is what torch's pytree does. Sequence leaves take `<param>.<index>`.
+    THE NAMES ARE NOT ENOUGH (pgw#994). A name says which leaf this is; it
+    does not say where the leaf LIVES in a call, and the serve side has only
+    the call. So each leaf carries its identity — parameter, that parameter's
+    position, and the path into it — and ``aot_serve.bind_call_inputs``
+    replays that identity instead of guessing. The walk itself lives in
+    ``aot_flatten``, which every consumer of the flat view reads, mint and
+    serve alike: three separate spellings of this one mapping is exactly what
+    pgw#790, pgw#993 and pgw#994 each were.
+
     ``_input_names`` is deliberately left alone: `dynamic_shapes_spec` keys on
     top-level PARAMETER names and mirrors containers structurally.
     """
-    names = _input_names(module, args, kwargs)
-    values = list(args) + [kwargs[n] for n in names[len(args):] if n in kwargs]
-    out: List[str] = []
-
-    def walk(name: str, value: Any) -> None:
-        if isinstance(value, Mapping):
-            for key in sorted(value):
-                walk(str(key), value[key])
-        elif isinstance(value, (list, tuple)):
-            for index, item in enumerate(value):
-                walk(f"{name}.{index}", item)
-        else:
-            out.append(str(name))
-
-    for name, value in zip(names, values):
-        walk(str(name), value)
-    return tuple(out)
+    return aot_flatten.flatten_call(
+        _input_names(module, args, kwargs), args, kwargs)
 
 
 def _specialization_facts(spec: ExportSpec) -> Dict[str, Any]:

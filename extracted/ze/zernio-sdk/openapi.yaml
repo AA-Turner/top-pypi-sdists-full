@@ -158,7 +158,7 @@ x-documentation:
     - `message.delivered` - An outgoing message was delivered (WhatsApp, Messenger)
     - `message.read` - An outgoing message was read by the recipient (WhatsApp, Messenger, Instagram)
     - `message.failed` - An outgoing message failed delivery (WhatsApp)
-    - `reaction.received` - A participant added or removed an emoji reaction on a message (WhatsApp, Telegram)
+    - `reaction.received` - A participant added or removed an emoji reaction on a message (WhatsApp, Telegram, Slack, Instagram, Facebook Messenger)
     - `comment.received` - New comment received on a post
     - `review.new` - New review posted on a connected account (Google Business Profile)
     - `review.updated` - Review updated or reply added (Google Business Profile, or via reply API)
@@ -752,7 +752,7 @@ components:
         expiresAt: { type: [string, "null"], description: "When the reservation's locked price expires (set after reserving)." }
     CtwaAdRequestBody:
       type: object
-      required: [accountId, adAccountId, name, budgetAmount, budgetType]
+      required: [accountId, adAccountId, name]
       description: |
         In addition to the `required` list, the request must use
         EXACTLY ONE of the two shapes:
@@ -862,15 +862,26 @@ components:
                 description: |
                   Video creative. Mutually exclusive with this entry's
                   `imageUrl`. Required if `imageUrl` is not supplied.
+        adSetId:
+          type: string
+          description: |
+            Attach the creatives to this EXISTING messaging ad set instead of
+            building a campaign, so the ad set keeps its learning phase. It then
+            owns budget, targeting and schedule, so `budgetAmount`, `budgetType`,
+            `endDate`, `objective`, `countries`, `interests` and `audienceId` are
+            rejected with a 400 alongside it. Its `destination_type` must match
+            the ad's destination.
         budgetAmount:
           type: number
           exclusiveMinimum: 0
           description: |
             Budget amount in the ad account's currency major units
             (e.g. dollars for USD, not cents). Must be > 0.
+            Required unless `adSetId` is set, where the ad set owns it.
         budgetType:
           type: string
           enum: [daily, lifetime]
+          description: Required unless `adSetId` is set.
         currency:
           type: string
           minLength: 3
@@ -1461,6 +1472,44 @@ components:
         url: { type: string, format: uri, description: Target URL (required when type is url) }
         payload: { type: string, description: Postback payload delivered via the messaging_postbacks webhook (required when type is postback) }
         phone: { type: string, description: "Phone number, e.g. +14155551234 (required when type is phone; Facebook only)" }
+    CommentAutomationTemplate:
+      type: object
+      description: |
+        A Meta generic template (product card) sent as the automation's first DM.
+        It REPLACES the plain `dmMessage` bubble: a Meta message carries one body
+        shape, and a comment gets exactly one private reply, so the card and the
+        text cannot both be delivered. Put your selling copy in `subtitle`.
+        Mutually exclusive with `buttons` (sending both is a 400). Works on both
+        the `comment` and `story_reply` triggers.
+        Up to 10 elements, rendered as a horizontally swipeable carousel.
+        Rendering confirmed on the Instagram and Messenger mobile apps.
+      required: [type, elements]
+      properties:
+        type: { type: string, enum: [generic] }
+        elements:
+          type: array
+          minItems: 1
+          maxItems: 10
+          items: { $ref: '#/components/schemas/CommentAutomationTemplateElement' }
+    CommentAutomationTemplateElement:
+      type: object
+      required: [title]
+      properties:
+        title: { type: string, maxLength: 80, description: 'Card headline (80 chars max). Also used as the Inbox preview for the sent DM.' }
+        subtitle: { type: string, maxLength: 80, description: 'Card description, e.g. the price or a short pitch (80 chars max).' }
+        imageUrl: { type: string, format: uri, description: 'Publicly reachable http(s) image rendered large above the card.' }
+        buttons:
+          type: array
+          maxItems: 3
+          description: 'Up to 3 card buttons. A generic template has NO phone button, on either platform. `url` buttons are click-tracked when linkTracking is on.'
+          items:
+            type: object
+            required: [type, title]
+            properties:
+              type: { type: string, enum: [url, postback] }
+              title: { type: string, maxLength: 20 }
+              url: { type: string, format: uri, description: 'Target URL (required when type is url)' }
+              payload: { type: string, description: 'Postback payload delivered via the messaging_postbacks webhook (required when type is postback)' }
     WhatsAppTemplateButton:
       type: object
       required: [type]
@@ -3211,7 +3260,7 @@ components:
     # ────────────────────────────────────────────────────────────────────────
     WebhookPayloadReaction:
       type: object
-      description: Webhook payload for reaction received events (WhatsApp, Telegram)
+      description: 'Webhook payload for reaction received events (WhatsApp, Telegram, Slack, Instagram, Facebook Messenger)'
       required: [id, event, reaction, conversation, account, timestamp]
       properties:
         id:
@@ -3241,7 +3290,7 @@ components:
             sender:
               type: object
               required: [id]
-              description: The participant who added or removed the reaction.
+              description: 'Whoever added or removed the reaction. Usually the participant, but on Slack, Instagram and Facebook Messenger it is the business own platform id when the reaction was made from the native app: compare it with conversation.participantId.'
               properties:
                 id:
                   type: string
@@ -7686,6 +7735,14 @@ components:
             zip: { type: string, description: "Meta advanced matching (zp). US uses first 5 digits; hashed server-side. Meta only." }
             dob: { type: string, description: "Meta advanced matching (db). YYYYMMDD; hashed server-side. Meta only." }
             gender: { type: string, description: "Meta advanced matching (ge). 'f' or 'm'; hashed server-side. Meta only." }
+            leadId:
+              type: string
+              description: |
+                Meta lead ID from a Lead Ad submission, as a string. Required
+                for Conversion Leads CRM events: send it with
+                `actionSource: 'crm'` and
+                `platformData: { event_source: 'crm', lead_event_source: '<CRM name>' }`.
+                Forwarded unhashed to Meta's `user_data.lead_id`. Meta only.
             clickIds:
               type: object
               description: Platform click identifiers captured from the originating ad click.
@@ -7726,7 +7783,13 @@ components:
         platformData:
           type: object
           additionalProperties: true
-          description: Escape hatch for platform-specific fields we haven't normalized. Forwarded as-is.
+          description: |
+            Escape hatch for platform-specific fields we haven't normalized.
+            On Meta, keys are shallow-merged into `custom_data` only: fields
+            Zernio already builds (`value`, `currency`, `contents`,
+            `num_items`) always win on collision, and `user_data` (hashed
+            match keys) is never touched. Use first-class fields (e.g.
+            `user.leadId`) for anything that must reach `user_data`.
 
     ConversionDestination:
       type: object
@@ -8303,11 +8366,15 @@ webhooks:
       summary: Reaction received event
       description: |
         Fired when a participant adds or removes an emoji reaction on a message.
-        Supported on WhatsApp and Telegram. Distinct from message.received so a
-        reaction (e.g. a thumbs-up) is not mistaken for an inbound message.
-        The `reaction.action` field is `added` or `removed`. On WhatsApp removals
-        the platform does not report which emoji was removed, so `reaction.emoji`
-        may be an empty string. Requires the Inbox add-on.
+        Supported on WhatsApp, Telegram, Slack, Instagram and Facebook Messenger.
+        Distinct from message.received so a reaction (e.g. a thumbs-up) is not
+        mistaken for an inbound message.
+        The `reaction.action` field is `added` or `removed`. On WhatsApp and Meta
+        removals the platform does not report which emoji was removed, so
+        `reaction.emoji` may be an empty string.
+        Instagram and Facebook accounts connected before reactions shipped only
+        emit this event after their webhook subscription is refreshed; reconnect
+        the account if reactions never arrive. Requires the Inbox add-on.
       tags: [Webhook Events]
       requestBody:
         required: true
@@ -15629,7 +15696,7 @@ paths:
           in: query
           required: true
           schema: { type: string }
-          description: Your Zernio profile ID (get from /v1/profiles)
+          description: 'Your Zernio profile ID (get from /v1/profiles). For WhatsApp, a Zernio-provisioned number can only be connected on the profile it was provisioned to; connecting from any other profile is rejected with a 409.'
         - name: redirect_url
           in: query
           schema: { type: string, format: uri }
@@ -16248,7 +16315,7 @@ paths:
                   selectedLocationName: "My Coffee Shop"
                   selectedLocationId: "9281089117903930794"
         '400':
-          description: "Missing required fields (profileId, locationId, or tempToken)"
+          description: 'Missing required fields (profileId, locationId, or tempToken), or the provided accountId is not one of the accounts this connection manages'
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403':
           description: User does not have access to the specified profile
@@ -19123,6 +19190,8 @@ paths:
           description: Invalid or expired access token
         '403':
           description: Profile limit exceeded for this plan
+        '409':
+          description: 'The phone number is a Zernio-provisioned number pinned to a different profile. Connect it from that profile, or move it first with PATCH /v1/whatsapp/phone-numbers/{id}/profile.'
 
   /v1/connect/whatsapp/select-phone-number:
     get:
@@ -19278,6 +19347,8 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
+        '409':
+          description: 'The phone number is a Zernio-provisioned number pinned to a different profile. Connect it from that profile, or move it first with PATCH /v1/whatsapp/phone-numbers/{id}/profile.'
         '500':
           description: Failed to bind phone number
           content:
@@ -19467,6 +19538,7 @@ paths:
                   value:
                     status: "expired"
                     message: "Access code has expired. Please generate a new one."
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { description: Code not found }
         '500': { description: Internal error }
@@ -20772,7 +20844,7 @@ paths:
                 selectedLocation:
                   id: "12345678901234567890"
                   name: "My Business Location"
-        '400': { description: Location not in available locations }
+        '400': { description: 'Location not in available locations, or the provided googleAccountId is not one of the accounts this connection manages' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { description: Account not found }
 
@@ -20852,7 +20924,7 @@ paths:
                   isActive: true
                   selectedLocationName: "Snap Fitness Dianella"
                   selectedLocationId: "12345678901234567890"
-        '400': { description: 'Invalid body, or selected location not found under the Google account' }
+        '400': { description: 'Invalid body, selected location not found under the Google account, or the provided googleAccountId is not one of the accounts this connection manages' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { description: 'Payment required, or target profile exceeds plan limit' }
         '404': { description: Source Google Business account not found }
@@ -24282,7 +24354,7 @@ paths:
           in: path
           required: true
           schema: { type: string }
-          description: The conversation ID (id field from list conversations endpoint). This is the platform-specific conversation identifier, not an internal database ID.
+          description: 'Opaque conversation identifier, accepted verbatim from the list endpoint or from the conversationId on inbox webhooks. Format not to be assumed.'
         - $ref: '#/components/parameters/IdempotencyKeyHeader'
       requestBody:
         required: true
@@ -24344,6 +24416,10 @@ paths:
                   description: |
                     Action buttons. Mutually exclusive with quickReplies. Max 3 items.
 
+                    Instagram / Facebook: also mutually exclusive with `template`.
+                    A Meta message carries one body shape, so sending both is a 400
+                    rather than a silent drop of the buttons.
+
                     WhatsApp: buttons always render as interactive reply buttons.
                     Only `title` and `payload` are used — `type`, `url`, and `phone`
                     are ignored (WhatsApp has no URL/phone button in this field; use
@@ -24369,7 +24445,9 @@ paths:
 
                     Instagram / Facebook: a generic template (carousel). Set `type: generic`
                     and provide up to 10 `elements`, each with a `title` (required) and
-                    optional `subtitle`, `imageUrl`, and `buttons`.
+                    optional `subtitle`, `imageUrl`, and `buttons`. Mutually exclusive with
+                    the top-level `buttons` field (sending both is a 400); put the card's
+                    buttons on its `elements` instead.
 
                     WhatsApp: sends an approved WhatsApp template message, the only message
                     type WhatsApp accepts when the 24-hour customer-service window is closed.
@@ -24688,7 +24766,7 @@ paths:
                   description: Facebook message tag for messaging outside 24h window. Requires messagingType MESSAGE_TAG. Instagram only supports HUMAN_AGENT.
                 replyTo:
                   type: string
-                  description: 'Platform message ID to quote-reply to. For WhatsApp, pass the wamid; for Telegram, the Telegram message ID; for Instagram, the Meta mid (all available in message.platformMessageId from webhooks or the list-messages endpoint). On Slack it threads the reply (thread_ts) instead of quoting. Silently ignored on platforms without reply support, including Facebook Messenger (Meta''s Messenger Send API has no reply_to).'
+                  description: 'Platform message ID to quote-reply to. For WhatsApp, pass the wamid; for Telegram, the Telegram message ID (both available in message.platformMessageId from webhooks or the list-messages endpoint). On Slack it threads the reply (thread_ts) instead of quoting. Silently ignored on platforms without send-side reply support, including Instagram and Facebook Messenger (Meta''s Send API rejects reply_to on Instagram and does not expose it on Messenger).'
                 location:
                   type: object
                   description: WhatsApp-only. Send a location pin.
@@ -24757,7 +24835,7 @@ paths:
                   description: Message tag (requires messagingType MESSAGE_TAG)
                 replyTo:
                   type: string
-                  description: 'Platform message ID to quote-reply to. For WhatsApp, pass the wamid; for Telegram, the Telegram message ID; for Instagram, the Meta mid (all available in message.platformMessageId from webhooks or the list-messages endpoint). On Slack it threads the reply (thread_ts) instead of quoting. Silently ignored on platforms without reply support, including Facebook Messenger (Meta''s Messenger Send API has no reply_to).'
+                  description: 'Platform message ID to quote-reply to. For WhatsApp, pass the wamid; for Telegram, the Telegram message ID (both available in message.platformMessageId from webhooks or the list-messages endpoint). On Slack it threads the reply (thread_ts) instead of quoting. Silently ignored on platforms without send-side reply support, including Instagram and Facebook Messenger (Meta''s Send API rejects reply_to on Instagram and does not expose it on Messenger).'
                 voiceNote:
                   type: string
                   enum: ['true']
@@ -25064,6 +25142,8 @@ paths:
         Add an emoji reaction to a message. Platform support:
         - Telegram: Supports a subset of Unicode emoji reactions
         - WhatsApp: Supports any standard emoji (one reaction per message per sender)
+        - Instagram and Facebook Messenger: Any standard emoji, subject to Meta's 24h messaging window
+        - Slack: The emoji must have a Slack name (e.g. `:thumbsup:`); unnamed characters return 400
         - All others: Returns 400 (not supported)
       tags: [Messages]
       security: [{ bearerAuth: [] }]
@@ -25112,6 +25192,8 @@ paths:
         Remove a reaction from a message. Platform support:
         - Telegram: Send empty reaction array to clear
         - WhatsApp: Send empty emoji to remove
+        - Instagram and Facebook Messenger: Sends Meta's `unreact` action; the emoji does not need to be repeated
+        - Slack: Removes the reaction we previously sent on that message
         - All others: Returns 400 (not supported)
       tags: [Messages]
       security: [{ bearerAuth: [] }]
@@ -32194,6 +32276,64 @@ paths:
         '400': { description: Country does not require KYC (not a regulated country). }
         '401': { $ref: '#/components/responses/Unauthorized' }
 
+  /v1/whatsapp/phone-numbers/{id}/profile:
+    patch:
+      x-resource-group: "telephony"
+      operationId: moveWhatsAppNumberToProfile
+      tags: [WhatsApp Phone Numbers]
+      summary: Move a number to another profile
+      description: |
+        Move a provisioned number to a different profile.
+
+        A number is not a single record. Alongside the number itself there are
+        hidden telephony owner accounts (platform `phone`, plus `sms` when SMS is
+        enabled) and, once WhatsApp is connected, the `whatsapp` account. They all
+        carry a profileId and this endpoint moves them together.
+
+        Use this instead of `PATCH /v1/accounts/{accountId}`: that one moves the
+        social account only and leaves the number itself pinned to its original
+        profile, which splits the number across two profiles. Connecting a
+        Zernio-provisioned number from any profile but its own is rejected with a
+        `409` (`WHATSAPP_NUMBER_PINNED_TO_PROFILE`). This endpoint is how you
+        re-home the number first, so it can then be connected from the new profile.
+
+        `id` is the number record id from `GET /v1/phone-numbers`, not an account id.
+
+        A profile holds at most one account per platform, so the destination must be
+        free of every platform this number occupies.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string }, description: WhatsAppPhoneNumber id. }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [profileId]
+              properties:
+                profileId: { type: string, description: Destination profile id. Must belong to the same team. }
+      responses:
+        '200':
+          description: Number moved, or already on that profile.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string }
+                  profileId: { type: string, description: The profile the number is now on. }
+                  movedPlatforms:
+                    type: array
+                    items: { type: string }
+                    description: 'Platforms whose accounts travelled with the number (phone, sms, whatsapp). Absent when the number was already on the destination profile.'
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { description: 'No access to the source or destination profile, or the Inbox add-on is not active.' }
+        '404': { description: 'Number not found, or the destination profile does not exist.' }
+        '409': { description: 'The destination profile already holds an account on one of the platforms this number occupies.' }
+
   /v1/whatsapp/phone-numbers/{id}/remediate:
     get:
       x-resource-group: "telephony"
@@ -35851,11 +35991,15 @@ paths:
                           type: array
                           items: { $ref: '#/components/schemas/DmButton' }
                           description: Inline DM buttons (up to 3). Omitted when none are set.
+                        template:
+                          $ref: '#/components/schemas/CommentAutomationTemplate'
                         commentReply: { type: string }
                         dmMessageVariations: { type: array, items: { type: string }, description: "Alternate DM texts rotated at random with dmMessage. Omitted when none." }
                         commentReplyVariations: { type: array, items: { type: string }, description: "Alternate public replies rotated at random with commentReply. Omitted when none." }
                         linkTracking: { type: boolean, description: "Whether link buttons in the DM are wrapped in a tracked redirect to count clicks." }
                         clickTag: { type: string, description: "Tag applied to a contact when they click a tracked link." }
+                        dmDelaySeconds: { type: integer, description: "Seconds waited after the trigger before the DM is sent. Absent when the DM goes out immediately." }
+                        commentReplyDelaySeconds: { type: integer, description: "Seconds waited before the public reply is posted. Absent when it follows the DM immediately." }
                         isActive: { type: boolean }
                         stats:
                           type: object
@@ -35936,6 +36080,9 @@ paths:
                   maxItems: 3
                   items: { $ref: '#/components/schemas/DmButton' }
                   description: "Optional inline DM buttons (1-3). Phone buttons are Facebook-only. Omit or pass [] for a plain-text DM."
+                template:
+                  allOf: [{ $ref: '#/components/schemas/CommentAutomationTemplate' }]
+                  description: "Optional product card sent INSTEAD of the plain dmMessage bubble. Mutually exclusive with buttons. dmMessage stays required: it is what gets sent the moment the card is cleared."
                 commentReply: { type: string, description: Optional public reply to the comment }
                 dmMessageVariations:
                   type: array
@@ -35949,6 +36096,8 @@ paths:
                   description: "Optional alternate public replies, rotated at random alongside commentReply (picked independently of the DM). Up to 5."
                 linkTracking: { type: boolean, default: true, description: "Wrap link buttons in the DM in a tracked redirect so clicks are counted (Link Clicks / CTR). Pass false to send links exactly as written. Defaults to on." }
                 clickTag: { type: string, description: "Optional tag applied to a contact when they click a tracked link (requires linkTracking). Lets you segment clickers for broadcasts/sequences." }
+                dmDelaySeconds: { type: integer, minimum: 0, maximum: 86400, description: "Seconds to wait after the trigger before sending the DM. Omit or send 0 to reply immediately (the default). Max 86400 (24h). The trigger is still matched and deduplicated the moment the comment arrives, so a delay only moves when the response is sent." }
+                commentReplyDelaySeconds: { type: integer, minimum: 0, maximum: 86400, description: "Seconds to wait before posting the public comment reply. Omit or send 0 to post it right after the DM (the default). The reply never goes out before the DM, so a value below dmDelaySeconds is raised to it. Ignored when trigger=story_reply, which has no public reply." }
                 audience: { $ref: '#/components/schemas/CommentAutomationAudience' }
                 followGate: { $ref: '#/components/schemas/CommentAutomationFollowGate' }
       responses:
@@ -35977,11 +36126,15 @@ paths:
                         type: array
                         items: { $ref: '#/components/schemas/DmButton' }
                         description: Inline DM buttons (up to 3). Omitted when none are set.
+                      template:
+                        $ref: '#/components/schemas/CommentAutomationTemplate'
                       commentReply: { type: string }
                       dmMessageVariations: { type: array, items: { type: string }, description: "Alternate DM texts rotated at random with dmMessage. Omitted when none." }
                       commentReplyVariations: { type: array, items: { type: string }, description: "Alternate public replies rotated at random with commentReply. Omitted when none." }
                       linkTracking: { type: boolean }
                       clickTag: { type: string }
+                      dmDelaySeconds: { type: integer, description: "Seconds waited after the trigger before the DM is sent. Absent when the DM goes out immediately." }
+                      commentReplyDelaySeconds: { type: integer, description: "Seconds waited before the public reply is posted. Absent when it follows the DM immediately." }
                       audience: { $ref: '#/components/schemas/CommentAutomationAudience' }
                       followGate: { $ref: '#/components/schemas/CommentAutomationFollowGate' }
                       isActive: { type: boolean }
@@ -36031,11 +36184,15 @@ paths:
                         type: array
                         items: { $ref: '#/components/schemas/DmButton' }
                         description: Inline DM buttons (up to 3). Omitted when none are set.
+                      template:
+                        $ref: '#/components/schemas/CommentAutomationTemplate'
                       commentReply: { type: string }
                       dmMessageVariations: { type: array, items: { type: string }, description: "Alternate DM texts rotated at random with dmMessage. Omitted when none." }
                       commentReplyVariations: { type: array, items: { type: string }, description: "Alternate public replies rotated at random with commentReply. Omitted when none." }
                       linkTracking: { type: boolean }
                       clickTag: { type: string }
+                      dmDelaySeconds: { type: integer, description: "Seconds waited after the trigger before the DM is sent. Absent when the DM goes out immediately." }
+                      commentReplyDelaySeconds: { type: integer, description: "Seconds waited before the public reply is posted. Absent when it follows the DM immediately." }
                       audience: { $ref: '#/components/schemas/CommentAutomationAudience' }
                       followGate: { $ref: '#/components/schemas/CommentAutomationFollowGate' }
                       isActive: { type: boolean }
@@ -36052,13 +36209,14 @@ paths:
                         commenterId: { type: string }
                         commenterName: { type: string }
                         commentText: { type: string }
-                        status: { type: string, enum: [sent, failed, skipped, gated], description: "DM outcome. 'gated' = the follow-gate confirmation DM went out and we are waiting for the tap; it flips to 'sent' or 'skipped' when they tap." }
+                        status: { type: string, enum: [pending, sent, failed, skipped, gated], description: "DM outcome. 'pending' = the automation has a dmDelaySeconds and the response is queued but not sent yet. 'gated' = the follow-gate confirmation DM went out and we are waiting for the tap; it flips to 'sent' or 'skipped' when they tap." }
                         audienceOutcome: { type: string, enum: [passed, blocked, gate_sent, gate_passed, gate_failed], description: "How the audience rule resolved. Absent on automations without one." }
                         commenterIsFollower: { type: boolean, description: "Follow relationship at decision time. Absent when Instagram would not tell us (the commenter never messaged the account)." }
                         commenterFollowerCount: { type: integer }
                         error: { type: string, description: DM error message if status is failed }
                         commentReplyStatus: { type: string, enum: [sent, failed, skipped], description: "Outcome of the optional public reply on the triggering comment. 'skipped' if no commentReply was configured or if the DM failed (the public reply is not attempted in that case)." }
                         commentReplyError: { type: string, description: Public-reply error message if commentReplyStatus is failed }
+                        nextDueAt: { type: string, format: date-time, description: "When the next queued send fires. Present only while something is still pending." }
                         createdAt: { type: string, format: date-time }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
@@ -36093,6 +36251,11 @@ paths:
                   maxItems: 3
                   items: { $ref: '#/components/schemas/DmButton' }
                   description: "Inline DM buttons (1-3). Pass [] to clear all buttons."
+                template:
+                  oneOf:
+                    - $ref: '#/components/schemas/CommentAutomationTemplate'
+                    - type: 'null'
+                  description: "Product card sent instead of the plain dmMessage bubble. Pass null to clear it and fall back to dmMessage. Mutually exclusive with buttons, including with the buttons already stored on the automation."
                 commentReply: { type: string }
                 dmMessageVariations:
                   type: array
@@ -36106,6 +36269,8 @@ paths:
                   description: "Alternate public replies for random rotation. Pass [] to clear."
                 linkTracking: { type: boolean, description: "Wrap link buttons in a tracked redirect to count clicks. Pass false to send links untouched." }
                 clickTag: { type: string, description: "Tag applied to a contact when they click a tracked link (requires linkTracking). Empty string clears it." }
+                dmDelaySeconds: { type: integer, minimum: 0, maximum: 86400, description: "Seconds to wait after the trigger before sending the DM. Send 0 to clear the delay and reply immediately." }
+                commentReplyDelaySeconds: { type: integer, minimum: 0, maximum: 86400, description: "Seconds to wait before posting the public comment reply. Send 0 to clear it. The reply never goes out before the DM." }
                 audience: { $ref: '#/components/schemas/CommentAutomationAudience' }
                 followGate: { $ref: '#/components/schemas/CommentAutomationFollowGate' }
                 isActive: { type: boolean }
@@ -36132,6 +36297,8 @@ paths:
                         type: array
                         items: { $ref: '#/components/schemas/DmButton' }
                         description: Inline DM buttons (up to 3). Omitted when none are set.
+                      template:
+                        $ref: '#/components/schemas/CommentAutomationTemplate'
                       commentReply: { type: string }
                       dmMessageVariations: { type: array, items: { type: string }, description: "Alternate DM texts rotated at random with dmMessage. Omitted when none." }
                       commentReplyVariations: { type: array, items: { type: string }, description: "Alternate public replies rotated at random with commentReply. Omitted when none." }
@@ -36167,7 +36334,7 @@ paths:
         - bearerAuth: []
       parameters:
         - { name: automationId, in: path, required: true, schema: { type: string } }
-        - { name: status, in: query, schema: { type: string, enum: [sent, failed, skipped, gated] }, description: Filter by result status }
+        - { name: status, in: query, schema: { type: string, enum: [pending, sent, failed, skipped, gated] }, description: Filter by result status }
         - { name: limit, in: query, schema: { type: integer, default: 50, minimum: 1, maximum: 200 } }
         - { name: skip, in: query, schema: { type: integer, default: 0, minimum: 0 } }
       responses:
@@ -36189,13 +36356,14 @@ paths:
                         commenterId: { type: string }
                         commenterName: { type: string }
                         commentText: { type: string }
-                        status: { type: string, enum: [sent, failed, skipped, gated], description: "DM outcome. 'gated' = the follow-gate confirmation DM went out and we are waiting for the tap; it flips to 'sent' or 'skipped' when they tap." }
+                        status: { type: string, enum: [pending, sent, failed, skipped, gated], description: "DM outcome. 'pending' = the automation has a dmDelaySeconds and the response is queued but not sent yet. 'gated' = the follow-gate confirmation DM went out and we are waiting for the tap; it flips to 'sent' or 'skipped' when they tap." }
                         audienceOutcome: { type: string, enum: [passed, blocked, gate_sent, gate_passed, gate_failed], description: "How the audience rule resolved. Absent on automations without one." }
                         commenterIsFollower: { type: boolean, description: "Follow relationship at decision time. Absent when Instagram would not tell us (the commenter never messaged the account)." }
                         commenterFollowerCount: { type: integer }
                         error: { type: string, description: DM error message if status is failed }
                         commentReplyStatus: { type: string, enum: [sent, failed, skipped], description: "Outcome of the optional public reply on the triggering comment. 'skipped' if no commentReply was configured or if the DM failed (the public reply is not attempted in that case)." }
                         commentReplyError: { type: string, description: Public-reply error message if commentReplyStatus is failed }
+                        nextDueAt: { type: string, format: date-time, description: "When the next queued send fires. Present only while something is still pending." }
                         createdAt: { type: string, format: date-time }
                   pagination:
                     type: object
@@ -36479,7 +36647,7 @@ paths:
       x-resource-group: "ads"
       operationId: updateAdCampaignStatus
       tags: ["Ad Campaigns"]
-      x-platforms: ["meta", "google", "tiktok", "linkedin", "pinterest", "x"]
+      x-platforms: ["meta", "google", "tiktok", "linkedin", "pinterest", "x", "openai"]
       summary: Pause or resume a campaign
       description: |
         Updates the status of all ads in a campaign. Makes one platform API call (not per-ad) since status cascades through the campaign hierarchy.
@@ -36521,26 +36689,31 @@ paths:
       x-resource-group: "ads"
       operationId: updateAdCampaign
       tags: ["Ad Campaigns"]
-      x-platforms: ["meta", "google", "tiktok", "linkedin", "pinterest", "x"]
+      x-platforms: ["meta", "google"]
       summary: Update a campaign
       description: |
-        Campaign-level edits. At least one of `budget`, `bidStrategy`, `name` or `platformSpecificData` is required.
+        Campaign-level edits. Send at least one of `budget`, `bidStrategy`, `name`
+        or `platformSpecificData`. An unsupported field is always an error, never a
+        silent drop.
 
-        **Empty campaigns.** A campaign with zero ads has no local Ad documents to
-        resolve, so this would 404 even though it exists on Meta. Send `accountId`
-        in the body to skip the local lookup and forward the update to Meta. The
-        response then carries `updated: 0`, since there are no local rows to mirror
-        onto. `accountId` is ignored when the campaign does have ads.
+        | Body field | Meta | Google | Others |
+        |---|---|---|---|
+        | `bidStrategy` | Yes | Yes | 501 |
+        | `bidAmount`, `roasAverageFloor` | 400 — ad-set level | Yes | 400 |
+        | `budget` (CBO; ABO returns 409) | Yes | 501 | 501 |
+        | `name` | Yes | 501 | 501 |
+        | `platformSpecificData.spendCap` | Yes | 400 | 400 |
+        | `accountId` (empty campaigns) | Yes | - | - |
 
-        - `budget` updates the CBO (Campaign Budget Optimization) budget. For ABO campaigns
-          (where the budget lives on the ad set), use PUT /v1/ads/ad-sets/{adSetId} instead — this endpoint
-          will return 409 with code BUDGET_LEVEL_MISMATCH.
-        - `bidStrategy` sets the campaign-level default bid strategy. Per Meta's spec, `bid_amount` and
-          `bid_constraints` do NOT exist at the campaign level — pass them via PUT /v1/ads/ad-sets/{adSetId}.
-        - `platformSpecificData.spendCap` (Meta only) sets the campaign's lifetime spend cap, in the ad
-          account's currency.
+        Google maps the shared enum onto its own strategies: `LOWEST_COST_WITHOUT_CAP`
+        to Maximize Clicks, `LOWEST_COST_WITH_BID_CAP` to Maximize Clicks with a max
+        CPC (`bidAmount`), `COST_CAP` to Target CPA (`bidAmount`),
+        `LOWEST_COST_WITH_MIN_ROAS` to Target ROAS (`roasAverageFloor`). A campaign on
+        a PORTFOLIO bidding strategy is rejected: detach it in Google Ads first, since
+        it is shared across campaigns.
 
-        Meta-only for now. Other platforms return 501 Not Implemented.
+        `accountId` forwards the update straight to Meta for a campaign with zero ads,
+        which would otherwise 404; the response then carries `updated: 0`.
       security:
         - bearerAuth: []
       parameters:
@@ -36553,26 +36726,26 @@ paths:
               type: object
               required: [platform]
               properties:
-                accountId: { type: string, description: "Zernio SocialAccount id owning the ad account. Required only to update an EMPTY campaign (zero ads), which has no local Ad documents to resolve a token from." }
-                platform: { type: string, enum: [facebook, instagram] }
+                platform: { type: string, enum: [facebook, instagram, google], description: "Required: platform campaign IDs are not globally unique." }
+                accountId: { type: string, description: "**Meta only.** Zernio SocialAccount id owning the ad account. Needed only for an EMPTY campaign (zero ads); ignored otherwise." }
+                bidStrategy:
+                  allOf: [{ $ref: '#/components/schemas/BidStrategy' }]
+                  description: "**Meta + Google.** On Meta, the campaign default that ad sets inherit unless they override it. On Google, the campaign's own bidding strategy."
+                bidAmount: { type: number, description: "**Google only.** Whole currency units (USD: 12 = $12.00). Max CPC for LOWEST_COST_WITH_BID_CAP, CPA target for COST_CAP; required for both." }
+                roasAverageFloor: { type: number, description: "**Google only.** Decimal ROAS multiplier (2.0 = 2.0x), required for LOWEST_COST_WITH_MIN_ROAS." }
                 budget:
                   type: object
+                  description: "**Meta only.** The CBO budget."
                   required: [amount, type]
                   properties:
                     amount: { type: number, description: Budget amount in the ad account's currency }
                     type: { type: string, enum: [daily, lifetime] }
-                bidStrategy:
-                  allOf: [{ $ref: '#/components/schemas/BidStrategy' }]
-                  description: "Campaign-level default. Ad sets inherit this unless they override."
-                name: { type: string, maxLength: 255, description: "Rename the campaign (Meta only; other platforms return 501). At least one of budget/bidStrategy/name/platformSpecificData is required." }
+                name: { type: string, maxLength: 255, description: "**Meta only.** Rename the campaign." }
                 platformSpecificData:
                   type: object
-                  description: |
-                    Platform-specific campaign settings. The platform is implied by the `platform`
-                    body param (same convention as platformSpecificData on POST /v1/ads/create).
-                    Meta (facebook/instagram) only; other platforms return 400.
+                  description: "**Meta only.** Platform implied by the `platform` body param, same convention as POST /v1/ads/create."
                   properties:
-                    spendCap: { type: [number, "null"], description: "Campaign lifetime spend cap, in the ad account's currency (Meta `spend_cap`). Pass null to remove the cap (0 is rejected by Meta)." }
+                    spendCap: { type: [number, "null"], description: "Campaign lifetime spend cap, in the ad account's currency (Meta `spend_cap`). Pass null to remove the cap; 0 is rejected by Meta." }
       responses:
         '200':
           description: Campaign updated
@@ -36580,13 +36753,16 @@ paths:
             application/json:
               schema:
                 type: object
+                description: Echoes back only the fields you sent, plus `updated`.
                 properties:
-                  updated: { type: integer }
+                  updated: { type: integer, description: "Local Ad documents mirrored. 0 on the empty-campaign path." }
                   budget: { $ref: '#/components/schemas/AdBudget' }
                   budgetLevel: { type: string, enum: [campaign] }
                   bidStrategy: { $ref: '#/components/schemas/BidStrategy' }
+                  bidAmount: { type: number }
+                  roasAverageFloor: { type: number }
                   platformSpecificData: { type: object }
-        '400': { description: Invalid input }
+        '400': { description: "Invalid input, or a field the resolved platform does not support at the campaign level (see the support table)" }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { description: Campaign not found }
         '409': { description: "Campaign is ABO — route to /v1/ads/ad-sets/{adSetId} instead" }
@@ -36596,15 +36772,12 @@ paths:
       x-resource-group: "ads"
       operationId: deleteAdCampaign
       tags: ["Ad Campaigns"]
-      x-platforms: ["meta", "google", "tiktok", "linkedin", "pinterest", "x"]
+      x-platforms: ["meta", "tiktok"]
       summary: Delete a campaign
       description: |
         Deletes the whole campaign on the platform, cascading to its ad sets
         and ads. Locally, all Ad documents for this campaign are marked
         `status: cancelled`.
-
-        Meta-only for now. Other platforms return 501 Not Implemented — fall
-        back to DELETE /v1/ads/{adId} per ad in the meantime.
 
         **Empty campaigns.** A campaign with zero ads has no local Ad documents
         to resolve, so it is invisible to `/v1/ads/tree` and this endpoint would
@@ -39266,7 +39439,19 @@ paths:
       tags: ["Ad Campaigns"]
       x-platforms: ["meta"]
       summary: Boost post as ad
-      description: Creates a paid ad campaign from an existing published post. Creates the full platform campaign hierarchy (campaign, ad set, ad).
+      description: |
+        Creates a paid ad from an existing published post, keeping the post's
+        engagement. By default it provisions the whole hierarchy (campaign, ad
+        set, ad).
+
+        **Attach shape (Meta).** Send `adSetId` to put the ad under an EXISTING
+        ad set instead, so that ad set keeps its learning phase. It then owns
+        `budget`, `schedule` and `targeting`, and sending any of those alongside
+        `adSetId` is a 400 rather than a silent drop. `budget` is required only
+        without `adSetId`.
+
+        `instagramAccountId`, `destinationType` and `adSetId` are Meta-only and
+        return 400 on other platforms.
       security:
         - bearerAuth: []
       requestBody:
@@ -39275,7 +39460,7 @@ paths:
           application/json:
             schema:
               type: object
-              required: [accountId, adAccountId, name, goal, budget]
+              required: [accountId, adAccountId, name, goal]
               properties:
                 postId: { type: string, description: Zernio post ID (provide this or platformPostId) }
                 platformPostId: { type: string, description: Platform post ID (alternative to postId) }
@@ -39283,12 +39468,16 @@ paths:
                 adAccountId: { type: string, description: Platform ad account ID }
                 name: { type: string, maxLength: 255 }
                 goal: { type: string, enum: [engagement, traffic, awareness, video_views, lead_generation, conversions, app_promotion], description: "Available goals vary by platform. Meta (Facebook/Instagram) and TikTok support all 7. LinkedIn supports all except app_promotion. Twitter/X supports engagement, traffic, awareness, video_views, app_promotion. Pinterest and Google Ads support only engagement, traffic, awareness, video_views." }
+                adSetId: { type: string, description: "Meta only. Attach the boosted post to this existing ad set instead of creating a campaign. The ad set then owns budget, schedule and targeting; sending those too is a 400." }
                 budget:
                   type: object
+                  description: "Required unless adSetId is set."
                   required: [amount, type]
                   properties:
                     amount: { type: number, description: "Minimum varies: TikTok=$20, Pinterest=$5, others=$1" }
                     type: { type: string, enum: [daily, lifetime] }
+                instagramAccountId: { type: string, description: "Meta only. Instagram identity the ad runs AS (creative.instagram_user_id), overriding the account linked to the Page. Live-verified against a Page-post creative." }
+                destinationType: { type: string, enum: [INSTAGRAM_PROFILE, WEBSITE, ON_AD, MESSENGER, WHATSAPP], description: "Meta only. Ad-set destination_type — where the click LANDS, as opposed to instagramAccountId which is who the ad runs as. Lead ads force ON_AD and ignore this." }
                 currency: { type: string, example: USD }
                 schedule:
                   type: object
@@ -39443,19 +39632,31 @@ paths:
                   type: string
                   format: uri
                   description: |
-                    TikTok-only. Custom destination URL for the Spark Ad. Without this, TikTok
-                    Spark Ads have no clickable destination — required for traffic / conversion
-                    objectives. Maps to `landing_page_url` on the creative entry of /v2/ad/create/
-                    (TikTok SDK `AdcreateCreatives.landing_page_url`). Ignored on Meta / LinkedIn /
-                    Pinterest / X / Google (those infer the destination from the boosted post).
+                    Destination URL for the CTA button. Send it together with `callToAction`.
+
+                    **Meta**: adds a top-level `call_to_action` to the post-reference creative.
+                    This is what gives a `traffic` boost a clickable destination without
+                    replacing the creative and losing the post's social proof. Ignored when
+                    `leadGenFormId` is set, which supplies its own destination. Live-verified
+                    against a Page-post creative.
+
+                    **TikTok**: maps to `landing_page_url` on the Spark Ad creative
+                    (`AdcreateCreatives.landing_page_url`); Spark Ads have no clickable
+                    destination without it.
+
+                    Ignored on LinkedIn / Pinterest / X / Google, which infer the destination
+                    from the boosted post.
                 callToAction:
                   type: string
                   description: |
-                    TikTok-only. Call-to-action button label on the Spark Ad creative (e.g.
-                    `LEARN_MORE`, `SHOP_NOW`, `DOWNLOAD_NOW`, `SIGN_UP`, `WATCH_NOW`). Maps to
-                    `call_to_action` on the creative entry of /v2/ad/create/. Pass-through —
-                    the platform validates the value. See TikTok's "Enumeration - Call-to-Action"
-                    reference for the full list.
+                    CTA button label. Send it together with `linkUrl` — a CTA without a
+                    destination produces a button that goes nowhere, so sending one alone is a 400.
+
+                    **Meta**: validated against the Meta CTA enum (same values as
+                    POST /v1/ads/create), e.g. `LEARN_MORE`, `SHOP_NOW`, `SIGN_UP`.
+
+                    **TikTok**: pass-through to `call_to_action` on the Spark Ad creative; the
+                    platform validates the value. See TikTok's "Enumeration - Call-to-Action".
                 sparkAuthCode:
                   type: string
                   description: |
@@ -40582,10 +40783,8 @@ paths:
                         thankYouButtonText: { type: string }
                         thankYouButtonType: { type: string, example: VIEW_WEBSITE }
                         thankYouWebsiteUrl: { type: string, format: uri }
-                        isOptimizedForQuality: { type: boolean }
-                        formType: { type: string, enum: [MORE_VOLUME, HIGHER_INTENT, RICH_CREATIVE] }
+                        isOptimizedForQuality: { type: boolean, description: 'Set true for a higher-intent form (adds a review step before submit).' }
                         blockDisplayForNonTargetedViewer: { type: boolean }
-                        allowOrganicLeadGen: { type: boolean }
                         questionPageCustomHeadline: { type: string }
                         contextCard:
                           type: object
@@ -42861,6 +43060,8 @@ paths:
         - **Single-creative**: supply top-level `headline`, `body`, and one of `imageUrl` / `video`. Creates 1 campaign + 1 ad set + 1 ad.
 
         - **Multi-creative**: supply a `creatives[]` array with N entries (each carrying its own headline, body, and image/video). Creates 1 campaign + 1 ad set + N ads sharing budget and targeting so Meta A/Bs the creatives inside a single auction instead of fragmenting budget across N parallel campaigns. Recommended when launching multiple creative variants for the same campaign.
+
+        **Attach shape.** Send `adSetId` (with either creative shape) to add the ads to an EXISTING messaging ad set instead of building a campaign, so the ad set keeps its learning phase — the way to refresh a CTWA creative without resetting delivery. The ad set then owns budget, targeting and schedule, so `budgetAmount`, `budgetType`, `endDate`, `objective`, `countries`, `interests` and `audienceId` are rejected with a 400 alongside it rather than silently dropped. The target ad set's `destination_type` must match the ad's destination (a WhatsApp ad needs a `WHATSAPP` ad set), otherwise Meta would accept an ad that never delivers.
 
         Prerequisites enforced by Meta (surfaced as platform_error on failure): the Facebook Page must be paired with a verified WhatsApp Business number, the WhatsApp Business Account must be business-verified, and the Meta access token must carry ads_management.
       security:

@@ -19,7 +19,7 @@ depends_on = [
   { name = "loop_filter", link = true },
   { name = "lockdet", link = true },
   { name = "symsync", link = true },
-  { name = "telemetry", link = true },
+  { name = "dp_tlm", link = true },
 ]
 serializable = "true"
 # A NULL create here means a parameter was out of range, not that the machine
@@ -96,7 +96,7 @@ arg_type = "void"
 return_type = "int"
 status_return = true
 params = [
-  { name = "tlm", type = "dp_tlm_t *", capsule = "doppler.telemetry.dp_tlm", header = "telemetry/telemetry.h" },
+  { name = "tlm", type = "dp_tlm_t *", capsule = "doppler.telemetry.dp_tlm", header = "dp_tlm/dp_tlm_core.h" },
   { name = "prefix", type = "const char *" },
   { name = "decim", type = "uint32_t", default = "1" },
 ]

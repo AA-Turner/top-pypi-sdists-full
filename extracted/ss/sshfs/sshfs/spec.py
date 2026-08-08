@@ -4,7 +4,8 @@ import shlex
 import stat
 import weakref
 from contextlib import AsyncExitStack, suppress
-from datetime import datetime
+from datetime import datetime, timezone
+from typing import Optional
 
 import asyncssh
 from asyncssh.sftp import SFTPOpUnsupported
@@ -40,6 +41,7 @@ class SSHFileSystem(AsyncFileSystem):
         host,
         *,
         pool_type=SFTPSoftChannelPool,
+        sftp_client_kwargs: Optional[dict] = None,
         **kwargs,
     ):
         """
@@ -51,15 +53,21 @@ class SSHFileSystem(AsyncFileSystem):
             SSH host to connect.
         **kwargs: Any
             Any option that will be passed to either the top level
-            `AsyncFileSystem` or the `asyncssh.connect`.
+            `AsyncFileSystem` or the `asyncssh.connect`. `timeout`
+            limits the initial connection setup.
         pool_type: sshfs.pools.base.BaseSFTPChannelPool
             Pool manager to use (when doing concurrent operations together,
             pool managers offer the flexibility of prioritizing channels
             and deciding which to use).
+        sftp_client_kwargs: Optional[dict]
+            Options passed to `SSHClientConnection.start_sftp_client`
+            (e.g. env, send_env, path_encoding, path_errors,
+            sftp_version).
         """
 
         super().__init__(self, **kwargs)
 
+        _timeout = kwargs.pop("timeout", None)
         max_sessions = kwargs.pop("max_sessions", _DEFAULT_MAX_SESSIONS)
         if max_sessions <= _SHELL_CHANNELS:
             raise ValueError(
@@ -67,6 +75,7 @@ class SSHFileSystem(AsyncFileSystem):
             )
         _client_args = kwargs.copy()
         _client_args.setdefault("known_hosts", None)
+        sftp_client_kwargs = sftp_client_kwargs or {}
 
         self._stack = AsyncExitStack()
         self.active_executors = 0
@@ -74,7 +83,11 @@ class SSHFileSystem(AsyncFileSystem):
             host,
             pool_type,
             max_sftp_channels=max_sessions - _SHELL_CHANNELS,
-            **_client_args,
+            # timeout is consumed by the sync() machinery underneath
+            # sync_wrapper, it never reaches _connect
+            timeout=_timeout,
+            connect_args=_client_args,
+            sftp_client_kwargs=sftp_client_kwargs,
         )
         weakref.finalize(
             self, self._finalize, self.loop, self._pool, self._stack
@@ -84,7 +97,14 @@ class SSHFileSystem(AsyncFileSystem):
     def _strip_protocol(cls, path):
         # Remove components such as host and username from path.
         inferred_path = infer_storage_options(path)["path"]
-        return super()._strip_protocol(inferred_path)
+        stripped = super()._strip_protocol(inferred_path)
+        # super() collapses a bare "/" to the (empty) root_marker. Restore it
+        # only when the caller explicitly supplied the absolute root, so that
+        # walk("/") lists from the root while relative paths (and "") still
+        # resolve against the home directory.
+        if not stripped and inferred_path.startswith("/"):
+            return "/"
+        return stripped
 
     @staticmethod
     def _get_kwargs_from_urls(urlpath):
@@ -95,13 +115,22 @@ class SSHFileSystem(AsyncFileSystem):
 
     @wrap_exceptions
     async def _connect(
-        self, host, pool_type, max_sftp_channels, **client_args
+        self,
+        host,
+        pool_type,
+        max_sftp_channels,
+        connect_args,
+        sftp_client_kwargs,
     ):
         self._client_lock = asyncio.Semaphore(_SHELL_CHANNELS)
 
-        _raw_client = asyncssh.connect(host, **client_args)
+        _raw_client = asyncssh.connect(host, **connect_args)
         client = await self._stack.enter_async_context(_raw_client)
-        pool = pool_type(client, max_channels=max_sftp_channels)
+        pool = pool_type(
+            client,
+            max_channels=max_sftp_channels,
+            sftp_client_kwargs=sftp_client_kwargs,
+        )
         return client, pool
 
     connect = sync_wrapper(_connect)
@@ -151,8 +180,16 @@ class SSHFileSystem(AsyncFileSystem):
             "type": kind,
             "gid": attributes.gid,
             "uid": attributes.uid,
-            "time": datetime.utcfromtimestamp(attributes.atime),
-            "mtime": datetime.utcfromtimestamp(attributes.mtime),
+            "time": (
+                datetime.fromtimestamp(attributes.atime, tz=timezone.utc)
+                if attributes.atime is not None
+                else None
+            ),
+            "mtime": (
+                datetime.fromtimestamp(attributes.mtime, tz=timezone.utc)
+                if attributes.mtime is not None
+                else None
+            ),
             "permissions": attributes.permissions,
         }
 
@@ -228,7 +265,7 @@ class SSHFileSystem(AsyncFileSystem):
         await self._execute(cmd)
 
     @wrap_exceptions
-    async def _ls(self, path, detail=False, **kwargs):
+    async def _ls(self, path, detail=True, **kwargs):
         async with self._pool.get() as channel:
             file_attrs = await channel.readdir(path)
 

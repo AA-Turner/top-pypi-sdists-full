@@ -1,9 +1,11 @@
+# Python internals
 import os
 import time
 from dataclasses import dataclass, field
 from typing import Generator, Optional, Union
 from uuid import UUID
 
+# Other libraries
 import httpx
 import jwt
 from dlt._workspace._workspace_context import WorkspaceRunContext, active
@@ -18,10 +20,8 @@ from dlt.common.configuration.specs.pluggable_run_context import RunContextBase
 from dlt.common.configuration.specs.runtime_configuration import RuntimeConfiguration
 from jwt.exceptions import PyJWTError
 
+# Current package
 from dlt_runtime._telemetry import DEVICE_ID_HEADER, get_telemetry_device_id
-from dlt_runtime.urls import normalize_api_base_url
-from dlt_runtime.version import __version__
-
 from dlt_runtime.exceptions import (
     ApiKeyInvalid,
     OrgRegionRequired,
@@ -34,36 +34,30 @@ from dlt_runtime.runtime_clients.api.api.me import me
 from dlt_runtime.runtime_clients.api.api.organizations import set_organization_region
 from dlt_runtime.runtime_clients.api.api.workspaces import create_workspace
 from dlt_runtime.runtime_clients.api.client import Client as ApiClient
-from dlt_runtime.runtime_clients.api.models.create_workspace_response_409 import (
+from dlt_runtime.runtime_clients.api.models import (
     CreateWorkspaceResponse409,
-)
-from dlt_runtime.runtime_clients.api.models.me_response import MeResponse
-from dlt_runtime.runtime_clients.api.models.organization_membership_response import (
+    MeResponse,
     OrganizationMembershipResponse,
-)
-from dlt_runtime.runtime_clients.api.models.organization_response import (
     OrganizationResponse,
-)
-from dlt_runtime.runtime_clients.api.models.set_organization_region_request import (
     SetOrganizationRegionRequest,
-)
-from dlt_runtime.runtime_clients.api.models.workspace_create_request import (
     WorkspaceCreateRequest,
-)
-from dlt_runtime.runtime_clients.api.models.workspace_response import WorkspaceResponse
-from dlt_runtime.runtime_clients.api.models.workspace_with_membership_response import (
+    WorkspaceResponse,
     WorkspaceWithMembershipResponse,
 )
 from dlt_runtime.runtime_clients.auth.api.default import (
     create_session_swap_code as swap_code_api,
+    refresh as refresh_api,
 )
-from dlt_runtime.runtime_clients.auth.api.default import refresh as refresh_api
 from dlt_runtime.runtime_clients.auth.client import Client as AuthClient
-from dlt_runtime.runtime_clients.auth.models.refresh_request import RefreshRequest
-from dlt_runtime.runtime_clients.auth.models.refresh_response import RefreshResponse
-from dlt_runtime.runtime_clients.auth.models.swap_code_request import SwapCodeRequest
-from dlt_runtime.runtime_clients.auth.models.swap_code_response import SwapCodeResponse
+from dlt_runtime.runtime_clients.auth.models import (
+    RefreshRequest,
+    RefreshResponse,
+    SwapCodeRequest,
+    SwapCodeResponse,
+)
 from dlt_runtime.typing import OrganizationInfo, UserInfo, WorkspaceInfo
+from dlt_runtime.urls import normalize_api_base_url
+from dlt_runtime.version import __version__
 
 
 def _tls_verify() -> bool:
@@ -369,6 +363,7 @@ class RuntimeAuthService:
         )
 
     def _convert_workspace(self, workspace: WorkspaceResponse) -> WorkspaceInfo:
+        # Current package
         from dlt_runtime.runtime_clients.api.types import Unset
 
         info: WorkspaceInfo = {

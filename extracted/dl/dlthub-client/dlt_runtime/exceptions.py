@@ -1,30 +1,46 @@
-from contextlib import contextmanager
+# Python internals
 import json
+from contextlib import contextmanager
 from typing import TYPE_CHECKING, Optional, Union
 
+# Other libraries
 import httpx
 from dlt._workspace.exceptions import WorkspaceException
 from dlt.common.exceptions import DltException
+
+# Current package
 from dlt_runtime.runtime_clients.api.errors import (
     UnexpectedStatus as ApiUnexpectedStatus,
 )
+from dlt_runtime.runtime_clients.api.types import Response as ApiResponse
 from dlt_runtime.runtime_clients.auth.errors import (
     UnexpectedStatus as AuthUnexpectedStatus,
+)
+from dlt_runtime.runtime_clients.auth.types import Response as AuthResponse
+from dlt_runtime.runtime_clients.dataplane_api.errors import (
+    UnexpectedStatus as DataplaneApiUnexpectedStatus,
+)
+from dlt_runtime.runtime_clients.dataplane_api.types import (
+    Response as DataplaneApiResponse,
 )
 from dlt_runtime.runtime_clients.logs.errors import (
     UnexpectedStatus as LogUnexpectedStatus,
 )
-from dlt_runtime.runtime_clients.api.types import Response as ApiResponse
-from dlt_runtime.runtime_clients.auth.types import Response as AuthResponse
 from dlt_runtime.runtime_clients.logs.types import Response as LogResponse
 
 if TYPE_CHECKING:
     # Avoid runtime import cycle: runtime.py imports from this module.
+    # Current package
     from dlt_runtime.typing import WorkspaceInfo
 
 
-UnexpectedStatus = Union[ApiUnexpectedStatus, AuthUnexpectedStatus, LogUnexpectedStatus]
-Response = Union[ApiResponse, AuthResponse, LogResponse]
+UnexpectedStatus = Union[
+    ApiUnexpectedStatus,
+    AuthUnexpectedStatus,
+    LogUnexpectedStatus,
+    DataplaneApiUnexpectedStatus,
+]
+Response = Union[ApiResponse, AuthResponse, LogResponse, DataplaneApiResponse]
 
 
 class RuntimeClientException(DltException):
@@ -105,7 +121,12 @@ def handle_client_exceptions(message: Optional[str] = None):
     message = message or "Error calling the dltHub API"
     try:
         yield
-    except (ApiUnexpectedStatus, AuthUnexpectedStatus, LogUnexpectedStatus) as e:
+    except (
+        ApiUnexpectedStatus,
+        AuthUnexpectedStatus,
+        LogUnexpectedStatus,
+        DataplaneApiUnexpectedStatus,
+    ) as e:
         # Generated clients use raise_on_unexpected_status=True, so undocumented
         # statuses bubble up as UnexpectedStatus and we convert here.
         raise exception_from_response(message, e) from e
@@ -145,7 +166,8 @@ def exception_from_response(
     if status == 401:
         return RuntimeNotAuthenticated(f"{message}. {details} (HTTP {status})")
     if status < 500:
-        return RuntimeClientException(
-            f"{message}. {details.capitalize()} (HTTP {status})"
-        )
+        # Upper-case the first character only. `.capitalize()` would lower-case the
+        # rest, which flattens a multi-sentence detail. `details` may be None.
+        detail_text = f"{details[:1].upper()}{details[1:]}" if details else details
+        return RuntimeClientException(f"{message}. {detail_text} (HTTP {status})")
     return RuntimeClientException(f"{message}. Server error: {details} (HTTP {status})")

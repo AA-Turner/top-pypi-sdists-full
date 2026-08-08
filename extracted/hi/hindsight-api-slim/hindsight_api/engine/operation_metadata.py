@@ -19,10 +19,18 @@ class BatchRetainParentMetadata:
     total_tokens: int
     num_sub_batches: int
     is_parent: bool = True
+    # Set only when the whole batch targets a single document, so the operations
+    # list surfaces which document an in-flight retain is (re)writing. The
+    # documents UI cross-checks this to badge rows as "updating". Multi-document
+    # batches leave it None and are matched per single-document child instead.
+    document_id: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        """Convert to dict for JSON serialization."""
-        return asdict(self)
+        """Convert to dict for JSON serialization, omitting document_id when unset."""
+        data = asdict(self)
+        if data.get("document_id") is None:
+            data.pop("document_id", None)
+        return data
 
 
 @dataclass
@@ -33,10 +41,15 @@ class BatchRetainChildMetadata:
     parent_operation_id: str
     sub_batch_index: int
     total_sub_batches: int
+    # Set only when this child processes a single document (see the parent's note).
+    document_id: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        """Convert to dict for JSON serialization."""
-        return asdict(self)
+        """Convert to dict for JSON serialization, omitting document_id when unset."""
+        data = asdict(self)
+        if data.get("document_id") is None:
+            data.pop("document_id", None)
+        return data
 
 
 @dataclass
@@ -156,6 +169,12 @@ class RefreshMentalModelOutcomeMetadata:
     content_len: int
     populated_content: bool
     based_on_counts: dict[str, int] = field(default_factory=dict)
+    # Delta operations the model emitted, as applied vs rejected. A refresh whose
+    # ops are routinely rejected still completes successfully with a plausible
+    # document, so the count is the only signal that some of this run's new facts
+    # never reached it. Both are 0 for a full-mode refresh, which emits no ops.
+    delta_ops_applied: int = 0
+    delta_ops_skipped: int = 0
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dict for JSON serialization."""

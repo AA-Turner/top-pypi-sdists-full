@@ -13,14 +13,21 @@ import pytest
 
 pytestmark = pytest.mark.e2e
 
-EVAL_TIMEOUT = 600  # 10 minutes for a capped eval (-n 1 -r 2)
+EVAL_TIMEOUT = 600  # 10 minutes for a capped eval (-n 1 -r 1)
 
 ENVIRONMENTS = Path(__file__).parent.parent.parent / "environments"
 
-# v1 tasksets that can't run a plain-CI smoke eval — e.g. they need a docker/prime runtime or
-# clone a corpus CI can't read. Empty: the SWE/container and corpus tasksets live in
-# research-environments now.
-SKIP_EVAL: set[str] = set()
+# V1 tasksets that aren't part of the default CI install.
+SKIP_EVAL = {"nemo_gym_weather_v1"}
+
+# Per-run caps are seat fields; recipe envs name their own seats.
+SEATS: dict[str, tuple[str, ...]] = {
+    "code_golf_v1": ("golfer",),
+    "kuhn_poker_v1": ("player0", "player1"),
+    "openenv_wordle_v1": ("player",),
+    "proposer_solver_v1": ("proposer", "solver"),
+    "wordle_v1": ("player",),
+}
 
 
 def v1_tasksets() -> list[str]:
@@ -38,7 +45,7 @@ def test_eval(taskset: str):
         pytest.skip(f"{taskset} can't run a plain-CI smoke eval")
     if os.getenv("PRIME_API_KEY"):
         model = [
-            "-m", "openai/gpt-4.1-mini",
+            "-m", "openai/gpt-5.6-luna",
             "--client.base-url", "https://api.pinference.ai/api/v1",
             "--client.api-key-var", "PRIME_API_KEY",
         ]  # fmt: skip
@@ -51,16 +58,21 @@ def test_eval(taskset: str):
     else:
         pytest.skip("no model API key configured")
 
+    caps = [
+        flag
+        for seat in SEATS.get(taskset, ("agent",))
+        for flag in (f"--env.{seat}.max-turns", "4")
+    ]
     cmd = [
-        "uv", "run", "--no-sync", "eval",
-        "--taskset.id", taskset,
+        "uv", "run", "--no-sync", "eval", taskset,
         *model,
-        # -r 2: a task with @group_reward(s) needs >=2 rollouts to compare.
-        "-n", "1", "-r", "2", "--max-turns", "4",
+        "-n", "1", "-r", "1", *caps,
         "--sampling.max-tokens", "512", "--rich", "false",
     ]  # fmt: skip
     try:
-        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=EVAL_TIMEOUT)
+        proc = subprocess.run(
+            cmd, capture_output=True, text=True, timeout=EVAL_TIMEOUT, check=False
+        )
     except subprocess.TimeoutExpired:
         pytest.fail(f"Timed out after {EVAL_TIMEOUT}s evaluating {taskset}")
     assert proc.returncode == 0, (

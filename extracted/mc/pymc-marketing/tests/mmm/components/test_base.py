@@ -170,9 +170,8 @@ def test_new_transformation_function_priors(new_transformation) -> None:
 
 
 def test_new_transformation_priors_at_init(new_transformation_class) -> None:
-    new_prior = {"a": {"dist": "HalfNormal", "kwargs": {"sigma": 2}}}
-    with pytest.warns(DeprecationWarning, match=r"a is automatically converted"):
-        new_transformation = new_transformation_class(priors=new_prior)
+    new_prior = {"a": Prior("HalfNormal", sigma=2)}
+    new_transformation = new_transformation_class(priors=new_prior)
     assert new_transformation.function_priors == {
         "a": Prior("HalfNormal", sigma=2),
         "b": Prior("HalfNormal", sigma=1),
@@ -481,7 +480,7 @@ def test_apply_idx(new_transformation_class) -> None:
     coords = {"geo": ["A", "B"], "channel": ["TV", "Radio", "Online"]}
     with pm.Model(coords=coords) as model:
         idx = as_xtensor([0, 0, 0, 1, 1, 1], dims=("geo",))
-        Y = instance.apply(X, idx=idx, dims=("channel",))
+        Y = instance.apply(X, idx=idx)
 
         expected = instance.function(
             X,
@@ -532,7 +531,6 @@ def test_apply_idx_more_dims(new_transformation_class) -> None:
         Y = instance.apply(
             X,
             idx=(geo_idx, product_idx),
-            dims="channel",
         )
 
         expected = instance.function(

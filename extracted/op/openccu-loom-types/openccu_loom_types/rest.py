@@ -1042,6 +1042,10 @@ class Change(BaseModel):
 
 
 class AuditEntry(BaseModel):
+    id: int = Field(
+        ...,
+        description="Stable identity of this entry within the responding list. A single operator action can emit several entries that agree on every other field, including the second-resolution timestamp, so this is the only safe key for per-row client state. Values are assigned by the durable store and are not comparable across daemon restarts when no durable store is configured.\n",
+    )
     central: str | None = Field(
         None,
         description="CCU this entry belongs to, derived best-effort from the device\naddress. Omitted for daemon-wide entries (e.g. CCU management).\n",
@@ -3644,6 +3648,10 @@ class Area(BaseModel):
 class SecurityClassState(BaseModel):
     class_: Class7 = Field(..., alias="class")
     active: bool
+    severity: Severity = Field(
+        ...,
+        description="What this class contributes to the folded severity right now — not what its name implies. Colour the class from this, never from `active`: a low battery must not look like a fire. `intrusion` is arm-aware, so an active source whose zone is disarmed grades `info` rather than `alarm`; `warning` means the arm state behind at least one active source could not be resolved. `ok` while inactive.\n",
+    )
     sources: list[AlarmSource] | None = None
     known: int = Field(
         ..., description="Sources of this class the index knows, active or not."

@@ -56,7 +56,7 @@ class TestEnterprise(TestCase):
             cmd.execute(params, verbose=True)
 
     def test_enterprise_info_users_verbose_returns_ids(self):
-        """With -v, node/teams/roles columns should be IDs; without -v, names."""
+        """With -v, node/teams/roles include separate name and ID fields; without -v, names only."""
         params = get_connected_params()
         api.query_enterprise(params)
         cmd = enterprise.EnterpriseInfoCommand()
@@ -74,9 +74,18 @@ class TestEnterprise(TestCase):
             params, users=True, format='json', columns=columns, verbose=True, quiet=True)
         users = json.loads(report)
         user1 = next(u for u in users if u['user_id'] == ent_env.user1_id)
-        self.assertEqual(user1['node'], str(ent_env.node1_id))
-        self.assertEqual(user1['teams'], [ent_env.team1_uid])
-        self.assertEqual(user1['roles'], [str(ent_env.role1_id)])
+        self.assertEqual(user1['node'], {
+            'node_id': str(ent_env.node1_id),
+            'node_name': 'Enterprise 1',
+        })
+        self.assertEqual(user1['teams'], [{
+            'team_uid': ent_env.team1_uid,
+            'team_name': ent_env.team1_name,
+        }])
+        self.assertEqual(user1['roles'], [{
+            'role_id': str(ent_env.role1_id),
+            'role_name': ent_env.role1_name,
+        }])
 
     def test_enterprise_add_user(self):
         params = get_connected_params()
@@ -312,6 +321,27 @@ class TestEnterprise(TestCase):
         self.assertTrue(type(arr) == list)
         arr.sort()
         self.assertListEqual(arr, [0, 1, 2, 3, 4, 5, 6, 7])
+
+    def test_audit_report_sox_fetch_uses_freshness_when_record_details_allowed(self):
+        params = mock.Mock()
+        cmd = aram.AuditReportCommand()
+        cmd.allow_sox_data_fetch = True
+        sox_data = mock.Mock()
+        before = int(datetime.now().timestamp())
+        with mock.patch('keepercommander.commands.aram.is_compliance_reporting_enabled', return_value=True), \
+                mock.patch('keepercommander.commands.aram.get_compliance_data', return_value=sox_data) as mock_get:
+            self.assertIs(cmd.get_sox_data(params), sox_data)
+        min_updated = mock_get.call_args.kwargs.get('min_updated')
+        self.assertGreaterEqual(min_updated, before)
+
+    def test_audit_report_sox_fetch_uses_cache_only_by_default(self):
+        params = mock.Mock()
+        cmd = aram.AuditReportCommand()
+        sox_data = mock.Mock()
+        with mock.patch('keepercommander.commands.aram.is_compliance_reporting_enabled', return_value=True), \
+                mock.patch('keepercommander.commands.aram.get_compliance_data', return_value=sox_data) as mock_get:
+            self.assertIs(cmd.get_sox_data(params), sox_data)
+        self.assertEqual(mock_get.call_args.kwargs.get('min_updated'), 0)
 
     def test_enterprise_push_command(self):
         params = get_connected_params()

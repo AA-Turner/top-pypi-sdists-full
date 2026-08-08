@@ -1,5 +1,4 @@
 import os
-import traceback
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime
@@ -16,7 +15,6 @@ from dbt_common.contracts.constraints import ConstraintType
 from dbt_common.dataclass_schema import dbtClassMixin
 from dbt_common.dataclass_schema import ValidationError
 from dbt_common.exceptions import DbtDatabaseError
-from dbt_common.exceptions import DbtInternalError
 from dbt_common.exceptions import DbtRuntimeError
 from dbt_common.utils import encoding as dbt_encoding
 from packaging.version import Version
@@ -24,6 +22,7 @@ from packaging.version import Version
 from .constants import DEFAULT_TEMP_SCHEMA_NAME
 from .constants import DUCKDB_BASE_INCREMENTAL_STRATEGIES
 from .constants import DUCKDB_MERGE_LOWEST_VERSION_POSSIBLE
+from .constants import DUCKLAKE_ALTER_RENAME_FIX_VERSION
 from .constants import TEMP_SCHEMA_NAME
 from dbt.adapters.base import AdapterConfig
 from dbt.adapters.base import BaseRelation
@@ -98,6 +97,13 @@ class DuckDBAdapter(SQLAdapter):
 
     AdapterSpecificConfigs = DuckDBConfig
 
+    _capabilities: CapabilityDict = CapabilityDict(
+        {
+            Capability.SchemaMetadataByRelations: CapabilitySupport(support=Support.Full),
+            Capability.MicrobatchConcurrency: CapabilitySupport(support=Support.Full),
+        }
+    )
+
     CONSTRAINT_SUPPORT = {
         ConstraintType.check: ConstraintSupport.ENFORCED,
         ConstraintType.not_null: ConstraintSupport.ENFORCED,
@@ -105,12 +111,6 @@ class DuckDBAdapter(SQLAdapter):
         ConstraintType.primary_key: ConstraintSupport.ENFORCED,
         ConstraintType.foreign_key: ConstraintSupport.ENFORCED,
     }
-
-    _capabilities = CapabilityDict(
-        {
-            Capability.MicrobatchConcurrency: CapabilitySupport(support=Support.Full),
-        }
-    )
 
     # can be overridden via the model config metadata
     _temp_schema_name = DEFAULT_TEMP_SCHEMA_NAME
@@ -126,6 +126,24 @@ class DuckDBAdapter(SQLAdapter):
 
     def debug_query(self):
         self.execute("select 1 as id")
+
+    def expand_column_types(self, goal, current):
+        # DuckDB has no VARCHAR(N) length constraint, so DuckDBColumn.can_expand_to is
+        # always False (string_size() returns 256 for every string column). The base
+        # implementation's get_columns_in_relation lookups are pure overhead -- and can
+        # be extremely slow against attached catalogs (e.g. DuckLake on Postgres) where
+        # an unfiltered information_schema.columns scan triggers a full metastore load.
+        return
+
+    def get_columns_in_relation(self, relation: BaseRelation) -> List[BaseColumn]:
+        # DESCRIBE (see issue #762) raises on a missing relation; preserve the old
+        # information_schema behavior of returning [] for callers that probe existence.
+        try:
+            return super().get_columns_in_relation(relation)
+        except DbtRuntimeError as e:
+            if "does not exist" in str(e).lower():
+                return []
+            raise
 
     @available
     def parse_index(self, raw_index: Any) -> Optional[DuckDBIndexConfig]:
@@ -146,6 +164,13 @@ class DuckDBAdapter(SQLAdapter):
             return False
 
         return relation.database in self.config.credentials._ducklake_dbs
+
+    @available
+    def use_ducklake_table_workarounds(self, relation: DuckDBRelation) -> bool:
+        """Return whether pre-1.5.3 DuckLake table workarounds are required."""
+        return self.is_ducklake(relation) and self.duckdb_version < Version(
+            DUCKLAKE_ALTER_RENAME_FIX_VERSION
+        )
 
     @available
     def convert_datetimes_to_strs(self, table: "agate.Table") -> "agate.Table":
@@ -295,14 +320,21 @@ class DuckDBAdapter(SQLAdapter):
         return super().get_incremental_strategy_macro(model_context, strategy)
 
     def commit_if_has_connection(self) -> None:
-        """This is just a quick-fix. Python models do not execute begin function so the transaction_open is always false."""
-        try:
-            self.connections.commit_if_has_connection()
-        except DbtInternalError as e:
-            # Log commit errors instead of silently swallowing them to aid debugging
-            logger.warning(f"Commit failed with DbtInternalError: {e}\n{traceback.format_exc()}")
-            # Still pass to maintain backward compatibility, but now with visibility
-            pass
+        """Commit the current transaction only if the connection has one open.
+
+        The connection can legitimately have no open transaction here: Python
+        models never issue BEGIN, and DuckDB autocommits statements against
+        some attached catalogs (e.g. DuckLake), closing the transaction before
+        dbt gets to commit it. Calling commit() in that state raises
+        DbtInternalError, which used to be caught and logged with a full
+        traceback on every affected node. Check the transaction state up front
+        instead, so a normal condition does not produce warning-level noise.
+        """
+        connection = self.connections.get_if_exists()
+        if connection is not None and not connection.transaction_open:
+            logger.debug(f'Skipping commit on connection "{connection.name}": no transaction open')
+            return
+        self.connections.commit_if_has_connection()
 
     def submit_python_job(self, parsed_model: dict, compiled_code: str) -> AdapterResponse:
         connection = self.connections.get_if_exists()
@@ -380,8 +412,12 @@ class DuckDBAdapter(SQLAdapter):
     def _clean_up_temp_relation_for_incremental(self, config):
         if self.is_motherduck() and hasattr(config, "model"):
             if "incremental" == config.model.get_materialization():
+                # Microbatch gives each batch its own temp table; derive the same
+                # batch_id here so this matches the table that was actually created
+                # for this batch (see batch_id_for_model / get_temp_relation_path).
+                batch_id = self.batch_id_for_model(config.model)
                 temp_relation = self.Relation(
-                    path=self.get_temp_relation_path(config.model),
+                    path=self.get_temp_relation_path(config.model, batch_id),
                     type=RelationType.Table,
                 )
                 self.drop_relation(temp_relation)
@@ -397,6 +433,32 @@ class DuckDBAdapter(SQLAdapter):
             )
             self._clean_up_temp_relation_for_incremental(config)
         super().pre_model_hook(config)
+
+    @available
+    def batch_id_for_model(self, model: Any) -> str:
+        """Derive the batch_id suffix used to give each microbatch run its own
+        temp table (see get_temp_relation_path). Called both from Python
+        (pre/post-model hooks, where `model` exposes `.batch` as an attribute)
+        and from the incremental materialization macro (where `model` is the
+        serialized node dict), so both attribute and dict access are handled.
+        """
+        batch_ctx = getattr(model, "batch", None)
+        if batch_ctx is None and hasattr(model, "get"):
+            batch_ctx = model.get("batch")
+        if not batch_ctx:
+            return ""
+        event_time_start = getattr(batch_ctx, "event_time_start", None)
+        if event_time_start is None and hasattr(batch_ctx, "get"):
+            event_time_start = batch_ctx.get("event_time_start")
+        if not event_time_start:
+            return ""
+        return (
+            str(event_time_start)
+            .replace("-", "")
+            .replace(":", "")
+            .replace(" ", "_")
+            .replace("+", "")
+        )
 
     @available
     def get_temp_relation_path(self, model: Any, batch_id: str = ""):

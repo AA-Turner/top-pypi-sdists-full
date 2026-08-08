@@ -508,6 +508,33 @@ def test_init_defaults(module: str):
 
 
 @parametrize_module
+def test_default_factory_sentinel_only_added_when_needed(module: str):
+    """The _HAS_DEFAULT_FACTORY sentinel should not leak into module locals.
+
+    It is only needed as a default for fields using ``default_factory``.
+    """
+    without_factory = astroid.parse(f"""
+    from {module} import dataclass
+
+    @dataclass
+    class A:
+        x: int = 10
+    """)
+    assert "_HAS_DEFAULT_FACTORY" not in without_factory.locals
+
+    with_factory = astroid.parse(f"""
+    from {module} import dataclass
+    from dataclasses import field
+    from typing import List
+
+    @dataclass
+    class A:
+        x: List[int] = field(default_factory=list)
+    """)
+    assert "_HAS_DEFAULT_FACTORY" in with_factory.locals
+
+
+@parametrize_module
 def test_init_initvar(module: str):
     """Test init for a dataclass with attributes and an InitVar."""
     node = astroid.extract_node(f"""
@@ -728,7 +755,8 @@ def test_non_dataclass_is_not_dataclass() -> None:
 
 def test_kw_only_sentinel() -> None:
     """Test that the KW_ONLY sentinel doesn't get added to the fields."""
-    node_one, node_two = astroid.extract_node("""
+    node_one, node_two, node_three = astroid.extract_node("""
+    import dataclasses
     from dataclasses import dataclass, KW_ONLY
     from dataclasses import KW_ONLY as keyword_only
 
@@ -745,13 +773,37 @@ def test_kw_only_sentinel() -> None:
         y: str
 
     B.__init__  #@
+
+    @dataclass
+    class C:
+        _: dataclasses.KW_ONLY
+        y: str
+
+    C.__init__  #@
     """)
     expected = ["self", "y"]
-    init = next(node_one.infer())
-    assert [a.name for a in init.args.args] == expected
+    for node in (node_one, node_two, node_three):
+        init = next(node.infer())
+        assert [a.name for a in init.args.args] == expected
 
-    init = next(node_two.infer())
-    assert [a.name for a in init.args.args] == expected
+
+def test_kw_only_sentinel_other_dataclasses_attr() -> None:
+    """Annotating with another ``dataclasses`` attribute (e.g. ``MISSING``)
+    that also infers to ``builtins.sentinel`` on Python 3.15+ must not be
+    treated as ``KW_ONLY``."""
+    node = astroid.extract_node("""
+    import dataclasses
+    from dataclasses import dataclass
+
+    @dataclass
+    class C:
+        _: dataclasses.MISSING
+        y: str
+
+    C.__init__  #@
+    """)
+    init = next(node.infer())
+    assert [a.name for a in init.args.args] == ["self", "_", "y"]
 
 
 def test_kw_only_decorator() -> None:
@@ -1307,3 +1359,29 @@ def test_dataclass_with_duplicate_bases_field_default():
     # Should not raise DuplicateBasesError in _get_previous_field_default
     inferred = next(node.infer())
     assert inferred is not None
+
+
+def test_dataclass_base_with_annotated_init_no_crash():
+    """Regression test for https://github.com/pylint-dev/astroid/issues/3200.
+
+    A base dataclass can bind ``__init__`` to something that is not a function
+    by annotating it as a field. Collecting the arguments of such a base should
+    not crash with an AttributeError.
+    """
+    node = astroid.extract_node("""
+    from dataclasses import dataclass
+
+    @dataclass
+    class A:
+        __init__: int
+
+    @dataclass
+    class B(A):
+        pass
+
+    B.__init__  #@
+    """)
+
+    inferred = next(node.infer())
+    assert isinstance(inferred, bases.UnboundMethod)
+    assert [a.name for a in inferred.args.args] == ["self"]

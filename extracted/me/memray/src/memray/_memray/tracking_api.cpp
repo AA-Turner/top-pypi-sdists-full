@@ -2,6 +2,8 @@
 #include <Python.h>
 
 #include <cassert>
+#include <cerrno>
+#include <stdio.h>
 
 #ifdef __linux__
 #    include <link.h>
@@ -537,11 +539,7 @@ PythonStackTracker::installGreenletTraceFunctionIfNeeded()
     // `greenlet._greenlet` has already been imported.
     PyObject* _greenlet = PyDict_GetItemString(modules, "greenlet._greenlet");
     if (!_greenlet) {
-        // Before greenlet 1.0, the extension module was just named "greenlet"
-        _greenlet = PyDict_GetItemString(modules, "greenlet");
-        if (!_greenlet) {
-            return;
-        }
+        return;
     }
 
     // Borrowed reference
@@ -876,7 +874,7 @@ Tracker::Tracker(
 
     d_writer->setMainTidAndSkippedFrames(thread_id(), computeMainTidSkip());
     if (!d_writer->writeHeader(false)) {
-        throw IoError{"Failed to write output header"};
+        throw IoError{"Failed to write output header: " + std::string(strerror(errno))};
     }
 
     RecursionGuard guard;
@@ -944,7 +942,7 @@ Tracker::BackgroundThread::BackgroundThread(
 #ifdef __linux__
     d_procs_statm.open("/proc/self/status");
     if (!d_procs_statm) {
-        throw IoError{"Failed to open /proc/self/status"};
+        throw IoError{"Failed to open /proc/self/status: " + std::string(strerror(errno))};
     }
 #endif
 }
@@ -1000,8 +998,10 @@ Tracker::BackgroundThread::captureMemorySnapshot()
 
     std::lock_guard<std::mutex> lock(*s_mutex);
     if (!d_writer->writeRecord(MemoryRecord{now, rss})) {
-        std::cerr << "Failed to write output, deactivating tracking" << std::endl;
-        Tracker::deactivate();
+        if (Tracker::isActive()) {
+            std::cerr << "Failed to write output, deactivating tracking" << std::endl;
+            Tracker::deactivate();
+        }
         return false;
     }
 

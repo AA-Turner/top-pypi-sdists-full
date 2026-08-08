@@ -6,36 +6,40 @@ from typing import ClassVar as _ClassVar, Iterable as _Iterable, Mapping as _Map
 DESCRIPTOR: _descriptor.FileDescriptor
 
 class AnswerRequest(_message.Message):
-    __slots__ = ("query", "api_key", "include_content", "scope", "model", "response_format")
+    __slots__ = ("query", "api_key", "include_content", "scope", "model", "response_format", "system_prompt")
     QUERY_FIELD_NUMBER: _ClassVar[int]
     API_KEY_FIELD_NUMBER: _ClassVar[int]
     INCLUDE_CONTENT_FIELD_NUMBER: _ClassVar[int]
     SCOPE_FIELD_NUMBER: _ClassVar[int]
     MODEL_FIELD_NUMBER: _ClassVar[int]
     RESPONSE_FORMAT_FIELD_NUMBER: _ClassVar[int]
+    SYSTEM_PROMPT_FIELD_NUMBER: _ClassVar[int]
     query: str
     api_key: str
     include_content: bool
     scope: str
     model: str
     response_format: str
-    def __init__(self, query: _Optional[str] = ..., api_key: _Optional[str] = ..., include_content: bool = ..., scope: _Optional[str] = ..., model: _Optional[str] = ..., response_format: _Optional[str] = ...) -> None: ...
+    system_prompt: str
+    def __init__(self, query: _Optional[str] = ..., api_key: _Optional[str] = ..., include_content: bool = ..., scope: _Optional[str] = ..., model: _Optional[str] = ..., response_format: _Optional[str] = ..., system_prompt: _Optional[str] = ...) -> None: ...
 
 class AnswerStreamRequest(_message.Message):
-    __slots__ = ("query", "api_key", "include_content", "scope", "model", "response_format")
+    __slots__ = ("query", "api_key", "include_content", "scope", "model", "response_format", "system_prompt")
     QUERY_FIELD_NUMBER: _ClassVar[int]
     API_KEY_FIELD_NUMBER: _ClassVar[int]
     INCLUDE_CONTENT_FIELD_NUMBER: _ClassVar[int]
     SCOPE_FIELD_NUMBER: _ClassVar[int]
     MODEL_FIELD_NUMBER: _ClassVar[int]
     RESPONSE_FORMAT_FIELD_NUMBER: _ClassVar[int]
+    SYSTEM_PROMPT_FIELD_NUMBER: _ClassVar[int]
     query: str
     api_key: str
     include_content: bool
     scope: str
     model: str
     response_format: str
-    def __init__(self, query: _Optional[str] = ..., api_key: _Optional[str] = ..., include_content: bool = ..., scope: _Optional[str] = ..., model: _Optional[str] = ..., response_format: _Optional[str] = ...) -> None: ...
+    system_prompt: str
+    def __init__(self, query: _Optional[str] = ..., api_key: _Optional[str] = ..., include_content: bool = ..., scope: _Optional[str] = ..., model: _Optional[str] = ..., response_format: _Optional[str] = ..., system_prompt: _Optional[str] = ...) -> None: ...
 
 class AnswerResponse(_message.Message):
     __slots__ = ("answer", "citations")

@@ -15,7 +15,7 @@ from typing import Final
 from astroid import context, nodes
 from astroid.brain.helpers import register_module_extender
 from astroid.builder import AstroidBuilder, _extract_single_node, extract_node
-from astroid.const import PY312_PLUS, PY313_PLUS, PY314_PLUS
+from astroid.const import PY312_PLUS, PY313_PLUS, PY314_PLUS, PY315_PLUS
 from astroid.exceptions import (
     AstroidSyntaxError,
     AttributeInferenceError,
@@ -229,6 +229,12 @@ def infer_typedDict(  # pylint: disable=invalid-name
     class_def.postinit(bases=[extract_node("dict")], body=[], decorators=None)
     func_to_add = _extract_single_node("dict")
     class_def.locals["__call__"] = [func_to_add]
+    # TypedDict subclasses have ``__required_keys__`` and ``__optional_keys__``
+    # class attributes at runtime (e.g. ``MyDict.__required_keys__``), even
+    # though the annotation-only body never declares them.
+    for attr in ("__required_keys__", "__optional_keys__"):
+        func_to_add = _extract_single_node("dict")
+        class_def.locals[attr] = [func_to_add]
     return iter([class_def])
 
 
@@ -463,6 +469,13 @@ def _typing_transform():
     class Union:
         @classmethod
         def __class_getitem__(cls, item): return cls
+    """)
+    if PY315_PLUS:
+        # typing.ByteString was removed from the typing module in Python 3.15
+        # (it was deprecated since 3.12 and present at module level until 3.14).
+        # Inject a stub so code using `typing.ByteString` can still be inferred.
+        code += textwrap.dedent("""
+    class ByteString: ...
     """)
     return AstroidBuilder(AstroidManager()).string_build(code)
 

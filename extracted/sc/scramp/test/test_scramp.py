@@ -213,6 +213,14 @@ def test_Nonce_init_error(nonce, error_msg, server_error):
     assert str(exc_info.value.server_error) == server_error
 
 
+def test_AuthFn_init_callable():
+    class Auth:
+        def __call__(self, _):
+            pass
+
+    AuthFn(Auth())
+
+
 @pytest.mark.parametrize(
     "password,iteration_count,salt,msg",
     [

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: tree-sitter-scala
-Version: 0.26.0
+Version: 0.26.2
 Summary: Scala grammar for tree-sitter
 Author-email: Max Brunsfeld <maxbrunsfeld@gmail.com>
 License: MIT

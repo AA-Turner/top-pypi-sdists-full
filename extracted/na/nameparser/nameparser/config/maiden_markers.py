@@ -17,6 +17,7 @@ MAIDEN_MARKERS = {
     'урожденная',
     'урождённый',
     'урожденный',
+    '旧姓',
 }
 """
 Marker words that introduce a birth surname, e.g. "Jane Smith née Jones"
@@ -28,6 +29,33 @@ writes е). Both grammatical genders are listed where #274 or review
 attested them (née/né, урождённая/урождённый); Czech masculine rozený
 awaits the same vetting. Entries are stored normalized: lowercase, no
 periods.
+
+Japanese 旧姓 is here rather than in locales.JA, on the rule that
+admitted the Cyrillic entries: a native-script marker cannot collide
+with a Latin-script name, and matching is whole-token, so it is safe
+as a default. Neither character appears in any shipped surname, title,
+suffix, conjunction, particle or bound-given vocabulary. locales.JA
+is for what needs the my-data-is-Japanese declaration -- segmentation,
+where a pure-Han string cannot say which language wrote it -- and this
+needs none, since it can only ever match Han text.
+
+Matching being whole-token, the marker has to BE a token -- which for
+Japanese means something has to divide it from the name it marks. A
+space does, and so does a configured delimiter: extract masks the
+whole bracketed region, delimiter characters included, before tokenize
+runs, so a bracket bounds a token exactly as a space does and
+"山田（旧姓 佐藤）" needs no space in front of 旧姓 at all. The bare
+"山田花子 旧姓 佐藤" and -- since #329 -- the bracketed
+"山田 花子（旧姓 佐藤）" under Policy(maiden_delimiters=...) alike give
+maiden 佐藤. What divides nothing is the fullwidth colon that the form
+Japanese more often writes puts after the marker: "山田（旧姓：佐藤）"
+still yields maiden "旧姓：佐藤" with the marker and its colon attached.
+Not because delimited content escapes classification -- classify tags
+a marker wherever it is a token -- but because ： is no separator
+tokenize knows, so marker and name arrive as ONE token and there is
+nothing to drop. The wholly unspaced "山田花子（旧姓佐藤）" reads as one
+token for the same reason. Peeling a marker off the head of a token is
+#317's job.
 
 Consumed by the 2.0 parser's default lexicon. The 1.x parser does not
 read this module.

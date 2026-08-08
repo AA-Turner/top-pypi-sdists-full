@@ -1071,7 +1071,14 @@ NB_INLINE Py_ssize_t PyUnstable_Long_CompactValue(const PyLongObject *o) {
 
 template <typename T, bool Recurse = true>
 NB_INLINE bool load_int(PyObject *o, uint32_t flags, T *out) noexcept {
-    if (NB_LIKELY(PyLong_CheckExact(o))) {
+    // Only CPython 3.10+ guarantees that PyNumber_Index() returns an exact 'int'.
+#if PY_VERSION_HEX < 0x030A0000 || defined(PYPY_VERSION)
+    constexpr bool Exact = Recurse;
+#else
+    constexpr bool Exact = true;
+#endif
+
+    if (NB_LIKELY(Exact ? PyLong_CheckExact(o) : PyLong_Check(o))) {
 #if !defined(Py_LIMITED_API) && !defined(PYPY_VERSION)
         PyLongObject *l = (PyLongObject *) o;
 
@@ -1118,8 +1125,8 @@ NB_INLINE bool load_int(PyObject *o, uint32_t flags, T *out) noexcept {
     }
 
     if constexpr (Recurse) {
-        if ((flags & (uint8_t) cast_flags::convert) && !PyFloat_Check(o)) {
-            PyObject* temp = PyNumber_Long(o);
+        if (flags & (uint8_t) cast_flags::convert) {
+            PyObject* temp = PyNumber_Index(o);
             if (temp) {
                 bool result = load_int<T, false>(temp, 0, out);
                 Py_DECREF(temp);
@@ -1220,18 +1227,22 @@ void slice_compute(PyObject *slice, Py_ssize_t size, Py_ssize_t &start,
 }
 
 bool iterable_check(PyObject *o) noexcept {
+    PyTypeObject *tp = Py_TYPE(o);
 #if !defined(Py_LIMITED_API)
-    return Py_TYPE(o)->tp_iter != nullptr || PySequence_Check(o);
+    bool has_iter = tp->tp_iter != nullptr;
 #else
-    PyObject *it = PyObject_GetIter(o);
-    if (it) {
-        Py_DECREF(it);
-        return true;
-    } else {
-        PyErr_Clear();
-        return false;
-    }
+    bool has_iter = PyType_GetSlot(tp, Py_tp_iter) != nullptr;
 #endif
+    return has_iter || PySequence_Check(o);
+}
+
+PyObject *try_iter(PyObject *o) noexcept {
+    if (!iterable_check(o))
+        return nullptr;
+    PyObject *it = PyObject_GetIter(o);
+    if (!it)
+        PyErr_Clear();
+    return it;
 }
 
 // ========================================================================

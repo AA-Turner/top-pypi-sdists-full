@@ -1,23 +1,23 @@
 from __future__ import annotations
 
-import logging
 import time
 import traceback
 import uuid
-from collections.abc import Mapping
-from typing import TYPE_CHECKING, Annotated, Any, Generic, Literal, TypeVar
+from collections.abc import Callable, Mapping
+from typing import TYPE_CHECKING, Annotated, Any, Generic, Literal
 
 import numpy as np
-from pydantic import Field, PrivateAttr
+from pydantic import BaseModel, Field, PrivateAttr
 from renderers.base import MultiModalData
+from typing_extensions import TypeVar
 
 if TYPE_CHECKING:
     from verifiers.v1.judge import JudgeResponse
 
 from verifiers.v1 import graph
+from verifiers.v1.configs.agent import AgentConfig, WireAgentConfig
 from verifiers.v1.errors import ProviderError
 from verifiers.v1.graph import MessageNode
-from verifiers.v1.harness import HarnessConfig
 from verifiers.v1.runtimes import RuntimeInfo
 from verifiers.v1.state import State, StateT
 from verifiers.v1.task import DataT, WireTaskData
@@ -27,18 +27,29 @@ from verifiers.v1.types import (
     KeptTokens,
     Messages,
     Sampling,
-    SamplingConfig,
-    StrictBaseModel,
     Tool,
     ToolMessage,
     Usage,
     content_text,
 )
 
-logger = logging.getLogger(__name__)
+TRACE_VERSION = 1
+"""Current version of the trace schema."""
 
 
-class TimeSpan(StrictBaseModel):
+EXCLUDE_FIELDS: dict = {
+    "nodes": {
+        "__all__": {
+            "multi_modal_data",
+            "routed_experts",
+            "kept_tokens",
+        }
+    }
+}
+"""Raw tensor fields kept on the msgpack wire but excluded from disk serialization."""
+
+
+class TimeSpan(BaseModel):
     """Wall-clock timestamps with a derived, non-serialized duration in seconds."""
 
     start: float = 0.0
@@ -49,85 +60,123 @@ class TimeSpan(StrictBaseModel):
         return max(0.0, self.end - self.start) if self.end else 0.0
 
 
-class TimeSplit(StrictBaseModel):
-    """A span's share attributed to one side of a split: disjoint sub-intervals summed
-    into a duration, so there is no single start/end. Serialized, unlike a span's
-    derived `duration`, since it cannot be recomputed from two timestamps."""
+class TimeSplit(BaseModel):
+    """Records a measured duration in seconds."""
 
     duration: float = 0.0
 
 
-class GenerationSpan(TimeSpan):
-    """The generation span plus its split into time inside model calls (`model`) vs.
-    outside them (`harness`: harness logic, tools, user simulation). Stamped from the
-    recorded model calls' spans by `Trace.split_generation` when the span closes, with
-    `model.duration + harness.duration == duration` — concurrent calls (subagent forks)
-    are clamped to the span, saturating the model share."""
-
+class AgentSpan(TimeSpan):
     model: TimeSplit = Field(default_factory=TimeSplit)
     harness: TimeSplit = Field(default_factory=TimeSplit)
 
 
-class Timing(StrictBaseModel):
+class Timing(BaseModel):
     start: float = Field(default_factory=time.time)
     boot: TimeSpan = Field(default_factory=TimeSpan)
     setup: TimeSpan = Field(default_factory=TimeSpan)
-    generation: GenerationSpan = Field(default_factory=GenerationSpan)
+    agent: AgentSpan = Field(default_factory=AgentSpan)
     finalize: TimeSpan = Field(default_factory=TimeSpan)
     scoring: TimeSpan = Field(default_factory=TimeSpan)
 
 
-class Error(StrictBaseModel):
+class Error(BaseModel):
     type: str
     message: str
     status_code: int | None = None
-    """The upstream HTTP status a provider failure surfaced (the provider's own, or one
-    chosen for a transport fault); None when the failure carried no HTTP exchange."""
     traceback: str | None = None
 
 
-class ModelCall(StrictBaseModel):
-    """One provider exchange behind a sampled turn; its conversation is the linked
-    node's root-to-self path, never repeated here."""
+class VersionInfo(BaseModel):
+    version: str
+    commit: str | None = None
+
+
+def _current_build() -> VersionInfo:
+    # Lazy: `verifiers/__init__` (and its v0 surface) must not load with this module.
+    from verifiers import __version__
+    from verifiers.v1.utils.version import verifiers_commit
+
+    return VersionInfo(version=__version__, commit=verifiers_commit())
+
+
+AgentConfigT = TypeVar("AgentConfigT", bound=AgentConfig, default=AgentConfig)
+
+
+class AgentInfo(BaseModel, Generic[AgentConfigT]):
+    config: AgentConfigT
+    """The resolved config that rebuilds the agent (`Agent(trace.agent.config)`)."""
+    runtime: RuntimeInfo | None = None
+    """The box the rollout ran in; None until provisioning."""
+    name: str = "agent"
+    """The env agent that produced this trace (the config field name, e.g. `solver`)."""
+    trainable: bool = True
+    """Whether this trace's tokens train the run's policy."""
+
+
+class TraceTask(BaseModel, Generic[DataT]):
+    """The task as recorded on the trace, self-describing without the run's config."""
+
+    type: str
+    """The Task class name (`type(task).__name__`)."""
+    data: DataT
+    """The (immutable) row being solved."""
+
+
+class Reward(BaseModel):
+    score: float
+    weight: float = 1.0
+
+    @property
+    def value(self) -> float:
+        return self.score * self.weight
+
+
+class EvalRunInfo(BaseModel):
+    type: Literal["eval"] = "eval"
+
+    id: str
+    step: int | None = None
+
+
+class TrainRunInfo(BaseModel):
+    type: Literal["train"] = "train"
+
+    id: str
+    step: int | None = None
+
+
+RunInfo = Annotated[EvalRunInfo | TrainRunInfo, Field(discriminator="type")]
+"""The run a trace belongs to, discriminated on `type`."""
+
+
+class ModelCall(BaseModel):
+    """A model call, automatically recorded at intercept time."""
 
     node: int | None = None
-    """Index into `Trace.nodes` of the assistant node this call committed — the link into
-    the message graph (the call's conversation is that node's root-to-self path). None for
-    a call that committed no turn (see `error`)."""
+    """Index into `Trace.nodes` of the assistant node this call committed."""
     model: str | None = None
-    """The model requested from the provider. The rollout's model override makes this
-    `agent.model` on every call; recorded per call because it is cheap and provable."""
+    """The model requested from the provider."""
     sampling: Sampling | None = None
-    """The call's effective settings, scraped off the wire request by the dialect's
-    `sampling_fields` whitelist — the eval-imposed knobs plus whatever the harness set
-    that the eval left alone (`seed`, `tool_choice`, `response_format`, ... as extras)."""
+    """The call's effective sampling settings (may differ from trace-level sampling)."""
     endpoint: str | None = None
-    """The provider endpoint path the request went to (e.g. `/chat/completions`) — says
-    which wire dialect the exchange spoke."""
+    """The provider endpoint path the request went to (e.g. `/chat/completions`)."""
     finish_reason: FinishReason = None
-    """Why the model stopped, normalized (`stop` / `length` / `tool_calls`); None for a
-    failed call or an unrecognized provider reason."""
+    """Why the model stopped, normalized (`stop` / `length` / `tool_calls`)."""
     usage: Usage | None = None
-    """Provider-reported token usage for this exchange, cache reads included; None for
-    a failed call."""
+    """Provider-reported token usage for this exchange, cache reads included."""
     time: TimeSpan = Field(default_factory=TimeSpan)
     """Wall-clock span from sending the request to the fully received response."""
     error: Error | None = None
-    """The failure that ended this call, coupled to the exchange that caused it; None on
-    success. A failed call still records the settings it was sent with."""
+    """The failure that ended this call, coupled to the exchange that caused it."""
 
 
-class Branch(StrictBaseModel):
+class Branch(BaseModel):
     """A root-to-leaf graph path; each branch becomes one training sample."""
 
     index: int
     nodes: list[MessageNode]
     calls: list[ModelCall] = Field(default_factory=list)
-
-    @property
-    def num_turns(self) -> int:
-        """Model-sampled turns; prompt-supplied assistant messages do not count."""
-        return sum(1 for n in self.nodes if n.sampled)
 
     @property
     def messages(self) -> Messages:
@@ -151,27 +200,44 @@ class Branch(StrictBaseModel):
             mask.extend(node.mask)
         return mask
 
-    @property
-    def logprobs(self) -> list[float]:
-        """Per-token sampling logprobs aligned to `token_ids` — the node logprobs spread onto
-        their sampled positions, 0.0 on every non-sampled token."""
+    def spread(
+        self, values: Callable[[MessageNode], list[float] | None]
+    ) -> list[float]:
+        """A per-sampled-token node field widened to `token_ids`: each node's values land on its
+        sampled positions, 0.0 everywhere else. A node holding nothing contributes zeros."""
         out: list[float] = []
         for node in self.nodes:
-            mask = node.mask
-            sampled = sum(mask) if node.logprobs else 0
+            mask, node_values = node.mask, values(node) or []
+            sampled = sum(mask) if node_values else 0
             # Bulk-fill the canonical unsampled-prefix/sampled-suffix layout.
             if not sampled or all(mask[-sampled:]):
-                out += [0.0] * (len(mask) - sampled) + node.logprobs[:sampled]
-                out += [0.0] * max(0, sampled - len(node.logprobs))
+                out += [0.0] * (len(mask) - sampled) + node_values[:sampled]
+                out += [0.0] * max(0, sampled - len(node_values))
                 continue
             li = 0
-            for sampled in mask:
-                if sampled:
-                    out.append(node.logprobs[li] if li < len(node.logprobs) else 0.0)
+            for is_sampled in mask:
+                if is_sampled:
+                    out.append(node_values[li] if li < len(node_values) else 0.0)
                     li += 1
                 else:
                     out.append(0.0)
         return out
+
+    @property
+    def logprobs(self) -> list[float]:
+        """Per-token sampling logprobs aligned to `token_ids` — the node logprobs spread onto
+        their sampled positions, 0.0 on every non-sampled token."""
+        return self.spread(lambda node: node.logprobs)
+
+    @property
+    def advantages(self) -> list[float] | None:
+        """Per-token credit aligned to `token_ids`, spread like `logprobs` — or `None` when no node
+        on the path was ever assigned any, which a branch of zeros would otherwise be
+        indistinguishable from. A partially assigned path spreads, the unassigned nodes reading
+        0.0."""
+        if all(node.advantages is None for node in self.nodes):
+            return None
+        return self.spread(lambda node: node.advantages)
 
     @property
     def multi_modal_data(self) -> MultiModalData | None:
@@ -201,10 +267,8 @@ class Branch(StrictBaseModel):
 
     @property
     def kept_tokens(self) -> KeptTokens | None:
-        """The branch's kept-set sampling masks: `counts` is int32 aligned 1:1 with
-        `token_ids` (0 = no mask, safe under partial coverage — unlike `routed_experts`
-        this is not all-or-nothing), `ids` the flat int32 concatenation of the kept
-        sets in position order. None when no node carries kept-set data."""
+        """int32 kept-set `counts` aligned 1:1 with `token_ids` plus flat `ids` in
+        position order; partial data scatters as 0 counts, no data returns None."""
         if all(n.kept_tokens is None for n in self.nodes):
             return None
         # `_attribute_kept_tokens` validates counts/ids against the node's sampled
@@ -231,178 +295,80 @@ class Branch(StrictBaseModel):
 
     @property
     def last_usage(self) -> Usage | None:
-        """Provider usage from the final model call on this branch — the full context it saw."""
         return next(
             (c.usage for c in reversed(self.calls) if c.usage is not None), None
         )
 
     @property
     def num_total_tokens(self) -> int:
-        """Final sequence length: the last call's prompt + completion. Earlier turns' context
-        is already contained in that prompt, so re-sent tokens are counted once rather than
-        summed per turn."""
         last = self.last_usage
         return last.total_tokens if last is not None else 0
 
     @property
     def num_output_tokens(self) -> int:
-        """Every model-generated token across all turns (completions, reasoning included)."""
         usage = self.usage
         return usage.completion_tokens if usage is not None else 0
 
     @property
     def num_input_tokens(self) -> int:
-        """Tokens fed to the model, counted once: the final sequence minus everything the model
-        generated (i.e. system + user + tool inputs). Not the last prompt — re-sent context is
-        not double-counted."""
         return self.num_total_tokens - self.num_output_tokens
 
 
-_NODE_DUMP_EXCLUDE: dict = {
-    "nodes": {
-        "__all__": {
-            "multi_modal_data",
-            "routed_experts",
-            "kept_tokens",
-        }
-    }
-}
-"""Raw tensor fields kept on the msgpack wire but excluded from JSON records."""
-
-
-TRACE_VERSION = 2
-"""Version of the trace record schema (see `Trace.model_json_schema()`). Bumped on
-breaking shape changes; optional-with-default fields are additive and don't bump it."""
-
-
-class EvalRunInfo(StrictBaseModel):
-    """An eval run, stamped by the consumer (the eval CLI / a trainer's inline eval)."""
-
-    type: Literal["eval"] = "eval"
-    id: str | None = None
-    """The producing run: the eval CLI stamps its run uuid (a resumed eval counts as
-    a new run; kept traces keep their original id), trainers stamp their own."""
-    step: int | None = None
-    """The training step an inline eval was triggered at, stamped by the trainer;
-    None for a standalone eval (the eval CLI doesn't set it)."""
-
-
-class TrainRunInfo(StrictBaseModel):
-    """A training run, stamped by the trainer."""
-
-    type: Literal["train"] = "train"
-    id: str | None = None
-    """The trainer's run identifier."""
-    step: int | None = None
-    """The training step this rollout belongs to."""
-
-
-RunInfo = Annotated[EvalRunInfo | TrainRunInfo, Field(discriminator="type")]
-"""The run a trace belongs to, discriminated on `type`."""
-
-
-class VersionInfo(StrictBaseModel):
-    """The verifiers build that produced this trace."""
-
-    version: str
-    """The installed verifiers package version."""
-    commit: str | None = None
-    """The verifiers git commit, when resolvable (a git-pinned install or a source
-    checkout); None otherwise (e.g. a PyPI wheel)."""
-
-
-class AgentInfo(StrictBaseModel):
-    """The agent that produced this trace's sampled turns."""
-
-    model: str
-    """The model identifier requested from the client."""
-    sampling: SamplingConfig | None = None
-    """The resolved sampling settings the rollout ran with."""
-    harness: HarnessConfig | None = None
-    """The driving harness's config. Typed as the base config, so a custom harness's
-    extra fields don't serialize — records round-trip without importing the harness."""
-
-
-class TraceTask(StrictBaseModel, Generic[DataT]):
-    """The task as recorded on the trace: the row (`data`, the wire half — fully typed,
-    flows into scoring) plus the Task class name that produced the rollout (`type`) —
-    provenance, so a bare trace is self-describing: a `from_trace` implementer or an
-    offline re-scorer can tell which behavior class made it without the run's config
-    (replay warns when it disagrees with the taskset's declared type). Only data and a
-    name ride the wire — behavior still re-attaches by construction."""
-
-    type: str
-    """The Task class name (`type(task).__name__`), resolution stays anchored to the
-    taskset id like everything else."""
-    data: DataT
-    """The (immutable) row being solved."""
-
-
-class Trace(StrictBaseModel, Generic[DataT, StateT]):
-    id: str = Field(default_factory=lambda: uuid.uuid4().hex)
-    """Unique id for this rollout, auto-generated per trace."""
-    task: TraceTask[DataT]
-    """The task being solved: its class name (`task.type`) + its row (`task.data`)."""
-    runtime: RuntimeInfo | None = None
-    """The runtime's full config plus its provisioned resource ID."""
+class Trace(BaseModel, Generic[DataT, StateT, AgentConfigT]):
     version: int = TRACE_VERSION
-    """The trace record schema this trace serializes as."""
-    verifiers: VersionInfo | None = None
-    """The verifiers build that produced this trace, stamped at rollout start —
-    replayed/re-read traces keep the build that originally produced them."""
+    """The trace schema this trace serializes as."""
+    id: str = Field(default_factory=lambda: uuid.uuid4().hex)
+    """Unique ID for this trace, auto-generated."""
+    verifiers: VersionInfo = Field(default_factory=_current_build)
+    """The verifiers version that produced this trace."""
     run: RunInfo | None = None
     """The run this trace belongs to (eval or train), consumer-stamped."""
-    agent: AgentInfo | None = None
-    """The agent (model, sampling, harness) that produced the sampled turns."""
+
+    task: TraceTask[DataT]
+    """The task data that seeded this trace."""
+    agent: AgentInfo[AgentConfigT]
+    """The agent (harness x model x runtime) that produced this trace."""
+    tools: list[Tool] = Field(default_factory=list)
+    """The tools advertised to the agent, automatically recorded from last intercepted turn."""
+
     nodes: list[MessageNode] = Field(default_factory=list)
     """The message graph; branches are derived views and storage stays linear in turns."""
-    tools: list[Tool] | None = None
-    """The tools advertised to the model, recorded when an intercepted turn commits (last
-    committed turn wins) — never from a refused/failed request the model never saw. The full
-    advertised list (not just tools called), so tool-use SFT can re-render the exact prompt;
-    a trace-level snapshot: mid-rollout changes collapse to the last set the model saw."""
     calls: list[ModelCall] = Field(default_factory=list)
-    """Every provider exchange behind the sampled turns, in order: raw wire request/response
-    plus per-call timing and errors, linked into `nodes` via `ModelCall.node`."""
+    """Every model call; automatically recorded at intercept time + linked into `nodes`."""
 
-    rewards: dict[str, float] = Field(default_factory=dict)
-    """Weighted contributions from task rewards, group rewards, and judges."""
-    metrics: dict[str, float] = Field(default_factory=dict)
-    """Unweighted metrics from tasks, harnesses, and judges."""
+    rewards: dict[str, Reward | None] = Field(default_factory=dict)
+    """Named, weighted rewards; `None` means scoring didn't run (e.g. because of a
+    preceding error)."""
+    metrics: dict[str, float | None] = Field(default_factory=dict)
+    """Unweighted, named metrics; `None` as in `rewards`."""
     info: dict[str, Any] = Field(default_factory=dict)
-    """Persistent JSON scratch space for task metadata that is not a reward or metric."""
+    """Scratch space for task-specific metadata."""
     state: StateT = Field(default_factory=State, exclude=True)
-    """Transient state shared with servers and scoring; excluded from every dump."""
+    """Runtime (possibly, non-serializable) state shared across runtimes; excluded from serialization."""
 
     extra_usage: list[Usage] = Field(default_factory=list)
     """Usage from judges and other calls outside the agent's message graph."""
 
     is_completed: bool = False
+    """Whether the trace completed."""
+    ok: bool = False
+    """Whether the trace completed successfully."""
     stop_condition: str | None = None
+    """What stopped the trace."""
     errors: list[Error] = Field(default_factory=list)
-    """Every error captured across attempts, oldest first (more than one only when the
-    rollout was retried). `error` exposes the most recent."""
+    """Every error captured across attempts, oldest to newest."""
     timing: Timing = Field(default_factory=Timing)
 
     _head_index: dict = PrivateAttr(default_factory=dict)
-    """`(parent, msg_hash) -> node_id` for the graph builder (`graph.prepare_turn` / `commit`);
-    rebuilt lazily from `nodes` after deserialization."""
+    """`(parent, msg_hash) -> node_id` for the graph builder."""
 
     @property
     def reward(self) -> float:
-        return sum(self.rewards.values())
-
-    @property
-    def error(self) -> Error | None:
-        return self.errors[-1] if self.errors else None
+        return sum(r.value for r in self.rewards.values() if r is not None)
 
     @property
     def has_error(self) -> bool:
-        return bool(self.errors)
-
-    def _last_assistant(self) -> MessageNode | None:
-        """Most recent model-produced node, ignoring prompt-supplied assistant messages."""
-        return next((n for n in reversed(self.nodes) if n.sampled), None)
+        return not self.ok
 
     @property
     def num_input_tokens(self) -> int:
@@ -423,11 +389,6 @@ class Trace(StrictBaseModel, Generic[DataT, StateT]):
     def usage(self) -> Usage | None:
         """Provider-reported usage summed once per actual model call in this rollout."""
         return Usage.aggregate(c.usage for c in self.calls if c.usage is not None)
-
-    @property
-    def has_response(self) -> bool:
-        last = self._last_assistant()
-        return bool(last and last.message.content)
 
     @property
     def branches(self) -> list[Branch]:
@@ -456,8 +417,6 @@ class Trace(StrictBaseModel, Generic[DataT, StateT]):
 
     @property
     def num_turns(self) -> int:
-        """Total model turns (sampled responses) across all branches — prompt-supplied
-        assistant messages don't count."""
         return sum(1 for n in self.nodes if n.sampled)
 
     @property
@@ -469,7 +428,6 @@ class Trace(StrictBaseModel, Generic[DataT, StateT]):
             "max_output_tokens",
             "max_total_tokens",
             "context_length",
-            "harness_timeout",
         ):
             return True
         last = next((c for c in reversed(self.calls) if c.error is None), None)
@@ -486,13 +444,24 @@ class Trace(StrictBaseModel, Generic[DataT, StateT]):
         ]
 
     @property
+    def tool_messages(self) -> list[ToolMessage]:
+        """Every tool result, in order — branch-independent."""
+        return [n.message for n in self.nodes if isinstance(n.message, ToolMessage)]
+
+    @property
     def last_reply(self) -> str:
+        """The last recorded model response, in text format."""
         msgs = self.assistant_messages
         return (msgs[-1].content or "").strip() if msgs else ""
 
     @property
+    def last_error(self) -> Error | None:
+        """The last error captured across attempts."""
+        return self.errors[-1] if self.errors else None
+
+    @property
     def transcript(self) -> str:
-        """Final-branch text and tool calls for judges; images and reasoning are omitted."""
+        """Text transcript of the last branch's messages; tool outputs are omitted."""
         branches = self.branches
         blocks: list[str] = []
         for message in branches[-1].messages if branches else []:
@@ -512,63 +481,45 @@ class Trace(StrictBaseModel, Generic[DataT, StateT]):
             blocks.append("\n".join(lines))
         return "\n\n".join(blocks)
 
-    @property
-    def tool_messages(self) -> list[ToolMessage]:
-        """The tool results in the latest full context — the main (last) branch's
-        conversation. For a linear rollout that's every tool result."""
-        branches = self.branches
-        messages = branches[-1].messages if branches else []
-        return [m for m in messages if isinstance(m, ToolMessage)]
-
     def record_metric(self, name: str, value: float) -> None:
-        if name in self.metrics:
-            logger.warning(
-                "metric %r overridden: %s -> %s", name, self.metrics[name], value
-            )
         self.metrics[name] = float(value)
 
     def record_metrics(self, values: Mapping[str, float]) -> None:
         for name, value in values.items():
             self.record_metric(name, value)
 
+    def record_reward(self, name: str, value: float, weight: float = 1.0) -> None:
+        reward = Reward(score=float(value), weight=float(weight))
+        self.rewards[name] = reward
+
     def record_judge(self, response: JudgeResponse) -> None:
         self.info.setdefault("judge", []).append(response.model_dump())
         if response.usage is not None:
             self.extra_usage.append(response.usage)
 
-    def record_reward(self, name: str, value: float, weight: float = 1.0) -> None:
-        contribution = float(value) * float(weight)
-        if name in self.rewards:
-            logger.warning(
-                "reward %r overridden: %s -> %s", name, self.rewards[name], contribution
-            )
-        self.rewards[name] = contribution
-
-    def stamp(self, run: RunInfo | None = None, **info: Any) -> None:
-        """Stamp identity only the consumer knows (the eval CLI / a trainer) onto the
-        trace; anything beyond `run` lands in `info`."""
+    def record_run(self, run: RunInfo | None = None, **info: Any) -> None:
+        """Record the run identity (eval / train), and optional extra info."""
         if run is not None:
             self.run = run
         self.info.update(info)
 
-    def stop(self, condition: str = "done") -> None:
+    def stop(self, condition: str) -> None:
+        """Stop the trace, optionally with a stop condition."""
         self.is_completed = True
         if self.stop_condition is None:
             self.stop_condition = condition
 
-    def split_generation(self) -> None:
-        """Stamp the closed generation span's model/harness split: model time is the
-        sum of the recorded calls' spans (clamped to the span), harness the complement.
-        Every path that closes the span calls this — a span without model calls (e.g.
-        a debug action) is all harness time."""
-        gen = self.timing.generation
-        if not gen.end:
+    def split_agent_time(self) -> None:
+        """Split the agent span into model and harness time."""
+        span = self.timing.agent
+        if not span.end:
             return
         model = sum(call.time.duration for call in self.calls)
-        gen.model.duration = min(model, gen.duration)
-        gen.harness.duration = gen.duration - gen.model.duration
+        span.model.duration = min(model, span.duration)
+        span.harness.duration = span.duration - span.model.duration
 
-    def capture_error(self, error: Exception) -> None:
+    def record_error(self, error: Exception) -> None:
+        """Record an error, and stop the trace as failed."""
         self.errors.append(
             Error(
                 type=type(error).__name__,
@@ -581,14 +532,16 @@ class Trace(StrictBaseModel, Generic[DataT, StateT]):
                 else traceback.format_exc(),
             )
         )
+        self.ok = False
         self.stop("error")
 
     def to_record(self) -> dict[str, Any]:
         """JSON record without raw tensors, which remain available on the msgpack wire."""
-        return self.model_dump(mode="json", exclude=_NODE_DUMP_EXCLUDE)
+        return self.model_dump(mode="json", exclude=EXCLUDE_FIELDS)
 
 
-TraceT = TypeVar("TraceT", bound=Trace)  # type: ignore[type-arg]
-
-WireTrace = Trace[WireTaskData]
-"""Trace loader that preserves unknown task fields in `task.model_extra`."""
+WireTrace = Trace[WireTaskData, State, WireAgentConfig]
+"""Record loader for consumers without the run's packages (e.g. a trainer):
+task fields survive in `task.model_extra`, and the agent config parses loose
+(`WireAgentConfig` — no harness plugin resolution). A bare `Trace` is the
+strict read: the harness narrows by id, so its package must be importable."""

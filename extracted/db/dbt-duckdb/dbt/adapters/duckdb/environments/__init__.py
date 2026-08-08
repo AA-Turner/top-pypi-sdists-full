@@ -16,6 +16,7 @@ from ..constants import DEFAULT_TEMP_SCHEMA_NAME
 from ..credentials import DuckDBCredentials
 from ..credentials import Extension
 from ..plugins import BasePlugin
+from ..utils import escape_sql_string
 from ..utils import SourceConfig
 from ..utils import TargetConfig
 from dbt.adapters.contracts.connection import AdapterResponse
@@ -113,6 +114,9 @@ class Environment(abc.ABC):
     def get_binding_char(self) -> str:
         return "?"
 
+    def close(self):
+        pass
+
     @classmethod
     @abc.abstractmethod
     def is_cancelable(cls) -> bool:
@@ -127,7 +131,8 @@ class Environment(abc.ABC):
     def initialize_db(
         cls, creds: DuckDBCredentials, plugins: Optional[Dict[str, BasePlugin]] = None
     ):
-        config = creds.config_options or {}
+        # copy the config so creds.config is not accidentally modified.
+        config = dict(creds.config_options or {})
         plugins = plugins or {}
         for plugin in plugins.values():
             plugin.update_connection_config(creds, config)
@@ -219,7 +224,7 @@ class Environment(abc.ABC):
             for key, value in creds.settings.items():
                 # Okay to set these as strings because DuckDB will cast them
                 # to the correct type
-                cursor.execute(f"SET {key} = '{value}'")
+                cursor.execute(f"SET {key} = '{escape_sql_string(value)}'")
 
         # update cursor if something is lost in the copy
         # of the parent connection

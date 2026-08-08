@@ -246,8 +246,8 @@ class OrganizationsClient:
 
         body = gen.AddOrganizationUserRequest(
             user_id=user_id,
-            role=gen.OrganizationRoleAssignment(
-                gen.OrganizationPredefinedRoleAssignment(
+            role=gen.OrganizationRoleAssignmentRequest(
+                gen.OrganizationPredefinedRoleAssignmentRequest(
                     type=gen.OrganizationRoleAssignmentType.PREDEFINED,
                     name=role.name,
                 )
@@ -255,7 +255,7 @@ class OrganizationsClient:
                 # discriminated union; drift is guarded by the test asserting
                 # the Literal matches OrganizationRoleAssignmentType.
                 if role.type == "PREDEFINED"
-                else gen.OrganizationCustomRoleAssignment(
+                else gen.OrganizationCustomRoleAssignmentRequest(
                     type=gen.OrganizationRoleAssignmentType.CUSTOM,
                     id=role.id,
                 )

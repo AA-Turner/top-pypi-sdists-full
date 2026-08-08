@@ -159,6 +159,23 @@ TEST_FAST_CMD = $(CTEST) --test-dir $(BUILD_DIR) --output-on-failure \
 # their own targets (`test-snippets`, `test-examples-python`), so excluding them
 # here is what makes the suites add up instead of overlapping. PYTEST_ARGS is
 # how CI adds its coverage reporting without changing what runs.
+#
+# The suite is embarrassingly parallel across module directories, and
+# pytest-xdist is in the dev group: `make test PYTEST_ARGS="-n auto"` runs it
+# on every core. Measured on 8 cores: 278s -> 81s (3.4x), identical results
+# (2554 passed, 6 skipped both ways).
+#
+# NOT the default, because it is not a free win: pytest-benchmark disables
+# itself under xdist ("Benchmarks cannot be performed reliably in a
+# parallelized environment"), so `-n auto` silently turns the benchmark tests
+# under src/doppler/*/benchmarks/ into correctness-only runs. Real benchmark
+# numbers come from `make bench-interleaved` regardless — but a gate must not
+# quietly measure less than it appears to, so the flag stays opt-in.
+#
+# Do NOT parallelize `test-stubs`: measured 2.35s -> 2.24s (startup dominates),
+# and a text-mode .pyi shares ONE doctest namespace across the whole file, so
+# any future finer-than-file split would break name bindings that earlier
+# examples in the same file establish.
 PYTEST_ARGS     ?=
 TEST_PYTHON_CMD = uv run pytest src/ -v \
                       -m "not docs_snippets and not examples" $(PYTEST_ARGS)
@@ -170,8 +187,18 @@ TEST_RUST_CMD   = cargo test --manifest-path $(RUST_DIR)/Cargo.toml
 TEST_EXAMPLES_CMD = $(MAKE) --no-print-directory test-examples-c
 
 TEST_ALL_DEPS = test test-examples test-python test-examples-python
+
+# `gates` must run every gate CI does — enforced by `gates-check` (standard.mk),
+# which scans ci.yml and fails on any `make <target>` CI runs that `gates`
+# cannot reach. Every such target is here or in GATES_PROVISION; nothing is
+# silently omitted. GATES_PROVISION is the setup/build steps a dev runs BEFORE
+# gating (install the deps, build the tree), not gates themselves.
+GATES_PROVISION = install-deps install-docs-deps build pyext
 GATES_DEPS    = lint changelog-check drift-check doxygen-check docs-check \
-                test-all
+                test-all test-stubs test-api-docs test-snippets test-rust \
+                abi-check link-check consumer-faces-check glibc-check \
+                specan-check check-isotime-parity coverage coverage-gate \
+                docker-examples
 
 # ── Build ────────────────────────────────────────────────────────────────────
 CMAKE_FLAGS = -DCMAKE_EXPORT_COMPILE_COMMANDS=ON \
@@ -232,6 +259,8 @@ uv run python scripts/gen_doc_versions.py --check
 uv run python scripts/check_version_strings.py
 uv run python scripts/check_doc_targets.py
 uv run python scripts/check_serializable.py
+uv run python scripts/check_doc_face_parity.py
+uv run python scripts/check_init_param_optionality.py
 endef
 
 define DOCS_CHECK_POST_CMDS
@@ -246,6 +275,30 @@ endef
 DOXYGEN_VERSION ?= 1.9.8
 DOXYGEN_IMAGE   ?= ubuntu:24.04
 DOXYGEN_CMD      = doxygen Doxyfile
+
+# The same pin, applied to GENERATION rather than checking (gen-c-api).
+#
+# doxygen versions disagree about output, not just about warnings, so
+# regenerating docs/c-api with a local doxygen writes a diff CI would never
+# produce. Measured: local 1.15.0 against CI's 1.9.8 turned a nine-line content
+# change into 164 modified / 88 added / 6 deleted files, with nothing to
+# distinguish the real change from the version churn.
+#
+# Only the doxygen BINARY needs pinning — mkdoxy and mkdocs come from uv.lock,
+# so they are already identical here and in CI. That is why this shims one
+# executable onto PATH instead of re-entering the whole target in a container:
+# no uv, no network sync, no root-owned output tree.
+#
+# The image is built once and cached (a 3-line Dockerfile over DOXYGEN_IMAGE);
+# its doxygen is verified to BE the pinned version at build time, so an
+# upstream apt bump fails loudly here rather than silently changing output.
+# The mount uses the same absolute path inside and out, so any absolute path
+# mkdoxy hands to doxygen resolves identically on both sides. `docker run -i`
+# is load-bearing, not hygiene: mkdoxy invokes `doxygen -` and pipes the whole
+# generated config on STDIN (mkdoxy/doxyrun.py `run`), so without it doxygen
+# reads an empty config, emits no XML, and the failure surfaces later as a
+# missing index.xml — after the recipe has already wiped docs/c-api.
+DOXYGEN_PIN_IMAGE ?= doppler-doxygen:$(DOXYGEN_VERSION)
 
 define DOXYGEN_CHECK_CMD
 @have=$$(doxygen --version 2>/dev/null | cut -d' ' -f1); \
@@ -391,13 +444,15 @@ endef
 # gates cover them: criterion 2 is "help lists EVERY target", not "every
 # standard target" — a local target help omits is exactly as invisible.
 LOCAL_TARGETS = specan record-demo gallery blazing gen-c-api just-build \
+                gen-c-api-run doxygen-pin-image \
+                package-c sdist \
                 docs-relink drift-check changelog-check doxygen-warn-gate \
                 test-examples-c test-examples-python test-example-downstream \
                 test-example-downstream-python \
-                test-stubs test-api-docs test-snippets \
+                test-stubs test-api-docs test-snippets lint-stubs \
                 check-docstring-coverage \
                 abi-check link-check consumer-faces-check \
-                glibc-check specan-check \
+                glibc-check specan-check check-isotime-parity \
                 install-docs-deps \
                 wheel-check wheel-smoke release-smoke \
                 bench-interleaved bench-publish bench-docs bench-stream \
@@ -440,6 +495,7 @@ GALLERY_SCRIPTS := \
     src/doppler/examples/detection2d_demo.py \
     src/doppler/examples/lockdet_demo.py \
     src/doppler/examples/telemetry_fanin_demo.py \
+    src/doppler/examples/mpsk_telemetry_capture_demo.py \
     src/doppler/examples/rate_converter_demo.py \
     src/doppler/examples/ratesync_demo.py \
     src/doppler/examples/ddc_fn_demo.py \
@@ -471,7 +527,7 @@ gallery: ## Run the plot examples and copy their PNGs to docs/assets/
 	    printf "  %-45s" "$$script"; \
 	    uv run python $$script > /dev/null 2>&1 && echo "OK" || { echo "FAIL"; exit 1; }; \
 	done
-	@mv -f agc_convergence.png ber_awgn_demo.png cic_demo_spectrum.png corr_demo.png detection_curves.png detection_sim.png detection2d_demo.png lockdet_demo.png telemetry_fanin_demo.png rate_converter_demo.png ratesync_demo.png ddc_fn_demo.png ddc_fn_scaling.png adc_demo.png hbdecim_q15_demo.png wfmgen_demo.png symbols_demo.png wfm_composition_demo.png wcdma_carriers_demo.png plan_demo.png plan_background_demo.png crowded_band_demo.png measure_demo.png measure_imd_npr_demo.png wfm_write_demo.png doppler_channel_demo.png wfm_io_demo.png dsss_burst_pipeline_demo.png async_dsss_receiver_spec_demo.png dsss_receiver_demo.png carrier_acq_rrc_demo.png mpsk_receiver_demo.png mpsk_receiver_performance_demo.png docs/assets/
+	@mv -f agc_convergence.png ber_awgn_demo.png cic_demo_spectrum.png corr_demo.png detection_curves.png detection_sim.png detection2d_demo.png lockdet_demo.png telemetry_fanin_demo.png mpsk_telemetry_capture_demo.png rate_converter_demo.png ratesync_demo.png ddc_fn_demo.png ddc_fn_scaling.png adc_demo.png hbdecim_q15_demo.png wfmgen_demo.png symbols_demo.png wfm_composition_demo.png wcdma_carriers_demo.png plan_demo.png plan_background_demo.png crowded_band_demo.png measure_demo.png measure_imd_npr_demo.png wfm_write_demo.png doppler_channel_demo.png wfm_io_demo.png dsss_burst_pipeline_demo.png async_dsss_receiver_spec_demo.png dsss_receiver_demo.png carrier_acq_rrc_demo.png mpsk_receiver_demo.png mpsk_receiver_performance_demo.png docs/assets/
 	@rm -f burst.blue
 	@echo "Gallery plots written to docs/assets/."
 
@@ -485,14 +541,50 @@ blazing: ## Clean + Release + -march=native (max speed; never packaged)
 		$(CMAKE_ARGS)
 	$(CMAKE) --build $(BUILD_DIR) --parallel $(NPROC)
 
-gen-c-api: ## Regenerate docs/c-api/ from the headers (mkdoxy)
+doxygen-pin-image: ## Build/cache the pinned-doxygen image gen-c-api shims in
+	@docker image inspect $(DOXYGEN_PIN_IMAGE) >/dev/null 2>&1 && exit 0; \
+	 echo "doxygen-pin-image: building $(DOXYGEN_PIN_IMAGE) from $(DOXYGEN_IMAGE)"; \
+	 printf 'FROM %s\nRUN apt-get update -qq \
+	   && apt-get install -y -qq --no-install-recommends doxygen graphviz \
+	   && rm -rf /var/lib/apt/lists/*\n' '$(DOXYGEN_IMAGE)' \
+	   | docker build -q -t $(DOXYGEN_PIN_IMAGE) - >/dev/null; \
+	 got=$$(docker run --rm $(DOXYGEN_PIN_IMAGE) doxygen --version | cut -d' ' -f1); \
+	 if [ "$$got" != "$(DOXYGEN_VERSION)" ]; then \
+	   echo "doxygen-pin-image: $(DOXYGEN_IMAGE) now ships doxygen $$got, not $(DOXYGEN_VERSION)."; \
+	   echo "  CI installs doxygen from the same base, so CI has moved too — update"; \
+	   echo "  DOXYGEN_VERSION (and re-check the c-api diff) rather than pinning around it."; \
+	   docker image rm -f $(DOXYGEN_PIN_IMAGE) >/dev/null 2>&1; exit 1; \
+	 fi; \
+	 echo "doxygen-pin-image: $(DOXYGEN_PIN_IMAGE) ready (doxygen $$got)"
+
+gen-c-api: ## Regenerate docs/c-api/ from the headers (mkdoxy, CI's doxygen)
+	@have=$$(doxygen --version 2>/dev/null | cut -d' ' -f1); \
+	 if [ "$$have" = "$(DOXYGEN_VERSION)" ]; then \
+	   echo "gen-c-api: local doxygen $$have matches CI's — running natively"; \
+	   $(MAKE) -s gen-c-api-run; \
+	 else \
+	   echo "gen-c-api: local $${have:-none} != CI's $(DOXYGEN_VERSION) — shimming $(DOXYGEN_PIN_IMAGE)"; \
+	   $(MAKE) -s doxygen-pin-image; \
+	   shim=$$(mktemp -d); \
+	   printf '#!/bin/sh\nexec docker run --rm -i -u %s:%s -v "%s":"%s" -w "$$PWD" %s doxygen "$$@"\n' \
+	     "$$(id -u)" "$$(id -g)" "$(CURDIR)" "$(CURDIR)" "$(DOXYGEN_PIN_IMAGE)" > $$shim/doxygen; \
+	   chmod +x $$shim/doxygen; \
+	   PATH="$$shim:$$PATH" $(MAKE) -s gen-c-api-run; rc=$$?; \
+	   rm -rf $$shim; exit $$rc; \
+	 fi
+
+gen-c-api-run: ## gen-c-api proper (re-entered with CI's doxygen on PATH)
 	rm -rf docs/c-api .mkdoxy .capi-site
 	uv run --group docs mkdocs build -f mkdocs-capi.yml
 	cp -r .mkdoxy/doppler/c-api docs/c-api
 	# index.md is a hand-written landing page mkdoxy doesn't emit — restore it
 	# after the regen wipes it (matches the CI docs.yml step).
 	git checkout -- docs/c-api/index.md
-	rm -rf .mkdoxy .capi-site
+	# `latex/` too: the repo's Doxyfile sets GENERATE_LATEX = NO, but mkdoxy
+	# builds its OWN config dict and does not, so every run drops an untracked
+	# latex/ in the repo root. Cleaned here rather than gitignored — it is
+	# output of this target, and nothing else in the tree wants that name.
+	rm -rf .mkdoxy .capi-site latex
 
 # PEP 517 build hook for just-buildit. It sets JUST_BUILDIT_OUTPUT_DIR and
 # JUST_BUILDIT_PYTHON before calling this target; the package tree is copied
@@ -502,6 +594,31 @@ just-build: UV_SYNC_FLAGS = --no-group docs
 just-build: pyext ## PEP 517 build hook for just-buildit
 	mkdir -p $(JUST_BUILDIT_OUTPUT_DIR)
 	cp -r $(PYEXT_DIR) $(JUST_BUILDIT_OUTPUT_DIR)/doppler
+
+# The relocatable C-library package: Release, no Python extension, headers +
+# static/shared libs + the cmake/pkg-config config, installed to PREFIX. This is
+# the ONE definition of the C tarball build — release.yml's three
+# Package-C-library jobs (linux x86_64/aarch64, macOS) each call it, so the
+# install layout lives in one place. LIBDIR=lib (not the RHEL/manylinux lib64
+# default) so a consumer's find_package/CMAKE_PREFIX_PATH resolves the config on
+# every distro (CMake searches lib/ universally; lib64/ only where the platform
+# opts in). Tarball naming stays in the caller — it is per-platform and trivial.
+package-c: ## PREFIX=<dir> — build+install the relocatable C library (no Python)
+ifndef PREFIX
+	@echo "usage: make package-c PREFIX=<dir>"; exit 1
+endif
+	$(CMAKE) -S . -B $(BUILD_DIR) -DCMAKE_BUILD_TYPE=Release \
+	    -DBUILD_PYTHON=OFF -DCMAKE_INSTALL_LIBDIR=lib $(CMAKE_ARGS)
+	$(CMAKE) --build $(BUILD_DIR) --parallel $(NPROC)
+	$(CMAKE) --install $(BUILD_DIR) --prefix $(PREFIX)
+
+# Source distribution, sibling of standard.mk's `wheel` (= uv build --wheel).
+# release.yml's build-sdist job calls this instead of hand-rolling a
+# uv-venv/pip/`python -m build --sdist` bootstrap.
+sdist: ## Build a source distribution into dist/
+	$(UV) build --sdist
+	@echo ""
+	@ls -lh dist/*.tar.gz
 
 # Regenerates every generated doc region: the "## Related pages" blocks on
 # docs/api/*.md, README.md's synced body from docs/index.md, the per-distro
@@ -811,6 +928,22 @@ specan-check: ## Fail if specan changed without re-recording its demo frames
 	 fi; \
 	 echo "specan-check: OK (specan=$$s frames=$$f)"
 
+# dp_isotime.h follows just-bashit's `iso-8601-basic`; it does not define it.
+# test_dp_isotime.c pins a snapshot of that helper's output, and a snapshot
+# goes stale silently — the committed vectors keep passing while the helper
+# moves on, and doppler keeps emitting a spelling the comment above them
+# says matches. This runs the real helper against the real C, so the
+# agreement is checked rather than claimed.
+#
+# ISOTIME_REQUIRE=1 makes a missing just-bashit an error instead of a skip.
+# CI sets it, because CI clones the reference and an absent one there means
+# the gate silently stopped gating; a developer without the checkout gets the
+# skip and still has the golden vectors.
+ISOTIME_REQUIRE ?= 0
+check-isotime-parity: build ## Check dp_isotime.h against just-bashit
+	@BUILD_DIR=$(BUILD_DIR) bash scripts/check_isotime_parity.sh \
+	    $(if $(filter 1,$(ISOTIME_REQUIRE)),--require,)
+
 # ── The doc gates ────────────────────────────────────────────────────────────
 # These four existed ONLY as inline CI steps, so none could be run locally by
 # name — you found out a docstring example was broken by pushing. The RFC
@@ -819,6 +952,23 @@ specan-check: ## Fail if specan changed without re-recording its demo frames
 
 test-stubs: ## Doctest every generated .pyi stub
 	uv run python -m pytest --doctest-glob='*.pyi' -q \
+	    $$(find $(PYEXT_DIR) -name '*.pyi')
+
+# 79-col gate for the generated .pyi stubs. They are jm-owned and excluded from
+# the main ruff run (its autofixing rules would rewrite them and drift the
+# manifest gate), so this is a SEPARATE check-only pass: E501 + W505 have no
+# autofix, so they verify the width WITHOUT ever touching the bytes -- the one
+# way to enforce a rule on generated files without drifting them. E501 catches
+# every line (signatures + docstring prose); W505 (doc-line-too-long) is the
+# intent-explicit doc twin, redundant at max-doc-length == line-length == 79 but
+# selected to document purpose. --isolated bypasses pyproject's .pyi exclusion
+# (which force-excludes them). NOT yet wired into `lint`/CI: it is red today
+# because jm emits unwrapped docstring summaries + wide signatures. It goes
+# green once just-makeit wraps generated stubs to 79 (just-makeit#744); wire it
+# into the `lint` prereqs at that point.
+lint-stubs: ## Check generated .pyi stays within 79 cols (check-only; see jm#744)
+	$(RUFF) check --isolated --select E501,W505 --line-length 79 \
+	    --config 'lint.pycodestyle.max-doc-length = 79' \
 	    $$(find $(PYEXT_DIR) -name '*.pyi')
 
 # Docstring-coverage burn-down meter. Scores BOTH doc faces: the .pyi stubs
@@ -916,23 +1066,21 @@ bench-report: ## Portable-build trend across releases
 # AND smoke-runs its image, so the target is the whole gate — CI just calls it.
 # Raw `docker build` is never invoked outside these rules; the flags live here.
 
+# Each target builds its image, then smoke-tests it via scripts/smoke-image.sh
+# — the SAME script release.yml runs against the pushed image, so the local
+# gate and the published-image gate cannot drift (see the script header).
+
 docker-runtime: ## Build+smoke the runtime "try it" image (needs the wheel on PyPI)
 	docker build -f deploy/docker/Dockerfile.cli \
 	    --build-arg DOPPLER_VERSION=$(DOCKER_VERSION) \
 	    -t $(DOCKER_IMAGE):$(DOCKER_TAG) .
-	docker run --rm $(DOCKER_IMAGE):$(DOCKER_TAG) \
-	    python -c "import doppler; print('doppler', doppler.__version__)"
+	bash scripts/smoke-image.sh runtime $(DOCKER_IMAGE):$(DOCKER_TAG)
 
 docker-sdk: ## Build+smoke the SDK / develop image (doppler-sdk)
 	docker build -f $(EXAMPLES_DOCKERFILE) --target sdk \
 	    --build-arg JM_VERSION=$(JM_VERSION) \
 	    -t $(DOCKER_IMAGE)-sdk:$(DOCKER_TAG) .
-# The install is real only if a downstream can find + link it: build the
-# smallest consumer against it, from scratch, and run the result.
-	docker run --rm $(DOCKER_IMAGE)-sdk:$(DOCKER_TAG) bash -c \
-	    'pkg-config --modversion doppler && \
-	     cd examples/consumer && cmake -B build >/dev/null && \
-	     cmake --build build >/dev/null && ./build/consumer_shared'
+	bash scripts/smoke-image.sh sdk $(DOCKER_IMAGE)-sdk:$(DOCKER_TAG)
 
 docker-downstream: ## Build+smoke the iqtools showcase image (doppler-downstream-jm)
 # The build itself runs `make test` inside the image, so a green build IS the
@@ -940,16 +1088,14 @@ docker-downstream: ## Build+smoke the iqtools showcase image (doppler-downstream
 	docker build -f $(EXAMPLES_DOCKERFILE) --target downstream-jm \
 	    --build-arg JM_VERSION=$(JM_VERSION) \
 	    -t $(DOCKER_IMAGE)-downstream-jm:$(DOCKER_TAG) .
-	docker run --rm $(DOCKER_IMAGE)-downstream-jm:$(DOCKER_TAG) \
-	    python3 -c "from iqtools.capture import Capture, RawCapture; \
-	                print('iqtools ok:', Capture.__name__, RawCapture.__name__)"
+	bash scripts/smoke-image.sh downstream \
+	    $(DOCKER_IMAGE)-downstream-jm:$(DOCKER_TAG)
 
 docker-stream: ## Build+smoke the lean compose streaming-services image
 	docker build -f $(EXAMPLES_DOCKERFILE) --target stream-services \
 	    -t $(DOCKER_IMAGE)-stream-services:$(DOCKER_TAG) .
-	docker run --rm $(DOCKER_IMAGE)-stream-services:$(DOCKER_TAG) sh -c \
-	    'command -v transmitter && command -v receiver && \
-	     command -v spectrum_analyzer'
+	bash scripts/smoke-image.sh stream \
+	    $(DOCKER_IMAGE)-stream-services:$(DOCKER_TAG)
 
 docker-examples: docker-sdk docker-downstream docker-stream ## Build+smoke all build-on-doppler images
 	@echo "All build-on-doppler images built and smoked."

@@ -1,5 +1,5 @@
 HF_DATASET_REPO_ID = "docling-project/regression-dataset-for-docling-parse"
-HF_DATASET_REVISION = "590465e48f45e7ac7b95317d970ab297f496750f"
+HF_DATASET_REVISION = "aeba6102e75612efd676aad80a648bd2e845ecab"
 
 REGRESSION_DIR = "tests/data/regression"
 

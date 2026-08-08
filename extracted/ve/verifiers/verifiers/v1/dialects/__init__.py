@@ -1,7 +1,5 @@
-"""Registered wire dialects for interception."""
-
 from verifiers.v1.dialects.anthropic import AnthropicDialect
-from verifiers.v1.dialects.base import Dialect, StreamParser, iter_sse
+from verifiers.v1.dialects.base import Dialect, StreamParser
 from verifiers.v1.dialects.chat import (
     FINISH_REASONS,
     ChatDialect,
@@ -16,14 +14,13 @@ DIALECTS: tuple[Dialect, ...] = (ChatDialect(), ResponsesDialect(), AnthropicDia
 the wire format from the route a request arrived on."""
 
 __all__ = [
-    "Dialect",
     "DIALECTS",
     "FINISH_REASONS",
     "AnthropicDialect",
     "ChatDialect",
+    "Dialect",
     "ResponsesDialect",
     "StreamParser",
-    "iter_sse",
     "parse_message",
     "parse_tools",
     "response_from_wire",

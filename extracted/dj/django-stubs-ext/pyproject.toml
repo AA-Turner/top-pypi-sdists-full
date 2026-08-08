@@ -1,6 +1,6 @@
 [project]
 name = "django-stubs-ext"
-version = "6.0.8"
+version = "6.0.9"
 description = "Monkey-patching and extensions for django-stubs"
 readme = "README.md"
 license = "MIT"

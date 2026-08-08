@@ -53,3 +53,10 @@ class TelnetSessionContext:
         self.autoreply_wait_fn = autoreply_wait_fn
         self.typescript_file = typescript_file
         self.gmcp_data: dict[str, Any] = gmcp_data if gmcp_data is not None else {}
+        self.zmp_data: dict[str, list[str]] = {}
+        # MUD protocol data moved from TelnetWriter to ctx for consistency
+        self.mssp_data: Optional[dict[str, str | list[str]]] = None
+        self.atcp_data: list[tuple[str, str]] = []
+        self.aardwolf_data: list[dict[str, Any]] = []
+        self.mxp_data: list[bytes] = []
+        self.comport_data: Optional[dict[str, Any]] = None

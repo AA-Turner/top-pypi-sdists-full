@@ -35,6 +35,9 @@ class TaktileIdToken(BaseModel):
     actor_name: str | None = None
     workspace_id: str | None = None
     org_id: str | None = None
+    # RFC 8693 delegation claim. Nests on each exchange hop, so the value is
+    # left unconstrained here.
+    act: t.Dict[str, t.Any] | None = None
 
     @classmethod
     def build_role(cls, role_signature: str) -> Role:

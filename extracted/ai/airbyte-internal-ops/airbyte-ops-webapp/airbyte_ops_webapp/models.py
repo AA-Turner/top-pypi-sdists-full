@@ -186,24 +186,23 @@ class ConnectorVersion:
 
 @dataclass(frozen=True)
 class RolloutSyncSummary:
-    """Health one-liner plus structured population counts for an active rollout.
+    """Replica-backed health and population counts for an active rollout.
 
-    Built from `get_actor_sync_info` via `summarize_sync_info`. `health` is a
-    pre-formatted `healthy | unhealthy | awaiting | disabled` string (over the
-    scan's full pinned set) used as a fallback when the active-only population is
-    unavailable; `num_healthy` / `num_unhealthy` are the raw terminal-signal
-    counts the UI recomposes against the active-only pinned count so the health
-    line reconciles with the rollout line's `pinned`. `num_pinned`,
-    `num_eligible`, and `num_actors` are raw counts the UI composes into the
-    per-tier rollout line and the single connector-level total. `health` is an
-    empty string and the counts are `0` when no summary is available (missing
-    rollout ID or a failed API call), so the UI can render the card without them.
+    The summary uses read-only replica queries for the live actor population and
+    actor-scope rollout pins, then applies cached customer-tier data in Python.
+    `num_pinned` counts tier-matching pinned actors. `num_healthy` and
+    `num_unhealthy` are derived from each pinned actor's latest-job rollup. The
+    `health` string contains the four formatted buckets: healthy, unhealthy,
+    awaiting, and disabled. `num_eligible` is `None` because connector-wide
+    eligibility belongs to the connector population path, not this synchronous
+    rollout summary.
     """
 
     health: str = ""
     num_pinned: int = 0
-    num_eligible: int = 0
-    num_actors: int = 0
+    # Connector-wide eligibility is owned by ConnectorPopulation; rollout
+    # summaries do not calculate it on the synchronous selection path.
+    num_eligible: int | None = None
     num_healthy: int = 0
     num_unhealthy: int = 0
 
@@ -318,7 +317,11 @@ class ConnectorRollout:
     rollout_strategy: str = ""
     rc_pin_count: int = 0
     tier: str = "TIER_2"
+    tier_is_explicit: bool = True
     release_candidate_version_id: str = ""
+    error_msg: str = ""
+    failed_reason: str = ""
+    paused_reason: str = ""
 
 
 @dataclass(frozen=True)

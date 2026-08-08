@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping
 from dataclasses import asdict
 from datetime import datetime
 from typing import Any
@@ -15,6 +16,7 @@ from airbyte_ops_mcp.github_api import resolve_ci_trigger_github_token
 from fastmcp import FastMCPApp
 
 from airbyte_ops_webapp.models import (
+    ConnectorOption,
     OverridePlan,
     RolloutSyncSummary,
     ScopeType,
@@ -38,6 +40,7 @@ from airbyte_ops_webapp.pages.connector_version_manager._helpers import (
     progressive_rollout_rows,
     recent_release_rows,
     rollout_rows_or_empty,
+    rollout_rows_with_siblings_or_empty,
     rows_from_dataclasses,
     scope_context_available,
     scope_context_needed_message,
@@ -81,6 +84,17 @@ _YANK_WORKFLOW_REPO_NAME = "airbyte"
 _YANK_WORKFLOW_DEFAULT_BRANCH = "master"
 _YANK_WORKFLOW_FILE = "version-yank-command.yml"
 YANK_STORE = "coral:prod"
+
+
+def _connector_is_destination(
+    connector: ConnectorOption | Mapping[str, Any],
+) -> bool:
+    """Resolve connector direction from connector metadata."""
+    if isinstance(connector, Mapping):
+        connector_type = connector["connector_type"]
+    else:
+        connector_type = connector.connector_type
+    return connector_type == "destination"
 
 
 def _fmt_date_short(value: str) -> str:
@@ -323,6 +337,7 @@ def _build_context_result(
     connector: object,
     versions: list[dict[str, Any]],
     active_rollouts: list[dict[str, Any]],
+    rollout_context: list[dict[str, Any]] | None = None,
     current_state: dict[str, Any],
     ancestor_configs: list[dict[str, Any]] | None = None,
     descendant_configs: list[dict[str, Any]] | None = None,
@@ -339,24 +354,46 @@ def _build_context_result(
     """Assemble the standard context result, validated via `ConnectorContextResult`.
 
     When `include_rollout_sync_summary` is set and an `adapter` is provided, each
-    active tier rollout's `get_actor_sync_info` health + population counts are
+    active tier rollout's replica-backed health + population counts are
     folded into `rollout_summary` — per-tier `tier_cards` (rollout line and
     health) plus a single connector-level `total_actors_display`. This is skipped
     for unauthenticated or error paths so the card still renders without them.
     """
-    rollout_summary = build_rollout_summary(active_rollouts)
+    rollout_summary = build_rollout_summary(
+        active_rollouts,
+        rollout_context=rollout_context,
+    )
     if include_rollout_sync_summary and adapter is not None and active_rollouts:
+        is_destination = _connector_is_destination(connector)
         tier_summaries: dict[str, RolloutSyncSummary] = {}
         for rollout in active_rollouts:
             rollout_id = rollout.get("rollout_id", "")
             tier = rollout.get("tier", "")
-            if not rollout_id or not tier:
+            if not rollout_id:
                 continue
-            tier_summaries[tier] = adapter.get_rollout_sync_summary(rollout_id)
+            # The Config API call took 33-50s and hit its 60s timeout, blocking
+            # the entire connector selection request; use the replica summary.
+            # The replica path deliberately excludes tombstoned actors,
+            # workspaces, and organizations; the platform endpoint does not,
+            # so live counts are lower (the platform behavior is believed to
+            # be a bug).
+            if rollout.get("tier_is_explicit", False):
+                tier_summaries[tier] = adapter.get_rollout_sync_summary(
+                    rollout_id,
+                    tier=tier,
+                    is_destination=is_destination,
+                )
+            else:
+                tier_summaries.update(
+                    adapter.get_rollout_sync_summaries_by_tier(
+                        rollout_id,
+                        is_destination=is_destination,
+                    )
+                )
         connector_dict = (
             asdict(connector) if not isinstance(connector, dict) else connector
         )
-        # All tier rollouts share one RC version, so attribute the population's
+        # All tier rollouts share one rollout version, so attribute the population's
         # pins to it — this lets the card's eligible/pinned exclude actors pinned
         # to a *different* version. Take the first rollout that carries a version.
         target_version_id = next(
@@ -437,6 +474,7 @@ def _build_context_result(
             }
         rollout_summary = build_rollout_summary(
             active_rollouts,
+            rollout_context=rollout_context,
             total_actors_display=total_actors_display,
             tier_summaries=tier_summaries,
             eligible_by_tier=eligible_by_tier,
@@ -483,9 +521,13 @@ def load_connector_context(
     except ValueError:
         return connector_context_placeholder(f"Unknown connector ID: {connector_id}")
     active_rollouts, rollout_error = rollout_rows_or_empty(adapter, connector)
+    rollout_context, sibling_rollout_error = rollout_rows_with_siblings_or_empty(
+        adapter, connector
+    )
     ctx_kwargs: dict[str, Any] = {
         "connector": connector,
         "active_rollouts": active_rollouts,
+        "rollout_context": rollout_context,
         "rollout_error": rollout_error,
         "context_guid": context_guid,
         "scope_type": scope_type,
@@ -493,6 +535,8 @@ def load_connector_context(
         "actor_workspace_id": actor_workspace_id,
         "adapter": adapter,
     }
+    if sibling_rollout_error and not rollout_error:
+        ctx_kwargs["rollout_error"] = sibling_rollout_error
     if not auth_available(auth_bearer_token or None):
         versions, _version_error = version_rows_or_empty(adapter, connector)
         sign_in_msg = "Sign in with Airbyte to load scoped configuration context."

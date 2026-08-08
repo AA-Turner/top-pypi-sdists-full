@@ -5,7 +5,8 @@ The install source decides how self-update and the version banner behave:
 - a **local directory** install (``uv tool install [-e] <repo>``) updates via
   ``git pull`` + ``install.sh`` and checks ``origin/main`` for new commits;
 - a **registry** install (``uv tool install pysae-ai-tools``) updates via
-  ``uv tool upgrade`` and checks PyPI for a newer release.
+  ``uv tool upgrade`` and checks the project's private GitLab registry for a
+  newer release.
 
 Detection reads uv's tool receipt (``uv-receipt.toml``), which records the
 original requirement. This is authoritative even when uv copied the package
@@ -22,6 +23,28 @@ from pathlib import Path
 import pysae_ai_tools
 
 PACKAGE = "pysae-ai-tools"
+
+# Where the published package lives. Hardcoded rather than derived from a
+# checkout: these are the coordinates of the tool's *own* home, and both the
+# update check and self-update must resolve them from any directory, on a
+# machine that may hold no clone at all. The group ID is a public identifier —
+# what is private is the registry behind it. Kept in sync with the three
+# installers, which need the same index before this package exists locally.
+#
+# Consumption goes through the *group* index so nothing on the consuming side
+# ties itself to the project that happens to host the package; publication
+# stays on the project endpoint (.gitlab-ci.yml), the only one GitLab uploads
+# to.
+GITLAB_HOST = "gitlab.com"
+GITLAB_GROUP_ID = "918966"  # pysae
+REGISTRY_INDEX = f"https://{GITLAB_HOST}/api/v4/groups/{GITLAB_GROUP_ID}/-/packages/pypi/simple"
+PACKAGES_API = f"https://{GITLAB_HOST}/api/v4/groups/{GITLAB_GROUP_ID}/packages"
+
+# uv resolves this package from the index above and everything else from PyPI.
+# `first-index` pins a name to the first index that holds it, so `pysae-ai-tools`
+# can never come from a public index. It is uv's default, but UV_INDEX_STRATEGY
+# overrides it from the environment without showing up in any command line.
+INDEX_ARGS = ("--index", f"pysae={REGISTRY_INDEX}", "--index-strategy", "first-index")
 
 
 @dataclass

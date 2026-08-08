@@ -469,6 +469,59 @@ def test_yaml_config_section_empty_path(tmp_path):
 
 
 @pytest.mark.skipif(yaml is None, reason='pyYAML is not installed')
+def test_yaml_config_section_empty_section(tmp_path):
+    """A present-but-empty section (`nested:` with no children) parses to None and must
+    fall back to defaults, like an empty whole file — not crash with AttributeError."""
+    p = tmp_path / 'config.yaml'
+    p.write_text('nested:\n')
+
+    class Settings(BaseSettings):
+        foo: str = 'default'
+
+        model_config = SettingsConfigDict(yaml_file=p, yaml_config_section='nested')
+
+        @classmethod
+        def settings_customise_sources(
+            cls,
+            settings_cls: type[BaseSettings],
+            init_settings: PydanticBaseSettingsSource,
+            env_settings: PydanticBaseSettingsSource,
+            dotenv_settings: PydanticBaseSettingsSource,
+            file_secret_settings: PydanticBaseSettingsSource,
+        ) -> tuple[PydanticBaseSettingsSource, ...]:
+            return (YamlConfigSettingsSource(settings_cls),)
+
+    assert Settings().foo == 'default'
+
+
+@pytest.mark.skipif(yaml is None, reason='pyYAML is not installed')
+def test_yaml_config_section_scalar_section(tmp_path):
+    """A section that resolves to a scalar (not a mapping) is a user error and must raise a
+    clear TypeError, rather than an opaque AttributeError from deep in the init machinery."""
+    p = tmp_path / 'config.yaml'
+    p.write_text('nested: 42\n')
+
+    class Settings(BaseSettings):
+        foo: str = 'default'
+
+        model_config = SettingsConfigDict(yaml_file=p, yaml_config_section='nested')
+
+        @classmethod
+        def settings_customise_sources(
+            cls,
+            settings_cls: type[BaseSettings],
+            init_settings: PydanticBaseSettingsSource,
+            env_settings: PydanticBaseSettingsSource,
+            dotenv_settings: PydanticBaseSettingsSource,
+            file_secret_settings: PydanticBaseSettingsSource,
+        ) -> tuple[PydanticBaseSettingsSource, ...]:
+            return (YamlConfigSettingsSource(settings_cls),)
+
+    with pytest.raises(TypeError, match='must be a mapping, got int'):
+        Settings()
+
+
+@pytest.mark.skipif(yaml is None, reason='pyYAML is not installed')
 def test_yaml_config_section_unusual_literal_keys(tmp_path):
     """Test that keys with leading/trailing/consecutive dots can be accessed as literal keys."""
     p = tmp_path / 'config.yaml'
@@ -611,3 +664,45 @@ def test_yaml_config_section_non_dict_intermediate(tmp_path):
 
     with pytest.raises(TypeError, match='yaml_config_section path.*cannot be traversed.*not a dictionary'):
         Settings()
+
+
+@pytest.mark.skipif(yaml is None, reason='PyYAML is not installed')
+def test_yaml_file_traversable(tmp_path):
+    """A packaged resource passed as a non-Path ``Traversable`` (e.g. from inside a zip/wheel) should load. See #299."""
+    import importlib
+    import sys
+    import zipfile
+    from importlib.resources import files
+
+    zip_path = tmp_path / 'yaml_trav_pkg.zip'
+    with zipfile.ZipFile(zip_path, 'w') as zf:
+        zf.writestr('yaml_trav_pkg/__init__.py', '')
+        zf.writestr('yaml_trav_pkg/defaults.yaml', 'foobar: "Hello"\n')
+
+    sys.path.insert(0, str(zip_path))
+    importlib.invalidate_caches()
+    try:
+        trav = files('yaml_trav_pkg').joinpath('defaults.yaml')
+        # Sanity check: a zip-packaged resource is not a filesystem ``Path``.
+        assert not isinstance(trav, Path)
+
+        class Settings(BaseSettings):
+            foobar: str
+
+            @classmethod
+            def settings_customise_sources(
+                cls,
+                settings_cls: type[BaseSettings],
+                init_settings: PydanticBaseSettingsSource,
+                env_settings: PydanticBaseSettingsSource,
+                dotenv_settings: PydanticBaseSettingsSource,
+                file_secret_settings: PydanticBaseSettingsSource,
+            ) -> tuple[PydanticBaseSettingsSource, ...]:
+                return (YamlConfigSettingsSource(settings_cls, yaml_file=trav),)
+
+        assert Settings().model_dump() == {'foobar': 'Hello'}
+    finally:
+        sys.modules.pop('yaml_trav_pkg', None)
+        if str(zip_path) in sys.path:
+            sys.path.remove(str(zip_path))
+        importlib.invalidate_caches()

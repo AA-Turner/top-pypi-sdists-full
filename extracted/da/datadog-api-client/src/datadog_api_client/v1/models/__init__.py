@@ -78,7 +78,10 @@ from datadog_api_client.v1.model.dashboard import Dashboard
 from datadog_api_client.v1.model.dashboard_bulk_action_data import DashboardBulkActionData
 from datadog_api_client.v1.model.dashboard_bulk_action_data_list import DashboardBulkActionDataList
 from datadog_api_client.v1.model.dashboard_bulk_delete_request import DashboardBulkDeleteRequest
+from datadog_api_client.v1.model.dashboard_default_timeframe_setting import DashboardDefaultTimeframeSetting
 from datadog_api_client.v1.model.dashboard_delete_response import DashboardDeleteResponse
+from datadog_api_client.v1.model.dashboard_fixed_timeframe import DashboardFixedTimeframe
+from datadog_api_client.v1.model.dashboard_fixed_timeframe_type import DashboardFixedTimeframeType
 from datadog_api_client.v1.model.dashboard_global_time import DashboardGlobalTime
 from datadog_api_client.v1.model.dashboard_global_time_live_span import DashboardGlobalTimeLiveSpan
 from datadog_api_client.v1.model.dashboard_invite_type import DashboardInviteType
@@ -86,6 +89,8 @@ from datadog_api_client.v1.model.dashboard_layout_type import DashboardLayoutTyp
 from datadog_api_client.v1.model.dashboard_list import DashboardList
 from datadog_api_client.v1.model.dashboard_list_delete_response import DashboardListDeleteResponse
 from datadog_api_client.v1.model.dashboard_list_list_response import DashboardListListResponse
+from datadog_api_client.v1.model.dashboard_live_timeframe import DashboardLiveTimeframe
+from datadog_api_client.v1.model.dashboard_live_timeframe_type import DashboardLiveTimeframeType
 from datadog_api_client.v1.model.dashboard_reflow_type import DashboardReflowType
 from datadog_api_client.v1.model.dashboard_resource_type import DashboardResourceType
 from datadog_api_client.v1.model.dashboard_restore_request import DashboardRestoreRequest
@@ -99,6 +104,10 @@ from datadog_api_client.v1.model.dashboard_template_variable_preset_value import
 from datadog_api_client.v1.model.dashboard_type import DashboardType
 from datadog_api_client.v1.model.data_projection_query import DataProjectionQuery
 from datadog_api_client.v1.model.data_projection_request_type import DataProjectionRequestType
+from datadog_api_client.v1.model.dataset_list_query import DatasetListQuery
+from datadog_api_client.v1.model.dataset_list_query_data_source_type import DatasetListQueryDataSourceType
+from datadog_api_client.v1.model.dataset_list_query_sort import DatasetListQuerySort
+from datadog_api_client.v1.model.dataset_list_query_sort_field import DatasetListQuerySortField
 from datadog_api_client.v1.model.delete_shared_dashboard_response import DeleteSharedDashboardResponse
 from datadog_api_client.v1.model.deleted_monitor import DeletedMonitor
 from datadog_api_client.v1.model.distribution_point import DistributionPoint
@@ -257,6 +266,7 @@ from datadog_api_client.v1.model.host import Host
 from datadog_api_client.v1.model.host_list_response import HostListResponse
 from datadog_api_client.v1.model.host_map_request import HostMapRequest
 from datadog_api_client.v1.model.host_map_widget_definition import HostMapWidgetDefinition
+from datadog_api_client.v1.model.host_map_widget_definition_request_type import HostMapWidgetDefinitionRequestType
 from datadog_api_client.v1.model.host_map_widget_definition_requests import HostMapWidgetDefinitionRequests
 from datadog_api_client.v1.model.host_map_widget_definition_style import HostMapWidgetDefinitionStyle
 from datadog_api_client.v1.model.host_map_widget_definition_type import HostMapWidgetDefinitionType
@@ -272,6 +282,11 @@ from datadog_api_client.v1.model.host_map_widget_infrastructure_request_request_
 )
 from datadog_api_client.v1.model.host_map_widget_infrastructure_style import HostMapWidgetInfrastructureStyle
 from datadog_api_client.v1.model.host_map_widget_node_type import HostMapWidgetNodeType
+from datadog_api_client.v1.model.host_map_widget_projection import HostMapWidgetProjection
+from datadog_api_client.v1.model.host_map_widget_projection_dimension_mapping import (
+    HostMapWidgetProjectionDimensionMapping,
+)
+from datadog_api_client.v1.model.host_map_widget_projection_type import HostMapWidgetProjectionType
 from datadog_api_client.v1.model.host_map_widget_scalar_request import HostMapWidgetScalarRequest
 from datadog_api_client.v1.model.host_map_widget_scalar_request_response_format import (
     HostMapWidgetScalarRequestResponseFormat,
@@ -315,6 +330,7 @@ from datadog_api_client.v1.model.list_stream_group_by_items import ListStreamGro
 from datadog_api_client.v1.model.list_stream_issue_persona import ListStreamIssuePersona
 from datadog_api_client.v1.model.list_stream_issue_state import ListStreamIssueState
 from datadog_api_client.v1.model.list_stream_query import ListStreamQuery
+from datadog_api_client.v1.model.list_stream_query_version import ListStreamQueryVersion
 from datadog_api_client.v1.model.list_stream_response_format import ListStreamResponseFormat
 from datadog_api_client.v1.model.list_stream_source import ListStreamSource
 from datadog_api_client.v1.model.list_stream_widget_definition import ListStreamWidgetDefinition
@@ -346,6 +362,12 @@ from datadog_api_client.v1.model.logs_array_processor import LogsArrayProcessor
 from datadog_api_client.v1.model.logs_array_processor_operation import LogsArrayProcessorOperation
 from datadog_api_client.v1.model.logs_array_processor_operation_append import LogsArrayProcessorOperationAppend
 from datadog_api_client.v1.model.logs_array_processor_operation_append_type import LogsArrayProcessorOperationAppendType
+from datadog_api_client.v1.model.logs_array_processor_operation_extract_key_value import (
+    LogsArrayProcessorOperationExtractKeyValue,
+)
+from datadog_api_client.v1.model.logs_array_processor_operation_extract_key_value_type import (
+    LogsArrayProcessorOperationExtractKeyValueType,
+)
 from datadog_api_client.v1.model.logs_array_processor_operation_length import LogsArrayProcessorOperationLength
 from datadog_api_client.v1.model.logs_array_processor_operation_length_type import LogsArrayProcessorOperationLengthType
 from datadog_api_client.v1.model.logs_array_processor_operation_select import LogsArrayProcessorOperationSelect
@@ -610,6 +632,22 @@ from datadog_api_client.v1.model.notebook_response_data import NotebookResponseD
 from datadog_api_client.v1.model.notebook_response_data_attributes import NotebookResponseDataAttributes
 from datadog_api_client.v1.model.notebook_split_by import NotebookSplitBy
 from datadog_api_client.v1.model.notebook_status import NotebookStatus
+from datadog_api_client.v1.model.notebook_template_variable import NotebookTemplateVariable
+from datadog_api_client.v1.model.notebook_template_variable_available_values_query import (
+    NotebookTemplateVariableAvailableValuesQuery,
+)
+from datadog_api_client.v1.model.notebook_template_variable_available_values_query_group_by import (
+    NotebookTemplateVariableAvailableValuesQueryGroupBy,
+)
+from datadog_api_client.v1.model.notebook_template_variable_available_values_query_log_rum_spans import (
+    NotebookTemplateVariableAvailableValuesQueryLogRumSpans,
+)
+from datadog_api_client.v1.model.notebook_template_variable_available_values_query_metrics import (
+    NotebookTemplateVariableAvailableValuesQueryMetrics,
+)
+from datadog_api_client.v1.model.notebook_template_variable_available_values_query_search import (
+    NotebookTemplateVariableAvailableValuesQuerySearch,
+)
 from datadog_api_client.v1.model.notebook_timeseries_cell_attributes import NotebookTimeseriesCellAttributes
 from datadog_api_client.v1.model.notebook_toplist_cell_attributes import NotebookToplistCellAttributes
 from datadog_api_client.v1.model.notebook_update_cell import NotebookUpdateCell
@@ -696,6 +734,7 @@ from datadog_api_client.v1.model.product_analytics_funnel_request_type import Pr
 from datadog_api_client.v1.model.product_analytics_funnel_widget_definition import (
     ProductAnalyticsFunnelWidgetDefinition,
 )
+from datadog_api_client.v1.model.published_dataset_provider import PublishedDatasetProvider
 from datadog_api_client.v1.model.query_sort_order import QuerySortOrder
 from datadog_api_client.v1.model.query_value_widget_comparison import QueryValueWidgetComparison
 from datadog_api_client.v1.model.query_value_widget_comparison_directionality import (
@@ -1208,10 +1247,17 @@ from datadog_api_client.v1.model.toplist_widget_stacked import ToplistWidgetStac
 from datadog_api_client.v1.model.toplist_widget_stacked_type import ToplistWidgetStackedType
 from datadog_api_client.v1.model.toplist_widget_style import ToplistWidgetStyle
 from datadog_api_client.v1.model.topology_map_widget_definition import TopologyMapWidgetDefinition
+from datadog_api_client.v1.model.topology_map_widget_definition_data_streams import (
+    TopologyMapWidgetDefinitionDataStreams,
+)
+from datadog_api_client.v1.model.topology_map_widget_definition_service_map import TopologyMapWidgetDefinitionServiceMap
 from datadog_api_client.v1.model.topology_map_widget_definition_type import TopologyMapWidgetDefinitionType
-from datadog_api_client.v1.model.topology_query import TopologyQuery
-from datadog_api_client.v1.model.topology_query_data_source import TopologyQueryDataSource
-from datadog_api_client.v1.model.topology_request import TopologyRequest
+from datadog_api_client.v1.model.topology_query_data_streams import TopologyQueryDataStreams
+from datadog_api_client.v1.model.topology_query_data_streams_data_source import TopologyQueryDataStreamsDataSource
+from datadog_api_client.v1.model.topology_query_service_map import TopologyQueryServiceMap
+from datadog_api_client.v1.model.topology_query_service_map_data_source import TopologyQueryServiceMapDataSource
+from datadog_api_client.v1.model.topology_request_data_streams import TopologyRequestDataStreams
+from datadog_api_client.v1.model.topology_request_service_map import TopologyRequestServiceMap
 from datadog_api_client.v1.model.topology_request_type import TopologyRequestType
 from datadog_api_client.v1.model.tree_map_color_by import TreeMapColorBy
 from datadog_api_client.v1.model.tree_map_group_by import TreeMapGroupBy
@@ -1484,7 +1530,10 @@ __all__ = [
     "DashboardBulkActionData",
     "DashboardBulkActionDataList",
     "DashboardBulkDeleteRequest",
+    "DashboardDefaultTimeframeSetting",
     "DashboardDeleteResponse",
+    "DashboardFixedTimeframe",
+    "DashboardFixedTimeframeType",
     "DashboardGlobalTime",
     "DashboardGlobalTimeLiveSpan",
     "DashboardInviteType",
@@ -1492,6 +1541,8 @@ __all__ = [
     "DashboardList",
     "DashboardListDeleteResponse",
     "DashboardListListResponse",
+    "DashboardLiveTimeframe",
+    "DashboardLiveTimeframeType",
     "DashboardReflowType",
     "DashboardResourceType",
     "DashboardRestoreRequest",
@@ -1505,6 +1556,10 @@ __all__ = [
     "DashboardType",
     "DataProjectionQuery",
     "DataProjectionRequestType",
+    "DatasetListQuery",
+    "DatasetListQueryDataSourceType",
+    "DatasetListQuerySort",
+    "DatasetListQuerySortField",
     "DeleteSharedDashboardResponse",
     "DeletedMonitor",
     "DistributionPoint",
@@ -1613,6 +1668,7 @@ __all__ = [
     "HostListResponse",
     "HostMapRequest",
     "HostMapWidgetDefinition",
+    "HostMapWidgetDefinitionRequestType",
     "HostMapWidgetDefinitionRequests",
     "HostMapWidgetDefinitionStyle",
     "HostMapWidgetDefinitionType",
@@ -1624,6 +1680,9 @@ __all__ = [
     "HostMapWidgetInfrastructureRequestRequestType",
     "HostMapWidgetInfrastructureStyle",
     "HostMapWidgetNodeType",
+    "HostMapWidgetProjection",
+    "HostMapWidgetProjectionDimensionMapping",
+    "HostMapWidgetProjectionType",
     "HostMapWidgetScalarRequest",
     "HostMapWidgetScalarRequestResponseFormat",
     "HostMeta",
@@ -1665,6 +1724,7 @@ __all__ = [
     "ListStreamIssuePersona",
     "ListStreamIssueState",
     "ListStreamQuery",
+    "ListStreamQueryVersion",
     "ListStreamResponseFormat",
     "ListStreamSource",
     "ListStreamWidgetDefinition",
@@ -1694,6 +1754,8 @@ __all__ = [
     "LogsArrayProcessorOperation",
     "LogsArrayProcessorOperationAppend",
     "LogsArrayProcessorOperationAppendType",
+    "LogsArrayProcessorOperationExtractKeyValue",
+    "LogsArrayProcessorOperationExtractKeyValueType",
     "LogsArrayProcessorOperationLength",
     "LogsArrayProcessorOperationLengthType",
     "LogsArrayProcessorOperationSelect",
@@ -1884,6 +1946,12 @@ __all__ = [
     "NotebookResponseDataAttributes",
     "NotebookSplitBy",
     "NotebookStatus",
+    "NotebookTemplateVariable",
+    "NotebookTemplateVariableAvailableValuesQuery",
+    "NotebookTemplateVariableAvailableValuesQueryGroupBy",
+    "NotebookTemplateVariableAvailableValuesQueryLogRumSpans",
+    "NotebookTemplateVariableAvailableValuesQueryMetrics",
+    "NotebookTemplateVariableAvailableValuesQuerySearch",
     "NotebookTimeseriesCellAttributes",
     "NotebookToplistCellAttributes",
     "NotebookUpdateCell",
@@ -1956,6 +2024,7 @@ __all__ = [
     "ProductAnalyticsFunnelRequest",
     "ProductAnalyticsFunnelRequestType",
     "ProductAnalyticsFunnelWidgetDefinition",
+    "PublishedDatasetProvider",
     "QuerySortOrder",
     "QueryValueWidgetComparison",
     "QueryValueWidgetComparisonDirectionality",
@@ -2376,10 +2445,15 @@ __all__ = [
     "ToplistWidgetStackedType",
     "ToplistWidgetStyle",
     "TopologyMapWidgetDefinition",
+    "TopologyMapWidgetDefinitionDataStreams",
+    "TopologyMapWidgetDefinitionServiceMap",
     "TopologyMapWidgetDefinitionType",
-    "TopologyQuery",
-    "TopologyQueryDataSource",
-    "TopologyRequest",
+    "TopologyQueryDataStreams",
+    "TopologyQueryDataStreamsDataSource",
+    "TopologyQueryServiceMap",
+    "TopologyQueryServiceMapDataSource",
+    "TopologyRequestDataStreams",
+    "TopologyRequestServiceMap",
     "TopologyRequestType",
     "TreeMapColorBy",
     "TreeMapGroupBy",

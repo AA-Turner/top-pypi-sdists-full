@@ -184,6 +184,10 @@ def _iter_templated_patches(
                 # first raw, not the pos marker of the whole thing. That accounts
                 # better for loops.
                 first_segment_pos = first_segment_pos or seg.pos_marker
+                templated_slice = slice(
+                    templated_idx,
+                    max(first_segment_pos.templated_slice.start, templated_idx),
+                )
                 yield FixPatch(
                     # Whether the source slice is zero depends on the start_diff.
                     # A non-zero start diff implies a deletion, or more likely
@@ -192,14 +196,15 @@ def _iter_templated_patches(
                     # should be inserted in both source and template.
                     # The slices must never go backwards so the end of the slice must
                     # be greater than or equal to the start.
-                    source_slice=slice(
-                        source_idx,
-                        max(first_segment_pos.source_slice.start, source_idx),
+                    source_slice=(
+                        templated_file.templated_slice_to_source_slice(templated_slice)
+                        if start_diff > 0 and not insert_buff
+                        else slice(
+                            source_idx,
+                            max(first_segment_pos.source_slice.start, source_idx),
+                        )
                     ),
-                    templated_slice=slice(
-                        templated_idx,
-                        max(first_segment_pos.templated_slice.start, templated_idx),
-                    ),
+                    templated_slice=templated_slice,
                     patch_category="mid_point",
                     fixed_raw=insert_buff,
                     templated_str="",
@@ -277,7 +282,7 @@ def generate_source_patches(
     # Iterate patches, filtering and translating as we go:
     linter_logger.debug("### Beginning Patch Iteration.")
     filtered_source_patches = []
-    dedupe_buffer = []
+    dedupe_buffer: set[tuple[tuple[int, int], str]] = set()
     # We use enumerate so that we get an index for each patch. This is entirely
     # so when debugging logs we can find a given patch again!
     for idx, patch in enumerate(
@@ -287,10 +292,11 @@ def generate_source_patches(
         _log_hints(patch, templated_file)
 
         # Check for duplicates
-        if patch.dedupe_tuple() in dedupe_buffer:
+        dedupe_tuple = patch.dedupe_tuple()
+        if dedupe_tuple in dedupe_buffer:
             linter_logger.info(
                 "      - Skipping. Source space Duplicate: %s",
-                patch.dedupe_tuple(),
+                dedupe_tuple,
             )
             continue
 
@@ -310,14 +316,14 @@ def generate_source_patches(
                 "      * Keeping patch on new or literal-only section.",
             )
             filtered_source_patches.append(patch)
-            dedupe_buffer.append(patch.dedupe_tuple())
+            dedupe_buffer.add(dedupe_tuple)
         # Handle the easy case of an explicit source fix
         elif patch.patch_category == "source":
             linter_logger.info(
                 "      * Keeping explicit source fix patch.",
             )
             filtered_source_patches.append(patch)
-            dedupe_buffer.append(patch.dedupe_tuple())
+            dedupe_buffer.add(dedupe_tuple)
         # Is it a zero length patch.
         elif (
             patch.source_slice.start == patch.source_slice.stop
@@ -327,7 +333,7 @@ def generate_source_patches(
                 "      * Keeping insertion patch on slice boundary.",
             )
             filtered_source_patches.append(patch)
-            dedupe_buffer.append(patch.dedupe_tuple())
+            dedupe_buffer.add(dedupe_tuple)
         else:  # pragma: no cover
             # We've got a situation where the ends of our patch need to be
             # more carefully mapped. This used to happen with greedy template

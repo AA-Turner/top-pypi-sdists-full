@@ -2483,6 +2483,53 @@ class ChalkClient:
         """
         ...
 
+    def suspend_environment(self, environment_id: EnvironmentId) -> None:
+        """
+        Suspend an environment, spinning down its cloud resources.
+
+        Query servers, jobs, and in-cluster databases are spun down until the
+        environment is resumed.
+
+        .. warning::
+            This tears down the environment's cloud resources. Double-check that
+            ``environment_id`` is the one you intend to suspend before calling.
+
+        Parameters
+        ----------
+        environment_id
+            The id of the environment to suspend. Required, and intentionally not
+            defaulted to the client's environment: naming the target explicitly
+            avoids suspending the wrong environment by accident.
+
+        Examples
+        --------
+        >>> from chalk.client import ChalkClient
+        >>> ChalkClient().suspend_environment(environment_id="my-staging-env")
+        """
+        ...
+
+    def resume_environment(self, environment_id: EnvironmentId) -> None:
+        """
+        Resume a suspended environment, spinning its cloud resources back up.
+
+        .. warning::
+            This spins the environment's cloud resources back up. Double-check that
+            ``environment_id`` is the one you intend to resume before calling.
+
+        Parameters
+        ----------
+        environment_id
+            The id of the environment to resume. Required, and intentionally not
+            defaulted to the client's environment: naming the target explicitly
+            avoids resuming the wrong environment by accident.
+
+        Examples
+        --------
+        >>> from chalk.client import ChalkClient
+        >>> ChalkClient().resume_environment(environment_id="my-staging-env")
+        """
+        ...
+
     def rebuild_deployment(
         self,
         deployment_id: str,

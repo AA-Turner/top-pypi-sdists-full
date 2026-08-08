@@ -43,6 +43,7 @@ from . import worker_credential
 from . import mint_goal as mint_goal_mod
 from . import worker_goals
 from .api.binding import ModelRef, wire_ref
+from .convert.hub import HubPublishError
 from .mint_process import MintSlot
 from .api.errors import (
     ArtifactTransferError,
@@ -482,6 +483,21 @@ def _map_exception(exc: BaseException) -> Tuple["pb.JobStatus", str]:
         return pb.JOB_STATUS_RETRYABLE, _sanitize(str(exc) or "retryable error")
     if isinstance(exc, ArtifactTransferError) and getattr(exc, "retryable", False):
         return pb.JOB_STATUS_RETRYABLE, _sanitize(str(exc) or "artifact transfer failed")
+    if isinstance(exc, HubPublishError):
+        # pgw#1002. The hub's th#1301 refusal carries its OWN `retryable` bit;
+        # PROVENANCE decides the class (th#1259), not our reading of the
+        # message. `True` -> RETRYABLE, so the orchestrator's MaxJobAttempts
+        # budget is actually spent on a publish the hub asked us to retry.
+        # `False` is a repudiation (audit findings, contract failure,
+        # possession refusal) and `None` honestly means the hub named nothing
+        # — neither invents a retry. The hub's `code` LEADS the detail so the
+        # refusal groups by a stable token instead of by prose.
+        detail = _sanitize(str(exc) or "publish failed")
+        if exc.code:
+            detail = f"{exc.code}: {detail}"
+        status = (pb.JOB_STATUS_RETRYABLE if exc.retryable is True
+                  else pb.JOB_STATUS_FATAL)
+        return status, detail[:512]
     if isinstance(exc, HardwareUnmetError):
         return pb.JOB_STATUS_RETRYABLE, _sanitize(str(exc) or "hardware unmet")
     if isinstance(exc, UrlExpiredError):
@@ -655,14 +671,6 @@ _BG_COMPILE_QUIESCENCE_S = 5.0
 _BG_THREAD_ADMIT_WAIT_S = 0.5
 
 
-def _bg_yield_enabled() -> bool:
-    """pgw#677: default ON; env kill switch for red-verification and
-    emergencies only. OFF restores the pre-fix shape: mint seeds idle-gate
-    + hold the bare run gate (inline compiles included) and shape-warm
-    compiles run ungated against tenant forwards."""
-    return os.environ.get("GEN_WORKER_BG_YIELD", "1").strip() != "0"
-
-
 def _cell_execution_lane_matches(
     ref: str,
     family: str,
@@ -676,7 +684,7 @@ def _cell_execution_lane_matches(
     lora_bucket endpoint needs exactly a ``-lora<bucket>`` cell of its base
     lane, and a branchless endpoint must never fetch one (either mismatch is
     a guaranteed lane_drift that would shadow the right cell and serve
-    eager). Key-flavored cells (th#883 pull-by-key, ``#ck2-…``) match only
+    eager). Key-flavored cells (th#883 pull-by-key, ``#ck1-…``) match only
     when their key is one this runtime computed for itself."""
 
     if not compile_cache.is_cache_ref(ref, family):
@@ -2882,11 +2890,6 @@ def _mint_modules(spec: EndpointSpec) -> Tuple[str, ...]:
 
 def _delegated_pendings(pendings: typing.Mapping[int, Any]) -> bool:
     return any(getattr(p, "delegated", False) for p in pendings.values())
-
-
-def _eager_first_boot_enabled() -> bool:
-    """pgw#671: default ON; env kill switch for emergencies only."""
-    return os.environ.get("GEN_WORKER_EAGER_FIRST_BOOT", "1").strip() != "0"
 
 
 @dataclass
@@ -9222,8 +9225,6 @@ class Executor:
           lane. A delegated pending's eager tier is the untouched pipeline
           itself; the router question belongs only to an in-process capture,
           whose eager-while-compiling routing is what a router performs."""
-        if not _eager_first_boot_enabled():
-            return False
         if not inj.pending_self_mints:
             return False
         if spec.cls is not None and callable(getattr(spec.cls, "warmup", None)):
@@ -9706,22 +9707,6 @@ class Executor:
             in their own turns. False = preempted by a tenant arrival; the
             caller re-queues the unit."""
             _checkpoint()
-            if not _bg_yield_enabled():
-                # Legacy shape (kill switch / red-verification): idle-gate
-                # between units, bare run gate around the forward.
-                idle = asyncio.ensure_future(self.wait_idle())
-                stop = asyncio.ensure_future(bg.abandon.wait())
-                try:
-                    await asyncio.wait(
-                        {idle, stop}, return_when=asyncio.FIRST_COMPLETED)
-                finally:
-                    for fut in (idle, stop):
-                        if not fut.done():
-                            fut.cancel()
-                _checkpoint()
-                async with rec.run_lock:
-                    await _forward(wj)
-                return True
             async with self._bg_turn(rec, "seed", abort=bg.abandon) as stole:
                 _checkpoint()
                 try:
@@ -10007,6 +9992,9 @@ class Executor:
 
         finalized: Dict[int, Any] = {}
         declined: Optional[_MintDeclined] = None
+        # pgw#999: every classified refusal this run saw, so the terminal
+        # RuntimeError names them instead of restating "no advertisable cell".
+        declined_reasons: List[str] = []
         for pids in sharers.values():
             pending = bg.pendings[pids[0]]
             pipe = bg.pipes[pids[0]]
@@ -10042,14 +10030,19 @@ class Executor:
                 # wire trace whenever a SIBLING pending succeeded (the
                 # `if not finalized: raise` below never fires then).
                 fleet_cells_mod.abandon_self_mint(pending)
+                # pgw#999: `phase` carries the CLASSIFIED reason when the
+                # child's cell was built and then refused arming; it falls
+                # back to the call-site token only when there is genuinely no
+                # classification (no cell was produced at all).
                 activity_mod.emit_event(
                     "self_mint_abort",
                     f"family={pending.family} key={pending.cell_key}: the "
                     f"delegated child produced no adoptable cell "
                     f"({result.detail or result.status}); this object stays "
                     f"eager and nothing is published",
-                    phase="delegated_no_cell",
+                    phase=result.reason or "delegated_no_cell",
                 )
+                declined_reasons.append(result.reason or result.status)
                 continue
             for pid in pids:
                 finalized[pid] = minted
@@ -10060,7 +10053,9 @@ class Executor:
                 raise declined
             raise RuntimeError(
                 "delegated mint produced no advertisable cell; serving stays "
-                "eager")
+                "eager"
+                + (f" (refused: {', '.join(sorted(set(declined_reasons)))})"
+                   if declined_reasons else ""))
 
         # Publish per shared cell on gw#612's rule: a family cell ships only
         # when EVERY sharer is covered by it — a partial pack bricks every
@@ -11534,10 +11529,11 @@ class Executor:
     def _wire_turn_gate(self, rec: _ClassRecord, pipeline: Any) -> None:
         """Hand this pipeline's hot-swap router the background-turn gate so
         every shape-warm/heal compile serializes with — and yields to —
-        tenant work (pgw#677). Idempotent; no-op without a router."""
-        if not _bg_yield_enabled():
-            return
+        tenant work (pgw#677). Idempotent; no-op without a router.
 
+        pgw#995: unconditional. ``GEN_WORKER_BG_YIELD`` used to be able to skip
+        this, restoring the pre-pgw#677 shape where shape-warm compiles ran
+        ungated against tenant forwards. Nothing ever set it."""
         router = hot_swap.router_of(pipeline)
         if router is not None:
             router.set_turn_gate(self._bg_turn_threaded(rec))

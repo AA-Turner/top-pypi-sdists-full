@@ -21,7 +21,7 @@ class UpdateOrganizationPlanRequest:
         plan (OrganizationPlanType): The plan type (trial, paid)
         max_concurrent_runs (int | None | Unset): Concurrent-run cap; null clears the limit.
         max_run_seconds (int | None | Unset): Per-run duration cap in seconds; null clears the limit.
-        seconds_limit (int | None | Unset): Monthly run-seconds budget; null clears the limit.
+        seconds_limit (int | None | Unset): Total lifetime run-seconds budget; null clears the limit.
         trial_expires_at (datetime.datetime | None | Unset): When the trial expires; null clears it.
         trial_started_at (datetime.datetime | None | Unset): When the trial started; null clears it.
     """

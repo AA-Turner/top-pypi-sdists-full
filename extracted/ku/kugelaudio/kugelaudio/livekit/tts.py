@@ -21,26 +21,25 @@ context is deregistered locally and late server messages are silently
 discarded.  A context's waiter resolves only on ``context_closed`` — the
 server sends that frame after draining every audio frame, so the tail
 is never clipped.
+
+The transport itself (the WebSocket, its send/recv loops, the wire
+options and frame dataclasses) lives in :mod:`kugelaudio.livekit._connection`.
+This module holds the LiveKit-facing classes only.
 """
 
 from __future__ import annotations
 
 import asyncio
-import base64
-import collections
-import json
 import logging
 import os
-import time
-from dataclasses import dataclass, field, replace
+from dataclasses import replace
 from dataclasses import fields as dataclass_fields
 from typing import Any
 
 import aiohttp
-from kugelaudio._sdk_metadata import sdk_query_string
 from kugelaudio.client import _parse_api_key, _resolve_region_url
 from kugelaudio.models import clamp_cfg_scale
-from kugelaudio.exceptions import ValidationError, classify_ws_frame
+from kugelaudio.exceptions import ValidationError
 from livekit.agents import (
     APIConnectionError,
     APIConnectOptions,
@@ -51,8 +50,15 @@ from livekit.agents import (
 )
 from livekit.agents.types import DEFAULT_API_CONNECT_OPTIONS, NOT_GIVEN, NotGivenOr
 from livekit.agents.utils import is_given
-from livekit.agents.voice.io import TimedString
 
+from ._connection import (
+    _Connection,
+    _SynthesizeContent,
+    _TTSOptions,
+    _validate_language,
+    _validate_speed,
+    _wait_for_context_idle,
+)
 from .models import (
     DEFAULT_MODEL,
     DEFAULT_SAMPLE_RATE,
@@ -60,464 +66,22 @@ from .models import (
     TTSModels,
 )
 
+# Backwards-compatible re-exports: the transport layer moved to
+# ``._connection`` but these names have always been importable from
+# ``kugelaudio.livekit.tts`` (``__init__`` and the test-suite rely on it).
+from ._connection import (  # noqa: F401
+    MAX_SPEED,
+    MIN_SPEED,
+    SUPPORTED_LANGUAGES,
+    _api_status_error_from_handshake,
+    _api_status_error_from_ingress_payload,
+    _append_sdk_query,
+    _CloseContext,
+    _ContextData,
+    _word_timestamps_to_timed,
+)
+
 logger = logging.getLogger("kugelaudio.livekit")
-
-
-def _append_sdk_query(url: str) -> str:
-    separator = "&" if "?" in url else "?"
-    return f"{url}{separator}{sdk_query_string()}"
-
-
-def _word_timestamps_to_timed(
-    timestamps: list[dict[str, Any]],
-) -> list[TimedString]:
-    """Convert server word_timestamps payload to LiveKit TimedString list.
-
-    The server sends timestamps with ``start_ms`` / ``end_ms`` (integers),
-    while LiveKit expects ``start_time`` / ``end_time`` in seconds (floats).
-    """
-    return [
-        TimedString(
-            ts["word"],
-            start_time=ts["start_ms"] / 1000.0,
-            end_time=ts["end_ms"] / 1000.0,
-        )
-        for ts in timestamps
-    ]
-
-
-SUPPORTED_LANGUAGES: set[str] = {
-    # Germanic
-    "de",
-    "en",
-    "nl",
-    "sv",
-    "da",
-    "no",
-    # Romance
-    "fr",
-    "es",
-    "it",
-    "pt",
-    "ro",
-    # Slavic
-    "pl",
-    "cs",
-    "uk",
-    "bg",
-    "sk",
-    "sl",
-    "hr",
-    "sr",
-    # Uralic
-    "fi",
-    "hu",
-    # Other European
-    "el",
-    "tr",
-    "ru",
-    # CJK + SEA
-    "zh",
-    "ja",
-    "ko",
-    "vi",
-    "yue",
-    "th",
-    "id",
-    "ms",
-    # Semitic + Indic + Other
-    "ar",
-    "hi",
-    "he",
-    "fa",
-    "ur",
-    "bn",
-    "ta",
-}
-
-
-def _validate_language(language: str | None) -> str | None:
-    """Validate that language is an ISO 639-1 code supported by the API.
-
-    Raises:
-        ValueError: If *language* is not a supported ISO 639-1 code.
-            Common mistake: passing BCP 47 locale tags such as ``"de-DE"``
-            instead of ``"de"``.
-    """
-    if language is None:
-        return None
-    if language not in SUPPORTED_LANGUAGES:
-        raise ValueError(
-            f"language must be a supported ISO 639-1 code "
-            f"({', '.join(sorted(SUPPORTED_LANGUAGES))}), got {language!r}. "
-            f"Note: BCP 47 tags like 'de-DE' are not accepted — use 'de' instead."
-        )
-    return language
-
-
-@dataclass
-class _TTSOptions:
-    model: TTSModels | str
-    voice_id: int | None
-    sample_rate: int
-    cfg_scale: float
-    max_new_tokens: int
-    api_key: str
-    base_url: str
-    word_timestamps: bool = False
-    normalize: bool = True
-    language: str | None = None
-
-    def __post_init__(self) -> None:
-        self.language = _validate_language(self.language)
-
-
-@dataclass
-class _SynthesizeContent:
-    """Text message to send to a specific context."""
-
-    context_id: str
-    text: str
-    flush: bool = False
-
-
-@dataclass
-class _CloseContext:
-    """Signal to close a specific context on the server.
-
-    ``immediate=True`` is sent on barge-in (caller cancelled _run).  The
-    server cancels in-flight generation instead of draining — stops
-    wasted GPU on audio the client will discard anyway.  End-of-stream
-    closes from ``_input_task`` use the default (graceful drain).
-    """
-
-    context_id: str
-    immediate: bool = False
-
-
-@dataclass
-class _ContextData:
-    """Per-context state tracked inside _Connection.
-
-    ``last_activity_at`` is refreshed every time the recv loop routes a
-    server message to this context.  The per-run idle timeout uses it to
-    distinguish "server is silent" from "server is still working".
-    """
-
-    emitter: tts.AudioEmitter
-    waiter: asyncio.Future[None]
-    stream: "SynthesizeStream | None" = None
-    last_activity_at: float = field(default_factory=time.monotonic)
-
-
-async def _wait_for_context_idle(
-    ctx: _ContextData,
-    waiter: asyncio.Future[None],
-    idle_threshold: float,
-) -> None:
-    """Block until *waiter* resolves, failing only if the server has been
-    silent for this context for longer than *idle_threshold* seconds.
-
-    Unlike ``asyncio.wait_for(waiter, idle_threshold)``, this helper polls
-    ``ctx.last_activity_at`` on every tick so long-running generations do
-    not time out as long as frames keep arriving.
-    """
-    # Poll cadence is small so the effective idle-deadline resolution is
-    # sub-second; callers only care that we do not fail early when frames
-    # keep arriving.
-    tick = min(1.0, max(0.1, idle_threshold / 4))
-    while True:
-        try:
-            await asyncio.wait_for(asyncio.shield(waiter), timeout=tick)
-            return
-        except asyncio.TimeoutError:
-            if time.monotonic() - ctx.last_activity_at >= idle_threshold:
-                raise
-
-
-def _api_status_error_from_ingress_payload(
-    data: dict[str, Any], *, request_id: str = ""
-) -> APIStatusError:
-    """Convert an ingress WS error frame into LiveKit's status exception."""
-    err = classify_ws_frame(data)
-    status_code = err.status_code
-    if status_code is None:
-        code = data.get("code")
-        status_code = code if isinstance(code, int) else 500
-    return APIStatusError(
-        message=err.message,
-        status_code=status_code,
-        request_id=request_id,
-        body=data,
-    )
-
-
-def _api_status_error_from_handshake(
-    exc: aiohttp.WSServerHandshakeError,
-) -> APIStatusError:
-    """Convert a rejected WS upgrade into LiveKit's status exception."""
-    status_code = exc.status if isinstance(exc.status, int) else 500
-    message = exc.message or str(exc)
-    return APIStatusError(
-        message=message,
-        status_code=status_code,
-        request_id="",
-        body={"error": message, "code": status_code},
-    )
-
-
-class _Connection:
-    """Single persistent WebSocket to /ws/tts/multi with background loops.
-
-    Each synthesis (chunked or streaming) registers a unique context_id.
-    The recv loop routes server messages by context_id; unknown IDs are
-    silently dropped — this is what makes barge-in safe.
-    """
-
-    def __init__(self, opts: _TTSOptions, session: aiohttp.ClientSession) -> None:
-        self._opts = replace(opts)
-        self._session = session
-        self._ws: aiohttp.ClientWebSocketResponse | None = None
-        self._is_current = True
-        self._closed = False
-        self._active_contexts: set[str] = set()
-        self._input_queue: asyncio.Queue[_SynthesizeContent | _CloseContext | None] = (
-            asyncio.Queue()
-        )
-        self._context_data: dict[str, _ContextData] = {}
-        # ctx_ids we have already logged a "dropped late frame" for —
-        # bounded so a long-lived connection doesn't grow unboundedly.
-        self._logged_late_drops: collections.deque[str] = collections.deque(maxlen=64)
-        self._send_task: asyncio.Task | None = None
-        self._recv_task: asyncio.Task | None = None
-
-    @property
-    def is_current(self) -> bool:
-        return self._is_current
-
-    def mark_non_current(self) -> None:
-        self._is_current = False
-
-    async def connect(self, timeout: float = 10.0) -> None:
-        ws_url = self._opts.base_url.replace("https://", "wss://").replace(
-            "http://", "ws://"
-        )
-        ws_url = _append_sdk_query(f"{ws_url}/ws/tts/multi?api_key={self._opts.api_key}")
-        try:
-            self._ws = await self._session.ws_connect(
-                ws_url,
-                timeout=aiohttp.ClientTimeout(total=None, sock_connect=timeout),
-            )
-        except asyncio.TimeoutError:
-            raise APITimeoutError() from None
-        except aiohttp.WSServerHandshakeError as e:
-            raise _api_status_error_from_handshake(e) from e
-        except aiohttp.ClientError as e:
-            raise APIConnectionError(f"Failed to connect to /ws/tts/multi: {e}") from e
-        self._send_task = asyncio.create_task(self._send_loop())
-        self._recv_task = asyncio.create_task(self._recv_loop())
-        logger.debug("Connection established to /ws/tts/multi")
-
-    def register_context(
-        self,
-        context_id: str,
-        emitter: tts.AudioEmitter,
-        waiter: asyncio.Future[None],
-        stream: "SynthesizeStream | None" = None,
-    ) -> _ContextData | None:
-        # If the connection closed between _ensure_connection returning and
-        # this call (e.g., update_options raced with an in-flight _run),
-        # reject immediately instead of inserting a waiter nobody will resolve.
-        if self._closed:
-            if not waiter.done():
-                waiter.set_exception(
-                    APIConnectionError("Connection closed before request started")
-                )
-            return None
-        ctx = _ContextData(
-            emitter=emitter,
-            waiter=waiter,
-            stream=stream,
-        )
-        self._context_data[context_id] = ctx
-        return ctx
-
-    def send_content(self, content: _SynthesizeContent) -> None:
-        self._input_queue.put_nowait(content)
-
-    def request_close_context(
-        self, context_id: str, immediate: bool = False,
-    ) -> None:
-        self._input_queue.put_nowait(_CloseContext(context_id, immediate=immediate))
-
-    def _cleanup_context(self, context_id: str) -> None:
-        self._context_data.pop(context_id, None)
-        self._active_contexts.discard(context_id)
-
-    async def _send_loop(self) -> None:
-        assert self._ws is not None
-        try:
-            while not self._closed:
-                item = await self._input_queue.get()
-                if item is None:
-                    break
-
-                if isinstance(item, _CloseContext):
-                    payload: dict[str, Any] = {
-                        "close_context": True,
-                        "context_id": item.context_id,
-                    }
-                    if item.immediate:
-                        payload["immediate"] = True
-                    await self._ws.send_str(json.dumps(payload))
-                    continue
-
-                # _SynthesizeContent
-                msg: dict[str, Any] = {
-                    "text": item.text,
-                    "context_id": item.context_id,
-                }
-                if item.flush:
-                    msg["flush"] = True
-
-                # First message for a new context: attach session + voice config
-                if item.context_id not in self._active_contexts:
-                    self._active_contexts.add(item.context_id)
-                    msg["model_id"] = self._opts.model
-                    msg["sample_rate"] = self._opts.sample_rate
-                    msg["word_timestamps"] = self._opts.word_timestamps
-                    msg["normalize"] = self._opts.normalize
-                    if self._opts.language is not None:
-                        msg["language"] = self._opts.language
-                    voice_settings: dict[str, Any] = {}
-                    if self._opts.voice_id is not None:
-                        voice_settings["voice_id"] = self._opts.voice_id
-                    if self._opts.cfg_scale != 2.0:
-                        voice_settings["cfg_scale"] = self._opts.cfg_scale
-                    if self._opts.max_new_tokens != 2048:
-                        voice_settings["max_new_tokens"] = self._opts.max_new_tokens
-                    if voice_settings:
-                        msg["voice_settings"] = voice_settings
-
-                await self._ws.send_str(json.dumps(msg))
-        except Exception:
-            # Mark dead so _ensure_connection reconnects next call, and
-            # close the WS so _recv_loop exits and rejects pending waiters.
-            self._is_current = False
-            if self._ws and not self._ws.closed:
-                await self._ws.close()
-            raise
-
-    async def _recv_loop(self) -> None:
-        assert self._ws is not None
-        try:
-            await self._recv_loop_inner()
-        finally:
-            # Connection dropped or closed — mark dead so _ensure_connection
-            # reconnects on the next call instead of handing out this zombie.
-            self._is_current = False
-            for ctx in list(self._context_data.values()):
-                if not ctx.waiter.done():
-                    ctx.waiter.set_exception(
-                        APIConnectionError("WebSocket connection closed unexpectedly")
-                    )
-
-    async def _recv_loop_inner(self) -> None:
-        assert self._ws is not None
-        while not self._closed and not self._ws.closed:
-            msg = await self._ws.receive()
-            if msg.type != aiohttp.WSMsgType.TEXT:
-                break
-            data = json.loads(msg.data)
-
-            if data.get("session_closed"):
-                break
-
-            context_id = data.get("context_id")
-
-            # Error handling
-            if data.get("error"):
-                ctx = self._context_data.get(context_id) if context_id else None
-                if ctx and not ctx.waiter.done():
-                    ctx.waiter.set_exception(
-                        _api_status_error_from_ingress_payload(
-                            data,
-                            request_id=context_id or "",
-                        )
-                    )
-                if context_id:
-                    self._cleanup_context(context_id)
-                continue
-
-            ctx = self._context_data.get(context_id) if context_id else None
-
-            # Messages for unknown/cleaned-up contexts are silently discarded.
-            # This is the core barge-in fix.  After a barge-in there's
-            # always a small tail of in-flight frames (audio + the
-            # context_closed confirmation) — log only the first per
-            # ctx_id so the second/third frames don't spam the log.
-            if ctx is None:
-                if context_id and context_id not in self._logged_late_drops:
-                    self._logged_late_drops.append(context_id)
-                    logger.debug(
-                        "[recv] dropped late frame(s) for closed ctx=%s "
-                        "(further drops for this ctx will be silenced)",
-                        context_id,
-                    )
-                continue
-
-            # Any routed message counts as activity for the idle-timeout
-            # watchdog in _run.  Update before per-field processing so
-            # audio/chunk_complete/context_closed all refresh the deadline.
-            ctx.last_activity_at = time.monotonic()
-
-            if data.get("audio"):
-                audio_bytes = base64.b64decode(data["audio"])
-                if ctx.stream is not None:
-                    ctx.stream._mark_started()
-                ctx.emitter.push(audio_bytes)
-
-            if data.get("word_timestamps"):
-                ctx.emitter.push_timed_transcript(
-                    _word_timestamps_to_timed(data["word_timestamps"])
-                )
-
-            if data.get("chunk_complete"):
-                ctx.emitter.flush()
-                # For non-streaming (chunked) contexts, close after the
-                # server confirms generation is done — avoids the race
-                # where close_context arrives before audio is generated.
-                if ctx.stream is None:
-                    self._input_queue.put_nowait(_CloseContext(context_id))
-
-            if data.get("context_closed"):
-                # Sole terminal signal. The server sends this only after it
-                # has drained every audio frame for the context, so the
-                # waiter resolves at the correct point for both streaming
-                # and chunked contexts.
-                if not ctx.waiter.done():
-                    ctx.waiter.set_result(None)
-                self._cleanup_context(context_id)
-
-    async def aclose(self) -> None:
-        if self._closed:
-            return
-        self._closed = True
-        self._input_queue.put_nowait(None)
-        for ctx in self._context_data.values():
-            if not ctx.waiter.done():
-                ctx.waiter.set_exception(APIConnectionError("Connection closed"))
-        self._context_data.clear()
-        if self._ws and not self._ws.closed:
-            try:
-                await self._ws.send_str(json.dumps({"close_socket": True}))
-            except Exception:
-                pass
-            await self._ws.close()
-        if self._send_task:
-            await utils.aio.gracefully_cancel(self._send_task)
-        if self._recv_task:
-            await utils.aio.gracefully_cancel(self._recv_task)
 
 
 class TTS(tts.TTS):
@@ -561,6 +125,7 @@ class TTS(tts.TTS):
         normalize: bool = True,
         word_timestamps: bool = False,
         language: str | None = None,
+        speed: float | None = None,
         region: str | None = None,
         base_url: str | None = None,
         http_session: aiohttp.ClientSession | None = None,
@@ -592,6 +157,18 @@ class TTS(tts.TTS):
                 ~60-150ms per request. Supported: de, en, fr, es, it, pt, nl, pl,
                 sv, da, no, fi, cs, hu, ro, el, uk, bg, tr, vi, ar, hi, zh, ja, ko,
                 sk, sl, hr, sr, ru, he, fa, ur, bn, ta, yue, th, id, ms.
+            speed: Playback speed multiplier, range [0.8, 1.2]. ``None``
+                (default) leaves the server default of 1.0 in place. Values
+                outside the range raise ``ValueError`` — the API rejects
+                them, it does not clamp. Uses pitch-preserving
+                time-stretching.
+
+                Note: on the ``/ws/tts/multi`` socket this plugin uses,
+                ``speed`` is applied **session-wide**, not per context. All
+                contexts share one socket and the server applies the last
+                value it received (last-writer-wins), so a value set here —
+                or later via ``update_options`` — binds for every context
+                started after it.
             region: API endpoint region. Use ``"eu"`` for the direct EU endpoint.
                 Overrides any prefix detected from the API key. Ignored when
                 *base_url* is set.
@@ -640,6 +217,7 @@ class TTS(tts.TTS):
             normalize=normalize,
             word_timestamps=word_timestamps,
             language=language,
+            speed=speed,
             api_key=clean_key,
             base_url=resolved_url,
         )
@@ -661,22 +239,111 @@ class TTS(tts.TTS):
             self._session = utils.http_context.http_session()
         return self._session
 
+    async def _release_stranded_acquire(
+        self, acquire_task: asyncio.Future[bool]
+    ) -> None:
+        """Abandon an in-flight ``_connection_lock`` acquisition.
+
+        ``asyncio.Lock.acquire()`` can be granted in the very loop iteration
+        in which our deadline expires; cancelling an already-completed task
+        is a no-op, so without this the lock would stay held forever and
+        every later caller would deadlock.
+        """
+        acquire_task.cancel()
+        try:
+            await acquire_task
+        except asyncio.CancelledError:
+            # Cancellation won the race: the lock was never handed to us and
+            # asyncio.Lock has already woken the next waiter.
+            return
+        # The acquire completed anyway — we own the lock, so give it back.
+        self._connection_lock.release()
+
+    async def _discard_raced_connect(
+        self, conn: _Connection, connect_task: asyncio.Future[None]
+    ) -> None:
+        """Abandon an in-flight ``_Connection.connect``, closing a WS that
+        completed in the cancellation race so the socket is not leaked."""
+        connect_task.cancel()
+        try:
+            await connect_task
+        except asyncio.CancelledError:
+            return
+        except (APITimeoutError, APIStatusError, APIConnectionError) as exc:
+            # The connect failed on its own inside the race window. We are
+            # about to raise APITimeoutError for the deadline, so record the
+            # real cause rather than dropping it.
+            logger.debug("connect failed while being abandoned: %s", exc)
+            return
+        await conn.aclose()
+
     async def _ensure_connection(self, timeout: float = 10.0) -> _Connection:
-        """Get or create the persistent /ws/tts/multi connection."""
-        async with self._connection_lock:
+        """Get or create the persistent /ws/tts/multi connection.
+
+        *timeout* bounds the **total** wait — acquiring the shared connection
+        lock *plus* the WebSocket connect — so a caller with a short budget
+        never inherits another caller's long one. Before this was enforced, a
+        2.5 s synthesis call queued behind a 10 s ``prewarm()`` took 12.5 s to
+        fail against an unreachable API.
+
+        Raises:
+            APITimeoutError: The lock could not be acquired, or the socket
+                could not be opened, within *timeout* seconds.
+        """
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + timeout
+
+        acquire_task: asyncio.Future[bool] = asyncio.ensure_future(
+            self._connection_lock.acquire()
+        )
+        try:
+            done, _pending = await asyncio.wait({acquire_task}, timeout=timeout)
+        except asyncio.CancelledError:
+            await self._release_stranded_acquire(acquire_task)
+            raise
+        if not done:
+            await self._release_stranded_acquire(acquire_task)
+            raise APITimeoutError()
+        acquire_task.result()  # surface any unexpected acquisition failure
+
+        try:
             if (
                 self._current_connection
                 and self._current_connection.is_current
                 and not self._current_connection._closed
             ):
                 return self._current_connection
+
+            remaining = deadline - loop.time()
+            if remaining <= 0:
+                raise APITimeoutError()
+
             session = self._ensure_session()
             conn = _Connection(self._opts, session)
-            await conn.connect(timeout)
+            # ``connect``'s own timeout only bounds the TCP connect
+            # (aiohttp ``sock_connect``); the WS upgrade handshake is
+            # unbounded, so wrap the whole thing in the remaining budget.
+            connect_task: asyncio.Future[None] = asyncio.ensure_future(
+                conn.connect(remaining)
+            )
+            try:
+                done, _pending = await asyncio.wait(
+                    {connect_task}, timeout=remaining
+                )
+            except asyncio.CancelledError:
+                await self._discard_raced_connect(conn, connect_task)
+                raise
+            if not done:
+                await self._discard_raced_connect(conn, connect_task)
+                raise APITimeoutError()
+            connect_task.result()  # re-raises APIStatusError / APIConnectionError
+
             self._current_connection = conn
             return conn
+        finally:
+            self._connection_lock.release()
 
-    def prewarm(self) -> None:
+    def prewarm(self, timeout: float = 10.0) -> None:
         """Pre-warm the WebSocket connection to reduce TTFA on first synthesis.
 
         Call this from LiveKit's ``before_tts_cb`` or during agent setup
@@ -685,6 +352,14 @@ class TTS(tts.TTS):
 
         This is a synchronous method (as required by the LiveKit TTS interface)
         that schedules the async connection establishment in the background.
+
+        Args:
+            timeout: Budget in seconds for the background connect. Defaults
+                to 10.0. A concurrent synthesis call is *not* charged this
+                budget: ``_ensure_connection`` bounds lock wait plus connect
+                by the caller's own timeout, so a short-timeout request
+                fails on its own schedule instead of queueing behind
+                prewarm.
 
         Example:
             ```python
@@ -700,7 +375,7 @@ class TTS(tts.TTS):
 
         async def _do_prewarm() -> None:
             try:
-                await self._ensure_connection(timeout=10.0)
+                await self._ensure_connection(timeout=timeout)
                 logger.info("KugelAudio TTS connection pre-warmed")
             except Exception:
                 logger.warning(
@@ -721,8 +396,13 @@ class TTS(tts.TTS):
         normalize: NotGivenOr[bool] = NOT_GIVEN,
         word_timestamps: NotGivenOr[bool] = NOT_GIVEN,
         language: NotGivenOr[str | None] = NOT_GIVEN,
+        speed: NotGivenOr[float | None] = NOT_GIVEN,
     ) -> None:
         """Update TTS options dynamically.
+
+        Any change recycles the shared WebSocket: the current connection is
+        marked non-current and closed, so the next synthesis opens a fresh
+        socket carrying the new options.
 
         Args:
             model: TTS model to use.
@@ -732,6 +412,22 @@ class TTS(tts.TTS):
             normalize: Apply loudness normalization to the output audio.
             word_timestamps: Enable or disable word-level timestamps.
             language: ISO 639-1 language code for text normalization (e.g. "de").
+            speed: Playback speed multiplier, range [0.8, 1.2]; ``None``
+                restores the server default of 1.0. Out-of-range values
+                raise ``ValueError`` (the API rejects rather than clamps)
+                and leave the current setting untouched.
+
+                On ``/ws/tts/multi`` speed is **session-wide**, not
+                per-context: every context shares one socket and the server
+                keeps the last value it was given (last-writer-wins). The
+                connection recycling described above is what makes this
+                deterministic — the new speed binds for contexts started
+                after the change, while contexts already running on the old
+                socket keep the old rate.
+
+        Raises:
+            ValueError: If *speed* is outside [0.8, 1.2], or *language* is
+                not a supported ISO 639-1 code.
         """
         changed = False
         if is_given(model) and model != self._opts.model:
@@ -757,6 +453,13 @@ class TTS(tts.TTS):
             validated = _validate_language(language)
             if validated != self._opts.language:
                 self._opts.language = validated
+                changed = True
+        if is_given(speed):
+            # Validate before assigning: a rejected value must leave the
+            # previous speed in place rather than half-applying the update.
+            validated_speed = _validate_speed(speed)
+            if validated_speed != self._opts.speed:
+                self._opts.speed = validated_speed
                 changed = True
         if changed and self._current_connection:
             old_conn = self._current_connection

@@ -7,7 +7,7 @@ name = "multimark"
 dynamic = ["version"]
 description = "Python bindings to cmark: CommonMark parsing and rendering (HTML, LaTeX, man, XML)"
 readme = "README.md"
-license = {text = "MIT AND BSD-2-Clause"}
+license = "MIT AND BSD-2-Clause"
 requires-python = ">=3.9"
 dependencies = ["cffi>=1.15", "click>=8.0"]
 authors = [{name = "Rich Iannone"}]
@@ -15,7 +15,6 @@ keywords = ["markdown", "commonmark", "cmark-gfm", "html", "latex", "gfm"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Programming Language :: C",
     "Programming Language :: Python :: 3",
@@ -24,6 +23,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Text Processing :: Markup :: Markdown",
 ]
 
@@ -42,6 +42,26 @@ package-dir = {"" = "src"}
 multimark = ["*.h"]
 
 [tool.setuptools_scm]
+
+[tool.cibuildwheel]
+build = "cp39-*"
+skip = "*-win32 *-manylinux_i686 *-musllinux_i686"
+test-requires = ["pytest"]
+test-command = "pytest {project}/tests -x"
+before-build = "git config --global --add safe.directory /project"
+
+[tool.cibuildwheel.macos]
+archs = ["x86_64", "arm64"]
+
+[tool.cibuildwheel.linux]
+archs = ["x86_64"]
+
+[tool.cibuildwheel.pyodide]
+build = "cp313-*"
+skip = ""
+before-build = ""
+test-requires = ["pytest"]
+test-command = "python -m pytest {project}/tests -x --ignore={project}/tests/test_cli.py --ignore={project}/tests/test_threads.py"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -4,6 +4,7 @@ import logging
 import os
 import re
 import sys
+import warnings
 
 from affine import Affine
 import numpy as np
@@ -22,6 +23,7 @@ from rasterio.errors import (
     RPCError,
     WarpOperationError,
 )
+from rasterio.transform import from_bounds
 from rasterio.warp import (
     reproject,
     transform_geom,
@@ -554,8 +556,8 @@ def test_reproject_view():
     reduced_array = source[window.toslices()]
     reduced_transform = windows.transform(window, src.transform)
 
-    # Assert that we're working with a view.
-    assert reduced_array.base is source
+    # Assert that we're working with a view of a view.
+    assert reduced_array.base is source.base
 
     dst_crs = dict(
         proj="merc",
@@ -1066,6 +1068,22 @@ def test_reproject_multi():
     assert destin.any()
 
 
+def test_reproject__dst_nodata_zero():
+    in_shape = (2, 2)
+    src_nodata = -32768.
+    dst_nodata = 0.
+    in_data = np.full(in_shape, src_nodata, dtype=np.float32)
+    out_data, _ = reproject(
+        in_data,
+        dst_crs="EPSG:3035",
+        src_crs="EPSG:32632",
+        src_transform=from_bounds(0, 0, *in_shape, *in_shape),
+        src_nodata=src_nodata,
+        dst_nodata=dst_nodata
+    )
+    assert np.all(out_data == dst_nodata)
+
+
 def test_warp_from_file():
     """File to ndarray."""
     with rasterio.open("tests/data/RGB.byte.tif") as src:
@@ -1322,6 +1340,11 @@ def test_reproject_resampling(path_rgb_byte_tif, method):
     assert np.count_nonzero(out) in expected[method]
 
 
+@pytest.mark.xfail(
+    gdal_version_info >= (3, 12, 2),
+    reason="warper implementation has changed. See https://github.com/rasterio/rasterio/issues/3517.",
+    raises=AssertionError,
+)
 @pytest.mark.parametrize(
     "test3d,count_nonzero",
     [
@@ -1387,6 +1410,11 @@ def test_reproject_array_interface(test3d, count_nonzero, path_rgb_byte_tif):
     assert np.count_nonzero(out.data[out.data != 99]) == count_nonzero
 
 
+@pytest.mark.xfail(
+    gdal_version_info >= (3, 12, 2),
+    reason="warper implementation has changed. See https://github.com/rasterio/rasterio/issues/3517.",
+    raises=AssertionError,
+)
 @pytest.mark.parametrize(
     "test3d,count_nonzero",
     [
@@ -1434,7 +1462,10 @@ def test_reproject_masked(test3d, count_nonzero, path_rgb_byte_tif):
             source = src.read(masked=True)
         else:
             source = src.read(1, masked=True)
-    out = np.empty(source.shape, dtype=np.uint8)
+    out = np.ma.masked_array(
+        np.full(source.shape, 0, dtype=source.dtype),
+        mask=np.full(source.shape, False, dtype=bool),
+    )
     reproject(
         source,
         out,
@@ -1495,6 +1526,11 @@ def test_reproject_to_masked_output(path_rgb_byte_tif):
     assert isinstance(out, np.ma.MaskedArray)
 
 
+@pytest.mark.xfail(
+    gdal_version_info >= (3, 12, 2),
+    reason="warper implementation has changed. See https://github.com/rasterio/rasterio/issues/3517.",
+    raises=AssertionError,
+)
 @pytest.mark.parametrize(
     "test3d,count_nonzero",
     [
@@ -2288,9 +2324,14 @@ def http_error_server(data):
     Handler = functools.partial(RangeRequestErrorHandler, directory=str(data))
     httpd = http.server.HTTPServer(("", 0), Handler)
     mp_context = multiprocessing.get_context("fork")
-    p = mp_context.Process(target=httpd.serve_forever)
-    p.start()
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", category=DeprecationWarning)
+        p = mp_context.Process(target=httpd.serve_forever)
+        p.start()
+
     yield f"{httpd.server_address[0]}:{httpd.server_address[1]}"
+
     p.terminate()
     p.join()
 
@@ -2377,6 +2418,11 @@ def test_rpcs_non_epsg4326():
             )
 
 
+@pytest.mark.xfail(
+    gdal_version_info >= (3, 12, 2),
+    reason="warper implementation has changed. See https://github.com/rasterio/rasterio/issues/3517.",
+    raises=AssertionError,
+)
 def test_coordinate_pipeline(tmp_path):
     """Transformer COORDINATE_OPERATION option is activated."""
     pipeline = "proj=pipeline step inv proj=utm zone=11 ellps=clrk66 step proj=unitconvert xy_in=rad xy_out=deg step proj=axisswap order=2,1"
@@ -2412,6 +2458,11 @@ def test_coordinate_pipeline(tmp_path):
             assert dst.checksum(1) == 4705
 
 
+@pytest.mark.xfail(
+    gdal_version_info >= (3, 12, 2),
+    reason="warper implementation has changed. See https://github.com/rasterio/rasterio/issues/3517.",
+    raises=AssertionError,
+)
 def test_geoloc_warp_dataset(data, tmp_path):
     """Warp a dataset using external geolocation arrays."""
     filename = str(data.join("RGB.byte.tif"))
@@ -2456,6 +2507,11 @@ def test_geoloc_warp_dataset(data, tmp_path):
     assert np.count_nonzero(out) in [464910]
 
 
+@pytest.mark.xfail(
+    gdal_version_info >= (3, 12, 2),
+    reason="warper implementation has changed. See https://github.com/rasterio/rasterio/issues/3517.",
+    raises=AssertionError,
+)
 # Before GDAL 3.5.2 geoloc array files aren't recognized and this error
 # would be seen from the following tests:
 #
@@ -2492,6 +2548,11 @@ def test_geoloc_warp_array(path_rgb_byte_tif):
     assert np.count_nonzero(output[0]) in [464910]
 
 
+@pytest.mark.xfail(
+    gdal_version_info >= (3, 12, 2),
+    reason="warper implementation has changed. See https://github.com/rasterio/rasterio/issues/3517.",
+    raises=AssertionError,
+)
 def test_geoloc_warp_array_subsampled(path_rgb_byte_tif):
     """Warp an array using subsampled external geolocation arrays."""
     with rasterio.open(path_rgb_byte_tif) as src:

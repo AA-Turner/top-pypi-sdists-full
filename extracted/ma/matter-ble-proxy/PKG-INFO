@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: matter-ble-proxy
-Version: 1.3.3
+Version: 1.4.0
 Summary: Python client library for the OHF Matter Server BLE proxy protocol
 Author-email: Open Home Foundation <hello@openhomefoundation.io>
 License-Expression: Apache-2.0

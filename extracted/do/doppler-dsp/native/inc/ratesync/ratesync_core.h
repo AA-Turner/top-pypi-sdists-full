@@ -100,7 +100,8 @@
 #include "resamp/resamp_core.h"
 #include "resample/resample_core.h"
 #include "symsync/symsync_core.h" /* gardner_ted / dttl_ted — one TED, reused */
-#include "telemetry/telemetry.h"
+#include "dp_tlm/dp_tlm_core.h"
+#include "telemetry/telemetry_core.h"
 
 #ifdef __cplusplus
 extern "C"
@@ -662,7 +663,7 @@ extern "C"
    * >>> _ = rs.steps(x)              # acquire and lock
    * >>> rs.locked
    * True
-   * >>> rs.configure(0.002, 0.707)   # narrow the loop; the lock is preserved
+   * >>> rs.configure(0.002, 0.707)   # narrow the loop; lock is kept
    * >>> round(rs.bn, 3)
    * 0.002
    * >>> rs.locked
@@ -747,7 +748,7 @@ extern "C"
    * block-averaged lock_signal), "<prefix>.locked" (0/1) and "<prefix>.mu"
    * (the timing NCO's fractional phase — see resamp_get_ctrl_acc()). Passing
    * NULL detaches. Setup path, never hot: the context is borrowed and must
-   * outlive the attachment (SPSC rules in telemetry/telemetry.h).
+   * outlive the attachment (SPSC rules in dp_tlm/dp_tlm_core.h).
    *
    * The three form one readable picture of the loop: `e` is what the detector
    * saw, `ctrl` is what the filter did about it, and `mu` is where the
@@ -768,7 +769,7 @@ extern "C"
    * >>> rs.set_telemetry(tlm, "sync")   # register the six timing probes
    * >>> tlm.probe_count
    * 6
-   * >>> "sync.rate" in tlm.probe_names()   # tracked samples/symbol
+   * >>> "sync.rate" in tlm.probe_names   # tracked samples/symbol
    * True
    *
    * @endcode

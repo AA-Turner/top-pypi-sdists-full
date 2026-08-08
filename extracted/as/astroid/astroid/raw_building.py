@@ -11,7 +11,6 @@ from __future__ import annotations
 import builtins
 import inspect
 import io
-import logging
 import os
 import sys
 import types
@@ -26,8 +25,6 @@ from astroid.nodes import node_classes
 
 if TYPE_CHECKING:
     from astroid.manager import AstroidManager
-
-logger = logging.getLogger(__name__)
 
 
 _FunctionTypes = (
@@ -338,9 +335,15 @@ def object_build_function(
 
 def object_build_datadescriptor(
     node: nodes.Module | nodes.ClassDef, member: type
-) -> nodes.ClassDef:
-    """create astroid for a living data descriptor object"""
-    return _base_class_object_build(node, member, [])
+) -> nodes.EmptyNode:
+    """create astroid for a living data descriptor object
+
+    What the descriptor returns is not statically known, so it is modelled as an
+    unknown value. Modelling it as a class named after the attribute made
+    attribute access on the descriptor's value infer that class instead, which
+    reported the value's own attributes as missing.
+    """
+    return build_dummy(_EMPTY_OBJECT_MARKER)
 
 
 def object_build_methoddescriptor(
@@ -366,7 +369,6 @@ def _base_class_object_build(
     name = getattr(member, "__name__", "<no-name>")
     doc = member.__doc__ if isinstance(member.__doc__, str) else None
     klass = build_class(name, node, basenames, doc)
-    klass._newstyle = isinstance(member, type)
     try:
         # limit the instantiation trick since it's too dangerous
         # (such as infinite test execution...)
@@ -401,8 +403,7 @@ def _build_from_function(
     try:
         code = member.__code__  # type: ignore[union-attr]
     except AttributeError:
-        # Some implementations don't provide the code object,
-        # such as Jython.
+        # Some implementations don't provide the code object
         code = None
     filename = getattr(code, "co_filename", None)
     if filename is None:
@@ -484,8 +485,15 @@ class InspectBuilder:
                 with warnings.catch_warnings():
                     warnings.simplefilter("ignore")
                     member = getattr(obj, alias)
-            except AttributeError:
-                # damned ExtensionClass.Base, I know you're there !
+            except (AttributeError, TypeError):
+                # AttributeError: damned ExtensionClass.Base, I know you're
+                # there!
+                # TypeError: PyPy 7.3.22 raises TypeError ("expected str, got
+                # getset_descriptor object") instead of AttributeError for
+                # unset getset descriptors like
+                # ``types.FunctionType.__text_signature__`` when accessed on
+                # the type. Treat that the same as a missing attribute so
+                # ``_astroid_bootstrapping()`` doesn't crash on import.
                 attach_dummy_node(node, alias)
                 continue
             if inspect.ismethod(member) and not pypy__class_getitem__:
@@ -509,7 +517,7 @@ class InspectBuilder:
             elif inspect.ismethoddescriptor(member):
                 child: nodes.NodeNG = object_build_methoddescriptor(node, member)
             elif inspect.isdatadescriptor(member):
-                child = object_build_datadescriptor(node, member)
+                child: nodes.NodeNG = object_build_datadescriptor(node, member)
             elif isinstance(member, tuple(node_classes.CONST_CLS)):
                 # Special case: __hash__ = None overrides ObjectModel for unhashable types.
                 # See https://docs.python.org/3/reference/datamodel.html#object.__hash__
@@ -519,8 +527,8 @@ class InspectBuilder:
                     continue
                 child = nodes.const_factory(member)
             elif inspect.isroutine(member):
-                # This should be called for Jython, where some builtin
-                # methods aren't caught by isbuiltin branch.
+                # Callables not caught by the isfunction/isbuiltin branches
+                # above, e.g. some method descriptors.
                 child = _build_from_function(node, member, self._module)
             elif _safe_has_attribute(member, "__all__"):
                 child: nodes.NodeNG = build_module(alias)
@@ -544,9 +552,7 @@ class InspectBuilder:
             modname = None
         if modname is None:
             if name in {"__new__", "__subclasshook__"}:
-                # Python 2.5.1 (r251:54863, Sep  1 2010, 22:03:14)
-                # >>> print object.__new__.__module__
-                # None
+                # Some builtins have no __module__, e.g. object.__new__
                 modname = builtins.__name__
             else:
                 attach_dummy_node(node, name, member)
@@ -570,21 +576,26 @@ class InspectBuilder:
                 ):
                     getattr(sys.modules[modname], name)
                     stderr_value = stderr.getvalue()
-                    if stderr_value:
-                        logger.error(
-                            "Captured stderr while getting %s from %s:\n%s",
-                            name,
-                            sys.modules[modname],
-                            stderr_value,
-                        )
                     stdout_value = stdout.getvalue()
-                    if stdout_value:
-                        logger.info(
-                            "Captured stdout while getting %s from %s:\n%s",
-                            name,
-                            sys.modules[modname],
-                            stdout_value,
-                        )
+                    if stderr_value or stdout_value:
+                        # pylint: disable=import-outside-toplevel
+                        import logging
+
+                        logger = logging.getLogger(__name__)
+                        if stderr_value:
+                            logger.error(
+                                "Captured stderr while getting %s from %s:\n%s",
+                                name,
+                                sys.modules[modname],
+                                stderr_value,
+                            )
+                        if stdout_value:
+                            logger.info(
+                                "Captured stdout while getting %s from %s:\n%s",
+                                name,
+                                sys.modules[modname],
+                                stdout_value,
+                            )
             except (KeyError, AttributeError):
                 attach_dummy_node(node, name, member)
             else:

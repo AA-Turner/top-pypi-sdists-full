@@ -1,11 +1,21 @@
-"""Remote git operation helpers over SSH."""
+"""Remote git operation helpers.
+
+Callers are transport-agnostic: ``run_remote_git_op`` routes each op through
+the agent daemon's git service when the flag + handshake allow it (typed
+transport, idempotency-key dedupe on resend), and otherwise falls back to the
+original SSH-stdio ``RemoteGitClient`` path, unchanged.
+"""
 
 from __future__ import annotations
 
+import uuid
 from pathlib import Path
 
 from plato.git_ops.client import RemoteGitClient
 from plato.git_ops.models import GitOpRequest, GitOpResult
+from plato.rpc.client.connection import AgentDaemonClient
+from plato.rpc.client.fallback import rpc_or_ssh
+from plato.rpc.protocol import CAP_GIT
 
 _CLIENTS: dict[tuple[str, str], RemoteGitClient] = {}
 
@@ -21,6 +31,30 @@ async def run_remote_git_op(
     *,
     timeout: int,
 ) -> GitOpResult:
+    async def _rpc(client: AgentDaemonClient) -> GitOpResult:
+        return await client.post(
+            "git/op",
+            request,
+            GitOpResult,
+            deadline_s=float(timeout),
+            idempotency_key=uuid.uuid4().hex,
+        )
+
+    async def _ssh() -> GitOpResult:
+        return await _run_stdio_git_op(ssh_key_path, hostname, request, timeout=timeout)
+
+    return await rpc_or_ssh(hostname, ssh_key_path, CAP_GIT, _rpc, _ssh)
+
+
+async def _run_stdio_git_op(
+    ssh_key_path: Path,
+    hostname: str,
+    request: GitOpRequest,
+    *,
+    timeout: int,
+) -> GitOpResult:
+    """Original SSH-stdio path: cached persistent client, close-recreate-resend
+    once on any failure."""
     key = _client_key(ssh_key_path, hostname)
     client = _CLIENTS.get(key)
     if client is None:

@@ -68,8 +68,9 @@
 #include "lo/lo_core.h"
 #include "lockdet/lockdet_core.h"
 #include "loop_filter/loop_filter_core.h"
-#include "telemetry/telemetry.h"
+#include "dp_tlm/dp_tlm_core.h"
 #include <math.h>
+#include "telemetry/telemetry_core.h"
 #ifdef __cplusplus
 extern "C"
 {
@@ -397,7 +398,8 @@ extern "C"
    * @code
    * >>> import numpy as np
    * >>> from doppler.track import CarrierNda
-   * >>> c = CarrierNda(bn=0.01, zeta=0.707, init_norm_freq=0.0, sps=8, n=4, m=4)
+   * >>> c = CarrierNda(bn=0.01, zeta=0.707, init_norm_freq=0.0,
+   * ...                sps=8, n=4, m=4)
    * >>> rng = np.random.default_rng(0)
    * >>> k = np.arange(40000)
    * >>> x = (np.exp(2j * np.pi * 0.001 * k) + 0.05 * (
@@ -407,7 +409,7 @@ extern "C"
    * >>> round(c.norm_freq, 4), round(c.lock, 2)   # acquired the carrier
    * (0.001, 0.99)
    * >>> c.reset()
-   * >>> round(c.norm_freq, 4), round(c.lock, 2)   # back to the seed, unlocked
+   * >>> round(c.norm_freq, 4), round(c.lock, 2)   # back to seed, unlocked
    * (0.0, 0.0)
    *
    * @endcode
@@ -447,7 +449,7 @@ extern "C"
    * decision, 0/1).  Passing NULL detaches the loop and the embedded AGC.
    * Setup path, never hot: call before the producer thread starts
    * stepping; the context is borrowed and must outlive the attachment
-   * (SPSC rules in telemetry/telemetry.h).
+   * (SPSC rules in dp_tlm/dp_tlm_core.h).
    * @param state  Must be non-NULL.
    * @param tlm    Telemetry context to attach, or NULL to detach.
    * @param prefix Probe-name prefix, e.g. "car" or "rx.car".
@@ -462,9 +464,10 @@ extern "C"
    * >>> tlm = Telemetry(1 << 14)
    * >>> c = CarrierNda(bn=0.01, sps=8, n=4, m=4)
    * >>> c.set_telemetry(tlm, "car", decim=8)
-   * >>> sorted(tlm.probe_names())
+   * >>> sorted(tlm.probe_names)
    * ['car.agc.gain_db', 'car.e', 'car.freq', 'car.lock', 'car.locked']
-   * >>> x = np.exp(2j * np.pi * 0.005 * np.arange(4096)).astype(np.complex64)
+   * >>> x = np.exp(2j * np.pi * 0.005 * np.arange(4096)).astype(
+   * ...     np.complex64)
    * >>> _ = c.steps(x)
    * >>> recs = tlm.read()
    * >>> len(recs[recs["probe"] == tlm.probe_id("car.e")]) == 4096 // 8
@@ -559,7 +562,8 @@ extern "C"
    * @code
    * >>> import numpy as np
    * >>> from doppler.track import CarrierNda
-   * >>> c = CarrierNda(bn=0.01, zeta=0.707, init_norm_freq=0.0, sps=8, n=4, m=4)
+   * >>> c = CarrierNda(bn=0.01, zeta=0.707, init_norm_freq=0.0,
+   * ...                sps=8, n=4, m=4)
    * >>> rng = np.random.default_rng(0)
    * >>> k = np.arange(40000)
    * >>> x = (np.exp(2j * np.pi * 0.001 * k) + 0.05 * (

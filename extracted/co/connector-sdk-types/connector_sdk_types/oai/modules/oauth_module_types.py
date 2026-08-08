@@ -61,7 +61,7 @@ class OAuthSettings(pydantic.BaseModel):
     token_url: str | t.Callable[[AuthRequest], str] = pydantic.Field(
         description="The URL to use to get the access token, can be a string or callable (method that accepts the request args and returns a string).",
     )
-    scopes: dict[str, str] | t.Callable[[AuthRequest], dict[str, str]] = pydantic.Field(
+    scopes: dict[str, str] | t.Callable[[AuthRequest], dict[str, str]] | None = pydantic.Field(
         default=None,
         description=(
             "A dictionary of scopes to request for the token, keyed by the name of each capability."

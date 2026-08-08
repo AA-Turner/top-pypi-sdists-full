@@ -10,7 +10,7 @@ import uuid as uuid_mod
 from datetime import UTC, datetime
 
 from .base import DatabaseConnection
-from .ops import DataAccessOps, TagListingParts
+from .ops import DataAccessOps, LinkExpansionRows, TagListingParts, UpdatedWindow
 from .result import DictResultRow as ResultRow
 
 ORACLE_IN_LIST_LIMIT = 1000
@@ -174,22 +174,24 @@ class OracleOps(DataAccessOps):
         bank_id: str,
         entity_names: list[str],
         entity_dates: list,
+        entity_kinds: list[str],
     ) -> dict[str, str]:
         # Row-by-row insert with duplicate suppression.
         # Can't use RETURNING with ON CONFLICT DO NOTHING reliably,
         # so INSERT (ignoring dups) then SELECT all IDs at the end.
         id_by_name: dict[str, str] = {}
-        for name, event_date in zip(entity_names, entity_dates):
+        for name, event_date, kind in zip(entity_names, entity_dates, entity_kinds):
             ts = event_date if event_date else datetime.now(UTC)
             await conn.execute(
                 f"""
-                INSERT INTO {table} (bank_id, canonical_name, first_seen, last_seen, mention_count)
-                VALUES ($1, $2, $3, $3, 0)
+                INSERT INTO {table} (bank_id, canonical_name, first_seen, last_seen, mention_count, entity_kind)
+                VALUES ($1, $2, $3, $3, 0, $4)
                 ON CONFLICT (bank_id, LOWER(canonical_name)) DO NOTHING
                 """,
                 bank_id,
                 name,
                 ts,
+                kind,
             )
         # Now SELECT all the entities we just inserted (or that already existed)
         for name in entity_names:
@@ -236,6 +238,7 @@ class OracleOps(DataAccessOps):
         bank_id: str,
         entity_ids: list[str],
         canonical_names: list[str],
+        entity_kinds: list[str],
     ) -> None:
         # Oracle has no FOR KEY SHARE; FOR UPDATE is the row-lock equivalent that
         # blocks a concurrent prune DELETE until this transaction commits. Lock
@@ -250,11 +253,14 @@ class OracleOps(DataAccessOps):
             )
         await conn.executemany(
             f"""
-            INSERT INTO {table} (id, bank_id, canonical_name)
-            VALUES ($1, $2, $3)
+            INSERT INTO {table} (id, bank_id, canonical_name, entity_kind)
+            VALUES ($1, $2, $3, $4)
             ON CONFLICT DO NOTHING
             """,
-            [(entity_id, bank_id, canonical_name) for entity_id, canonical_name in zip(entity_ids, canonical_names)],
+            [
+                (entity_id, bank_id, canonical_name, kind)
+                for entity_id, canonical_name, kind in zip(entity_ids, canonical_names, entity_kinds)
+            ],
         )
 
     async def bulk_insert_unit_entities(
@@ -480,6 +486,7 @@ class OracleOps(DataAccessOps):
         mu_table: str,
         ue_table: str,
         per_entity_limit: int,
+        window: UpdatedWindow,
     ) -> str:
         # Oracle: can't GROUP BY CLOB columns (text, context).
         # Restructure: count entities per unit_id in a subquery, then join to get full columns.
@@ -498,12 +505,14 @@ class OracleOps(DataAccessOps):
                     WHERE ue_target.entity_id = se.entity_id
                       AND ue_target.unit_id != ALL($1::uuid[])
                       -- Filter before applying the cap: candidates from other fact
-                      -- types must not consume this entity's bounded fan-out.
+                      -- types, or outside the recall window, must not consume this
+                      -- entity's bounded fan-out.
                       AND EXISTS (
                           SELECT 1
                           FROM {mu_table} mu_target
                           WHERE mu_target.id = ue_target.unit_id
                             AND mu_target.fact_type = $2
+                            {window.clause("mu_target")}
                       )
                     ORDER BY ue_target.unit_id DESC
                     FETCH FIRST {per_entity_limit} ROWS ONLY
@@ -525,6 +534,7 @@ class OracleOps(DataAccessOps):
         self,
         ml_table: str,
         mu_table: str,
+        window: UpdatedWindow,
     ) -> str:
         # Non-PG: can't GROUP BY CLOB columns, no DISTINCT ON.
         # Restructure semantic: compute max weight per id, then join for full columns.
@@ -539,6 +549,7 @@ class OracleOps(DataAccessOps):
                       AND ml.link_type = 'semantic'
                       AND mu.fact_type = $2
                       AND mu.id != ALL($1::uuid[])
+                      {window.clause("mu")}
                     UNION ALL
                     SELECT mu.id, ml.weight
                     FROM {ml_table} ml
@@ -547,6 +558,7 @@ class OracleOps(DataAccessOps):
                       AND ml.link_type = 'semantic'
                       AND mu.fact_type = $2
                       AND mu.id != ALL($1::uuid[])
+                      {window.clause("mu")}
                 ) sem_raw
                 GROUP BY id
             ),
@@ -573,6 +585,7 @@ class OracleOps(DataAccessOps):
                 WHERE ml.from_unit_id = ANY($1::uuid[])
                   AND ml.link_type IN ('causes', 'caused_by', 'enables', 'prevents')
                   AND mu.fact_type = $2
+                  {window.clause("mu")}
             ),
             causal_expanded AS (
                 SELECT id, text, context, event_date, occurred_start, occurred_end, mentioned_at,
@@ -591,7 +604,8 @@ class OracleOps(DataAccessOps):
         seed_ids: list,
         budget: int,
         per_entity_limit: int,
-    ) -> tuple[list[ResultRow], list[ResultRow], list[ResultRow]]:
+        window: UpdatedWindow,
+    ) -> LinkExpansionRows:
         import logging
 
         logger = logging.getLogger(__name__)
@@ -645,11 +659,13 @@ class OracleOps(DataAccessOps):
                   WHERE os3.observation_id = mu.id
                     AND os3.source_id IN (SELECT source_id FROM connected_sources)
               )
+              {window.clause("mu")}
             ORDER BY score DESC
             FETCH FIRST $2 ROWS ONLY
             """,
             seed_ids,
             budget,
+            *window.params,
         )
         logger.debug(f"[LinkExpansion] observation graph (Oracle): found {len(entity_rows)} connected observations")
 
@@ -665,12 +681,14 @@ class OracleOps(DataAccessOps):
                     WHERE ml.from_unit_id = ANY($1::uuid[])
                       AND ml.link_type = 'semantic' AND mu.fact_type = 'observation'
                       AND mu.id != ALL($1::uuid[])
+                      {window.clause("mu")}
                     UNION ALL
                     SELECT mu.id, ml.weight
                     FROM {ml_table} ml JOIN {mu_table} mu ON mu.id = ml.from_unit_id
                     WHERE ml.to_unit_id = ANY($1::uuid[])
                       AND ml.link_type = 'semantic' AND mu.fact_type = 'observation'
                       AND mu.id != ALL($1::uuid[])
+                      {window.clause("mu")}
                 ) sem_raw
                 GROUP BY id
             ),
@@ -696,6 +714,7 @@ class OracleOps(DataAccessOps):
                 WHERE ml.from_unit_id = ANY($1::uuid[])
                   AND ml.link_type IN ('causes', 'caused_by', 'enables', 'prevents')
                   AND mu.fact_type = 'observation'
+                  {window.clause("mu")}
             ),
             causal_expanded AS (
                 SELECT id, text, context, event_date, occurred_start, occurred_end, mentioned_at,
@@ -710,11 +729,12 @@ class OracleOps(DataAccessOps):
             """,
             seed_ids,
             budget,
+            *window.params,
         )
 
         semantic_rows = [r for r in sem_causal_rows if r["source"] == "semantic"]
         causal_rows = [r for r in sem_causal_rows if r["source"] == "causal"]
-        return list(entity_rows), semantic_rows, causal_rows
+        return LinkExpansionRows(entity=list(entity_rows), semantic=semantic_rows, causal=causal_rows)
 
     def build_tag_listing_parts(self, mu_table: str) -> TagListingParts:
         return TagListingParts(

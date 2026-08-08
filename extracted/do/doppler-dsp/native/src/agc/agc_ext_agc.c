@@ -526,12 +526,10 @@ static PyMethodDef AGCObj_methods[] = {
     ">>> agc.gain_db           # loop already advanced from 0 dB\n"
     "0.0\n"
     ">>> agc2 = AGC(ref_db=0.0, loop_bw=0.0025, alpha=0.05)\n"
-    ">>> agc2.step(4.0+0.0j)  # 12 dB loud; first sample passes at unity "
-    "gain\n"
+    ">>> agc2.step(4.0+0.0j)  # 12 dB loud; first sample at unity gain\n"
     "(4+0j)\n"
     ">>> round(agc2.gain_db, 6)  # loop starts driving gain negative\n"
-    "-0.024276\n"
-    "\n" },
+    "-0.024276\n" },
   { "steps", (PyCFunction)(void *)AGC_steps, METH_VARARGS | METH_KEYWORDS,
     "steps(x[, out]) -> ndarray\n"
     "\n"
@@ -581,7 +579,7 @@ static PyMethodDef AGCObj_methods[] = {
     "is idempotent (same name -> same probe id).  Setup path, never hot: call "
     "before the producer thread starts stepping, and keep every object "
     "attached to one context on that one thread (the ring is SPSC — see "
-    "telemetry/telemetry.h).  The context is borrowed, not owned: it must "
+    "dp_tlm/dp_tlm_core.h).  The context is borrowed, not owned: it must "
     "outlive the attachment.\n"
     "\n"
     "Parameters\n"
@@ -601,15 +599,14 @@ static PyMethodDef AGCObj_methods[] = {
     ">>> tlm = Telemetry(1 << 12)\n"
     ">>> agc = AGC(ref_db=0.0, loop_bw=0.0025, alpha=0.05)\n"
     ">>> agc.set_telemetry(tlm, \"agc\")\n"
-    ">>> tlm.probe_names()\n"
+    ">>> tlm.probe_names\n"
     "{'agc.gain_db': 0}\n"
     ">>> x = (0.5 + 0j) * np.ones(256, dtype=np.complex64)\n"
     ">>> _ = agc.steps(x)\n"
     ">>> recs = tlm.read()          # one record per decim-chunk update\n"
     ">>> len(recs) == 256 // agc.decim\n"
     "True\n"
-    ">>> bool(recs[\"value\"][-1] > recs[\"value\"][0])  # gain rising toward "
-    "ref\n"
+    ">>> bool(recs[\"value\"][-1] > recs[\"value\"][0])  # gain rises to ref\n"
     "True\n" },
   { "state_bytes", (PyCFunction)AGCObj_state_bytes, METH_NOARGS,
     "Size in bytes of this object's serialized state.\n"

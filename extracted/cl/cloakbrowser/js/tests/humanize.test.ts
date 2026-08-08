@@ -1,7 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { resolveConfig, rand, randRange, sleep } from "../src/human/config.js";
 import { humanMove, humanClick, clickTarget, humanIdle } from "../src/human/mouse.js";
-import { patchPageElementHandles } from "../src/human/elementhandle.js";
 
 // =========================================================================
 // Config resolution
@@ -264,7 +263,7 @@ describe("patchPage fill", () => {
     const cursor = { x: 0, y: 0, initialized: false };
     patchPage(page as any, cfg, cursor as any);
 
-    try { await (page as any).fill("input#name", "hello", { timeout: 2000 }); } catch (_) { }
+    try { await (page as any).fill("input#name", "hello", { timeout: 2000 }); } catch (error) { expect(error).toBeDefined(); }
 
     const expected = process.platform === "darwin" ? "Meta+a" : "Control+a";
     const wrong = process.platform === "darwin" ? "Control+a" : "Meta+a";
@@ -297,7 +296,7 @@ describe("patchPage check/uncheck idle", () => {
     const cursor = { x: 100, y: 100, initialized: true };
     patchPage(page as any, cfg, cursor as any);
 
-    try { await (page as any).check("input#cb", { timeout: 2000 }); } catch (_) { }
+    try { await (page as any).check("input#cb", { timeout: 2000 }); } catch (error) { expect(error).toBeDefined(); }
 
     // humanCheckFn → humanIdle → humanClickFn → humanClick → raw.down
     expect(downCalled).toBe(true);
@@ -358,7 +357,7 @@ describe("patchPage press focus", () => {
     const cursor = { x: 50, y: 50, initialized: true };
     patchPage(page as any, cfg, cursor as any);
 
-    try { await (page as any).press("input#field", "Enter", { timeout: 2000 }); } catch (_) { }
+    try { await (page as any).press("input#field", "Enter", { timeout: 2000 }); } catch (error) { expect(error).toBeDefined(); }
 
     expect(downCount).toBeGreaterThan(0);
   });
@@ -376,7 +375,7 @@ describe("patchPage press focus", () => {
     const cursor = { x: 50, y: 50, initialized: true };
     patchPage(page as any, cfg, cursor as any);
 
-    try { await (page as any).press("input#field", "Enter", { timeout: 2000 }); } catch (_) { }
+    try { await (page as any).press("input#field", "Enter", { timeout: 2000 }); } catch (error) { expect(error).toBeDefined(); }
 
     expect(downCount).toBe(0);
   });
@@ -403,6 +402,30 @@ describe("patchPage frame patching", () => {
     expect((childFrame as any)._humanPatched).toBe(true);
   });
 
+  it("patches dynamically attached frames once", async () => {
+    const { patchPage } = await import("../src/human/index.js");
+
+    const page = buildMockPage();
+    const cfg = resolveConfig("default");
+    const cursor = { x: 0, y: 0, initialized: false };
+    patchPage(page as any, cfg, cursor as any);
+    await page.goto("https://example.com");
+
+    expect(page.on).toHaveBeenCalledTimes(1);
+    const [eventName, handler] = page.on.mock.calls[0];
+    expect(eventName).toBe("frameattached");
+
+    const attachedFrame = buildMockFrame();
+    const originalClick = attachedFrame.click;
+    handler(attachedFrame);
+    const patchedClick = attachedFrame.click;
+    handler(attachedFrame);
+
+    expect((attachedFrame as any)._humanPatched).toBe(true);
+    expect(patchedClick).not.toBe(originalClick);
+    expect(attachedFrame.click).toBe(patchedClick);
+  });
+
   it("uses frame.locator for frame.click instead of page.click", async () => {
     const { patchPage } = await import("../src/human/index.js");
 
@@ -423,6 +446,28 @@ describe("patchPage frame patching", () => {
     expect(originalPageClick).not.toHaveBeenCalled();
   });
 
+  it("main-frame click delegates to the humanized page.click (not the frame path)", async () => {
+    // Regression guard: page.locator(sel).click() reaches the MAIN frame's click,
+    // which must route to the humanized page.click (isolated-world pre-click reads),
+    // NOT the frame-scoped locator path that reads via Playwright and is detectable.
+    const { patchPage } = await import("../src/human/index.js");
+
+    const mainFrame = { ...buildMockFrame(), childFrames: vi.fn(() => []) };
+    const page = buildMockPage({ mainFrameReturn: mainFrame });
+    const cfg = resolveConfig("default", { mouse_min_steps: 1, mouse_max_steps: 1 });
+    const cursor = { x: 0, y: 0, initialized: true };
+    patchPage(page as any, cfg, cursor as any);
+
+    // Swap the humanized page.click for a spy, then drive the main frame's click.
+    const clickSpy = vi.fn(async () => {});
+    (page as any).click = clickSpy;
+    await (mainFrame as any).click("button.submit", { timeout: 1234 });
+
+    expect(clickSpy).toHaveBeenCalledWith("button.submit", { timeout: 1234 });
+    // must NOT fall through to the frame-scoped locator (the pre-fix leak path)
+    expect(mainFrame.locator).not.toHaveBeenCalled();
+  });
+
   it.each([
     ["type", async (frame: any) => frame.type("input.email", "@")],
     ["fill", async (frame: any) => frame.fill("input.email", "@")],
@@ -430,7 +475,7 @@ describe("patchPage frame patching", () => {
   ])("passes the page CDP session to frame.%s", async (_name, runFrameAction) => {
     const { patchPage } = await import("../src/human/index.js");
 
-    const cdpSend = vi.fn(async () => ({}));
+    const cdpSend = vi.fn(async (_method: string, _params?: unknown) => ({}));
     const childFrame = buildMockFrame();
     const mainFrame = {
       ...buildMockFrame(),
@@ -572,7 +617,7 @@ describe("patchBrowser CDP-connected workflow", () => {
     patchBrowser(browser, resolveConfig("default"));
 
     // Click through the patched method — should go through humanize path
-    try { await (page as any).click("button", { timeout: 2000 }); } catch (_) { }
+    try { await (page as any).click("button", { timeout: 2000 }); } catch (error) { expect(error).toBeDefined(); }
 
     expect(downCalled).toBe(true);
   }, 30000);
@@ -597,6 +642,7 @@ describe("patchBrowser CDP-connected workflow", () => {
 
     // Create a new context via the patched newContext
     const ctx = await browser.newContext();
+    expect(ctx).toBe(newContext);
     // Pages in the new context should be patched
     expect((newPage as any)._original).toBeDefined();
   });
@@ -652,6 +698,7 @@ function buildMockPage(overrides: Record<string, any> = {}): any {
   const page: any = {
     evaluate: overrides.evaluate ?? vi.fn(async () => ({ hit: true })),
     addInitScript: vi.fn(async () => { }),
+    on: vi.fn(),
     mouse: {
       move: vi.fn(async () => { }),
       down: vi.fn(async () => { }),
@@ -1236,7 +1283,7 @@ describe("page.click(selector, { timeout }) forwards timeout to scroll", () => {
     patchPage(page as any, cfg, cursor as any);
     try {
       await (page as any).click("#slow", { timeout: 2000 });
-    } catch (_) { }
+    } catch (error) { expect(error).toBeDefined(); }
 
     if (captured > 0) {
       expect(captured).toBeGreaterThan(1500);
@@ -1283,7 +1330,7 @@ describe("page.type / page.fill accept per-call human config override", () => {
         timeout: 2000,
         human_config: { typing_delay: 30, mistype_chance: 0 },
       });
-    } catch (_) { }
+    } catch (error) { expect(error).toBeDefined(); }
 
     if (captured) {
       expect(captured.typing_delay).toBe(30);
@@ -1325,7 +1372,7 @@ describe("page.type / page.fill accept per-call human config override", () => {
         timeout: 2000,
         typing_delay: 150,
       });
-    } catch (_) { }
+    } catch (error) { expect(error).toBeDefined(); }
 
     if (captured) {
       expect(captured.typing_delay).toBe(150);
@@ -1430,7 +1477,7 @@ describe("el.scrollIntoViewIfNeeded humanization", () => {
     const spy = vi.spyOn(scrollMod, "humanScrollIntoView").mockImplementation(
       async (_p, _raw, _gb, cx, cy) => {
         called++;
-        return { box: { x: 200, y: 200, width: 50, height: 30 }, cursorX: cx, cursorY: cy };
+        return { box: { x: 200, y: 200, width: 50, height: 30 }, cursorX: cx, cursorY: cy, didScroll: false };
       },
     );
 

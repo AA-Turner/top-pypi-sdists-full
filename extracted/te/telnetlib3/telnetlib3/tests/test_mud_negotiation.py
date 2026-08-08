@@ -193,6 +193,20 @@ def test_send_gmcp_not_negotiated():
     assert len(t.writes) == 0
 
 
+def test_send_zmp():
+    w, t, p = new_writer(server=True)
+    w.local_option[ZMP] = True
+    w.send_zmp("zmp.ident", "MudName", "1.0")
+    expected = IAC + SB + ZMP + b"zmp.ident\x00MudName\x001.0\x00" + IAC + SE
+    assert expected in t.writes
+
+
+def test_send_zmp_not_negotiated():
+    w, t, p = new_writer(server=True)
+    w.send_zmp("zmp.ident", "MudName", "1.0")
+    assert len(t.writes) == 0
+
+
 def test_send_msdp():
     w, t, p = new_writer(server=True)
     w.local_option[MSDP] = True
@@ -356,7 +370,7 @@ def test_sb_zmp_dispatch():
     payload = b"zmp.ident\x00MudName\x001.0\x00A test MUD\x00"
     buf = collections.deque([bytes([ZMP[0]])] + [bytes([b]) for b in payload])
     w.handle_subnegotiation(buf)
-    assert w.zmp_data == [["zmp.ident", "MudName", "1.0", "A test MUD"]]
+    assert w.ctx.zmp_data == {"zmp.ident": ["MudName", "1.0", "A test MUD"]}
 
 
 def test_sb_zmp_empty_payload():
@@ -364,20 +378,18 @@ def test_sb_zmp_empty_payload():
     w.pending_option[SB + ZMP] = True
     buf = collections.deque([bytes([ZMP[0]])])
     w.handle_subnegotiation(buf)
-    assert w.zmp_data == [[]]
+    assert w.ctx.zmp_data == {}
 
 
-def test_sb_zmp_accumulates():
+def test_sb_zmp_replaces():
     w, _t, _p = new_writer(server=True)
     w.pending_option[SB + ZMP] = True
-    buf1 = collections.deque([bytes([ZMP[0]])] + [bytes([b]) for b in b"zmp.ping\x00"])
+    buf1 = collections.deque([bytes([ZMP[0]])] + [bytes([b]) for b in b"char.vitals\x00hp=100\x00"])
     w.handle_subnegotiation(buf1)
     w.pending_option[SB + ZMP] = True
-    buf2 = collections.deque([bytes([ZMP[0]])] + [bytes([b]) for b in b"zmp.check\x00zmp.ping\x00"])
+    buf2 = collections.deque([bytes([ZMP[0]])] + [bytes([b]) for b in b"char.vitals\x00hp=50\x00"])
     w.handle_subnegotiation(buf2)
-    assert len(w.zmp_data) == 2
-    assert w.zmp_data[0] == ["zmp.ping"]
-    assert w.zmp_data[1] == ["zmp.check", "zmp.ping"]
+    assert w.ctx.zmp_data == {"char.vitals": ["hp=50"]}
 
 
 def test_sb_atcp_dispatch():

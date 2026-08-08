@@ -100,20 +100,26 @@ class TrainingTypeFullTrainingType(BaseModel):
 
 
 class TrainingTypeLoRaTrainingType(BaseModel):
+    """LoRA training configuration for a fine-tuning job."""
+
     lora_alpha: int
+    """Scaling factor applied to the LoRA adapter weights."""
 
     lora_r: int
+    """Rank of the LoRA adapter matrices."""
 
     type: Literal["Lora"]
+    """Identifies this request as a LoRA fine-tune."""
 
     lora_dropout: Optional[float] = None
+    """Dropout probability applied to LoRA adapter inputs."""
 
     lora_trainable_modules: Optional[str] = None
     """Comma-separated LoRA target modules.
 
     Use `all-linear` for model defaults; MoE expert modules (`w_up`, `w_gate`,
-    `w_down`) are supported on compatible models and cannot be mixed with attention
-    modules.
+    `w_down`) can be combined with attention modules on compatible models.
+    Fine-tunes that target any expert module produce adapter-only output.
     """
 
 
@@ -231,6 +237,14 @@ class FinetuneResponse(BaseModel):
 
     token_count: Optional[int] = None
 
+    tokenized_dataset_path: Optional[str] = None
+    """
+    Storage path for the tokenized dataset archive generated for this fine-tune job.
+    """
+
+    tokenized_dataset_uploaded_at: Optional[datetime] = None
+    """Timestamp when the tokenized dataset archive was uploaded."""
+
     total_price: Optional[int] = None
 
     train_on_inputs: Union[bool, Literal["auto"], None] = None
@@ -240,6 +254,7 @@ class FinetuneResponse(BaseModel):
     training_method: Optional[TrainingMethod] = None
 
     training_type: Optional[TrainingType] = None
+    """LoRA training configuration for a fine-tuning job."""
 
     trainingfile_numlines: Optional[int] = None
 

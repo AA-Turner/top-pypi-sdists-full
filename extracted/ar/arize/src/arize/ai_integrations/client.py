@@ -23,9 +23,9 @@ if TYPE_CHECKING:
         AiIntegration,
         AiIntegrationAuthType,
         AiIntegrationProvider,
-        AiIntegrationScoping,
-        AwsProviderMetadata,
-        GcpProviderMetadata,
+        AiIntegrationScopingRequest,
+        AwsProviderMetadataRequest,
+        GcpProviderMetadataRequest,
         ListAiIntegrationsResponse,
     )
     from arize.config import SDKConfiguration
@@ -139,10 +139,10 @@ class AiIntegrationsClient:
         enable_default_models: bool | None = None,
         function_calling_enabled: bool | None = None,
         auth_type: AiIntegrationAuthType | None = None,
-        provider_metadata: AwsProviderMetadata
-        | GcpProviderMetadata
+        provider_metadata: AwsProviderMetadataRequest
+        | GcpProviderMetadataRequest
         | None = None,
-        scopings: builtins.list[AiIntegrationScoping] | None = None,
+        scopings: builtins.list[AiIntegrationScopingRequest] | None = None,
     ) -> AiIntegration:
         """Create a new AI integration.
 
@@ -165,8 +165,9 @@ class AiIntegrationsClient:
             function_calling_enabled: Enable function/tool calling.
                 Defaults to ``True`` if not provided.
             auth_type: Authentication type. Defaults to ``DEFAULT`` if not provided.
-            provider_metadata: Typed provider metadata (``AwsProviderMetadata`` or
-                ``GcpProviderMetadata``), including the required ``kind`` discriminator.
+            provider_metadata: Typed provider metadata (``AwsProviderMetadataRequest``
+                or ``GcpProviderMetadataRequest``), including the required ``kind``
+                discriminator.
             scopings: Visibility scoping rules. Defaults to account-wide if omitted.
 
         Returns:
@@ -178,7 +179,7 @@ class AiIntegrationsClient:
         from arize._generated import api_client as gen
 
         wrapped_metadata = (
-            gen.ProviderMetadata(actual_instance=provider_metadata)
+            gen.ProviderMetadataRequest(actual_instance=provider_metadata)
             if provider_metadata is not None
             else None
         )
@@ -214,11 +215,13 @@ class AiIntegrationsClient:
         enable_default_models: bool | None | UNSET = _UNSET,
         function_calling_enabled: bool | None | UNSET = _UNSET,
         auth_type: AiIntegrationAuthType | None | UNSET = _UNSET,
-        provider_metadata: AwsProviderMetadata
-        | GcpProviderMetadata
+        provider_metadata: AwsProviderMetadataRequest
+        | GcpProviderMetadataRequest
         | None
         | UNSET = _UNSET,
-        scopings: builtins.list[AiIntegrationScoping] | None | UNSET = _UNSET,
+        scopings: builtins.list[AiIntegrationScopingRequest]
+        | None
+        | UNSET = _UNSET,
     ) -> AiIntegration:
         """Update an AI integration by name or ID.
 
@@ -240,7 +243,7 @@ class AiIntegrationsClient:
             function_calling_enabled: Updated function calling flag.
             auth_type: Updated authentication type.
             provider_metadata: Updated typed provider metadata
-                (``AwsProviderMetadata`` or ``GcpProviderMetadata``).
+                (``AwsProviderMetadataRequest`` or ``GcpProviderMetadataRequest``).
                 Pass ``None`` to clear.
             scopings: Updated visibility scoping rules (replaces all existing).
 
@@ -274,7 +277,7 @@ class AiIntegrationsClient:
             kwargs["auth_type"] = auth_type
         if is_provided(provider_metadata):
             kwargs["provider_metadata"] = (
-                gen.ProviderMetadata(actual_instance=provider_metadata)
+                gen.ProviderMetadataRequest(actual_instance=provider_metadata)
                 if provider_metadata is not None
                 else None
             )

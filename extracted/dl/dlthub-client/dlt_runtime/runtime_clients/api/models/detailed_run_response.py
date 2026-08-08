@@ -33,6 +33,7 @@ class DetailedRunResponse:
         id (UUID): The unique ID of the entity
         logs (None | str): A link to the logs of the run
         number (int): The number of the run. Will increment for each new run of the script
+        profile (str): The name of the profile that was used for the run
         script (ScriptResponse):
         script_version (ScriptVersionResponse):
         script_version_id (UUID): The ID of the script version that will be used when running the script
@@ -49,7 +50,6 @@ class DetailedRunResponse:
         pipeline_run_summaries (list[PipelineRunSummaryResponse] | Unset): Pipeline run summaries linked to this job
             run, populated by telemetry
         prev_run_id (None | Unset | UUID): The ID of the upstream run that triggered this run (for job event triggers)
-        profile (None | str | Unset): The name of the profile that was used for the run
     """
 
     configuration_id: UUID
@@ -60,6 +60,7 @@ class DetailedRunResponse:
     id: UUID
     logs: None | str
     number: int
+    profile: str
     script: ScriptResponse
     script_version: ScriptVersionResponse
     script_version_id: UUID
@@ -73,7 +74,6 @@ class DetailedRunResponse:
     interval_start: datetime.datetime | None | Unset = UNSET
     pipeline_run_summaries: list[PipelineRunSummaryResponse] | Unset = UNSET
     prev_run_id: None | Unset | UUID = UNSET
-    profile: None | str | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -94,6 +94,8 @@ class DetailedRunResponse:
         logs = self.logs
 
         number = self.number
+
+        profile = self.profile
 
         script = self.script.to_dict()
 
@@ -156,12 +158,6 @@ class DetailedRunResponse:
         else:
             prev_run_id = self.prev_run_id
 
-        profile: None | str | Unset
-        if isinstance(self.profile, Unset):
-            profile = UNSET
-        else:
-            profile = self.profile
-
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
@@ -174,6 +170,7 @@ class DetailedRunResponse:
                 "id": id,
                 "logs": logs,
                 "number": number,
+                "profile": profile,
                 "script": script,
                 "script_version": script_version,
                 "script_version_id": script_version_id,
@@ -193,8 +190,6 @@ class DetailedRunResponse:
             field_dict["pipeline_run_summaries"] = pipeline_run_summaries
         if prev_run_id is not UNSET:
             field_dict["prev_run_id"] = prev_run_id
-        if profile is not UNSET:
-            field_dict["profile"] = profile
 
         return field_dict
 
@@ -230,6 +225,8 @@ class DetailedRunResponse:
         logs = _parse_logs(d.pop("logs"))
 
         number = d.pop("number")
+
+        profile = d.pop("profile")
 
         script = ScriptResponse.from_dict(d.pop("script"))
 
@@ -350,15 +347,6 @@ class DetailedRunResponse:
 
         prev_run_id = _parse_prev_run_id(d.pop("prev_run_id", UNSET))
 
-        def _parse_profile(data: object) -> None | str | Unset:
-            if data is None:
-                return data
-            if isinstance(data, Unset):
-                return data
-            return cast(None | str | Unset, data)
-
-        profile = _parse_profile(d.pop("profile", UNSET))
-
         detailed_run_response = cls(
             configuration_id=configuration_id,
             date_added=date_added,
@@ -368,6 +356,7 @@ class DetailedRunResponse:
             id=id,
             logs=logs,
             number=number,
+            profile=profile,
             script=script,
             script_version=script_version,
             script_version_id=script_version_id,
@@ -381,7 +370,6 @@ class DetailedRunResponse:
             interval_start=interval_start,
             pipeline_run_summaries=pipeline_run_summaries,
             prev_run_id=prev_run_id,
-            profile=profile,
         )
 
         detailed_run_response.additional_properties = d

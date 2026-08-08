@@ -19,6 +19,7 @@ __all__ = [
     "DeveloperModeError",
     "DeveloperModeIsNotEnabledError",
     "DeviceAlreadyInUseError",
+    "DeviceFeatureNotSupportedError",
     "DeviceHasPasscodeSetError",
     "DeviceNotFoundError",
     "DeviceVersionNotSupportedError",
@@ -408,6 +409,17 @@ class InvalidServiceError(LockdownError):
     pass
 
 
+class DeviceFeatureNotSupportedError(LockdownError):
+    """The device's RSD handshake does not advertise a feature required for the operation."""
+
+    def __init__(self, service_name: str, feature: str, identifier: Optional[str], product_version: str) -> None:
+        super().__init__(
+            f"device does not support feature {feature!r} (service {service_name!r})", identifier, product_version
+        )
+        self.service_name = service_name
+        self.feature = feature
+
+
 class InspectorEvaluateError(PyMobileDevice3Exception):
     def __init__(
         self,
@@ -442,6 +454,18 @@ class AppNotInstalledError(PyMobileDevice3Exception):
 
 
 class CoreDeviceError(PyMobileDevice3Exception):
+    pass
+
+
+class CryptexdError(PyMobileDevice3Exception):
+    """cryptexd rejected a routine, reporting a CFError or a non-zero error code"""
+
+    pass
+
+
+class InstallCoordinationError(PyMobileDevice3Exception):
+    """installcoordination_proxy reported a failed request"""
+
     pass
 
 

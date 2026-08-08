@@ -164,7 +164,6 @@ extern "C"
    * >>> rx = np.exp(1j * ang).astype(np.complex64)
    * >>> met = BerMeter(m=4)
    * >>> met.set_truth(truth)
-   * 0
    * >>> met.align(rx, n_marker=64)
    * 1
    * >>> met.score(rx, hi=truth.size)
@@ -195,9 +194,12 @@ extern "C"
    * >>> import numpy as np
    * >>> from doppler.ber import BerMeter
    * >>> met = BerMeter(m=4)
-   * >>> truth = np.array([0, 3, 1, 2, 2, 0], dtype=np.uint8)  # indices, 0..3
+   * >>> truth = np.array(
+   * ...     [0, 3, 1, 2, 2, 0], dtype=np.uint8)  # indices, 0..3
    * >>> met.set_truth(truth)
-   * 0
+   * >>> met.set_truth(np.array([9], dtype=np.uint8))  # 9 is not in 0..3
+   * Traceback (most recent call last):
+   * ValueError: set_truth failed (rc=-4)
    *
    * @endcode
    */
@@ -255,10 +257,9 @@ extern "C"
    * >>> rx = np.exp(1j * ang).astype(np.complex64)
    * >>> met = BerMeter(m=4)
    * >>> met.set_truth(truth)
-   * 0
    * >>> met.align(rx, n_marker=64)     # correlate a 64-symbol marker
    * 1
-   * >>> met.lag, met.align_ok          # detected, so score() may be trusted
+   * >>> met.lag, met.align_ok          # detected, so score() is valid
    * (0, 1)
    *
    * @endcode
@@ -293,7 +294,6 @@ extern "C"
    * >>> rx = np.exp(1j * ang).astype(np.complex64)
    * >>> met = BerMeter(m=4)
    * >>> met.set_truth(truth)
-   * 0
    * >>> met.align(rx, n_marker=64)
    * 1
    * >>> met.score(rx, hi=truth.size)   # the 64 marker symbols are excluded
@@ -341,7 +341,7 @@ extern "C"
    * @code
    * >>> from doppler.ber import BerMeter
    * >>> met = BerMeter(m=4, conf=0.99)
-   * >>> ci = met.interval(errors=8, symbols=20000)   # counts from elsewhere
+   * >>> ci = met.interval(errors=8, symbols=20000)   # external counts
    * >>> round(ci.p_hat, 6), round(ci.lo, 6), round(ci.hi, 6)
    * (0.00035, 0.000129, 0.000857)
    *
@@ -372,7 +372,6 @@ extern "C"
    * >>> rx[200:260:5] *= -1            # corrupt 12 symbols (pi rotation)
    * >>> met = BerMeter(m=4)
    * >>> met.set_truth(truth)
-   * 0
    * >>> met.align(rx, n_marker=64)
    * 1
    * >>> _ = met.score(rx, hi=truth.size)
@@ -407,11 +406,10 @@ extern "C"
    * >>> rx[200:260:5] *= -1            # corrupt 12 symbols
    * >>> met = BerMeter(m=4)
    * >>> met.set_truth(truth)
-   * 0
    * >>> met.align(rx, n_marker=64)
    * 1
    * >>> _ = met.score(rx, hi=truth.size)
-   * >>> r = met.ber()                  # same statistics as ser(), over bits
+   * >>> r = met.ber()                  # as ser(), but over bits
    * >>> r.errors, r.symbols
    * (24, 1472)
    * >>> round(r.lo, 4)

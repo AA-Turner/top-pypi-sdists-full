@@ -21,6 +21,7 @@ from rasterio._err import (
     CPLE_AppDefinedError, CPLE_OpenFailedError, stack_errors)
 from rasterio import dtypes
 from rasterio.control import GroundControlPoint
+from rasterio.dtypes import dtype_ranges
 from rasterio.enums import Resampling, MaskFlags, ColorInterp
 from rasterio.env import Env, GDALVersion
 from rasterio.crs import CRS
@@ -408,6 +409,14 @@ def _reproject(
             src_bidx = range(1, src_count + 1)
 
             if hasattr(source, "mask"):
+                if not source.mask.shape:
+                    if source.ndim == 2:
+                        mask_shape = source.shape
+                    else:
+                        mask_shape = source.shape[1:]
+                    mask = np.full(mask_shape, np.uint8(255))
+                else:
+                    mask = ~np.logical_or.reduce(source.mask) * np.uint8(255)
                 if source.mask is np.ma.nomask:
                     if source.ndim == 2:
                         mask_shape = source.shape
@@ -462,7 +471,7 @@ def _reproject(
             if not dst_crs:
                 raise CRSError("Missing dst_crs.")
 
-            dst_nodata = dst_nodata or src_nodata
+            dst_nodata = dst_nodata if dst_nodata is not None else src_nodata
 
             if hasattr(destination, "mask"):
                 destination = np.ma.asanyarray(destination)
@@ -484,10 +493,15 @@ def _reproject(
 
             if hasattr(destination, "mask"):
                 count, height, width = destination.shape
-                msk = np.logical_or.reduce(destination.mask)
-                if msk == np.ma.nomask:
+                # when a masked array is totally valid, the mask is set to np.ma.nomask or np.False_
+                # and has a null shape
+                if not destination.mask.shape:
                     msk = np.zeros((height, width), dtype=bool)
+                else:
+                    msk = np.logical_or.reduce(destination.mask)
+
                 msk = ~msk * np.uint8(255)
+
                 dest_arr = np.concatenate((destination.data, [msk]))
                 dst_alpha = dst_alpha or dest_arr.shape[0]
             else:

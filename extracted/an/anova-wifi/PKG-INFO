@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: anova-wifi
-Version: 1.0.2
+Version: 1.1.0
 Summary: A package to get read only data from Anova precision cookers with wifi
 License: MIT
 License-File: LICENSE

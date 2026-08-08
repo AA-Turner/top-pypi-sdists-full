@@ -1,5 +1,3 @@
-"""Built-in V1 tasksets."""
-
 from verifiers.v1.tasksets.harbor import HarborConfig, HarborTaskset
 from verifiers.v1.tasksets.lean import (
     LeanConfig,
@@ -7,15 +5,14 @@ from verifiers.v1.tasksets.lean import (
     LeanTask,
     LeanTaskset,
 )
+from verifiers.v1.tasksets.nemo_gym import NeMoGymConfig, NeMoGymTaskset
 from verifiers.v1.tasksets.openenv import (
     OpenEnvConfig,
     OpenEnvData,
-    OpenEnvState,
+    OpenEnvEnv,
+    OpenEnvEnvConfig,
     OpenEnvTask,
-    OpenEnvTaskConfig,
     OpenEnvTaskset,
-    OpenEnvUser,
-    OpenEnvUserConfig,
 )
 
 __all__ = [
@@ -25,12 +22,12 @@ __all__ = [
     "LeanDatasetConfig",
     "LeanTask",
     "LeanTaskset",
+    "NeMoGymConfig",
+    "NeMoGymTaskset",
     "OpenEnvConfig",
     "OpenEnvData",
-    "OpenEnvState",
+    "OpenEnvEnv",
+    "OpenEnvEnvConfig",
     "OpenEnvTask",
-    "OpenEnvTaskConfig",
     "OpenEnvTaskset",
-    "OpenEnvUser",
-    "OpenEnvUserConfig",
 ]

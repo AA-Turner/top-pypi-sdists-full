@@ -1,53 +1,101 @@
+from __future__ import annotations
+
 import asyncio
 import functools
 import inspect
-import time
+from typing import TYPE_CHECKING, Any, Callable, TypeVar
 
-from backoff._common import _init_wait_gen, _maybe_call, _next_wait
+from backoff._common import _Attempt, _RetryState
+
+if TYPE_CHECKING:
+    import sys
+    from collections.abc import AsyncGenerator, Coroutine, Iterable
+
+    from backoff._typing import (
+        ContextDetails,
+        Details,
+        _BaseDetails,
+        _CallDetails,
+        _ContextHandler,
+        _Handler,
+        _Jitterer,
+        _MaybeCallable,
+        _MaybeTuple,
+        _Predicate,
+        _WaitGenerator,
+    )
+
+    if sys.version_info >= (3, 10):
+        from typing import ParamSpec
+    else:
+        from typing_extensions import ParamSpec
+
+    if sys.version_info >= (3, 11):
+        from typing import Unpack
+    else:
+        from typing_extensions import Unpack
+
+    T = TypeVar("T")
+    P = ParamSpec("P")
+
+_AsyncHandler = Callable[["Details"], "Coroutine[Any, Any, None]"]
 
 
-def _ensure_coroutine(coro_or_func):
+def _ensure_coroutine(
+    coro_or_func: Callable[..., Any],
+) -> Callable[..., Coroutine[Any, Any, Any]]:
     if inspect.iscoroutinefunction(coro_or_func):
         return coro_or_func
-    else:
 
-        @functools.wraps(coro_or_func)
-        async def f(*args, **kwargs):
-            return coro_or_func(*args, **kwargs)
+    @functools.wraps(coro_or_func)
+    async def f(*args: Any, **kwargs: Any) -> Any:  # ruff:ignore[unused-async]
+        return coro_or_func(*args, **kwargs)
 
-        return f
+    return f
 
 
-def _ensure_coroutines(coros_or_funcs):
+def _ensure_coroutines(
+    coros_or_funcs: Iterable[Callable[..., Any]],
+) -> list[Callable[..., Coroutine[Any, Any, Any]]]:
     return [_ensure_coroutine(f) for f in coros_or_funcs]
 
 
-async def _call_handlers(handlers, *, target, args, kwargs, tries, elapsed, **extra):
-    details = {
+async def _call_handlers(
+    handlers: Iterable[_AsyncHandler],
+    *,
+    target: Callable[..., Any],
+    args: tuple[Any, ...],
+    kwargs: dict[str, Any],
+    tries: int,
+    elapsed: float,
+    **extra: Unpack[_CallDetails],
+) -> None:
+    details: Details = {
         "target": target,
         "args": args,
         "kwargs": kwargs,
         "tries": tries,
         "elapsed": elapsed,
     }
+    # pyrefly: ignore [no-matching-overload]
     details.update(extra)
     for handler in handlers:
         await handler(details)
 
 
 def retry_predicate(
-    target,
-    wait_gen,
-    predicate,
+    target: Callable[P, T],
+    wait_gen: _WaitGenerator,
+    predicate: _Predicate[T],
     *,
-    max_tries,
-    max_time,
-    jitter,
-    on_success,
-    on_backoff,
-    on_giveup,
-    wait_gen_kwargs,
-):
+    max_tries: _MaybeCallable[int] | None,
+    max_time: _MaybeCallable[float] | None,
+    jitter: _Jitterer | None,
+    on_success: Iterable[_Handler],
+    on_backoff: Iterable[_Handler],
+    on_giveup: Iterable[_Handler],
+    wait_gen_kwargs: dict[str, Any],
+) -> Callable[P, T]:
     on_success = _ensure_coroutines(on_success)
     on_backoff = _ensure_coroutines(on_backoff)
     on_giveup = _ensure_coroutines(on_giveup)
@@ -59,38 +107,31 @@ def retry_predicate(
     assert inspect.iscoroutinefunction(target)
 
     @functools.wraps(target)
-    async def retry(*args, **kwargs):
-        # update variables from outer function args
-        max_tries_value = _maybe_call(max_tries)
-        max_time_value = _maybe_call(max_time)
-
-        tries = 0
-        start = time.monotonic()
-        wait = _init_wait_gen(wait_gen, wait_gen_kwargs)
+    async def retry(*args: P.args, **kwargs: P.kwargs) -> T:
+        state = _RetryState(
+            wait_gen,
+            wait_gen_kwargs,
+            max_tries=max_tries,
+            max_time=max_time,
+        )
         while True:
-            tries += 1
-            elapsed = time.monotonic() - start
-            details = {
+            state.start_attempt()
+            ret = await target(*args, **kwargs)
+            details: _BaseDetails = {
                 "target": target,
                 "args": args,
                 "kwargs": kwargs,
-                "tries": tries,
-                "elapsed": elapsed,
+                "tries": state.tries,
+                "elapsed": state.record_elapsed(),
             }
 
-            ret = await target(*args, **kwargs)
             if predicate(ret):
-                max_tries_exceeded = tries == max_tries_value
-                max_time_exceeded = (
-                    max_time_value is not None and elapsed >= max_time_value
-                )
-
-                if max_tries_exceeded or max_time_exceeded:
+                if state.exhausted():
                     await _call_handlers(on_giveup, **details, value=ret)
                     break
 
                 try:
-                    seconds = _next_wait(wait, ret, jitter, elapsed, max_time_value)
+                    seconds = state.next_wait(ret, jitter)
                 except StopIteration:
                     await _call_handlers(on_giveup, **details, value=ret)
                     break
@@ -108,30 +149,48 @@ def retry_predicate(
                 #   <https://bugs.python.org/issue28613>
                 await asyncio.sleep(seconds)
                 continue
-            else:
-                await _call_handlers(on_success, **details, value=ret)
-                break
+            await _call_handlers(on_success, **details, value=ret)
+            break
 
         return ret
 
-    return retry
+    return retry  # type: ignore[return-value] # ty:ignore[invalid-return-type]
+
+
+def _adapt_context_handlers(
+    handlers: Iterable[_AsyncHandler],
+    target: Callable[..., Any],
+    args: tuple[Any, ...],
+    kwargs: dict[str, Any],
+) -> list[_ContextHandler]:
+    async def adapted(details: ContextDetails) -> None:
+        full_details: Details = {
+            "target": target,
+            "args": args,
+            "kwargs": kwargs,
+            **details,
+        }
+        for hdlr in handlers:
+            await hdlr(full_details)
+
+    return [adapted]
 
 
 def retry_exception(
-    target,
-    wait_gen,
-    exception,
+    target: Callable[P, T],
+    wait_gen: _WaitGenerator,
+    exception: _MaybeTuple[type[Exception]],
     *,
-    max_tries,
-    max_time,
-    jitter,
-    giveup,
-    on_success,
-    on_backoff,
-    on_giveup,
-    raise_on_giveup,
-    wait_gen_kwargs,
-):
+    max_tries: _MaybeCallable[int] | None,
+    max_time: _MaybeCallable[float] | None,
+    jitter: _Jitterer | None,
+    giveup: _Predicate[Exception],
+    on_success: Iterable[_Handler],
+    on_backoff: Iterable[_Handler],
+    on_giveup: Iterable[_Handler],
+    raise_on_giveup: bool,
+    wait_gen_kwargs: dict[str, Any],
+) -> Callable[P, T]:
     on_success = _ensure_coroutines(on_success)
     on_backoff = _ensure_coroutines(on_backoff)
     on_giveup = _ensure_coroutines(on_giveup)
@@ -142,60 +201,101 @@ def retry_exception(
     assert not inspect.iscoroutinefunction(jitter)
 
     @functools.wraps(target)
-    async def retry(*args, **kwargs):
-        max_tries_value = _maybe_call(max_tries)
-        max_time_value = _maybe_call(max_time)
+    async def retry(
+        *args: P.args,
+        **kwargs: P.kwargs,
+    ) -> T:
+        ret: T = None  # type: ignore[assignment] # ty:ignore[invalid-assignment]
 
-        tries = 0
-        start = time.monotonic()
-        wait = _init_wait_gen(wait_gen, wait_gen_kwargs)
-        while True:
-            tries += 1
-            elapsed = time.monotonic() - start
-            details = {
-                "target": target,
-                "args": args,
-                "kwargs": kwargs,
-                "tries": tries,
-                "elapsed": elapsed,
-            }
+        async for attempt in aretry_context(
+            exception,
+            wait_gen,
+            max_tries=max_tries,
+            max_time=max_time,
+            jitter=jitter,
+            giveup=giveup,
+            on_success=_adapt_context_handlers(on_success, target, args, kwargs),
+            on_backoff=_adapt_context_handlers(on_backoff, target, args, kwargs),
+            on_giveup=_adapt_context_handlers(on_giveup, target, args, kwargs),
+            raise_on_giveup=raise_on_giveup,
+            wait_gen_kwargs=wait_gen_kwargs,
+        ):
+            with attempt:
+                ret = await target(*args, **kwargs)  # type: ignore[misc] # ty:ignore[invalid-await]
 
-            try:
-                ret = await target(*args, **kwargs)
-            except exception as e:
-                giveup_result = await giveup(e)
-                max_tries_exceeded = tries == max_tries_value
-                max_time_exceeded = (
-                    max_time_value is not None and elapsed >= max_time_value
-                )
+        return ret
 
-                if giveup_result or max_tries_exceeded or max_time_exceeded:
-                    await _call_handlers(on_giveup, **details, exception=e)
-                    if raise_on_giveup:
-                        raise
-                    return None
+    return retry  # type: ignore[return-value] # ty:ignore[invalid-return-type]
 
-                try:
-                    seconds = _next_wait(wait, e, jitter, elapsed, max_time_value)
-                except StopIteration:
-                    await _call_handlers(on_giveup, **details, exception=e)
-                    raise e
 
-                await _call_handlers(on_backoff, **details, wait=seconds, exception=e)
+async def _dispatch_handlers(
+    handlers: Iterable[_ContextHandler], **details: Any
+) -> None:
+    for hdlr in _ensure_coroutines(handlers):
+        await hdlr(details)
 
-                # Note: there is no convenient way to pass explicit event
-                # loop to decorator, so here we assume that either default
-                # thread event loop is set and correct (it mostly is
-                # by default), or Python >= 3.5.3 or Python >= 3.6 is used
-                # where loop.get_event_loop() in coroutine guaranteed to
-                # return correct value.
-                # See for details:
-                #   <https://groups.google.com/forum/#!topic/python-tulip/yF9C-rFpiKk>
-                #   <https://bugs.python.org/issue28613>
-                await asyncio.sleep(seconds)
-            else:
-                await _call_handlers(on_success, **details)
 
-                return ret
+async def aretry_context(
+    exception: _MaybeTuple[type[Exception]],
+    wait_gen: _WaitGenerator,
+    *,
+    max_tries: _MaybeCallable[int] | None,
+    max_time: _MaybeCallable[float] | None,
+    jitter: _Jitterer | None,
+    giveup: _Predicate[BaseException],
+    on_success: Iterable[_ContextHandler],
+    on_backoff: Iterable[_ContextHandler],
+    on_giveup: Iterable[_ContextHandler],
+    raise_on_giveup: bool,
+    wait_gen_kwargs: dict[str, Any],
+) -> AsyncGenerator[_Attempt, None]:
+    giveup = _ensure_coroutine(giveup)
 
-    return retry
+    state = _RetryState(
+        wait_gen,
+        wait_gen_kwargs,
+        max_tries=max_tries,
+        max_time=max_time,
+    )
+    while True:
+        state.start_attempt()
+        attempt = _Attempt(exception)
+        yield attempt
+        elapsed = state.record_elapsed()
+
+        exc = attempt.exception
+        if exc is None:
+            await _dispatch_handlers(on_success, tries=state.tries, elapsed=elapsed)
+            return
+
+        if await giveup(exc) or state.exhausted():
+            await _dispatch_handlers(
+                on_giveup,
+                tries=state.tries,
+                elapsed=elapsed,
+                exception=exc,
+            )
+            if raise_on_giveup:
+                raise exc
+            return
+
+        try:
+            seconds = state.next_wait(exc, jitter)
+        except StopIteration:
+            await _dispatch_handlers(
+                on_giveup,
+                tries=state.tries,
+                elapsed=elapsed,
+                exception=exc,
+            )
+            raise exc from None
+
+        await _dispatch_handlers(
+            on_backoff,
+            tries=state.tries,
+            elapsed=elapsed,
+            wait=seconds,
+            exception=exc,
+        )
+
+        await asyncio.sleep(seconds)

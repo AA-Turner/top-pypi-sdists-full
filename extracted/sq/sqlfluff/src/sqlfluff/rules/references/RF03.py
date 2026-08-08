@@ -3,7 +3,15 @@
 from collections.abc import Iterator
 from typing import Optional
 
-from sqlfluff.core.dialects.common import AliasInfo, ColumnAliasInfo
+from sqlfluff.core.dialects.common import (
+    AliasInfo,
+    ColumnAliasInfo,
+    ObjectReferenceLevel,
+    extract_possible_references,
+    is_qualified,
+    iter_raw_references,
+    qualification,
+)
 from sqlfluff.core.parser import IdentifierSegment
 from sqlfluff.core.parser.segments import BaseSegment, SymbolSegment
 from sqlfluff.core.rules import (
@@ -25,7 +33,7 @@ class Rule_RF03(BaseRule):
     """Column references should be qualified consistently in single table statements.
 
     .. note::
-        For BigQuery, Hive and Redshift this rule is disabled by default.
+        For Athena, BigQuery, Hive and Redshift this rule is disabled by default.
         This is due to historical false positives associated with STRUCT data types.
         This default behaviour may be changed in the future.
         The rule can be enabled with the ``force_enable = True`` flag.
@@ -74,7 +82,11 @@ class Rule_RF03(BaseRule):
     # because they will more accurately process any internal references.
     crawl_behaviour = SegmentSeekerCrawler(set(_START_TYPES), allow_recurse=False)
     _is_struct_dialect = False
-    _dialects_with_structs = ["bigquery", "hive", "redshift"]
+    # Dialects with STRUCT-like data types accessed via dot syntax (e.g.
+    # `col.field.subfield`), which can be misread as table-qualified column
+    # references (`table.column`) in single table SELECTs.
+    # https://docs.aws.amazon.com/athena/latest/ug/filtering-with-dot.html
+    _dialects_with_structs = ["athena", "bigquery", "hive", "redshift"]
     # This could be turned into an option
     _fix_inconsistent_to = "qualified"
     is_fix_compatible = True
@@ -148,6 +160,7 @@ class Rule_RF03(BaseRule):
                     self._is_struct_dialect,
                     self._fix_inconsistent_to,
                     fixable,
+                    query.dialect.name,
                 )
         children = list(query.children)
         # 'query.children' includes CTEs and "main" queries, but not queries in
@@ -178,6 +191,7 @@ def _check_references(
     is_struct_dialect: bool,
     fix_inconsistent_to: Optional[str],
     fixable: bool,
+    dialect_name: str,
 ) -> Iterator[LintResult]:
     """Iterate through references and check consistency."""
     # A buffer to keep any violations.
@@ -187,15 +201,25 @@ def _check_references(
     # Check all the references that we have.
     seen_ref_types: set[str] = set()
     for ref in references:
-        this_ref_type: str = ref.qualification()
+        this_ref_type: str = qualification(ref, dialect_name)
         # Skip unqualified templated references (e.g., placeholder parameters like
         # :colname that get rendered as bare identifiers by the templater). These
         # are not real column references and should not be qualified or flagged.
         if this_ref_type == "unqualified" and ref.is_templated:
             continue
+        # Skip whole-row references: a bare reference matching the single table's
+        # own alias/name (e.g. ``tbl ->> 'k'`` in postgres, or ``SELECT tbl FROM
+        # tbl``) refers to the whole row, not a column. It neither needs
+        # qualification nor counts towards single-table consistency, so qualifying
+        # it as ``tbl.tbl`` would be invalid.
+        if (
+            this_ref_type == "unqualified"
+            and ref.raw_normalized(casefold=False) == table_ref_str
+        ):
+            continue
         if this_ref_type == "qualified" and is_struct_dialect:
             # If this col appears "qualified" check if it is more logically a struct.
-            if next(ref.iter_raw_references()).part != table_ref_str:
+            if next(iter_raw_references(ref, dialect_name)).part != table_ref_str:
                 this_ref_type = "unqualified"
 
         lint_res = _validate_one_reference(
@@ -208,6 +232,7 @@ def _check_references(
             col_alias_names,
             seen_ref_types,
             fixable,
+            dialect_name,
         )
 
         seen_ref_types.add(this_ref_type)
@@ -230,6 +255,7 @@ def _check_references(
                 is_struct_dialect=is_struct_dialect,
                 fix_inconsistent_to=None,
                 fixable=fixable,
+                dialect_name=dialect_name,
             )
 
         yield lint_res
@@ -245,10 +271,11 @@ def _validate_one_reference(
     col_alias_names: list[str],
     seen_ref_types: set[str],
     fixable: bool,
+    dialect_name: str,
 ) -> Optional[LintResult]:
     # We skip any unqualified wildcard references (i.e. *). They shouldn't
     # count.
-    if not ref.is_qualified() and ref.is_type("wildcard_identifier"):
+    if not is_qualified(ref, dialect_name) and ref.is_type("wildcard_identifier"):
         return None
     # Oddball case: Column aliases provided via function calls in by
     # FROM or JOIN. References to these don't need to be qualified.
@@ -260,10 +287,10 @@ def _validate_one_reference(
 
     # If the reference is qualified, see that the table is not in the standalone_aliases
     # namely for lambda expressions.
-    if ref.is_qualified():
+    if is_qualified(ref, dialect_name):
         standalone_alias_raws = [a.raw for a in standalone_aliases]
-        for part in ref.extract_possible_references(
-            level=ref.ObjectReferenceLevel.TABLE
+        for part in extract_possible_references(
+            ref, level=ObjectReferenceLevel.TABLE, dialect_name=dialect_name
         ):
             if part.part in standalone_alias_raws:
                 return None
@@ -271,7 +298,7 @@ def _validate_one_reference(
         # references like `item.taskId.oid` (e.g. in Databricks higher-order
         # functions), the lambda parameter `item` is at the SCHEMA level, not
         # TABLE level. We need to check it against standalone aliases too.
-        first_raw_ref = next(ref.iter_raw_references(), None)
+        first_raw_ref = next(iter_raw_references(ref, dialect_name), None)
         if first_raw_ref and first_raw_ref.part in standalone_alias_raws:
             return None
 

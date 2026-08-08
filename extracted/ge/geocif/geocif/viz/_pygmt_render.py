@@ -74,12 +74,24 @@ def render(geojson_path, params):
 
         if p.get("annotate") and "_label" in gdf.columns:
             font = p.get("annot_font", "8p,Helvetica,black")
+            val_font = p.get("annot_val_font", "7p,Helvetica-Oblique,black")
+            has_val = "_label_val" in gdf.columns
             for _, row in gdf.iterrows():
                 c = row["geometry"].centroid
                 if c.is_empty:
                     continue
-                fig.text(x=c.x, y=c.y, text=str(row["_label"]),
-                         font=font, fill="white@30", pen="0.2p,gray40")
+                lbl = str(row["_label"])
+                val = str(row["_label_val"]) if has_val else ""
+                if val and val.lower() != "nan":
+                    # Region name on top, metric value below the centroid
+                    # (GMT text has no reliable newline, so two offset calls).
+                    fig.text(x=c.x, y=c.y, text=lbl, font=font,
+                             offset="0c/0.16c", fill="white@30", pen="0.2p,gray40")
+                    fig.text(x=c.x, y=c.y, text=val, font=val_font,
+                             offset="0c/-0.16c", fill="white@30", pen="0.2p,gray40")
+                else:
+                    fig.text(x=c.x, y=c.y, text=lbl,
+                             font=font, fill="white@30", pen="0.2p,gray40")
 
         os.makedirs(os.path.dirname(p["out_path"]) or ".", exist_ok=True)
         fig.savefig(p["out_path"], dpi=p.get("dpi", 350))

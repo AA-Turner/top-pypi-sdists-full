@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pydantic-settings
-Version: 2.14.2
+Version: 2.15.0
 Summary: Settings management using Pydantic
 Project-URL: Homepage, https://github.com/pydantic/pydantic-settings
 Project-URL: Funding, https://github.com/sponsors/samuelcolvin
@@ -37,7 +37,6 @@ Requires-Dist: python-dotenv>=0.21.0
 Requires-Dist: typing-inspection>=0.4.0
 Provides-Extra: aws-secrets-manager
 Requires-Dist: boto3>=1.35.0; extra == 'aws-secrets-manager'
-Requires-Dist: types-boto3[secretsmanager]; extra == 'aws-secrets-manager'
 Provides-Extra: azure-key-vault
 Requires-Dist: azure-identity>=1.16.0; extra == 'azure-key-vault'
 Requires-Dist: azure-keyvault-secrets>=4.8.0; extra == 'azure-key-vault'
@@ -60,4 +59,12 @@ Description-Content-Type: text/markdown
 
 Settings management using Pydantic.
 
-See [documentation](https://docs.pydantic.dev/latest/concepts/pydantic_settings/) for more details.
+See [documentation](https://pydantic.dev/docs/validation/latest/concepts/pydantic_settings/) for more details.
+
+## Part of the Pydantic Stack
+
+The Pydantic Stack is everything you need to ship production-grade AI agents:
+
+- [Pydantic AI](https://pydantic.dev/pydantic-ai?utm_source=github&utm_medium=readme&utm_campaign=pydantic-settings) - Type-safe agent framework
+- [Pydantic Logfire](https://pydantic.dev/logfire?utm_source=github&utm_medium=readme&utm_campaign=pydantic-settings) - AI-first, full-stack observability
+- [Logfire AI Gateway](https://pydantic.dev/ai-gateway?utm_source=github&utm_medium=readme&utm_campaign=pydantic-settings) - Unified LLM proxy

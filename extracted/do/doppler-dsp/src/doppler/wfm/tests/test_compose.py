@@ -134,7 +134,9 @@ def test_byte_parity_vs_wfmgen(tmp_path, wtype, stype):
         type=wtype, fs=1e6, freq=1e5, num_samples=n, snr=100.0
     ).compose()
     py = tmp_path / "py.iq"
-    with Writer(py, file_type="raw", sample_type=stype, endian="le") as w:
+    with Writer(
+        py, fs=1e6, file_type="raw", sample_type=stype, endian="le"
+    ) as w:
         w.write(x)
     assert _md5(py) == _md5(cli), f"{wtype}/{stype} diverged from wfmgen"
 
@@ -169,7 +171,7 @@ def test_chirp_byte_parity_vs_wfmgen(tmp_path):
         Segment("chirp", fs=1e6, freq=1e5, f_end=3e5, num_samples=n)
     ).compose()
     py = tmp_path / "py.iq"
-    with Writer(py, file_type="raw", sample_type="cf32") as w:
+    with Writer(py, fs=1e6, file_type="raw", sample_type="cf32") as w:
         w.write(x)
     assert _md5(py) == _md5(cli)
 
@@ -264,7 +266,7 @@ def test_writer_readback_roundtrip(tmp_path, stype):
     q-step)."""
     x = Composer(type="tone", freq=1e5, num_samples=1000).compose()
     p = tmp_path / f"cap.{stype}"
-    with Writer(p, sample_type=stype) as w:
+    with Writer(p, fs=1e6, sample_type=stype) as w:
         w.write(x)
     y = _read_all(Reader(str(p), sample_type=stype))
     assert len(y) == len(x)
@@ -408,6 +410,58 @@ def test_streamsink_idempotent_close():
     sink = StreamSink(ep)
     sink.close()
     sink.close()  # idempotent
+
+
+def test_write_blue_header_requires_fs(tmp_path):
+    """`xdelta = 1/fs` is most of what a BLUE header is, so the rate is not
+    something you can forget to mention. Same rule as `Writer`, and the same
+    escape: `fs=0.0` states "not known" and writes `xdelta = 0`."""
+    with pytest.raises(TypeError):
+        write_blue_header(tmp_path / "no-fs.hdr")
+
+    p = tmp_path / "unknown.hdr"
+    write_blue_header(p, fs=0.0, total=8)  # stated, and stated as unknown
+    assert struct.unpack_from("<d", p.read_bytes(), 264)[0] == 0.0
+
+
+def test_to_sigmf_states_the_rate_its_annotations_were_built_from(tmp_path):
+    """The document already knew the rate; now it says so.
+
+    A `Composer` carries `fs` per segment and the annotation edges are
+    `±fs/(2·sps)` computed from it -- so a `to_sigmf()` that omitted
+    `core:sample_rate` was withholding a rate it demonstrably had. It is
+    derived rather than required, because requiring it would only make the
+    caller restate what the scene holds (and let the two disagree).
+    """
+    comp = Composer([Segment("qpsk", sps=8, num_samples=4096, fs=6.138e6)])
+    doc = json.loads(comp.to_sigmf())
+    assert doc["global"]["core:sample_rate"] == 6.138e6
+    # ...and it agrees with the edges in the same document, which is the point
+    assert doc["annotations"][0]["core:freq_upper_edge"] == pytest.approx(
+        6.138e6 / (2 * 8)
+    )
+
+
+def test_to_sigmf_explicit_fs_wins(tmp_path):
+    """Rendering the scene at a resampled rate describes the FILE, and the
+    file is what the document annotates -- so a stated rate is never
+    second-guessed."""
+    comp = Composer([Segment("qpsk", sps=8, num_samples=4096, fs=6.138e6)])
+    doc = json.loads(comp.to_sigmf(fs=1e6))
+    assert doc["global"]["core:sample_rate"] == 1e6
+
+
+def test_to_sigmf_leaves_the_rate_unstated_when_segments_disagree(tmp_path):
+    """`fs` is per segment, and no single `core:sample_rate` is true of a
+    stream whose segments disagree -- so it says nothing rather than picking
+    one."""
+    comp = Composer(
+        [
+            Segment("qpsk", sps=8, num_samples=1024, fs=6.138e6),
+            Segment("tone", num_samples=1024, fs=2e6),
+        ]
+    )
+    assert "core:sample_rate" not in json.loads(comp.to_sigmf())["global"]
 
 
 def test_write_blue_header_detached_hcb(tmp_path):
@@ -929,7 +983,7 @@ def test_reader_blocked_read_matches_read_all(tmp_path):
     """Block-wise read() concatenates to the same array as read_all()."""
     x = Composer(type="bpsk", sps=4, num_samples=3000, seed=2).compose()
     p = tmp_path / "cap.cf32"
-    with Writer(p) as w:
+    with Writer(p, fs=1e6) as w:
         w.write(x)
     whole = _read_all(Reader(str(p)))
     r = Reader(str(p))
@@ -943,7 +997,7 @@ def test_reader_blocked_read_matches_read_all(tmp_path):
 
 def test_reader_idempotent_close(tmp_path):
     p = tmp_path / "cap.cf32"
-    with Writer(p) as w:
+    with Writer(p, fs=1e6) as w:
         w.write(Composer(type="tone", num_samples=64).compose())
     r = Reader(str(p))
     _read_all(r)
@@ -995,7 +1049,7 @@ def test_writer_clip_detection(tmp_path):
     """
     # peak magnitude 2.0 (clips in ci16); 2 of 4 components exceed full-scale.
     x = np.array([1.5 + 0.5j, -0.5 - 2.0j], dtype=np.complex64)
-    w = Writer(tmp_path / "clip.ci16", sample_type="ci16")
+    w = Writer(tmp_path / "clip.ci16", fs=1e6, sample_type="ci16")
     w.track_clipping(True)
     w.write(x)
     assert w.clipped
@@ -1006,13 +1060,13 @@ def test_writer_clip_detection(tmp_path):
         _ = w.clipped  # the handle is freed; live stats are no longer readable
 
     # clean at full scale: peak 0 dBFS, no clip.
-    c = Writer(tmp_path / "clean.ci16", sample_type="ci16")
+    c = Writer(tmp_path / "clean.ci16", fs=1e6, sample_type="ci16")
     c.write(np.array([1.0 + 1.0j, -1.0 - 1.0j], dtype=np.complex64))
     assert not c.clipped and abs(c.peak_dbfs) < 1e-4
     c.close()
 
     # float never clips, even past full scale.
-    f = Writer(tmp_path / "x.cf32", sample_type="cf32")
+    f = Writer(tmp_path / "x.cf32", fs=1e6, sample_type="cf32")
     f.write(x)
     assert not f.clipped
     f.close()
@@ -1025,7 +1079,7 @@ def test_writer_headroom(tmp_path):
 
     # 6.0206 dB → gain 0.5
     with Writer(
-        tmp_path / "hr.cf32", sample_type="cf32", headroom=6.0206
+        tmp_path / "hr.cf32", fs=1e6, sample_type="cf32", headroom=6.0206
     ) as w:
         w.write(x)
     assert np.allclose(
@@ -1034,14 +1088,16 @@ def test_writer_headroom(tmp_path):
     )
 
     # 0 dB (default) is verbatim
-    with Writer(tmp_path / "h0.cf32", sample_type="cf32") as w:
+    with Writer(tmp_path / "h0.cf32", fs=1e6, sample_type="cf32") as w:
         w.write(x)
     assert np.allclose(
         _read_all(Reader(str(tmp_path / "h0.cf32"), sample_type="cf32")), x
     )
 
     # enough headroom clears a clip that would saturate at unity gain
-    with Writer(tmp_path / "c.ci16", sample_type="ci16", headroom=12.0) as w:
+    with Writer(
+        tmp_path / "c.ci16", fs=1e6, sample_type="ci16", headroom=12.0
+    ) as w:
         w.track_clipping(True)
         w.write(np.array([1.5 + 0j, -2.0 + 0.3j], dtype=np.complex64))
         assert not w.clipped
@@ -1284,7 +1340,7 @@ def test_bits_byte_parity_vs_wfmgen(tmp_path):
         )
     ).compose()
     py = tmp_path / "py.cf32"
-    with Writer(py, file_type="raw", sample_type="cf32") as w:
+    with Writer(py, fs=1e6, file_type="raw", sample_type="cf32") as w:
         w.write(x)
     assert _md5(py) == _md5(cli)
 
@@ -1372,7 +1428,7 @@ def test_rrc_byte_parity_vs_wfmgen(tmp_path):
         )
     ).compose()
     py = tmp_path / "py.cf32"
-    with Writer(py, file_type="raw", sample_type="cf32") as w:
+    with Writer(py, fs=1e6, file_type="raw", sample_type="cf32") as w:
         w.write(x)
     assert _md5(py) == _md5(cli)
 

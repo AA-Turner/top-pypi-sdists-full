@@ -2,6 +2,7 @@
 Section extraction from documents.
 """
 
+import copy
 import logging
 import re
 from typing import Dict, List, Optional, Set, Tuple
@@ -598,11 +599,22 @@ class SectionExtractor:
             table_nodes = document.root.find(lambda n: isinstance(n, TableNode))
 
             for table in table_nodes:
-                # Look through table rows for Items
-                for row in table.rows:
+                # Look through table rows for Items.
+                #
+                # Header rows are scanned as well as body rows. A filer whose
+                # item headings are standalone one-row tables ("ITEM 1A." |
+                # "RISK FACTORS" — Wells Fargo) has that row classified as the
+                # table's *header*, leaving `rows` empty, so scanning only
+                # `rows` found no items at all and the extractor fell through
+                # to keyword matching, which labeled Item 15's exhibit list as
+                # `financial_statements` (edgartools-4agg).
+                header_cell_rows = [list(hr) for hr in (table.headers or [])]
+                body_cell_rows = [list(row.cells) for row in table.rows]
+
+                for cells in header_cell_rows + body_cell_rows:
                     # Check each cell for Item pattern
                     row_text_parts = []
-                    for cell in row.cells:
+                    for cell in cells:
                         cell_text = cell.text().strip()
                         if cell_text:
                             row_text_parts.append(cell_text)
@@ -720,6 +732,17 @@ class SectionExtractor:
 
         return part_context
 
+    # A schema pattern that anchors on an explicit item number, e.g.
+    # '^(Item|ITEM)\\s+8\\.?\\s*Financial\\s+Statements'. Matched against the
+    # pattern source, not the header text, so it reflects what the schema
+    # actually asserted rather than what the document happened to contain.
+    _ITEM_NUMBERED_PATTERN_RE = re.compile(r'^\^?\(?(?:Item|ITEM)', re.IGNORECASE)
+
+    @classmethod
+    def _is_item_numbered_pattern(cls, pattern: str) -> bool:
+        """True if this schema pattern requires an 'Item N' prefix to match."""
+        return bool(cls._ITEM_NUMBERED_PATTERN_RE.match(pattern))
+
     def _match_sections(self,
                        headers: List[Tuple[Node, str, int]],
                        patterns: Dict[str, List[Tuple[str, str]]],
@@ -816,6 +839,7 @@ class SectionExtractor:
                             'title': final_title,
                             'is_main': is_main,
                             'is_toc_entry': is_toc_entry,
+                            'is_item_numbered': self._is_item_numbered_pattern(pattern),
                             'content_size': end_position - position
                         })
 
@@ -853,6 +877,21 @@ class SectionExtractor:
                     # Fall back to TOC entries if no actual section found
                     selection_pool = candidates
                     logger.info(f"Using TOC entries as fallback for {section_name}")
+
+                # A header that names its item ("ITEM 8. FINANCIAL STATEMENTS")
+                # identifies the section outright; a bare title ("FINANCIAL
+                # STATEMENTS") only suggests it, and the same words routinely
+                # head an unrelated block. Ranking by content size alone let the
+                # weaker evidence win whenever it happened to span more text:
+                # Wells Fargo's Item 8 is a 261-char "incorporated by reference"
+                # pointer, so the "1. FINANCIAL STATEMENTS" heading inside Item
+                # 15's exhibit list claimed the `financial_statements` key with
+                # 42K chars of the wrong content (edgartools-4agg). Item-numbered
+                # matches are therefore preferred outright, and size only breaks
+                # ties within a tier.
+                item_numbered = [c for c in selection_pool if c['is_item_numbered']]
+                if item_numbered:
+                    selection_pool = item_numbered
 
                 # Among the selection pool, prefer main headers (uppercase)
                 main_headers = [c for c in selection_pool if c['is_main']]
@@ -927,6 +966,71 @@ class SectionExtractor:
 
         sections = {}
 
+        # Walk the document once, and record each node's position, its original
+        # parent, and how far its subtree reaches.
+        #
+        # The walk was previously redone per section, which is also why the
+        # parent test below has to work from a snapshot: add_child() reassigns
+        # child.parent, so by the time a later section asked "is my parent in my
+        # range?" the answer could already have been rewritten by an earlier one.
+        # Sections are created in dict order, not document order, so that made
+        # the result depend on iteration order. The snapshot is taken before any
+        # node is attached, so every section sees the document as parsed.
+        walk = list(document.root.walk())
+        positions = {id(n): i for i, n in enumerate(walk)}
+        original_parent = {id(n): id(n.parent) if n.parent is not None else None
+                           for n in walk}
+        # reach[node] is one past the last index its subtree occupies.
+        reach = {}
+        for n in reversed(walk):
+            end = positions[id(n)] + 1
+            for child in getattr(n, 'children', None) or []:
+                child_end = reach.get(id(child))
+                if child_end is not None and child_end > end:
+                    end = child_end
+            reach[id(n)] = end
+
+        def attach_bounded(target: Node, source: Node, limit: int) -> None:
+            """Attach ``source`` to ``target``, dropping any subtree past ``limit``.
+
+            A section's boundary is the position of the *next* item's header, but
+            that header is usually nested inside a container which itself starts
+            before the boundary. Attaching that container whole handed the
+            section everything the container held — Wells Fargo's Item 8 is a
+            261-character incorporation-by-reference pointer and came back as
+            3,329 characters running through Items 9, 9A, 9B and 9C, because one
+            container spanning positions 489-517 was attached to a section whose
+            range ended at 492 (edgartools-llmp.6.1).
+
+            A node whose subtree fits inside the range is attached as it is. One
+            that straddles the boundary is replaced by a shallow stand-in holding
+            only the children that fall inside, so the nesting the text extractor
+            sees is unchanged while the out-of-range content is not carried. The
+            remainder is not lost: it belongs to the next section, whose own
+            range starts at this limit.
+            """
+            if reach[id(source)] <= limit:
+                target.add_child(source)
+                return
+
+            stand_in = copy.copy(source)
+            stand_in.children = []
+            stand_in.parent = None
+            stand_in.metadata = dict(source.metadata) if source.metadata else {}
+            # copy.copy carries the source's memoised text, which described the
+            # untrimmed subtree.
+            if hasattr(stand_in, 'clear_text_cache'):
+                stand_in._text_cache = None
+
+            for child in getattr(source, 'children', None) or []:
+                child_pos = positions.get(id(child))
+                if child_pos is None or child_pos >= limit:
+                    break
+                attach_bounded(stand_in, child, limit)
+
+            if stand_in.children:
+                target.add_child(stand_in)
+
         for section_name, (node, title, start_pos, end_pos) in matched_sections.items():
             # Check if this is an HTML-extracted section (marked by start_pos == -1)
             html_extracted_text = node.get_metadata('html_extracted_text') if hasattr(node, 'get_metadata') else None
@@ -945,19 +1049,26 @@ class SectionExtractor:
 
                 # Find all nodes in position range - only add top-level nodes
                 # (nodes whose parent is outside the range)
-                # First collect all nodes in range
-                nodes_in_range = []
-                position = 0
-                for n in document.root.walk():
-                    if start_pos <= position < end_pos:
-                        nodes_in_range.append(n)
-                    position += 1
+                nodes_in_range = walk[start_pos:end_pos]
 
                 # Now add only top-level nodes (nodes whose parent is not in the range)
                 # This prevents adding both a parent and its children as direct section children
+                #
+                # Membership here means identity — "is this same node object also in
+                # the range". It must not go through `in` on the list: Node used to
+                # be a plain @dataclass, so `==` compared field-by-field and recursed
+                # through `children`, which was both quadratic (10.5s of Citigroup's
+                # 18s sections stage) and wrong. Two distinct paragraphs with
+                # identical text and styling compared equal, so a node whose parent
+                # merely resembled an in-range node was treated as nested and
+                # silently dropped — boilerplate-heavy filings are exactly where
+                # identical nodes are common. Nodes compare by identity now
+                # (edgartools-llmp.10), but the id() test stays: it is what this
+                # means, and it reads as deliberate rather than incidental.
+                ids_in_range = {id(n) for n in nodes_in_range}
                 for n in nodes_in_range:
-                    if n.parent not in nodes_in_range:
-                        section_node.add_child(n)
+                    if original_parent[id(n)] not in ids_in_range:
+                        attach_bounded(section_node, n, end_pos)
 
                 # Clear text cache to ensure fresh text generation
                 # (nodes may have stale cached text from earlier processing)

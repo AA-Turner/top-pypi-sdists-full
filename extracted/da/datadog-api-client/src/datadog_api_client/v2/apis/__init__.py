@@ -34,6 +34,7 @@ from datadog_api_client.v2.api.confluent_cloud_api import ConfluentCloudApi
 from datadog_api_client.v2.api.container_images_api import ContainerImagesApi
 from datadog_api_client.v2.api.containers_api import ContainersApi
 from datadog_api_client.v2.api.customer_org_api import CustomerOrgApi
+from datadog_api_client.v2.api.ddsql_api import DDSQLApi
 from datadog_api_client.v2.api.dora_metrics_api import DORAMetricsApi
 from datadog_api_client.v2.api.dashboard_lists_api import DashboardListsApi
 from datadog_api_client.v2.api.dashboard_secure_embed_api import DashboardSecureEmbedApi
@@ -55,10 +56,10 @@ from datadog_api_client.v2.api.fleet_automation_api import FleetAutomationApi
 from datadog_api_client.v2.api.forms_api import FormsApi
 from datadog_api_client.v2.api.gcp_integration_api import GCPIntegrationApi
 from datadog_api_client.v2.api.google_chat_integration_api import GoogleChatIntegrationApi
-from datadog_api_client.v2.api.governance_controls_api import GovernanceControlsApi
-from datadog_api_client.v2.api.governance_insights_api import GovernanceInsightsApi
+from datadog_api_client.v2.api.governance_console_api import GovernanceConsoleApi
 from datadog_api_client.v2.api.high_availability_multi_region_api import HighAvailabilityMultiRegionApi
 from datadog_api_client.v2.api.ip_allowlist_api import IPAllowlistApi
+from datadog_api_client.v2.api.identity_providers_api import IdentityProvidersApi
 from datadog_api_client.v2.api.incidents_api import IncidentsApi
 from datadog_api_client.v2.api.integrations_api import IntegrationsApi
 from datadog_api_client.v2.api.jira_integration_api import JiraIntegrationApi
@@ -82,6 +83,7 @@ from datadog_api_client.v2.api.okta_integration_api import OktaIntegrationApi
 from datadog_api_client.v2.api.on_call_api import OnCallApi
 from datadog_api_client.v2.api.on_call_paging_api import OnCallPagingApi
 from datadog_api_client.v2.api.opsgenie_integration_api import OpsgenieIntegrationApi
+from datadog_api_client.v2.api.org_authorized_clients_api import OrgAuthorizedClientsApi
 from datadog_api_client.v2.api.org_connections_api import OrgConnectionsApi
 from datadog_api_client.v2.api.org_groups_api import OrgGroupsApi
 from datadog_api_client.v2.api.organizations_api import OrganizationsApi
@@ -89,10 +91,13 @@ from datadog_api_client.v2.api.powerpack_api import PowerpackApi
 from datadog_api_client.v2.api.processes_api import ProcessesApi
 from datadog_api_client.v2.api.product_analytics_api import ProductAnalyticsApi
 from datadog_api_client.v2.api.rum_api import RUMApi
+from datadog_api_client.v2.api.rum_config_api import RUMConfigApi
 from datadog_api_client.v2.api.rum_insights_api import RUMInsightsApi
+from datadog_api_client.v2.api.rum_operations_api import RUMOperationsApi
 from datadog_api_client.v2.api.rum_remote_config_api import RUMRemoteConfigApi
 from datadog_api_client.v2.api.reference_tables_api import ReferenceTablesApi
 from datadog_api_client.v2.api.report_schedules_api import ReportSchedulesApi
+from datadog_api_client.v2.api.reporting_and_sharing_api import ReportingAndSharingApi
 from datadog_api_client.v2.api.restriction_policies_api import RestrictionPoliciesApi
 from datadog_api_client.v2.api.roles_api import RolesApi
 from datadog_api_client.v2.api.rum_audience_management_api import RumAudienceManagementApi
@@ -127,6 +132,7 @@ from datadog_api_client.v2.api.tag_policies_api import TagPoliciesApi
 from datadog_api_client.v2.api.teams_api import TeamsApi
 from datadog_api_client.v2.api.test_optimization_api import TestOptimizationApi
 from datadog_api_client.v2.api.usage_metering_api import UsageMeteringApi
+from datadog_api_client.v2.api.user_authorized_clients_api import UserAuthorizedClientsApi
 from datadog_api_client.v2.api.users_api import UsersApi
 from datadog_api_client.v2.api.web_integrations_api import WebIntegrationsApi
 from datadog_api_client.v2.api.webhooks_integration_api import WebhooksIntegrationApi
@@ -171,6 +177,7 @@ __all__ = [
     "ContainerImagesApi",
     "ContainersApi",
     "CustomerOrgApi",
+    "DDSQLApi",
     "DORAMetricsApi",
     "DashboardListsApi",
     "DashboardSecureEmbedApi",
@@ -192,10 +199,10 @@ __all__ = [
     "FormsApi",
     "GCPIntegrationApi",
     "GoogleChatIntegrationApi",
-    "GovernanceControlsApi",
-    "GovernanceInsightsApi",
+    "GovernanceConsoleApi",
     "HighAvailabilityMultiRegionApi",
     "IPAllowlistApi",
+    "IdentityProvidersApi",
     "IncidentsApi",
     "IntegrationsApi",
     "JiraIntegrationApi",
@@ -219,6 +226,7 @@ __all__ = [
     "OnCallApi",
     "OnCallPagingApi",
     "OpsgenieIntegrationApi",
+    "OrgAuthorizedClientsApi",
     "OrgConnectionsApi",
     "OrgGroupsApi",
     "OrganizationsApi",
@@ -226,10 +234,13 @@ __all__ = [
     "ProcessesApi",
     "ProductAnalyticsApi",
     "RUMApi",
+    "RUMConfigApi",
     "RUMInsightsApi",
+    "RUMOperationsApi",
     "RUMRemoteConfigApi",
     "ReferenceTablesApi",
     "ReportSchedulesApi",
+    "ReportingAndSharingApi",
     "RestrictionPoliciesApi",
     "RolesApi",
     "RumAudienceManagementApi",
@@ -264,6 +275,7 @@ __all__ = [
     "TeamsApi",
     "TestOptimizationApi",
     "UsageMeteringApi",
+    "UserAuthorizedClientsApi",
     "UsersApi",
     "WebIntegrationsApi",
     "WebhooksIntegrationApi",

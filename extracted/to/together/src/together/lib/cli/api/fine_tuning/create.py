@@ -130,11 +130,19 @@ async def create(
     max_grad_norm: Annotated[float, Parameter(help="Max gradient norm for clipping (0 to disable)")] = 1.0,
     weight_decay: Annotated[float, Parameter(help="Weight decay")] = 0.0,
     lora: Annotated[Optional[bool], Parameter(help="Whether to use LoRA adapters for fine-tuning")] = None,
-    lora_r: Annotated[int, Parameter(help="LoRA adapters' rank")] = DEFAULT_LORA_R,
-    lora_dropout: Annotated[float, Parameter(help="LoRA adapters' dropout")] = 0,
-    lora_alpha: Annotated[float, Parameter(help="LoRA adapters' alpha")] = DEFAULT_LORA_ALPHA,
+    lora_r: Annotated[int, Parameter(help="Rank of the LoRA adapter matrices")] = DEFAULT_LORA_R,
+    lora_dropout: Annotated[float, Parameter(help="Dropout probability applied to LoRA adapter inputs")] = 0,
+    lora_alpha: Annotated[
+        float, Parameter(help="Scaling factor applied to the LoRA adapter weights")
+    ] = DEFAULT_LORA_ALPHA,
     lora_trainable_modules: Annotated[
-        str, Parameter(help="Trainable modules for LoRA adapters (e.g. 'all-linear', 'q_proj,v_proj')")
+        str,
+        Parameter(
+            help=(
+                "LoRA target modules (e.g. 'all-linear', 'q_proj,v_proj'). "
+                "Fine-tunes targeting MoE expert modules (w_up, w_gate, w_down) produce adapter-only output."
+            )
+        ),
     ] = "all-linear",
     training_method: Annotated[
         Literal["sft", "dpo"],
@@ -375,19 +383,28 @@ async def create(
             training_method=training_method_cls,
         ),
     )
-    if finetune_price_estimation_result.estimation_available is False:
-        unavailable_reason = finetune_price_estimation_result.unavailable_reason
-        price_line = _PRICE_ESTIMATION_UNAVAILABLE_LINES_BY_REASON.get(
-            unavailable_reason,
-            _PRICE_ESTIMATION_UNAVAILABLE_LINE_DEFAULT,
-        )
-        file_arg = _PRICE_ESTIMATION_UNAVAILABLE_FILE_ARG_BY_REASON.get(unavailable_reason)
+    estimated_price = (
+        finetune_price_estimation_result.estimated_total_price
+        if finetune_price_estimation_result.estimation_available is not False
+        else None
+    )
+    if finetune_price_estimation_result.estimation_available is False or estimated_price is None:
+        if finetune_price_estimation_result.estimation_available is False:
+            unavailable_reason = finetune_price_estimation_result.unavailable_reason
+            price_line = _PRICE_ESTIMATION_UNAVAILABLE_LINES_BY_REASON.get(
+                unavailable_reason,
+                _PRICE_ESTIMATION_UNAVAILABLE_LINE_DEFAULT,
+            )
+            file_arg = _PRICE_ESTIMATION_UNAVAILABLE_FILE_ARG_BY_REASON.get(unavailable_reason)
+        else:
+            price_line = _PRICE_ESTIMATION_UNAVAILABLE_LINE_DEFAULT
+            file_arg = None
         file_id = training_args.get(file_arg) if file_arg else None
         if file_id:
             price_line += " " + _FILE_DETAILS_HINT.format(file_id=file_id)
         warning = ""
     else:
-        price_str = f"${finetune_price_estimation_result.estimated_total_price:.2f}"
+        price_str = f"${estimated_price:.2f}"
         price_line = f"The estimated price of this job is [bold]{price_str}[/bold]."
         warning = _WARNING_MESSAGE_INSUFFICIENT_FUNDS if not finetune_price_estimation_result.allowed_to_proceed else ""
 

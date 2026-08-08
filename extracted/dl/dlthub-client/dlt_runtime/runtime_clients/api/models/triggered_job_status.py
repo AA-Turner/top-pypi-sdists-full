@@ -8,6 +8,7 @@ class TriggeredJobStatus(str, Enum):
     SKIPPED_MINUTES_LIMIT = "skipped_minutes_limit"
     SKIPPED_ORG_CONCURRENCY_LIMIT = "skipped_org_concurrency_limit"
     SKIPPED_OUT_OF_INTERVAL = "skipped_out_of_interval"
+    SKIPPED_PAUSED = "skipped_paused"
     SKIPPED_TRIAL_EXPIRED = "skipped_trial_expired"
     SKIPPED_UPSTREAM_PENDING = "skipped_upstream_pending"
     TRIGGERED = "triggered"

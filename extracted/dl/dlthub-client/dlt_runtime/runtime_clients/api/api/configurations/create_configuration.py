@@ -100,8 +100,9 @@ def sync_detailed(
     """CreateConfiguration
 
 
-    Mint a short-lived ``DataplaneUserJwt`` (carrying ``configuration:upload``
-    and ``ws:read`` grants) and return the absolute DP API URL where the
+    Mint a short-lived ``DataplaneUserJwt`` (carrying a ``configuration:upload``
+    grant, with the workspace taken from its signed binding) and return the
+    absolute DP API URL where the
     tarball bytes are POSTed next. **No database row is created in this step**
     — the row is INSERTed by the DP API after vault store succeeds, via the
     ``dp-api → api CONFIGURATIONS_WRITE`` write-back edge.
@@ -145,8 +146,9 @@ def sync(
     """CreateConfiguration
 
 
-    Mint a short-lived ``DataplaneUserJwt`` (carrying ``configuration:upload``
-    and ``ws:read`` grants) and return the absolute DP API URL where the
+    Mint a short-lived ``DataplaneUserJwt`` (carrying a ``configuration:upload``
+    grant, with the workspace taken from its signed binding) and return the
+    absolute DP API URL where the
     tarball bytes are POSTed next. **No database row is created in this step**
     — the row is INSERTed by the DP API after vault store succeeds, via the
     ``dp-api → api CONFIGURATIONS_WRITE`` write-back edge.
@@ -184,8 +186,9 @@ async def asyncio_detailed(
     """CreateConfiguration
 
 
-    Mint a short-lived ``DataplaneUserJwt`` (carrying ``configuration:upload``
-    and ``ws:read`` grants) and return the absolute DP API URL where the
+    Mint a short-lived ``DataplaneUserJwt`` (carrying a ``configuration:upload``
+    grant, with the workspace taken from its signed binding) and return the
+    absolute DP API URL where the
     tarball bytes are POSTed next. **No database row is created in this step**
     — the row is INSERTed by the DP API after vault store succeeds, via the
     ``dp-api → api CONFIGURATIONS_WRITE`` write-back edge.
@@ -227,8 +230,9 @@ async def asyncio(
     """CreateConfiguration
 
 
-    Mint a short-lived ``DataplaneUserJwt`` (carrying ``configuration:upload``
-    and ``ws:read`` grants) and return the absolute DP API URL where the
+    Mint a short-lived ``DataplaneUserJwt`` (carrying a ``configuration:upload``
+    grant, with the workspace taken from its signed binding) and return the
+    absolute DP API URL where the
     tarball bytes are POSTed next. **No database row is created in this step**
     — the row is INSERTed by the DP API after vault store succeeds, via the
     ``dp-api → api CONFIGURATIONS_WRITE`` write-back edge.

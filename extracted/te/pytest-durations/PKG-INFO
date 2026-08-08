@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytest-durations
-Version: 1.7.1
+Version: 1.8.0
 Summary: Pytest plugin reporting fixtures and test functions execution time.
 License: MIT
 License-File: LICENSE
@@ -58,6 +58,20 @@ pytest-durations:
                         Group test durations by module, class, or function. Use
                         legacy grouping for backward compatibility. Default:
                         "function"
+  --pytest-durations-time-format={clock,auto,short}
+                        How to format durations in the report. "clock" shows the
+                        full datetime-style value, "short" a compact H:MM:SS, and
+                        "auto" picks one readable form based on the report
+                        magnitude. Default: "clock"
+  --pytest-durations-show=SECTIONS
+                        Comma-separated list of report sections to show:
+                        "fixture", "call", "setup", "teardown". Default: show
+                        all sections.
+  --pytest-durations-columns=COLUMNS
+                        Comma-separated list of stat columns to show: "total",
+                        "num", "min", "med", "max". The test/fixture name is
+                        always shown second, and the first listed column is used
+                        to sort the report. Default: total,num,med,max.
 ```
 
 Note: Please don't confuse these options with the --durations options that come from pytest itself.
@@ -112,8 +126,20 @@ $ pytest
 
 ## Unreleased
 
-
 ## Change Log
+
+### 1.8.0 (Aug 07, 2026)
+
+* Added a `--pytest-durations-columns` option to select which stat columns are
+  printed (`total`, `num`, `min`, `med`, `max`) and which one sorts the report
+  (#47). The test/fixture name is always shown second. The default matches the
+  existing output, so nothing changes unless the flag is used.
+* Added a `--pytest-durations-time-format` option with `clock`, `auto`, and `short`
+  presets for formatting durations in the report (#49). The default (`clock`) keeps the
+  existing output unchanged.
+* Added a `--pytest-durations-show` option to select which report sections are printed
+  (`fixture`, `call`, `setup`, `teardown`) (#48). By default all four tables are shown,
+  so existing output is unchanged.
 
 ### 1.7.1 (Aug 06, 2026)
 

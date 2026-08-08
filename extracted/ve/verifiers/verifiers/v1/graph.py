@@ -25,7 +25,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
-from pydantic import ConfigDict, Field, field_serializer, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_validator
 from pydantic.json_schema import SkipJsonSchema
 from renderers.base import MultiModalData, PlaceholderRange, RenderedTokens
 
@@ -34,7 +34,6 @@ from verifiers.v1.types import (
     KeptTokens,
     Message,
     Response,
-    StrictBaseModel,
     TextContentPart,
     Tool,
     ToolMessage,
@@ -62,7 +61,7 @@ def _decode_ndarray(d: dict) -> np.ndarray:
     return np.frombuffer(d["data"], dtype=np.dtype(d["dtype"])).reshape(d["shape"])
 
 
-class MessageNode(StrictBaseModel):
+class MessageNode(BaseModel):
     """One message in the graph: a message plus the tokens it adds to the cumulative
     sequence. Concatenating a root→leaf path's nodes reconstructs that branch's full token
     sequence; the mask/logprobs make it a training sample."""
@@ -102,6 +101,11 @@ class MessageNode(StrictBaseModel):
     logprobs: list[float] = Field(default_factory=list)
     """Sampling logprobs for the sampled tokens — length equals the number of True entries in
     `mask`; empty for input messages."""
+    advantages: list[float] | None = None
+    """Per-token credit over the sampled tokens, same layout as `logprobs`. `None` until a
+    consumer's RL algorithm assigns it, which is not the same as a credit of zero: a group whose
+    rewards were all equal is assigned zeros and carries no gradient, while an unassigned node was
+    never scored at all."""
     multi_modal_data: SkipJsonSchema[MultiModalData | None] = None
     """The renderer items for the images this message's content introduces (pixel tensors,
     grids, hashes, placeholders) — the only carrier of the pixels from the env server to the
@@ -121,7 +125,7 @@ class MessageNode(StrictBaseModel):
     sampling-replay training. Rides the wire as raw-bytes `__nd__` dicts; kept off disk
     by the dump-site `exclude` in prime-rl."""
 
-    model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True)
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     @field_serializer("multi_modal_data")
     def serialize_multi_modal_data(self, mmd: MultiModalData | None) -> dict | None:
@@ -212,12 +216,17 @@ def _canonical_tool_arguments(arguments: str) -> str:
         return arguments
 
 
+# Provider-specific fields not represented by typed messages but required on replay.
+_PROVIDER_STATE_FIELDS = frozenset({"encrypted_content", "signature", "data", "phase"})
+
+
 def message_hash(message: Message) -> str:
     """Stable content hash on the fields that round-trip through a prompt — role, content
     (None and "" equal), assistant reasoning content when present, assistant tool calls,
-    tool call id. Two messages hash equal iff they're the same conversational message, so a
-    re-stated prefix message dedups to one node. The dedup key for sharing a prefix across
-    turns/branches; salt-free so it is identical across processes and after deserialization."""
+    opaque continuation state, tool call id. Two messages hash equal iff they're the same
+    conversational message, so a re-stated prefix message dedups to one node. The dedup key
+    for sharing a prefix across turns/branches; salt-free so it is identical across processes
+    and after deserialization."""
     digest = hashlib.blake2b(digest_size=16)
 
     def add(value: str) -> None:
@@ -241,10 +250,37 @@ def message_hash(message: Message) -> str:
         if message.reasoning_content is not None:
             add("reasoning_content")
             add(message.reasoning_content)
-        if message.provider_state:
-            # Signed/encrypted continuation state distinguishes otherwise equal turns.
+        for item in message.provider_state or []:
+            kind = item.get("type") or (
+                "message" if item.get("role") == "assistant" else ""
+            )
+            hashed_state = {
+                key: item[key]
+                for key in _PROVIDER_STATE_FIELDS
+                if item.get(key) is not None
+            }
+            if kind == "message" and isinstance(item.get("content"), list):
+                # Keep content parts the typed message does not expose, such as refusals.
+                unparsed_content = [
+                    part
+                    for part in item.get("content") or []
+                    if part.get("type") not in ("input_text", "output_text")
+                ]
+                if unparsed_content:
+                    hashed_state["content"] = unparsed_content
+            represented = kind in ("message", "reasoning") or (
+                kind in ("function_call", "custom_tool_call")
+                and any(
+                    call.id == item.get("call_id") for call in message.tool_calls or []
+                )
+            )
+            if represented and not hashed_state:
+                continue
+            # Unknown provider items still distinguish built-in calls and actions.
+            state = hashed_state if represented else item
             add("provider_state")
-            add(json.dumps(message.provider_state, sort_keys=True))
+            add(kind)
+            add(json.dumps(state, sort_keys=True))
         for tc in message.tool_calls or []:
             add("tool_call")
             add(tc.id)
@@ -287,10 +323,6 @@ class PendingTurn:
     @property
     def tail(self) -> list[Message]:
         return self.prompt[self.tail_start :]
-
-    @property
-    def parent(self) -> int | None:
-        return self.prefix_node_ids[-1] if self.prefix_node_ids else None
 
     def previous_token_ids(self) -> tuple[list[int], list[int]] | None:
         """Return `(previous_prompt_ids, previous_completion_ids)` for a bridge anchor.

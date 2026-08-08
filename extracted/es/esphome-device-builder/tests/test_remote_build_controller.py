@@ -2620,8 +2620,8 @@ def test_stored_peer_refresh_from_pair_request_updates_all_documented_fields() -
     primary key) and persisted ``status`` are left alone. Pin
     that contract here so a future refactor can't silently drop
     or add a field without the docstring keeping up — the helper
-    is the seam future re-pair callers will reach for, and a
-    silent shape drift would land as a security-relevant bug
+    backs ``record_pair_request``'s APPROVED re-pair branch, and
+    a silent shape drift would land as a security-relevant bug
     (e.g. failing to refresh ``peer_ip`` on a DHCP-renewed
     offloader leaves the inbox showing a stale source IP).
     """
@@ -2635,30 +2635,59 @@ def test_stored_peer_refresh_from_pair_request_updates_all_documented_fields() -
     )
 
     new_pubkey = b"\x22" * 32
-    peer.refresh_from_pair_request(
+    changed = peer.refresh_from_pair_request(
         pin_sha256="newpin",
         static_x25519_pub=new_pubkey,
         label="renamed",
-        paired_at=2.0,
         peer_ip="10.0.0.7",
         friendly_name="Nicks-Mac-Studio",
         ha_addon=True,
         label_auto=True,
     )
 
+    assert changed is True
     # All documented fields refreshed.
     assert peer.pin_sha256 == "newpin"
     assert peer.static_x25519_pub == new_pubkey
     assert peer.label == "renamed"
-    assert peer.paired_at == 2.0
     assert peer.peer_ip == "10.0.0.7"
     assert peer.friendly_name == "Nicks-Mac-Studio"
     assert peer.ha_addon is True
     assert peer.label_auto is True
     # ``dashboard_id`` is the primary key — intentionally left
     # alone; mutating it would orphan the dict entry under the
-    # caller.
+    # caller. ``paired_at`` keeps the original pair time.
     assert peer.dashboard_id == "alpha"
+    assert peer.paired_at == 1.0
+
+
+def test_stored_peer_refresh_keeps_captured_display_fields_on_empty() -> None:
+    """Blank label / friendly_name in the request must not blank captured values."""
+    peer = StoredPeer(
+        dashboard_id="alpha",
+        pin_sha256="pin",
+        static_x25519_pub=b"\x11" * 32,
+        label="old",
+        paired_at=1.0,
+        friendly_name="Office-PC",
+    )
+
+    changed = peer.refresh_from_pair_request(
+        pin_sha256="pin",
+        static_x25519_pub=b"\x11" * 32,
+        label="",
+        peer_ip="",
+        friendly_name="",
+        ha_addon=False,
+        label_auto=True,
+    )
+
+    assert changed is False
+    assert peer.friendly_name == "Office-PC"
+    assert peer.label == "old"
+    assert peer.peer_ip == ""
+    # label_auto travels with the label; a retained label keeps its flag.
+    assert peer.label_auto is False
 
 
 async def test_start_seeds_approved_peers_dict_from_disk(tmp_path: Path) -> None:
@@ -3383,18 +3412,17 @@ async def test_record_pair_request_pending_pubkey_mismatch_returns_rejected(
     )
 
 
-async def test_record_pair_request_already_approved_same_pin_returns_approved(
+async def test_record_pair_request_already_approved_same_pin_refreshes_row(
     tmp_path: Path,
 ) -> None:
     """
-    Pair-request from a still-trusted peer (same pin) returns "approved", no row change.
+    Re-pair from a still-trusted peer (same pin) stays APPROVED and refreshes the row.
 
-    Demoting an already-trusted peer back to PENDING on every
-    stray pair_request would force the receiver-side user to
-    re-approve on every offloader hiccup; pin the
-    no-demotion contract for the legitimate case (same dashboard
-    id + same pin = same peer, just resending pair_request by
-    mistake).
+    The row must never demote to PENDING (that would force a
+    re-approve on every offloader hiccup), but the request's
+    introduction fields are authoritative: a corrected label /
+    display identity reaches the receiver's list without an
+    unpair-and-re-approve round.
     """
     controller = _make_controller(config_dir=tmp_path)
     controller.offloader._db.bus = MagicMock()
@@ -3413,16 +3441,110 @@ async def test_record_pair_request_already_approved_same_pin_returns_approved(
         dashboard_id="alpha",
         pin_sha256=pin,
         static_x25519_pub=pubkey,
-        label="renamed-but-ignored",
+        label="renamed",
         peer_ip="10.0.0.1",
+        friendly_name="Office-PC",
+        ha_addon=True,
+        label_auto=True,
     )
 
     assert response.response == "approved"
     [peer] = controller.receiver.state.approved_peers.values()
     assert peer.pin_sha256 == pin
-    assert peer.label == "alpha"
+    assert peer.label == "renamed"
+    assert peer.peer_ip == "10.0.0.1"
+    assert peer.friendly_name == "Office-PC"
+    assert peer.ha_addon is True
+    assert peer.label_auto is True
+    # The original pair time survives the re-pair.
     assert peer.paired_at == 1.0
+    # Exactly one event — a re-pair must not also fire a status change.
+    fire = controller.offloader._db.bus.fire
+    fire.assert_called_once()
+    event_type, payload = fire.call_args.args
+    assert event_type is EventType.REMOTE_BUILD_PEER_REFRESHED
+    assert payload == {
+        "dashboard_id": "alpha",
+        "pin_sha256": pin,
+        "label": "renamed",
+        "peer_ip": "10.0.0.1",
+        "paired_at": peer.paired_at,
+        "friendly_name": "Office-PC",
+        "ha_addon": True,
+        "label_auto": True,
+    }
+    # The refreshed row reaches disk through the debounced store save.
+    await controller.receiver._peers_store.async_save_now()
+    saved = json.loads((tmp_path / ".receiver_peers.json").read_text())
+    [row] = saved["peers"]
+    assert row["label"] == "renamed"
+
+
+async def test_record_pair_request_noop_repair_skips_save_and_event(
+    tmp_path: Path,
+) -> None:
+    """A retry-loop re-pair carrying identical values fires no event."""
+    controller = _make_controller(config_dir=tmp_path)
+    controller.offloader._db.bus = MagicMock()
+    pubkey = b"\x22" * 32
+    pin = hashlib.sha256(pubkey).hexdigest()
+    _seed_peer(
+        controller,
+        _stored_peer(
+            dashboard_id="alpha",
+            pin_sha256=pin,
+            static_x25519_pub=pubkey,
+            label="alpha",
+            paired_at=1.0,
+        ),
+    )
+
+    response = await controller.receiver.record_pair_request(
+        dashboard_id="alpha",
+        pin_sha256=pin,
+        static_x25519_pub=pubkey,
+        label="alpha",
+        peer_ip="192.168.1.10",
+    )
+
+    assert response.response == "approved"
     controller.offloader._db.bus.fire.assert_not_called()
+    # Flushing writes only when a save was scheduled, so the file's
+    # absence proves the save was skipped, not merely still debounced.
+    await controller.receiver._peers_store.async_save_now()
+    assert not (tmp_path / ".receiver_peers.json").exists()
+
+
+async def test_record_pair_request_repair_payload_keeps_captured_display_fields(
+    tmp_path: Path,
+) -> None:
+    """An old offloader's blank display values must not blank the event payload."""
+    controller = _make_controller(config_dir=tmp_path)
+    controller.offloader._db.bus = MagicMock()
+    pubkey = b"\x22" * 32
+    pin = hashlib.sha256(pubkey).hexdigest()
+    seeded = _stored_peer(
+        dashboard_id="alpha",
+        pin_sha256=pin,
+        static_x25519_pub=pubkey,
+        label="alpha",
+        paired_at=1.0,
+    )
+    seeded.friendly_name = "Office-PC"
+    _seed_peer(controller, seeded)
+
+    response = await controller.receiver.record_pair_request(
+        dashboard_id="alpha",
+        pin_sha256=pin,
+        static_x25519_pub=pubkey,
+        label="",
+        peer_ip="10.0.0.1",
+    )
+
+    assert response.response == "approved"
+    _, payload = controller.offloader._db.bus.fire.call_args.args
+    assert payload["label"] == "alpha"
+    assert payload["friendly_name"] == "Office-PC"
 
 
 async def test_record_pair_request_unknown_dashboard_id_closed_window_returns_no_pairing_window(
@@ -5021,7 +5143,7 @@ def test_dashboard_display_identity_falls_back_without_advertiser(
 ) -> None:
     """No advertiser (zeroconf down) → the hostname-derived default label."""
     monkeypatch.setattr(
-        "esphome_device_builder.controllers.remote_build.display_identity.default_friendly_name",
+        "esphome_device_builder.helpers.dashboard_advertise.default_friendly_name",
         lambda: "fallback-host",
     )
     db = MagicMock()

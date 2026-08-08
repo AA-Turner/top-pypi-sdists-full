@@ -1,0 +1,1 @@
+import{D as e,T as t,o as n}from"./chunk-V7LPWEOD-_NoD23F_.js";import"./dist-B93fm1e-.js";import{t as r}from"./check-DUuVcuhA.js";var i=e();function a({tickClasses:e,...a}){return(0,i.jsx)(n,{...a,children:(0,i.jsx)(r,{className:t(`h-4 w-4 fill-success-300`,e)})})}export{a as t};

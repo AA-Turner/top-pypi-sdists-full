@@ -39,8 +39,9 @@
 #include "lo/lo_core.h"
 #include "lockdet/lockdet_core.h"
 #include "loop_filter/loop_filter_core.h"
-#include "telemetry/telemetry.h"
+#include "dp_tlm/dp_tlm_core.h"
 #include <math.h>
+#include "telemetry/telemetry_core.h"
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -296,10 +297,10 @@ size_t costas_steps_max_out(costas_state_t *state);
  * >>> k = np.arange(len(sig))
  * >>> rx = (sig * np.exp(2j * np.pi * 0.003 * k)).astype(np.complex64)
  * >>> c = Costas(bn=0.05, zeta=0.707, tsamps=tsamps)
- * >>> sym = c.steps(rx)             # one prompt symbol per tsamps samples
+ * >>> sym = c.steps(rx)             # one prompt per tsamps samples
  * >>> sym.shape
  * (4000,)
- * >>> round(c.norm_freq, 4)         # pulled onto the 0.003 cyc/sample residual
+ * >>> round(c.norm_freq, 4)         # pulled onto the 0.003 residual
  * 0.003
  * >>> c.lock_metric > 0.9
  * True
@@ -324,8 +325,8 @@ size_t costas_steps(costas_state_t *state, const float complex *x, size_t x_len,
  * @code
  * >>> from doppler.track import Costas
  * >>> c = Costas(bn=0.05, zeta=0.707, init_norm_freq=0.01, tsamps=16)
- * >>> c.configure(0.02, 1.0)                    # narrow the loop, over-damp
- * >>> (round(c.bn, 3), round(c.norm_freq, 3))   # new gains, estimate kept
+ * >>> c.configure(0.02, 1.0)              # narrow the loop, over-damp
+ * >>> (round(c.bn, 3), round(c.norm_freq, 3))  # new gains, est kept
  * (0.02, 0.01)
  *
  * @endcode
@@ -398,7 +399,7 @@ int costas_get_locked(const costas_state_t *state);
  * costas_configure_lock). Passing NULL detaches.  Setup path, never hot:
  * call before the producer thread starts stepping; the context is
  * borrowed and must outlive the attachment (SPSC rules in
- * telemetry/telemetry.h).
+ * dp_tlm/dp_tlm_core.h).
  * @param state  Must be non-NULL.
  * @param tlm    Telemetry context to attach, or NULL to detach.
  * @param prefix Probe-name prefix, e.g. "car" or "ch0.car".
@@ -413,7 +414,7 @@ int costas_get_locked(const costas_state_t *state);
  * >>> tlm = Telemetry(1 << 12)
  * >>> c = Costas(bn=0.05, zeta=0.707, tsamps=64)
  * >>> c.set_telemetry(tlm, "car")
- * >>> sorted(tlm.probe_names())
+ * >>> sorted(tlm.probe_names)
  * ['car.e', 'car.freq', 'car.lock', 'car.locked']
  * >>> x = np.ones(64 * 100, dtype=np.complex64)
  * >>> _ = c.steps(x)

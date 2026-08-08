@@ -24,7 +24,7 @@ import logging
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Dict, Mapping, Optional, Tuple
+from typing import Any, Callable, Dict, List, Mapping, Optional, Tuple
 
 from ..cell_adopt import AdoptOutcome
 from ..component_vocab import denoiser_components
@@ -272,6 +272,9 @@ def arm_aot(
             meta = None
     lifted_target: Any = None
     lifted_installed = False
+    #: pgw#999: why the lifted-binding install failed, if it did. Carried into
+    #: the refusal instead of dying in a logger no pod exposes.
+    lifted_install_error = ""
     mode = str((meta or {}).get("mode") or "")
     if arm_route(mode) is None:
         # A cell whose mode this runtime has no arm for must decline BY NAME
@@ -295,8 +298,26 @@ def arm_aot(
         # code; a guessed name on a non-UNet family would silently skip the
         # install and waste the arm).
         targets = [str(t) for t in ((meta or {}).get("targets") or ())]
-        module_name = str(
-            (meta or {}).get("module") or (targets[0] if targets else ""))
+        if not targets:
+            # pgw#1001: a packed multi-entry cell records its targets PER
+            # ENTRY and carries no top-level `targets`/`module` (measured:
+            # both None on a real 5-entry lora64 cell). Without this the name
+            # resolved to "" and the lifted install was silently skipped.
+            seen: List[str] = []
+            for entry in ((meta or {}).get("entries") or {}).values():
+                name = str((entry or {}).get("target") or "").strip()
+                if name and name not in seen:
+                    seen.append(name)
+            targets = seen
+        # ...and among them the BRANCH-CAPABLE one: `decoder` sorts first
+        # among entry names, and a lifted forward on a module with no branch
+        # container fails by name. `branch_targets` is the authority.
+        branch_capable = lora_lifted.branch_targets(pipe)
+        module_name = str((meta or {}).get("module") or "")
+        if not module_name:
+            module_name = next(
+                (t for t in targets if t in branch_capable),
+                targets[0] if targets else "")
         lifted_target = (
             getattr(pipe, module_name, None) if module_name else None)
         if (lifted_target is not None
@@ -305,11 +326,27 @@ def arm_aot(
                 lora_lifted.install_lifted_lora_forward(lifted_target, bucket)
                 lifted_installed = True
             except Exception as exc:  # noqa: BLE001 — arm decides
+                # pgw#999: KEPT, not merely logged. This branch predicted its
+                # own downstream symptom ("will refuse at
+                # assert_lifted_contract") and then discarded the cause, so
+                # the refusal that follows names the gate that noticed rather
+                # than the install that failed. Same discard as the one this
+                # issue is closing, one frame deeper, on exactly the
+                # bucket-bearing path a w8a8-lora64 family takes.
+                lifted_install_error = f"{type(exc).__name__}: {exc}"
                 logger.warning(
                     "aot arm: lifted-binding install failed on %r (%s); a "
                     "lifted artifact will refuse at assert_lifted_contract",
                     module_name, exc)
     outcome = aot_serve.enable(pipe, cfg, cache_dir, artifact)
+    if not outcome.armed and lifted_install_error:
+        # The refusal is real; its ROOT is one frame up. Both, in the order a
+        # reader needs them: what refused, and what made it refuse.
+        outcome = AdoptOutcome.miss(
+            outcome.reason or "lifted_install_failed",
+            f"{outcome.detail} [root: lifted-binding install failed on "
+            f"{module_name!r} — {lifted_install_error}]".strip(),
+            outcome.identity)
     if outcome.armed:
         if gate_cell_numerics(pipe, cfg):
             return outcome

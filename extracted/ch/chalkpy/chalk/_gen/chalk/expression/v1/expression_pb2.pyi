@@ -1,5 +1,6 @@
 from chalk._gen.chalk.arrow.v1 import arrow_pb2 as _arrow_pb2
 from chalk._gen.chalk.primitive.v1 import primitive_pb2 as _primitive_pb2
+from google.protobuf import any_pb2 as _any_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
@@ -678,6 +679,8 @@ class RichArgument(_message.Message):
         "py_object_value",
         "py_object_v2_value",
         "batch_udf_value",
+        "flat_expr_value",
+        "canonical_proto_value",
         "list_value",
         "unordered_dict_value",
     )
@@ -686,6 +689,8 @@ class RichArgument(_message.Message):
     PY_OBJECT_VALUE_FIELD_NUMBER: _ClassVar[int]
     PY_OBJECT_V2_VALUE_FIELD_NUMBER: _ClassVar[int]
     BATCH_UDF_VALUE_FIELD_NUMBER: _ClassVar[int]
+    FLAT_EXPR_VALUE_FIELD_NUMBER: _ClassVar[int]
+    CANONICAL_PROTO_VALUE_FIELD_NUMBER: _ClassVar[int]
     LIST_VALUE_FIELD_NUMBER: _ClassVar[int]
     UNORDERED_DICT_VALUE_FIELD_NUMBER: _ClassVar[int]
     primitive_value: _primitive_pb2.Primitive
@@ -693,6 +698,8 @@ class RichArgument(_message.Message):
     py_object_value: PyObject
     py_object_v2_value: PyObjectV2
     batch_udf_value: BatchUDF
+    flat_expr_value: FlatLogicalExpr
+    canonical_proto_value: _any_pb2.Any
     list_value: RichArgumentList
     unordered_dict_value: RichArgumentUnorderedDict
     def __init__(
@@ -702,6 +709,8 @@ class RichArgument(_message.Message):
         py_object_value: _Optional[_Union[PyObject, _Mapping]] = ...,
         py_object_v2_value: _Optional[_Union[PyObjectV2, _Mapping]] = ...,
         batch_udf_value: _Optional[_Union[BatchUDF, _Mapping]] = ...,
+        flat_expr_value: _Optional[_Union[FlatLogicalExpr, _Mapping]] = ...,
+        canonical_proto_value: _Optional[_Union[_any_pb2.Any, _Mapping]] = ...,
         list_value: _Optional[_Union[RichArgumentList, _Mapping]] = ...,
         unordered_dict_value: _Optional[_Union[RichArgumentUnorderedDict, _Mapping]] = ...,
     ) -> None: ...

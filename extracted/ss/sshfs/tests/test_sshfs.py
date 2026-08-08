@@ -4,15 +4,18 @@ import secrets
 import tempfile
 import warnings
 from concurrent import futures
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from types import SimpleNamespace
 
 import fsspec
 import pytest
-from asyncssh.sftp import SFTPFailure
+from asyncssh.sftp import SFTPAttrs, SFTPFailure
 from importlib_metadata import entry_points
 
 from sshfs import SSHFileSystem
+from sshfs.file import SSHFile
+from sshfs.utils import READ_BLOCK_SIZE, WRITE_BLOCK_SIZE
 
 _STATIC = (Path(__file__).parent / "static").resolve()
 USERS = {"user": _STATIC / "user.key"}
@@ -100,6 +103,43 @@ def test_fsspec_url_parsing(ssh_server, remote_dir, user="user"):
             }
 
 
+def test_sftp_client_kwargs(ssh_server, base_remote_dir, user="user"):
+    fs = SSHFileSystem(
+        host=ssh_server.host,
+        port=ssh_server.port,
+        username=user,
+        client_keys=[USERS[user]],
+        sftp_client_kwargs={"sftp_version": 3},
+    )
+    assert fs._pool.sftp_client_kwargs == {"sftp_version": 3}
+
+    file = posixpath.join(base_remote_dir, "sftp_client_kwargs_probe")
+    fs.touch(file)
+    assert fs.exists(file)
+
+
+def test_sftp_client_kwargs_path_encoding(
+    ssh_server, base_remote_dir, user="user"
+):
+    # path_encoding=None makes asyncssh deliver remote paths as raw
+    # bytes instead of str, for servers with non-UTF-8 file names (#39).
+    fs = SSHFileSystem(
+        host=ssh_server.host,
+        port=ssh_server.port,
+        username=user,
+        client_keys=[USERS[user]],
+        sftp_client_kwargs={"path_encoding": None},
+    )
+
+    directory = Path(base_remote_dir) / "path_encoding_probe"
+    directory.mkdir()
+    (directory / "data.txt").write_bytes(b"data")
+
+    encoded = str(directory).encode()
+    assert fs.ls(encoded, detail=False) == [encoded + b"/data.txt"]
+    assert fs.cat_file(encoded + b"/data.txt") == b"data"
+
+
 def test_info(fs, remote_dir):
     fs.touch(remote_dir + "/a.txt")
     details = fs.info(remote_dir + "/a.txt")
@@ -116,6 +156,22 @@ def test_info(fs, remote_dir):
     assert details["name"] == remote_dir + "/dir/"
 
 
+def test_info_timestamps_are_tz_aware_utc(fs, remote_dir):
+    fs.touch(remote_dir + "/a.txt")
+    details = fs.info(remote_dir + "/a.txt")
+    for key in ["time", "mtime"]:
+        assert details[key].tzinfo == timezone.utc
+
+
+def test_decode_attributes_missing_timestamps(fs):
+    attrs = SFTPAttrs(
+        permissions=0o100644, size=0, uid=0, gid=0, atime=None, mtime=None
+    )
+    details = fs._decode_attributes(attrs)
+    assert details["time"] is None
+    assert details["mtime"] is None
+
+
 def test_move(fs, remote_dir):
     fs.touch(remote_dir + "/a.txt")
     initial_info = fs.info(remote_dir + "/a.txt")
@@ -128,6 +184,17 @@ def test_move(fs, remote_dir):
 
     initial_info.pop("name")
     secondary_info.pop("name")
+
+    initial_mtime = initial_info.pop("mtime")
+    initial_atime = initial_info.pop("time")
+    secondary_mtime = secondary_info.pop("mtime")
+    secondary_atime = secondary_info.pop("time")
+    assert abs(secondary_mtime - initial_mtime) <= timedelta(
+        seconds=1
+    ), "mtime differs more than expected"
+    assert abs(secondary_atime - initial_atime) <= timedelta(
+        seconds=1
+    ), "atime differs more than expected"
     assert initial_info == secondary_info
 
 
@@ -180,9 +247,9 @@ def test_ls(fs, remote_dir):
         fs.touch(file)
         files.add(file)
 
-    assert set(fs.ls(remote_dir + "dir/")) == files
+    assert set(fs.ls(remote_dir + "dir/", detail=False)) == files
 
-    dirs = fs.ls(remote_dir + "dir/", detail=True)
+    dirs = fs.ls(remote_dir + "dir/")
     expected = [fs.info(file) for file in files]
 
     by_name = lambda details: details["name"]
@@ -190,6 +257,45 @@ def test_ls(fs, remote_dir):
     expected.sort(key=by_name)
 
     assert dirs == expected
+
+
+def test_walk(fs, remote_dir):
+    fs.mkdir(remote_dir + "/a")
+    fs.mkdir(remote_dir + "/a/b")
+    fs.touch(remote_dir + "/a/f1")
+    fs.touch(remote_dir + "/a/b/f2")
+
+    result = {
+        root: (sorted(dirs), sorted(files))
+        for root, dirs, files in fs.walk(remote_dir + "/a")
+    }
+    assert result == {
+        remote_dir + "/a": (["b"], ["f1"]),
+        remote_dir + "/a/b": ([], ["f2"]),
+    }
+
+
+def test_root(fs):
+    # An explicit "/" must resolve to the filesystem root, not the
+    # user's home directory.
+    assert fs.exists("/")
+    assert fs.isdir("/")
+    assert fs.info("/")["name"] == "/"
+
+
+def test_strip_protocol():
+    strip = SSHFileSystem._strip_protocol
+    # An explicit absolute root is preserved so walk("/") lists from the root.
+    assert strip("/") == "/"
+    assert strip("ssh://host/") == "/"
+    # Empty and relative paths still resolve against the home directory
+    # instead of being redirected to the root.
+    assert strip("") == ""
+    assert strip("ssh://host") == ""
+    assert strip("foo/bar") == "foo/bar"
+    # Regular absolute paths are unaffected.
+    assert strip("/foo/bar") == "/foo/bar"
+    assert strip("ssh://host/foo/bar") == "/foo/bar"
 
 
 def test_mkdir(fs, remote_dir):
@@ -231,6 +337,50 @@ def test_exceptions(fs, remote_dir):
     fs.makedirs(remote_dir + "/dir/a/b/c")
     with pytest.raises(FileExistsError):
         fs.makedirs(remote_dir + "/dir/a/b/c")
+
+
+def test_open_block_size(fs, remote_dir):
+    # mockssh (paramiko) does not implement limits@openssh.com, so the
+    # tuned defaults must survive asyncssh's synthesized 16 KiB floors.
+    fs.touch(remote_dir + "/a.txt")
+    with fs.open(remote_dir + "/a.txt", "rb") as file:
+        assert file.blocksize == READ_BLOCK_SIZE * file.max_requests
+    with fs.open(remote_dir + "/b.txt", "wb") as file:
+        assert file.blocksize == WRITE_BLOCK_SIZE * file.max_requests
+    # An explicit block_size always wins.
+    with fs.open(remote_dir + "/c.txt", "wb", block_size=4096) as file:
+        assert file.blocksize == 4096 * file.max_requests
+
+
+def test_determine_block_size():
+    reader = SimpleNamespace(readable=lambda: True)
+    writer = SimpleNamespace(readable=lambda: False)
+    determine = SSHFile._determine_block_size
+
+    # The server reported its limits: use them.
+    reported = SimpleNamespace(
+        limits=SimpleNamespace(
+            max_packet_len=262144,
+            max_read_len=261120,
+            max_write_len=131072,
+        )
+    )
+    assert determine(reader, reported) == 261120
+    assert determine(writer, reported) == 131072
+
+    # No limits@openssh.com support: asyncssh synthesizes 16 KiB
+    # read/write floors with max_packet_len == 0; keep the defaults.
+    synthesized = SimpleNamespace(
+        limits=SimpleNamespace(
+            max_packet_len=0, max_read_len=16384, max_write_len=16384
+        )
+    )
+    assert determine(reader, synthesized) == READ_BLOCK_SIZE
+    assert determine(writer, synthesized) == WRITE_BLOCK_SIZE
+
+    # asyncssh without the limits API at all.
+    assert determine(reader, SimpleNamespace()) == READ_BLOCK_SIZE
+    assert determine(writer, SimpleNamespace()) == WRITE_BLOCK_SIZE
 
 
 def test_open_rw(fs, remote_dir):

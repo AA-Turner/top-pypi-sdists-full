@@ -28,7 +28,7 @@ from typing import Annotated
 import typer
 
 from .client import SlackApiError, slack_paginate
-from .common import AI_TOOLS_FOOTER_MARKER, REVIEW_METADATA_EVENT_TYPE, get_slack_token
+from .common import AI_TOOLS_FOOTER_MARKERS, REVIEW_METADATA_EVENT_TYPE, get_slack_token
 
 SEARCH_WINDOW_DAYS = 30
 PAGE_LIMIT = 200
@@ -137,8 +137,13 @@ def _metadata_matches(msg: dict[str, object], project_url: str, mr_iid: int) -> 
 
 
 def _is_ai_tools_message(msg: dict[str, object]) -> bool:
-    """Whether the message was posted by our tooling (carries the ai-footer marker)."""
-    return AI_TOOLS_FOOTER_MARKER in _extract_text(msg)
+    """Whether the message was posted by our tooling (carries an ai-footer marker).
+
+    Any known marker counts: messages posted before the registry migration carry
+    the PyPI-link footer, newer ones the GitLab one.
+    """
+    text = _extract_text(msg)
+    return any(marker in text for marker in AI_TOOLS_FOOTER_MARKERS)
 
 
 def _to_match(msg: dict[str, object]) -> MatchResult:

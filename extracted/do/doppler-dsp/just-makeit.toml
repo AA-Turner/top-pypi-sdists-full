@@ -1,7 +1,7 @@
 include = ["objects/*.toml"]
 
 [project]
-jm_version = "0.43.0"
+jm_version = "0.51.0"
 name = "doppler"
 version = "0.1.0"
 build = "cmake"
@@ -9,6 +9,14 @@ build = "cmake"
 # — see docs). Omitting "windows" drops jm's per-component MinGW DLL-copy
 # boilerplate (jm-gh-213); the drift gate treats its absence as correct.
 platforms = ["linux", "macos"]
+# py_format_command (gh-746): jm runs the project's OWN pinned ruff over the
+# generated .pyi stubs + re-export __init__.py shims, so generated Python comes
+# out in doppler's exact ruff style (quotes/spacing/blank-lines) instead of an
+# island of jm's own layout. Pinned through uv.lock (the same ruff `make lint`
+# uses), so the bytes are stable local<->CI. gh-744 owns the 79-col WIDTH; this
+# is style only — and 0.44.0's docstring-closing-delimiter precondition fix
+# means ruff no longer collapses a summary back over 79.
+py_format_command = ["uv", "run", "--group", "dev", "ruff", "format"]
 # NOT adopting [project] c_style = "clang-format" (gh-265): jm 0.30.1's
 # _cfmt.py walks and reformats ALL of native/inc/** + native/src/** with
 # no exclusion, including the sacred native/inc/** headers that doppler's
@@ -83,8 +91,36 @@ c_deps = ["hbdecim", "resamp", "wfmcompose"]
 # forward declaration for it). The gh-133 check now treats `static` as
 # optional before inline/JM_FORCEINLINE, so the existing definition alone
 # satisfies the manifest again.
+# jm 0.51.0 (gh-823 Ask B) added a THIRD constructor-drift axis -- optionality --
+# and made the whole kwargs-drift class fail `jm status --check` rather than
+# qualify the "OK" line. It found three in doppler. One was a real, shipping
+# defect and is FIXED: CarrierAcquisition's published constructor could not be
+# called as documented (see the 0.42.0 CHANGELOG). The two below are the same
+# CLASS of divergence but neither breaks a documented call, so they are exempted
+# here rather than rushed:
+#
+#   resample_ext_Resampler.c -- the binding is a SUPERSET. It still accepts
+#     `bank=` (a real, working custom polyphase bank: passing a non-array gets
+#     "bank must be 2-D float32", not a TypeError) while the manifest and stub
+#     no longer declare it. Calling as documented works; the gap is that a
+#     working parameter is undocumented. Declaring it is doppler#635, and it
+#     wants jm's `optional` array init-param, which is a separate ask.
+#
+#   wfm_ext_wfm_synth.c -- positional ORDER drift on `_SynthEngine`, which is
+#     underscore-private (the public `wfm.Synth` is compose.py's wrapper) and is
+#     only ever constructed with keywords, in tests. Keyword callers bind
+#     correctly, so nothing is currently wrong; a positional caller would bind
+#     silently to the wrong fields, which is why it is tracked rather than
+#     accepted forever.
+#
+# NB `status_allow` matches PATHS, not findings, so each entry also accepts that
+# file's stale/missing classification -- it is broader than the reason it was
+# added for (just-makeit#823). Re-check both on every pin bump; jm lists an
+# allowed kwargs finding under KWARGS with a `~`, so they stay visible.
 status_allow = [
     "zensical.toml",
+    "native/src/resample/resample_ext_Resampler.c",
+    "native/src/wfm/wfm_ext_wfm_synth.c",
 ]
 
 # Benchmark only the 64k block (jm-gh-390). doppler dropped the small-block
@@ -253,6 +289,12 @@ header          = "timing/timing_core.h"
 package         = "wfm"
 type_name       = "SampleClock"
 init_fn         = "dp_sample_clock_init"
+# gh-794: publish the handle's pointer so a capture can be CONSTRUCTED over
+# this clock (its `clock` init-param is a gh-790 capsule param). A clock is
+# exactly the long-lived borrowed resource that shape exists for -- and the
+# capture must borrow it rather than copy fs/t0, so the two cannot drift.
+# Borrowed, non-owning, NULL destructor; the closed-handle guard still applies.
+capsule         = "doppler.wfm.dp_sample_clock"
 # Empty close_fn: the clock owns no internal resources, so teardown is jm's
 # free(self->h) alone (no <backing>_close finalizer). init_fn makes jm own the
 # malloc/free.
@@ -358,6 +400,28 @@ check_return = true
 [[module.wfm_writer.functions.params]]
 name = "path"
 type = "path"
+# REQUIRED, exactly as on Writer, and for the stronger version of the same
+# reason: xdelta = 1/fs is most of what a BLUE header IS. A detached pair
+# written with a forgotten fs is a real capture on disk carrying no rate
+# anywhere, and nobody was ever asked for one. Omitting the key removed the
+# FABRICATION (no more invented 1 MHz); it did not make anyone answer, and
+# silence stayed indistinguishable from "unknown".
+#
+# fs is second, mirroring Writer(path, fs, ...) — one rule across every entry
+# point that writes a rate. jm generates this function's call positionally, so
+# the position also fixes the injected prototype and the hand-written shim in
+# write_blue_header.c; the FILE-based kernel (wfm_blue_write_hcb) is untouched,
+# and the shim has no other caller.
+#
+# What makes it mandatory is having NO `default`, and nothing else. A module
+# FUNCTION does not auto-order its params the way an object's init_params do
+# (jm errors unless the undefaulted ones come first), and `required` is an
+# init_param key that jm does not read here at all — it sat on this param
+# doing nothing until jm 0.50.0's gh-816 check said so out loud.
+# Pass fs=0.0 to state "not known" — that still writes xdelta 0.
+[[module.wfm_writer.functions.params]]
+name = "fs"
+type = "double"
 [[module.wfm_writer.functions.params]]
 name = "sample_type"
 type = "int"
@@ -368,10 +432,6 @@ name = "endian"
 type = "int"
 enum = "endian"
 default = "le"
-[[module.wfm_writer.functions.params]]
-name = "fs"
-type = "double"
-default = "1e6"
 [[module.wfm_writer.functions.params]]
 name = "fc"
 type = "double"
@@ -388,6 +448,13 @@ default = "0"
 name = "detached"
 type = "int"
 default = "1"
+# Capture start, UNIX seconds → the header's J1950 timecode. Unset by
+# default; see objects/wfm_writer.toml's t0 for why this one is optional
+# where fs is not.
+[[module.wfm_writer.functions.params]]
+name = "t0"
+type = "double"
+default = "0.0"
 
 [module.wfm_sink]
 kind            = "handle"
@@ -399,8 +466,8 @@ type_name       = "StreamSink"
 context_manager = true
 close_fn        = "wfm_stream_sink_close"
 create_fn       = "wfm_stream_sink_open"
-# telemetry_core: stream_core_obj's tlm_sink.c references dp_tlm_read.
-extra_link_libs = ["$<TARGET_OBJECTS:stream_core_obj>", "telemetry_core", "nats_vendor_static", "Threads::Threads", "m"]
+# dp_tlm_core: stream_core_obj's tlm_sink.c references dp_tlm_read.
+extra_link_libs = ["$<TARGET_OBJECTS:stream_core_obj>", "dp_tlm_core", "nats_vendor_static", "Threads::Threads", "m"]
 
 [[module.wfm_sink.create_args]]
 name = "endpoint"
@@ -1014,13 +1081,28 @@ type = "int"
 enum = "endian"
 default = "le"
 
+# Left OPTIONAL where Writer and write_blue_header require it, because this
+# is the one caller that does not need to be asked: a Composer already HOLDS
+# a rate per segment, and this very document uses it — the annotation edges
+# are ±fs/(2*sps) from `s->fs`. So `wfm_sigmf_meta_json` now DERIVES an
+# unstated rate from the segments (when they agree), and requiring the
+# argument would only make the caller restate what the scene already knows,
+# while still permitting a stated rate that contradicts the edges beside it.
+# An explicit fs overrides, for rendering the scene at a resampled rate.
 [[module.wfm_compose.serializers.params]]
 name = "fs"
 type = "double"
-default = "1e6"
+default = "0.0"
 
 [[module.wfm_compose.serializers.params]]
 name = "fc"
+type = "double"
+default = "0.0"
+
+# Capture start, UNIX seconds → `captures[0]."core:datetime"` (extended ISO
+# 8601). Unset by default, and omitted from the document when unset.
+[[module.wfm_compose.serializers.params]]
+name = "t0"
 type = "double"
 default = "0.0"
 [module.delay]
@@ -1292,7 +1374,7 @@ Examples
 0
 
 """
-no_generate = "true"
+objects = ["dp_tlm", "dp_tlm_capture"]
 
 [module.stream]
 doc = """
@@ -2133,6 +2215,21 @@ values = ["complex", "scalar"]
 [[enum]]
 name = "fc_source"
 values = ["none", "FREQ", "RF_FREQ", "CENTER_FREQ", "F_C", "core:frequency"]
+
+# Where `fs` came from. Same shape and same reason as fc_source: index 0 is
+# "none", and the rest name the metadata that carried the rate. Order matches
+# wfm_fs_source_t (wfm_reader_core.h).
+[[enum]]
+name = "fs_source"
+values = ["none", "xdelta", "core:sample_rate"]
+
+# Where the capture's start time came from. "none" is the COMMON answer, not
+# an edge case: doppler's own BLUE writer leaves the timecode field zero, so
+# every capture this library writes lands here. Order matches
+# wfm_t0_source_t (wfm_reader_core.h).
+[[enum]]
+name = "t0_source"
+values = ["none", "timecode"]
 
 [[enum]]
 name = "interp_method"

@@ -32,12 +32,14 @@ if TYPE_CHECKING:
     import builtins
 
     from arize._generated.api_client.api_client import ApiClient
+    from arize._generated.api_client.models.integration_scoping_request import (
+        IntegrationScopingRequest,
+    )
     from arize.config import SDKConfiguration
     from arize.integrations.types import (
         AgentIntegration,
         CreateAgentRequestPresetInput,
         CreateAwsBedrockAuth,
-        IntegrationScoping,
         LlmIntegration,
         UpdateAgentRequestPresetInput,
     )
@@ -188,7 +190,7 @@ class IntegrationsClient:
         *,
         name: str,
         config: CreateLlmConfigInput,
-        scopings: builtins.list[IntegrationScoping] | None = None,
+        scopings: builtins.list[IntegrationScopingRequest] | None = None,
     ) -> LlmIntegration:
         """Create an LLM integration.
 
@@ -251,7 +253,7 @@ class IntegrationsClient:
         headers: dict[str, str] | None = None,
         request_presets: builtins.list[CreateAgentRequestPresetInput]
         | None = None,
-        scopings: builtins.list[IntegrationScoping] | None = None,
+        scopings: builtins.list[IntegrationScopingRequest] | None = None,
     ) -> AgentIntegration:
         """Create an agent integration.
 
@@ -314,7 +316,7 @@ class IntegrationsClient:
         project_id: str | UNSET = _UNSET,
         location: str | UNSET = _UNSET,
         project_access_label: str | UNSET = _UNSET,
-        scopings: builtins.list[IntegrationScoping] | UNSET = _UNSET,
+        scopings: builtins.list[IntegrationScopingRequest] | UNSET = _UNSET,
     ) -> LlmIntegration:
         """Update an LLM integration by ID or name.
 
@@ -434,7 +436,7 @@ class IntegrationsClient:
         headers: dict[str, str] | None | UNSET = _UNSET,
         request_presets: builtins.list[UpdateAgentRequestPresetInput]
         | UNSET = _UNSET,
-        scopings: builtins.list[IntegrationScoping] | UNSET = _UNSET,
+        scopings: builtins.list[IntegrationScopingRequest] | UNSET = _UNSET,
     ) -> AgentIntegration:
         """Update an agent integration by ID or name.
 

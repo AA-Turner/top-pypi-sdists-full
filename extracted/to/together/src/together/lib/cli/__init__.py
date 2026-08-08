@@ -85,6 +85,7 @@ from together.lib.cli.utils._help_examples import (
     BETA_CLUSTERS_GET_CREDENTIALS_HELP_EXAMPLES,
     BETA_CLUSTERS_REMEDIATIONS_CREATE_HELP_EXAMPLES,
     BETA_MODELS_REMOTE_UPLOADS_CREATE_HELP_EXAMPLES,
+    FINE_TUNING_DOWNLOAD_TOKENIZED_DATASET_HELP_EXAMPLES,
 )
 from together.lib.cli.utils._version_check import VersionCheck
 from together.lib.cli.utils._help_formatter import help_formatter
@@ -397,7 +398,10 @@ async def launcher(
         elif not isinstance(e, APIError):
             # API Errors are handled better inside the run_command() function
             # We don't want to raise them here as that will print a stack trace which we do not want.
-            console.print(f"[red]Error:[/red] {escape_rich_markup(str(e))}")
+            if config.json:
+                console.print_json(openapi_dumps({"error": str(e)}).decode("utf-8"))
+            else:
+                console.print(f"[red]Error:[/red] {escape_rich_markup(str(e))}")
 
         sys.exit(1)
     finally:
@@ -460,6 +464,11 @@ fine_tuning_app.command(
     (f"{_CLI}.fine_tuning.download:download"),
     help="Download a fine-tuned model's weights",
     help_epilogue=FINE_TUNING_DOWNLOAD_HELP_EXAMPLES,
+)
+fine_tuning_app.command(
+    (f"{_CLI}.fine_tuning.download_tokenized_dataset:download_tokenized_dataset"),
+    help="Download a fine-tuning job's tokenized dataset archive",
+    help_epilogue=FINE_TUNING_DOWNLOAD_TOKENIZED_DATASET_HELP_EXAMPLES,
 )
 fine_tuning_app.command((f"{_CLI}.fine_tuning.delete:delete"), alias="-d", help="Delete a fine-tuning job")
 fine_tuning_app.command(
@@ -662,16 +671,18 @@ beta_endpoints_app.command(
 beta_endpoints_app.command(
     (f"{_CLI}.beta.endpoints.retrieve:retrieve"),
     name="get",
-    help="Get endpoint or deployment details by ID",
+    help="Get endpoint or deployment details by name or ID",
     help_epilogue=BETA_ENDPOINTS_GET_HELP_EXAMPLES,
     sort_key=3,
 )
-beta_endpoints_app.command(
-    (f"{_CLI}.beta.endpoints.retrieve:retrieve"), show=False
-)  # This is just here to allow the default command to work
+# Explicit `retrieve` stays registered (hidden) for `tg beta endpoints retrieve …`.
+beta_endpoints_app.command((f"{_CLI}.beta.endpoints.retrieve:retrieve"), show=False)
+# Implicit get: `tg beta endpoints <name-or-id>` — cyclopts App.default, not token rewriting.
+# (Nested meta.default is not invoked by the root meta launcher's parse_known_args.)
+beta_endpoints_app.default(beta_endpoints_app["retrieve"].default_command)
 beta_endpoints_app.command(
     (f"{_CLI}.beta.endpoints.update:update"),
-    help="Update a deployment's name, autoscaling, or traffic weight",
+    help="Update a deployment's name, autoscaling, traffic weight, or A/B percent",
     help_epilogue=BETA_ENDPOINTS_UPDATE_HELP_EXAMPLES,
     sort_key=4,
 )
@@ -682,6 +693,11 @@ beta_endpoints_app.command(
     sort_key=5,
     help="Delete an endpoint, deployment, A/B experiment, or shadow experiment by ID",
     help_epilogue=BETA_ENDPOINTS_RM_HELP_EXAMPLES,
+)
+beta_endpoints_app.command(
+    (f"{_CLI}.beta.endpoints.events:events"),
+    help="List endpoint audit and lifecycle events",
+    sort_key=6,
 )
 beta_endpoints_app.command(
     (f"{_CLI}.beta.endpoints.shadow:shadow"),

@@ -1,12 +1,16 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from typing import Any, TypeVar, cast
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
+
+if TYPE_CHECKING:
+    from ..models.t_require_spec_instance import TRequireSpecInstance
+
 
 T = TypeVar("T", bound="TRequireSpec")
 
@@ -16,6 +20,7 @@ class TRequireSpec:
     """
     Attributes:
         dependency_groups (list[str] | Unset):
+        instance (TRequireSpecInstance | Unset):
         machine (str | Unset):
         profile (str | Unset):
         provider (str | Unset):
@@ -25,6 +30,7 @@ class TRequireSpec:
     """
 
     dependency_groups: list[str] | Unset = UNSET
+    instance: TRequireSpecInstance | Unset = UNSET
     machine: str | Unset = UNSET
     profile: str | Unset = UNSET
     provider: str | Unset = UNSET
@@ -37,6 +43,10 @@ class TRequireSpec:
         dependency_groups: list[str] | Unset = UNSET
         if not isinstance(self.dependency_groups, Unset):
             dependency_groups = self.dependency_groups
+
+        instance: dict[str, Any] | Unset = UNSET
+        if not isinstance(self.instance, Unset):
+            instance = self.instance.to_dict()
 
         machine = self.machine
 
@@ -55,6 +65,8 @@ class TRequireSpec:
         field_dict.update({})
         if dependency_groups is not UNSET:
             field_dict["dependency_groups"] = dependency_groups
+        if instance is not UNSET:
+            field_dict["instance"] = instance
         if machine is not UNSET:
             field_dict["machine"] = machine
         if profile is not UNSET:
@@ -72,8 +84,17 @@ class TRequireSpec:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
+        from ..models.t_require_spec_instance import TRequireSpecInstance
+
         d = dict(src_dict)
         dependency_groups = cast(list[str], d.pop("dependency_groups", UNSET))
+
+        _instance = d.pop("instance", UNSET)
+        instance: TRequireSpecInstance | Unset
+        if isinstance(_instance, Unset):
+            instance = UNSET
+        else:
+            instance = TRequireSpecInstance.from_dict(_instance)
 
         machine = d.pop("machine", UNSET)
 
@@ -89,6 +110,7 @@ class TRequireSpec:
 
         t_require_spec = cls(
             dependency_groups=dependency_groups,
+            instance=instance,
             machine=machine,
             profile=profile,
             provider=provider,
