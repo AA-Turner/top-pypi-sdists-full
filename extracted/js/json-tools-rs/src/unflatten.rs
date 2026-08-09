@@ -871,7 +871,8 @@ fn set_nested_value_recursive<'a>(
                 }
             } else {
                 // Non-numeric key in array context — convert array to object
-                let mut obj: ObjectMap<'a> = ObjectMap::default();
+                let mut obj: ObjectMap<'a> =
+                    ObjectMap::with_capacity_and_hasher(arr.len() + 1, Default::default());
                 let mut itoa_buf = IntBuf::new();
                 for (i, item) in arr.iter_mut().enumerate() {
                     if !matches!(item, UnflatNode::Null) {

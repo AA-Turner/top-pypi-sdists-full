@@ -4,7 +4,7 @@ Exceptions.
 
 from typing import Optional
 
-import httpx
+import httpx2 as httpx
 
 from .internal_models import meta_v1
 
@@ -34,8 +34,10 @@ class NotReadyError(Exception):
 class ApiError(httpx.HTTPStatusError):
     status: "meta_v1.Status"
 
-    def __init__(self, request: httpx.Request = None, response: httpx.Response = None, status: Optional[dict] = None) -> None:
-        self.status = meta_v1.Status.from_dict(response.json() if response else status)
+    def __init__(
+        self, request: httpx.Request = None, response: httpx.Response = None, status: "Optional[meta_v1.Status]" = None
+    ) -> None:
+        self.status = meta_v1.Status.from_dict(response.json()) if response else status
         super().__init__(self.status.message, request=request, response=response)
 
 

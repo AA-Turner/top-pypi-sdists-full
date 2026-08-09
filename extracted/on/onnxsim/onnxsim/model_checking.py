@@ -1,15 +1,44 @@
-from typing import Iterable, List, Dict, Optional, Set, Union
+from typing import Dict, Iterable, List, Optional, Set, Union
 
+import numpy as np
 import onnx
 import onnx.checker
 import onnx.defs
-import numpy as np
 
 from . import backend
 
 Tensors = Dict[str, np.ndarray]
 TensorShape = List[int]
 TensorShapes = Dict[Optional[str], TensorShape]
+
+# How the values of the random test inputs are generated when the user does not
+# supply their own ``input_data``. See ``compare``'s ``input_fill`` parameter.
+INPUT_FILL_CHOICES = ("random", "ones", "zeros", "arange")
+
+
+def _fill_array(shape: TensorShape, np_type: type, input_fill: str) -> np.ndarray:
+    """Create an array of ``shape`` / ``np_type`` filled according to ``input_fill``.
+
+    ``random`` draws from a uniform ``[0, 1)`` distribution (the historical
+    default), ``ones``/``zeros`` fill with the constant, and ``arange`` fills with
+    ``0, 1, 2, ...`` in row-major order, which is handy for reproducible,
+    easy-to-eyeball checks.
+    """
+    if input_fill == "random":
+        values = np.random.rand(*shape)
+    elif input_fill == "ones":
+        values = np.ones(shape)
+    elif input_fill == "zeros":
+        values = np.zeros(shape)
+    elif input_fill == "arange":
+        values = np.arange(int(np.prod(shape, dtype=np.int64))).reshape(shape)
+    else:
+        raise ValueError(
+            'Unknown input_fill "{}", expected one of {}.'.format(
+                input_fill, ", ".join(INPUT_FILL_CHOICES)
+            )
+        )
+    return np.array(values, dtype=np_type)
 
 
 def _iter_graph_nodes(graph: onnx.GraphProto) -> Iterable[onnx.NodeProto]:
@@ -54,6 +83,9 @@ def compare(
     input_data: Optional[Tensors] = None,
     custom_lib: Optional[str] = None,
     verbose=True,
+    rtol: float = 1e-4,
+    atol: float = 1e-5,
+    input_fill: str = "random",
 ) -> bool:
     """
     :param model_opt: The simplified ONNX model
@@ -62,7 +94,22 @@ def compare(
     :param input_shapes: Shapes of generated random inputs
     :param input_data: User-given data instead of random generated data
     :param custom_lib: ONNX Runtime custom lib for custom ops
+    :param rtol: Relative tolerance for ``numpy.allclose`` when comparing the
+        original and simplified outputs. Increase it for very deep models whose
+        (correct) op reordering accumulates floating-point error beyond the
+        default -- see the RF-DETR XLarge case in ``scripts/rfdetr``.
+    :param atol: Absolute tolerance for ``numpy.allclose`` (see ``rtol``).
+    :param input_fill: How to fill the generated test inputs when ``input_data``
+        is not given. One of ``"random"`` (uniform ``[0, 1)``, the default),
+        ``"ones"``, ``"zeros"`` or ``"arange"`` (``0, 1, 2, ...`` in row-major
+        order).
     """
+    if input_fill not in INPUT_FILL_CHOICES:
+        raise ValueError(
+            'Unknown input_fill "{}", expected one of {}.'.format(
+                input_fill, ", ".join(INPUT_FILL_CHOICES)
+            )
+        )
 
     def get_shape_from_value_info_proto(v: onnx.ValueInfoProto) -> List[int]:
         return [dim.dim_value for dim in v.type.tensor_type.shape.dim]
@@ -93,13 +140,13 @@ def compare(
             return get_shape_from_value_info_proto(v)
         raise RuntimeError('Cannot get shape of "{}"'.format(name))
 
-    def get_elem_type(m: onnx.ModelProto, name: str) -> Optional[int]:
+    def get_elem_type(m: onnx.ModelProto, name: str) -> int:
         v = get_value_info_all(m, name)
         if v is not None:
             return v.type.tensor_type.elem_type
-        return None
+        raise RuntimeError('Cannot get element type of "{}"'.format(name))
 
-    def get_np_type_from_elem_type(elem_type: int) -> int:
+    def get_np_type_from_elem_type(elem_type: int) -> type:
         sizes = (
             None,
             np.float32,
@@ -132,8 +179,7 @@ def compare(
         return input_names
 
     def generate_rand_input(
-        model: Union[str, onnx.ModelProto],
-        input_shapes: Optional[TensorShapes] = None
+        model: Union[str, onnx.ModelProto], input_shapes: Optional[TensorShapes] = None
     ):
         if input_shapes is None:
             input_shapes = {}
@@ -147,25 +193,30 @@ def compare(
             if any([dim <= 0 for dim in shape[1:]]):
                 raise RuntimeError(
                     'The shape of input "{}" has dynamic size, '
-                    "please set an input shape manually with --test-input-shape".format(name)
+                    "please set an input shape manually with --test-input-shape".format(
+                        name
+                    )
                 )
             if len(shape) > 0 and shape[0] <= 0:
-                print(f'shape[0] of input "{name}" is dynamic, we assume it presents batch size and set it as 1 when testing. If it is not wanted, please set the it manually by --test-input-shape (see `onnxsim -h` for the details).')
+                print(
+                    f'shape[0] of input "{name}" is dynamic, we assume it presents batch size and set it as 1 when testing. If it is not wanted, please set the it manually by --test-input-shape (see `onnxsim -h` for the details).'
+                )
                 shape[0] = 1
 
         inputs = {
-            ipt: np.array(
-                np.random.rand(*full_input_shapes[ipt]),
-                dtype=get_np_type_from_elem_type(get_elem_type(model, ipt)),
+            ipt: _fill_array(
+                full_input_shapes[ipt],
+                get_np_type_from_elem_type(get_elem_type(model, ipt)),
+                input_fill,
             )
             for ipt in input_names
         }
         return inputs
 
     def forward(
-            model: Union[str, onnx.ModelProto],
-            inputs: Tensors,
-            custom_lib: Optional[str] = None
+        model: Union[str, onnx.ModelProto],
+        inputs: Tensors,
+        custom_lib: Optional[str] = None,
     ) -> Dict[str, np.ndarray]:
         return backend.run_model(model, inputs, custom_lib=custom_lib)
 
@@ -190,7 +241,7 @@ def compare(
         else:
             raise
     for i in range(n_times):
-        print(f'Checking {i}/{n_times}...')
+        print(f"Checking {i}/{n_times}...")
         if input_data is None:
             inputs = generate_rand_input(model_opt, input_shapes=input_shapes)
         else:
@@ -199,7 +250,7 @@ def compare(
         res_opt = forward(model_opt, inputs, custom_lib)
 
         for name in res_opt.keys():
-            if not np.allclose(res_opt[name], res_ori[name], rtol=1e-4, atol=1e-5):
+            if not np.allclose(res_opt[name], res_ori[name], rtol=rtol, atol=atol):
                 if verbose:
                     print(
                         "Tensor {} changes after optimization. The max diff is {}.".format(

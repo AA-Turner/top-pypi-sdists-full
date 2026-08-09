@@ -1,4 +1,4 @@
-# Copyright 2010-2025 The pygit2 contributors
+# Copyright 2010-2026 The pygit2 contributors
 #
 # This file is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License, version 2,
@@ -74,6 +74,7 @@ h_files = [
     'graph.h',
     'index.h',
     'merge.h',
+    'rebase.h',
     'net.h',
     'refspec.h',
     'repository.h',

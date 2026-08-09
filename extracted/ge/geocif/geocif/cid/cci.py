@@ -7,10 +7,11 @@ has one row per (crop, state, year, week) with columns::
 
     crop, region, state_alpha, year, woy, week_ending, cci, ...
 
-where ``crop`` is the geocif name (``maize``/``soybean``), ``region`` is the
+where ``crop`` is the geocif name (``maize``, ``soybean``, ``rice``,
+``sorghum``, ``cotton``, ``winter_wheat``, ``spring_wheat``), ``region`` is the
 geocif lowercase-underscore state name (e.g. ``iowa``, ``north_carolina``), and
 ``cci`` is the 0-100 crop-condition index (weighted from poor/fair/good/excellent).
-State-level, weekly, 1996 onward, corn (maize) and soybean only.
+State-level (admin_1), weekly, 1996 onward.
 
 ``get_cci_frame`` collapses the weekly values to a MONTHLY MEAN per
 (region, year, month) and returns a long frame ``[region, year, Month, cci]``
@@ -20,9 +21,15 @@ Downstream, ``compute_eo_indices`` aggregates ``cci`` over each stage window
 exactly like the EO CIDs (MEAN/MAX/MIN), so no future weeks leak into an
 in-season stage.
 
-Only the requested crop is returned; crops without CCI coverage (everything
-except maize/soybean) yield an empty frame, so the merge becomes a no-op (no
-``cci`` column appears and the CCI branch is skipped).
+Because CCI is state-level, an ``admin_2`` (county) run cannot join on
+``adm1_name`` (= county). ``get_region_state_map`` maps each county's
+``region_id`` (= boundary ``ADM_ID``) to its parent state via the boundary
+shapefile, and the caller broadcasts the state CCI onto every county of that
+state.
+
+Only the requested crop is returned; crops without CCI coverage yield an empty
+frame, so the merge becomes a no-op (no ``cci`` column appears and the CCI
+branch is skipped).
 """
 from __future__ import annotations
 
@@ -87,3 +94,57 @@ def get_cci_frame(
         keep = set(int(y) for y in years)
         monthly = monthly[monthly["year"].isin(keep)]
     return monthly[["region", "year", "Month", "cci"]].reset_index(drop=True)
+
+
+def _norm_id(x) -> str:
+    """Canonicalise an ADM_ID / region_id to a comparable string.
+
+    The crop_t0 CSV may read region_id as int or float, so ``188018001`` and
+    ``188018001.0`` must compare equal to the shapefile's ADM_ID. Non-numeric
+    ids (rare) pass through as their stripped string.
+    """
+    s = str(x).strip()
+    try:
+        f = float(s)
+        if f.is_integer():
+            return str(int(f))
+    except (TypeError, ValueError):
+        pass
+    return s
+
+
+def get_region_state_map(parser, country: str, boundary_path) -> dict:
+    """Map each admin_2 (county) ``region_id`` to its admin_1 (state) name.
+
+    CCI is reported at the state (admin_1) level, but an ``admin_2`` crop_t0
+    keys rows by county (``adm1_name`` = county after standardisation) and only
+    carries ``region_id`` (= the boundary ``ADM_ID``). To broadcast the state
+    CCI onto county rows we build ``{region_id -> state}`` from the country's
+    boundary shapefile, where each county row also carries its parent
+    ``ADM1_NAME``. State names are normalised to geocif's lowercase-underscore
+    form so they join the CCI frame's ``region`` column.
+
+    Returns an empty dict on any problem (missing shapefile/columns) — the
+    caller then skips the CCI merge rather than crashing.
+    """
+    try:
+        from geocif.utils import load_country_boundary_gdf
+
+        gdf = load_country_boundary_gdf(parser, boundary_path, country=country)
+        if gdf is None or gdf.empty or "ADM_ID" not in gdf.columns:
+            return {}
+        adm1_col = next(
+            (c for c in ("ADM1_NAME", "ADMIN1", "name1") if c in gdf.columns), None
+        )
+        if adm1_col is None:
+            return {}
+        gdf = gdf.dropna(subset=["ADM_ID", adm1_col])
+        return {
+            _norm_id(rid): str(st).lower().replace(" ", "_")
+            for rid, st in zip(gdf["ADM_ID"], gdf[adm1_col])
+        }
+    except Exception as e:  # noqa: BLE001
+        logger.warning(
+            f"CCI region->state map unavailable: {type(e).__name__}: {e}"
+        )
+        return {}

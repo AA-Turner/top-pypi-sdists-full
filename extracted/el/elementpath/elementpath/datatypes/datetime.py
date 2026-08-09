@@ -44,7 +44,7 @@ class Timezone(datetime.tzinfo):
     A tzinfo implementation for XSD timezone offsets. Offsets must be specified
     between -14:00 and +14:00.
 
-    :param offset: a timedelta instance or an XSD timezone formatted string.
+    :param offset: A timedelta instance or an XSD timezone formatted string.
     """
     def __init__(self, offset: datetime.timedelta) -> None:
         super().__init__()
@@ -148,7 +148,7 @@ DT = TypeVar('DT', bound='AbstractDateTime')
 
 class AbstractDateTime(AnyAtomicType):
     """
-    A class for representing XSD date/time objects. It uses and internal datetime.datetime
+    A class for representing XSD date/time objects. It uses an internal datetime.datetime
     attribute and an integer attribute for processing BCE years or for years after 9999 CE.
     """
     pattern = LazyPattern(r'^$')
@@ -386,17 +386,17 @@ class AbstractDateTime(AnyAtomicType):
         return self._dt.astimezone(tz)
 
     def isocalendar(self) -> tuple[int, int, int]:
-        return cast(tuple[int, int, int], self._dt.isocalendar())
+        return cast(tuple[int, int, int], cast(object, self._dt.isocalendar()))
 
     @classmethod
     def fromstring(cls: type[DT], datetime_string: str,
                    tzinfo: datetime.tzinfo | None = None) -> DT:
         """
-        Creates an XSD date/time instance from a string formatted value.
+        Creates an XSD date/time instance from a string-formatted value.
 
-        :param datetime_string: a string containing an XSD formatted date/time specification.
-        :param tzinfo: optional implicit timezone information (defaults to UTC).
-        :return: an AbstractDateTime concrete subclass instance.
+        :param datetime_string: A string containing an XSD formatted date/time specification.
+        :param tzinfo: Optional implicit timezone information (defaults to UTC).
+        :return: An AbstractDateTime concrete subclass instance.
         """
         if not isinstance(datetime_string, str):
             msg = '1st argument has an invalid type {!r}'
@@ -445,10 +445,10 @@ class AbstractDateTime(AnyAtomicType):
         """
         Creates an XSD date/time instance from a datetime.datetime/date/time instance.
 
-        :param dt: the datetime, date or time instance that stores the XSD Date/Time value.
-        :param year: if a year is provided the created instance refers to it and the \
+        :param dt: The datetime, date, or time instance that stores the XSD Date/Time value.
+        :param year: If a year is provided, the created instance refers to it and the \
         possibly present *dt.year* part is ignored.
-        :return: an AbstractDateTime concrete subclass instance.
+        :return: An AbstractDateTime concrete subclass instance.
         """
         if not isinstance(dt, (datetime.datetime, datetime.date, datetime.time)):
             raise TypeError('1st argument has an invalid type %r' % type(dt))
@@ -465,10 +465,10 @@ class AbstractDateTime(AnyAtomicType):
             -> 'AbstractDateTime':
         """
         Creates an XSD dateTime/date instance from a datetime.timedelta related to
-        0001-01-01T00:00:00 CE. In case of a date the time part is not counted.
+        0001-01-01T00:00:00 CE. In the case of a date, the time part is not counted.
 
-        :param delta: a datetime.timedelta instance.
-        :param adjust_timezone: if `True` adjusts the timezone of Date objects \
+        :param delta: A datetime.timedelta instance.
+        :param adjust_timezone: If `True` adjusts the timezone of Date objects \
         with eventually present hours and minutes.
         """
         try:
@@ -607,14 +607,14 @@ class DateTime(AbstractDateTime):
                  microsecond: int = 0,
                  tzinfo: datetime.tzinfo | None = None) -> None:
         """
-        :param year: the year, between -9999 and 9999
-        :param month: the month, between 1 and 12
-        :param day: the day, between 1 and 31
-        :param hour: the hour, between 0 and 23
-        :param minute: the minute, between 0 and 59
-        :param second: the second, between 0 and 59
-        :param microsecond: the microsecond, between 0 and 999999
-        :param tzinfo: optional implicit timezone information (defaults to UTC)
+        :param year: The year, between -9999 and 9999
+        :param month: The month, between 1 and 12
+        :param day: The day, between 1 and 31
+        :param hour: The hour, between 0 and 23
+        :param minute: The minute, between 0 and 59
+        :param second: The second, between 0 and 59
+        :param microsecond: The microsecond, between 0 and 999999
+        :param tzinfo: Optional implicit timezone information (defaults to UTC)
         """
         super().__init__(year, month, day, hour, minute, second, microsecond, tzinfo)
 
@@ -692,10 +692,10 @@ class Date(AbstractDateTime):
     def __init__(self, year: int, month: int, day: int,
                  tzinfo: datetime.tzinfo | None = None) -> None:
         """
-        :param year: the year, between -9999 and 9999
-        :param month: the month, between 1 and 12
-        :param day: the day, between 1 and 31
-        :param tzinfo: optional implicit timezone information (defaults to UTC)
+        :param year: The year, between -9999 and 9999
+        :param month: The month, between 1 and 12
+        :param day: The day, between 1 and 31
+        :param tzinfo: Optional implicit timezone information (defaults to UTC)
         """
         super().__init__(year, month, day, tzinfo=tzinfo)
 
@@ -847,8 +847,8 @@ class GregorianYear(AbstractDateTime):
 
     def __init__(self, year: int, tzinfo: datetime.tzinfo | None = None) -> None:
         """
-        :param year: the year, between -9999 and 9999
-        :param tzinfo: optional implicit timezone information (defaults to UTC)
+        :param year: The year, between -9999 and 9999
+        :param tzinfo: Optional implicit timezone information (defaults to UTC)
         """
         super().__init__(year, tzinfo=tzinfo)
 
@@ -907,9 +907,9 @@ class GregorianYearMonth(AbstractDateTime):
 
     def __init__(self, year: int, month: int, tzinfo: datetime.tzinfo | None = None) -> None:
         """
-        :param year: the year, between -9999 and 9999
-        :param month: the month, between 1 and 12
-        :param tzinfo: optional implicit timezone information (defaults to UTC)
+        :param year: The year, between -9999 and 9999
+        :param month: The month, between 1 and 12
+        :param tzinfo: Optional implicit timezone information (defaults to UTC)
         """
         super().__init__(year, month, tzinfo=tzinfo)
 
@@ -951,11 +951,11 @@ class Time(AbstractDateTime):
                  second: int = 0, microsecond: int = 0,
                  tzinfo: datetime.tzinfo | None = None) -> None:
         """
-        :param hour: the hour, between 0 and 23
-        :param minute: the minute, between 0 and 59
-        :param second: the second, between 0 and 59
-        :param microsecond: the microsecond, between 0 and 999999
-        :param tzinfo: optional implicit timezone information (defaults to UTC)
+        :param hour: The hour, between 0 and 23
+        :param minute: The minute, between 0 and 59
+        :param second: The second, between 0 and 59
+        :param microsecond: The microsecond, between 0 and 999999
+        :param tzinfo: Optional implicit timezone information (defaults to UTC)
         """
         if hour == 24 and minute == second == microsecond == 0:
             hour = 0
@@ -1023,7 +1023,7 @@ class Duration(AnyAtomicType):
         """
         :param months: an integer value that represents years and months.
         :param seconds: a decimal or an integer instance that represents \
-        days, hours, minutes, seconds and fractions of seconds.
+        days, hours, minutes, seconds, and fractions of seconds.
         """
         if seconds < 0 < months or months < 0 < seconds:
             raise ValueError('signs differ: (months=%d, seconds=%d)' % (months, seconds))
@@ -1074,10 +1074,10 @@ class Duration(AnyAtomicType):
     @classmethod
     def fromstring(cls: type[_D], text: str) -> _D:
         """
-        Creates a Duration instance from a formatted XSD duration string.
+        Creates the Duration instance from a formatted XSD duration string.
 
-        :param text: an ISO 8601 representation without week fragment and an optional decimal part \
-        only for seconds fragment.
+        :param text: An ISO 8601 representation without week fragment and an optional decimal part \
+        only for the second fragment.
         """
         if not isinstance(text, str):
             msg = 'argument has an invalid type {!r}'
@@ -1260,7 +1260,7 @@ class DayTimeDuration(Duration):
     def __init__(self, seconds: Union[Decimal, int] = 0) -> None:
         """
         :param seconds: a decimal or an integer instance that represents \
-        days, hours, minutes, seconds and fractions of seconds.
+        days, hours, minutes, seconds, and fractions of seconds.
         """
         super().__init__(0, seconds)
 

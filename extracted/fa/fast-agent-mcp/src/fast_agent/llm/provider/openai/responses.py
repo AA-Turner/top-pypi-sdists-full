@@ -39,6 +39,7 @@ from fast_agent.llm.provider.openai.responses_streaming import ResponsesStreamin
 from fast_agent.llm.provider.openai.responses_websocket import (
     ManagedWebSocketConnection,
     ResponsesWebSocketError,
+    ResponsesWebSocketKeepaliveOptions,
     ResponsesWsRequestPlanner,
     StatefulContinuationResponsesWsPlanner,
     WebSocketConnectionManager,
@@ -245,7 +246,10 @@ class ResponsesLLM(
         self._file_id_cache: dict[str, str] = {}
         self._transport: ResponsesTransport = self._default_transport_setting()
         self._last_transport_used: ResponsesActiveTransport | None = None
-        self._ws_connections = WebSocketConnectionManager(idle_timeout_seconds=300.0)
+        self._ws_connections = WebSocketConnectionManager(
+            idle_timeout_seconds=55 * 60.0,
+            max_age_seconds=55 * 60.0,
+        )
         self._ws_debug_inline = env_flag("FAST_AGENT_DEBUG_RESPONSES_WS")
         self._web_search_override: bool | None = (
             bool(web_search_override) if isinstance(web_search_override, bool) else None
@@ -540,13 +544,21 @@ class ResponsesLLM(
     def _prepare_websocket_arguments(self, arguments: dict[str, Any]) -> None:
         """Apply provider-specific per-request websocket metadata."""
 
+    def _websocket_keepalive_options(self) -> ResponsesWebSocketKeepaliveOptions:
+        return {}
+
     async def _create_websocket_connection(
         self,
         url: str,
         headers: dict[str, str],
         timeout_seconds: float | None,
     ) -> ManagedWebSocketConnection:
-        return await connect_websocket(url=url, headers=headers, timeout_seconds=timeout_seconds)
+        return await connect_websocket(
+            url=url,
+            headers=headers,
+            timeout_seconds=timeout_seconds,
+            keepalive_options=self._websocket_keepalive_options(),
+        )
 
     def _new_ws_request_planner(self) -> ResponsesWsRequestPlanner:
         return StatefulContinuationResponsesWsPlanner()

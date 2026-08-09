@@ -9,6 +9,7 @@ leased database credentials.
 """
 
 import logging
+import typing
 from datetime import datetime
 from datetime import timezone
 
@@ -19,7 +20,19 @@ from salt.exceptions import SaltInvocationError
 from saltext.vault.utils import vault
 from saltext.vault.utils.vault import db as vaultdb
 
-log = logging.getLogger(__name__)
+if typing.TYPE_CHECKING:
+    from saltext.vault.utils._types import SaltContext
+    from saltext.vault.utils._types import SaltFunctions
+    from saltext.vault.utils._types import SaltGrains
+    from saltext.vault.utils._types import SaltLogger
+    from saltext.vault.utils._types import SaltOpts
+
+    __opts__: SaltOpts
+    __context__: SaltContext
+    __salt__: SaltFunctions
+    __grains__: SaltGrains
+
+log: "SaltLogger" = logging.getLogger(__name__)  # type: ignore
 
 
 def list_connections(mount="database"):
@@ -32,7 +45,7 @@ def list_connections(mount="database"):
 
     .. code-block:: bash
 
-            salt '*' vault_db.list_connections
+        salt '*' vault_db.list_connections
 
     mount
         Mount path the DB backend is mounted to. Defaults to ``database``.
@@ -56,7 +69,7 @@ def fetch_connection(name, mount="database"):
 
     .. code-block:: bash
 
-            salt '*' vault_db.fetch_connection mydb
+        salt '*' vault_db.fetch_connection mydb
 
     name
         Name of the database connection.
@@ -107,8 +120,8 @@ def write_connection(
 
     .. code-block:: bash
 
-            salt '*' vault_db.write_connection mydb elasticsearch \
-                url=http://127.0.0.1:9200 username=vault password=hunter2
+        salt '*' vault_db.write_connection mydb elasticsearch \\
+          url=http://127.0.0.1:9200 username=vault password=hunter2
 
     name
         Name of the database connection.
@@ -187,7 +200,7 @@ def write_connection(
 
 def delete_connection(name, mount="database"):
     """
-    Delete a configured database connection. Returns None if it does not exist.
+    Delete a configured database connection. Does not error when the connection does not exist.
 
     `API method docs <https://developer.hashicorp.com/vault/api-docs/secret/databases#delete-connection>`__.
 
@@ -195,7 +208,7 @@ def delete_connection(name, mount="database"):
 
     .. code-block:: bash
 
-            salt '*' vault_db.delete_connection mydb
+        salt '*' vault_db.delete_connection mydb
 
     name
         Name of the database connection.
@@ -220,7 +233,7 @@ def reset_connection(name, mount="database"):
 
     .. code-block:: bash
 
-            salt '*' vault_db.reset_connection mydb
+        salt '*' vault_db.reset_connection mydb
 
     name
         Name of the database connection.
@@ -250,7 +263,7 @@ def rotate_root(name, mount="database"):
 
     .. code-block:: bash
 
-            salt '*' vault_db.rotate_root mydb
+        salt '*' vault_db.rotate_root mydb
 
     name
         Name of the database connection.
@@ -276,7 +289,7 @@ def list_roles(static=False, mount="database"):
 
     .. code-block:: bash
 
-            salt '*' vault_db.list_roles
+        salt '*' vault_db.list_roles
 
     static
         Whether to list static roles. Defaults to False.
@@ -304,7 +317,7 @@ def fetch_role(name, static=False, mount="database"):
 
     .. code-block:: bash
 
-            salt '*' vault_db.fetch_role myrole
+        salt '*' vault_db.fetch_role myrole
 
     name
         Name of the database role.
@@ -343,7 +356,7 @@ def write_static_role(
 
     .. code-block:: bash
 
-            salt '*' vault_db.write_static_role myrole mydb myuser 24h
+        salt '*' vault_db.write_static_role myrole mydb myuser 24h
 
     name
         Name of the database role.
@@ -415,8 +428,8 @@ def write_role(
 
     .. code-block:: bash
 
-            salt '*' vault_db.write_role myrole mydb \
-                \["CREATE USER '{{name}}'@'%' IDENTIFIED BY '{{password}}'", "GRANT SELECT ON *.* TO '{{name}}'@'%'"\]
+        salt '*' vault_db.write_role myrole mydb \\
+          \["CREATE USER '{{name}}'@'%' IDENTIFIED BY '{{password}}'", "GRANT SELECT ON *.* TO '{{name}}'@'%'"\]
 
     name
         Name of the database role.
@@ -532,7 +545,7 @@ def delete_role(name, static=False, mount="database"):
 
     .. code-block:: bash
 
-            salt '*' vault_db.delete_role myrole
+        salt '*' vault_db.delete_role myrole
 
     name
         Name of the database role.
@@ -572,7 +585,7 @@ def get_creds(
 
     .. code-block:: bash
 
-            salt '*' vault_db.get_creds myrole
+        salt '*' vault_db.get_creds myrole
 
     name
         Name of the database role.
@@ -618,7 +631,7 @@ def get_creds(
         amount of time, otherwise request new ones.
         This can be an integer, which is interpreted as seconds, or a time string
         using the same format as Vault does:
-        Suffix ``s`` for seconds, ``m`` for minuts, ``h`` for hours, ``d`` for days.
+        Suffix ``s`` for seconds, ``m`` for minutes, ``h`` for hours, ``d`` for days.
         This is cached together with the lease and might be used by other
         modules later.
 
@@ -643,13 +656,14 @@ def get_creds(
         emitted by the ``vault_lease`` beacon module whenever a lease is
         running out (usually because it cannot be extended further). It is intended
         to support the reactor in deciding what needs to be done in order
-        to to reconfigure dependent, Vault-unaware software with newly issued
+        to reconfigure dependent, Vault-unaware software with newly issued
         credentials. Entirely optional.
 
     mount
         Mount path the database backend is mounted to. Defaults to ``database``.
     """
     endpoint = f"{mount}/{'static-' if static else ''}creds/{name}"
+    ckey = creds_cache = None
 
     if cache:
         ckey = f"db.{mount}.{'static' if static else 'dynamic'}.{name}"
@@ -660,8 +674,12 @@ def get_creds(
         creds_cache = vault.get_lease_store(__opts__, __context__)
         cached_creds = creds_cache.get(
             ckey,
-            valid_for=valid_for if valid_for is not NOT_SET else None,
-            revoke=revoke_delay if revoke_delay is not NOT_SET else None,
+            valid_for=typing.cast(
+                int | str | None, valid_for if valid_for is not NOT_SET else None
+            ),
+            revoke=typing.cast(
+                int | str | None, revoke_delay if revoke_delay is not NOT_SET else None
+            ),
             check_server=check_server,
         )
         if cached_creds:
@@ -689,14 +707,25 @@ def get_creds(
     except vault.VaultException as err:
         raise CommandExecutionError(f"{err.__class__}: {err}") from err
 
+    if static:
+        # Static role credentials are not associated with a lease and are
+        # rotated server-side on a schedule. The response's data.ttl reports
+        # the remaining time until the next scheduled rotation, which limits
+        # the validity of the returned credentials.
+        res["lease_duration"] = res["data"].get("ttl", 0)
+
     lease = vault.VaultLease(
-        min_ttl=valid_for if valid_for is not NOT_SET else None,
-        renew_increment=renew_increment if renew_increment is not NOT_SET else None,
-        revoke_delay=revoke_delay if revoke_delay is not NOT_SET else None,
+        min_ttl=typing.cast(int | str | None, valid_for if valid_for is not NOT_SET else None),
+        renew_increment=typing.cast(
+            int | str | None, renew_increment if renew_increment is not NOT_SET else None
+        ),
+        revoke_delay=typing.cast(
+            int | str | None, revoke_delay if revoke_delay is not NOT_SET else None
+        ),
         meta=meta if meta is not NOT_SET else None,
         **res,
     )
-    if cache:
+    if cache and creds_cache and ckey:
         creds_cache.store(ckey, lease)
     return lease.data
 
@@ -709,9 +738,9 @@ def clear_cached(name=None, mount=None, cache=None, static=None, delta=None, flu
 
     .. code-block:: bash
 
-            salt '*' vault_db.clear_cached name=myrole mount=database
-            salt '*' vault_db.clear_cached mount=database
-            salt '*' vault_db.clear_cached
+        salt '*' vault_db.clear_cached name=myrole mount=database
+        salt '*' vault_db.clear_cached mount=database
+        salt '*' vault_db.clear_cached
 
     name
         Only clear credentials using this role name.
@@ -749,9 +778,9 @@ def list_cached(name=None, mount=None, cache=None, static=None):
 
     .. code-block:: bash
 
-            salt '*' vault_db.list_cached name=myrole mount=database
-            salt '*' vault_db.list_cached mount=database
-            salt '*' vault_db.list_cached
+        salt '*' vault_db.list_cached name=myrole mount=database
+        salt '*' vault_db.list_cached mount=database
+        salt '*' vault_db.list_cached
 
     name
         Only list credentials using this role name.
@@ -771,12 +800,11 @@ def list_cached(name=None, mount=None, cache=None, static=None):
     )
     for lease in info.values():
         for val in ("creation_time", "expire_time"):
-            if val in lease:
-                lease[val] = (
-                    datetime.fromtimestamp(lease[val], tz=timezone.utc)
-                    .astimezone()
-                    .strftime("%Y-%m-%d %H:%M:%S %Z")
-                )
+            lease[val] = (
+                datetime.fromtimestamp(lease[val], tz=timezone.utc)
+                .astimezone()
+                .strftime("%Y-%m-%d %H:%M:%S %Z")
+            )
     return info
 
 
@@ -788,9 +816,9 @@ def renew_cached(name=None, mount=None, cache=None, static=None, increment=None)
 
     .. code-block:: bash
 
-            salt '*' vault_db.renew_cached name=myrole mount=database
-            salt '*' vault_db.renew_cached mount=database
-            salt '*' vault_db.renew_cached
+        salt '*' vault_db.renew_cached name=myrole mount=database
+        salt '*' vault_db.renew_cached mount=database
+        salt '*' vault_db.renew_cached
 
     name
         Only renew credentials using this role name.
@@ -829,7 +857,7 @@ def rotate_static_role(name, mount="database"):
 
     .. code-block:: bash
 
-            salt '*' vault_db.rotate_static_role mystaticrole
+        salt '*' vault_db.rotate_static_role mystaticrole
 
     name
         Name of the database role.

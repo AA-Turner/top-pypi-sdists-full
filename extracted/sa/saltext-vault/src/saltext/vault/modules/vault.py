@@ -6,16 +6,28 @@ Interface with a Vault (or OpenBao) server and the KV secret backend.
 """
 
 import logging
+from typing import TYPE_CHECKING
 
 from salt.defaults import NOT_SET
 from salt.exceptions import CommandExecutionError
 from salt.exceptions import SaltException
-from salt.exceptions import SaltInvocationError
 
 from saltext.vault.utils import vault
 from saltext.vault.utils.versions import warn_until
 
-log = logging.getLogger(__name__)
+if TYPE_CHECKING:
+    from saltext.vault.utils._types import SaltContext
+    from saltext.vault.utils._types import SaltFunctions
+    from saltext.vault.utils._types import SaltGrains
+    from saltext.vault.utils._types import SaltLogger
+    from saltext.vault.utils._types import SaltOpts
+
+    __opts__: SaltOpts
+    __context__: SaltContext
+    __salt__: SaltFunctions
+    __grains__: SaltGrains
+
+log: "SaltLogger" = logging.getLogger(__name__)  # type: ignore
 
 
 def read_secret(path, key=None, metadata=False, default=NOT_SET, version=None):
@@ -45,16 +57,16 @@ def read_secret(path, key=None, metadata=False, default=NOT_SET, version=None):
         Path to the secret, including mount.
 
     key
-        Data field at <path> to read. If unspecified, returns the
-        whole dataset.
+        Field of secret at ``path`` to read.
+        If unspecified, returns the whole dataset.
 
     metadata
-        If using KV v2 backend, display full results, including metadata.
-        Defaults to False.
+        If ``path`` is on a KV v2 backend, display full results, including metadata.
+        Only respected if ``key`` is not set. Defaults to False.
 
     default
-        When the path or path/key combination is not found, an exception is raised,
-        unless a default is provided here.
+        Instead of raising an exception, return this value when ``path``
+        is not found or the secret at ``path`` does not contain ``key``.
 
     version
         Version to read. If unset, reads the latest one.
@@ -122,7 +134,7 @@ def write_secret(path, **kwargs):
 
     .. code-block:: bash
 
-            salt '*' vault.write_secret "secret/my/secret" user="foo" password="bar"
+        salt '*' vault.write_secret "secret/my/secret" user="foo" password="bar"
 
     Required policy:
 
@@ -160,7 +172,7 @@ def write_raw(path, raw):
 
     .. code-block:: bash
 
-            salt '*' vault.write_raw "secret/my/secret" '{"user":"foo","password": "bar"}'
+        salt '*' vault.write_raw "secret/my/secret" '{user: foo, password: bar}'
 
     Required policy: see :func:`write_secret`
 
@@ -204,7 +216,7 @@ def patch_secret(path, **kwargs):
 
     .. code-block:: bash
 
-            salt '*' vault.patch_secret "secret/my/secret" password="baz"
+        salt '*' vault.patch_secret "secret/my/secret" password="baz"
 
     Required policy:
 
@@ -242,7 +254,39 @@ def patch_secret(path, **kwargs):
         return False
 
 
-def delete_secret(path, *args, **kwargs):
+def patch_raw(path, raw):
+    """
+    .. versionadded:: 1.8.0
+
+    Patch raw data at <path>.
+
+    CLI Example:
+
+    .. code-block:: bash
+
+        salt '*' vault.patch_raw "secret/my/secret" '{user: foo, password: bar}'
+
+    Required policy: see :func:`patch_secret`
+
+    path
+        Path to the secret, including mount.
+
+    raw
+        Secret data to patch into <path>. Has to be a mapping.
+        Keys set to ``null`` (JSON/YAML)/``None`` (Python) are deleted.
+    """
+    log.debug("Patching vault secrets for %s at %s", __grains__.get("id"), path)
+    try:
+        res = vault.patch_kv(path, raw, __opts__, __context__)
+        if isinstance(res, dict):
+            return res["data"]
+        return res
+    except Exception as err:  # pylint: disable=broad-except
+        log.error("Failed to patch secret! %s: %s", type(err).__name__, err)
+        return False
+
+
+def delete_secret(path, *args, all_versions=False, **_):
     """
     Delete secret at <path>. If <path> is on KV v2, the secret is soft-deleted.
 
@@ -288,10 +332,6 @@ def delete_secret(path, *args, **kwargs):
         For KV v2, you can specify versions to soft-delete as supplemental
         positional arguments.
     """
-    all_versions = kwargs.pop("all_versions", False)
-    unknown_kwargs = tuple(x for x in kwargs if not x.startswith("_"))
-    if unknown_kwargs:
-        raise SaltInvocationError(f"Passed unknown keyword arguments: {' '.join(unknown_kwargs)}")
     log.debug("Deleting vault secrets for %s in %s", __grains__.get("id"), path)
     if args:
         log.debug(f"Affected versions: {' '.join(str(x) for x in args)}")
@@ -304,7 +344,7 @@ def delete_secret(path, *args, **kwargs):
         return False
 
 
-def restore_secret(path, *versions, **kwargs):
+def restore_secret(path, *versions, all_versions=False, **_):
     """
     .. versionadded:: 1.2.0
 
@@ -338,10 +378,6 @@ def restore_secret(path, *versions, **kwargs):
     If no version is specified, tries to restore the latest version, and if
     the latest version has not been deleted, fails.
     """
-    all_versions = kwargs.pop("all_versions", False)
-    unknown_kwargs = tuple(x for x in kwargs if not x.startswith("_"))
-    if unknown_kwargs:
-        raise SaltInvocationError(f"Passed unknown keyword arguments: {' '.join(unknown_kwargs)}")
     log.debug("Restoring vault secrets for %s in %s", __grains__.get("id"), path)
 
     try:
@@ -352,9 +388,16 @@ def restore_secret(path, *versions, **kwargs):
         raise CommandExecutionError(f"{err.__class__.__name__}: {err}") from err
 
 
-def destroy_secret(path, *args, **kwargs):
+def destroy_secret(path, *args, all_versions=False, **_):
     """
-    Destroy specified secret versions at <path>. Only supported on Vault KV v2.
+    Destroy specified secret versions at <path>.
+    This makes a secret version unrecoverable.
+    On KV v1, there is no functional difference to ``delete``
+    because the backend does not support versioning.
+    Specifying versions fails there.
+
+    .. versionchanged:: 1.8.0
+        KV v1 secrets are now deleted instead of failing.
 
     CLI Example:
 
@@ -380,7 +423,7 @@ def destroy_secret(path, *args, **kwargs):
     all_versions
         .. versionadded:: 1.2.0
 
-        Delete all versions of the secret for KV v2.
+        Destroy all versions of the secret for KV v2.
         Can only be passed as a keyword argument.
         Defaults to false.
 
@@ -390,10 +433,6 @@ def destroy_secret(path, *args, **kwargs):
 
         If no version was specified, defaults to the most recent one.
     """
-    all_versions = kwargs.pop("all_versions", False)
-    unknown_kwargs = tuple(x for x in kwargs if not x.startswith("_"))
-    if unknown_kwargs:
-        raise SaltInvocationError(f"Passed unknown keyword arguments: {' '.join(unknown_kwargs)}")
     log.debug("Destroying vault secrets for %s in %s", __grains__.get("id"), path)
     if args:
         log.debug(f"Affected versions: {' '.join(str(x) for x in args)}")
@@ -411,7 +450,11 @@ def wipe_secret(path):
     .. versionadded:: 1.2.0
 
     Remove all version history and data for the secret at <path>.
-    Requires KV v2.
+    On KV v1, there is no functional difference to ``delete``
+    because the backend does not support versioning.
+
+    .. versionchanged:: 1.8.0
+        KV v1 secrets are now deleted instead of failing.
 
     CLI Example:
 
@@ -486,7 +529,7 @@ def list_secrets(path, default=NOT_SET, keys_only=None):
                 ),
             )
             keys_only = False
-        except RuntimeError:
+        except RuntimeError:  # pragma: no cover
             keys_only = True
 
     log.debug("Listing vault secret keys for %s in %s", __grains__.get("id"), path)
@@ -538,7 +581,10 @@ def clear_cache(connection=True, session=False):
         Setting this to true keeps the connection cache, regardless
         of ``connection``.
     """
-    return vault.clear_cache(__opts__, __context__, connection=connection, session=session)
+    try:
+        return vault.clear_cache(__opts__, __context__, connection=connection, session=session)
+    except SaltException as err:
+        raise CommandExecutionError(f"{type(err).__name__}: {err}") from err
 
 
 def clear_token_cache():
@@ -735,6 +781,10 @@ def update_config(keep_session=False):
     Attempt to update the cached configuration without clearing the
     currently active Vault session.
 
+    .. note::
+        This is only relevant on minions that receive issued credentials
+        from the master. On locally configured minions, this does nothing.
+
     CLI Example:
 
     .. code-block:: bash
@@ -749,7 +799,10 @@ def update_config(keep_session=False):
         significantly.
         Defaults to False.
     """
-    return vault.update_config(__opts__, __context__, keep_session=keep_session)
+    try:
+        return vault.update_config(__opts__, __context__, keep_session=keep_session)
+    except SaltException as err:
+        raise CommandExecutionError(f"{type(err).__name__}: {err}") from err
 
 
 def get_server_config():

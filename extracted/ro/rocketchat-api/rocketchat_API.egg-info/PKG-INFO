@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rocketchat_API
-Version: 3.7.0
+Version: 3.7.1
 Summary: Python API wrapper for Rocket.Chat
 Author-email: "Jorge Alberto Díaz Orozco (Akiel)" <diazorozcoj@gmail.com>
 Maintainer-email: "Jorge Alberto Díaz Orozco (Akiel)" <diazorozcoj@gmail.com>
@@ -182,10 +182,3 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on how to contribute to th
 ## License
 
 This project is licensed under the MIT License. See [LICENSE.txt](LICENSE.txt) for details.
-
-
-## Supporters
-
-[![JetBrains logo.](https://resources.jetbrains.com/storage/products/company/brand/logos/jetbrains.svg)](https://jb.gg/OpenSourceSupport)
-
-[JetBrains](https://www.jetbrains.com/) supports this project by providing licenses for their development tools.

@@ -62,12 +62,15 @@ AUTO_DOWNLOAD_INTERVAL: float = 6 * 60 * 60  # 6 hours
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _get_proxy() -> Optional[str]:
     """Return the configured proxy URL, if any."""
     return os.environ.get("G4F_PROXY") or os.environ.get("HTTPS_PROXY") or None
 
 
-def _github_request(url: str, timeout: float, accept: str = "application/json") -> bytes:
+def _github_request(
+    url: str, timeout: float, accept: str = "application/json"
+) -> bytes:
     """Perform an HTTP GET against *url* and return the raw body bytes.
 
     Raises:
@@ -104,7 +107,7 @@ def _list_repo_files(repo: str, ref: str, timeout: float) -> List[str]:
         if not isinstance(entry, dict):
             continue
         name = entry.get("name", "")
-        if name.endswith(".py") and entry.get("type") == "file":
+        if (name.endswith(".py") or name.endswith(".wasm")) and entry.get("type") == "file":
             files.append(name)
     return files
 
@@ -117,7 +120,11 @@ def _download_raw(repo: str, ref: str, name: str, timeout: float) -> bytes:
 
 def _workspace_target(directory: Optional[str] = None) -> Path:
     """Resolve the target workspace directory, creating it if needed."""
-    target = Path(directory).expanduser() if directory else (get_workspace_dir() / "pa-providers")
+    target = (
+        Path(directory).expanduser()
+        if directory
+        else (get_workspace_dir() / "pa-providers")
+    )
     target.mkdir(parents=True, exist_ok=True)
     return target
 
@@ -125,6 +132,7 @@ def _workspace_target(directory: Optional[str] = None) -> Path:
 # ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
+
 
 def run_pa_download(
     repo: str = DEFAULT_REPO,
@@ -162,7 +170,7 @@ def run_pa_download(
         return written
 
     for name in names:
-        if not name.endswith(".py"):
+        if not name.endswith(".py") and not name.endswith(".wasm"):
             continue
         dest = target / name
         if dest.exists() and not force:
@@ -221,8 +229,8 @@ def run_pa_remove(filename: str, directory: Optional[str] = None) -> bool:
     except ValueError:
         print(f"Error: {filename} escapes the workspace directory.")
         return False
-    if not candidate.name.endswith(".py"):
-        print(f"Error: {filename} is not a .py file.")
+    if not candidate.name.endswith(".pa.py"):
+        print(f"Error: {filename} is not a .pa.py file.")
         return False
     if not candidate.exists():
         print(f"Error: {filename} not found in {target}")
@@ -239,6 +247,7 @@ def run_pa_remove(filename: str, directory: Optional[str] = None) -> bool:
 # ---------------------------------------------------------------------------
 # Startup auto-download
 # ---------------------------------------------------------------------------
+
 
 def _should_auto_download(workspace: Path) -> bool:
     """Return ``True`` if an automatic download should run now."""
@@ -279,7 +288,7 @@ def auto_download_pa_providers(
 
     debug.log(f"pa-providers: auto-downloading from {repo}@{ref}")
     try:
-        written = run_pa_download(repo=repo, ref=ref, force=force, timeout=timeout)
+        written = run_pa_download(repo=repo, ref=ref, force=True, timeout=timeout)
     except Exception as e:
         # run_pa_download already swallows most errors, but be defensive.
         debug.error("pa-providers: auto-download failed:", e)

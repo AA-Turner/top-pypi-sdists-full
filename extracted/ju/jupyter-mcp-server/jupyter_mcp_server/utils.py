@@ -9,13 +9,12 @@ import time
 from collections.abc import Callable
 from typing import Any, cast
 
-from code_sandboxes.interfaces import ISandboxClient
+from code_sandboxes import CodeSandboxClient
 from jupyter_nbmodel_client import NotebookModel
 from mcp.types import ImageContent
 
 from jupyter_mcp_server.config import ALLOW_IMG_OUTPUT
 from jupyter_mcp_server.hooks import HookEvent, HookRegistry
-
 
 #: MIME types that carry readable text, richest first. ``text/plain`` is the
 #: universal fallback. ``text/html`` is intentionally absent: it is markup
@@ -160,15 +159,20 @@ def resolve_url_and_token_variables(
     document_token,
     code_sandbox_url,
     code_sandbox_token,
-) -> tuple[str, str | None, str, str | None]:
-    """Resolve merged URL/token settings with per-field precedence."""
+) -> tuple[str | None, str | None, str, str | None]:
+    """Resolve merged URL/token settings with per-field precedence.
+
+    ``resolved_document_url`` may be ``None`` when neither ``document_url``
+    nor ``jupyter_url`` is given; callers (and JupyterMCPConfig) fall back to
+    the code sandbox URL in that case rather than hardcoding localhost.
+    """
 
     if document_url is not None:
         resolved_document_url = document_url
     elif jupyter_url is not None:
         resolved_document_url = jupyter_url
     else:
-        resolved_document_url = "http://localhost:8888"
+        resolved_document_url = None
 
     if code_sandbox_url is not None:
         resolved_code_sandbox_url = code_sandbox_url
@@ -217,7 +221,7 @@ def do_start(
     code_sandbox_url: str,
     code_sandbox_id: str,
     code_sandbox_token: str,
-    document_url: str,
+    document_url: str | None,
     document_id: str,
     document_token: str,
     port: int,
@@ -568,7 +572,7 @@ def format_TSV(headers: list[str], rows: list[list[str]]) -> str:
 ###############################################################################
 
 
-def create_kernel(config, logger) -> ISandboxClient:
+def create_kernel(config, logger) -> CodeSandboxClient:
     """Create a new kernel instance using current configuration.
 
     Kernel creation is resolved in this order:
@@ -576,8 +580,8 @@ def create_kernel(config, logger) -> ISandboxClient:
      1. An installed extension (for example ``jupyter_mcp_sandboxes``) may take
          over kernel creation for a non-'jupyter' sandbox variant.
      2. Otherwise the kernel is created through the ``code_sandboxes`` package
-         using the ``jupyter`` variant, and this function returns the plain
-         ``sandbox.kernel_client`` exposed by that sandbox.
+         using the ``jupyter`` variant, and this function returns a
+         variant-neutral ``CodeSandboxClient``.
 
     This routes all kernel execution through ``code_sandboxes`` instead of
     calling a legacy direct kernel client package.
@@ -606,7 +610,7 @@ def create_kernel(config, logger) -> ISandboxClient:
             logger=logger,
         )
         logger.info("Kernel created and started successfully")
-        return cast(ISandboxClient, kernel)
+        return cast(CodeSandboxClient, kernel)
     except Exception as e:
         logger.error(f"Failed to create kernel: {e}")
         raise
@@ -630,11 +634,12 @@ def start_kernel(notebook_manager, config, logger):
 
 
 def ensure_kernel_alive(
-    notebook_manager, current_notebook, create_kernel_fn: Callable[[], ISandboxClient]
-) -> ISandboxClient:
+    notebook_manager, current_notebook, create_kernel_fn: Callable[[], CodeSandboxClient]
+) -> CodeSandboxClient:
     """Ensure kernel is running, restart if needed."""
     return cast(
-        ISandboxClient, notebook_manager.ensure_kernel_alive(current_notebook, create_kernel_fn)
+        CodeSandboxClient,
+        notebook_manager.ensure_kernel_alive(current_notebook, create_kernel_fn),
     )
 
 
@@ -658,30 +663,99 @@ def track_pending_execution(kernel, task):
     task.add_done_callback(_clear)
 
 
-async def execute_cell_with_forced_sync(notebook, cell_index, kernel, timeout_seconds=300):
+# After a timeout + interrupt, the background to_thread work can still mutate
+# notebook outputs for a short window. Wait briefly before snapshotting so the
+# tool response matches what lands in the notebook (issue #298).
+TIMEOUT_OUTPUT_SETTLE_SECONDS = 1.0
+
+
+async def settle_timed_out_execution(
+    execution_task,
+    settle_seconds: float = TIMEOUT_OUTPUT_SETTLE_SECONDS,
+):
+    """Briefly await a still-running background execution before reading outputs.
+
+    Callers should interrupt the kernel first and must not cancel the asyncio
+    Task beforehand: cancelling a Task wrapping ``asyncio.to_thread`` marks the
+    Task done without stopping the OS thread, which clears
+    ``track_pending_execution`` and makes this settle a no-op.
+
+    Uses ``asyncio.shield`` so a settle timeout does not cancel the underlying
+    Task either (``wait_for`` would otherwise cancel it and clear the busy flag).
+    """
+    if execution_task is None or execution_task.done():
+        return
+    try:
+        await asyncio.wait_for(asyncio.shield(execution_task), timeout=settle_seconds)
+    except (asyncio.TimeoutError, asyncio.CancelledError):
+        pass
+    except Exception:
+        pass
+
+
+async def emit_execution_progress(
+    progress_callback,
+    *,
+    elapsed: float,
+    timeout_seconds: float,
+    output_count: int = 0,
+    message: str | None = None,
+):
+    """Invoke an optional progress callback; never let callback errors abort execution."""
+    if progress_callback is None:
+        return
+    try:
+        await progress_callback(
+            elapsed=elapsed,
+            timeout_seconds=timeout_seconds,
+            output_count=output_count,
+            message=message,
+        )
+    except Exception as e:
+        from jupyter_mcp_server.log import logger
+
+        logger.debug(f"Execution progress callback failed: {e}")
+
+
+async def execute_cell_with_forced_sync(
+    notebook,
+    cell_index,
+    kernel,
+    timeout_seconds=300,
+    progress_callback=None,
+    progress_interval: int = 5,
+):
     """Execute cell with forced real-time synchronization."""
     from jupyter_mcp_server.log import logger
 
-    start_time = time.time()
+    # High-res monotonic clock: see execute_cell_tool streaming monitor.
+    start_time = time.perf_counter()
 
-    # Start execution
+    # Start execution. The sandbox client emits Jupyter-shaped output-hook
+    # messages and reply envelopes directly, so the notebook model consumes it
+    # as-is.
     execution_future = asyncio.create_task(
         asyncio.to_thread(notebook.execute_cell, cell_index, kernel)
     )
     track_pending_execution(kernel, execution_future)
 
     last_output_count = 0
+    last_progress_emit = 0.0
 
     while not execution_future.done():
-        elapsed = time.time() - start_time
+        elapsed = time.perf_counter() - start_time
 
-        if elapsed > timeout_seconds:
-            execution_future.cancel()
+        if elapsed >= timeout_seconds:
             try:
                 if hasattr(kernel, "interrupt"):
                     kernel.interrupt()
             except Exception:
                 pass
+            # Do not cancel the asyncio Task: cancel completes the wrapper
+            # without stopping the OS thread, which clears
+            # track_pending_execution early and skips real notebook settles.
+            # Interrupt the kernel, briefly wait for the thread, then raise.
+            await settle_timed_out_execution(execution_future)
             raise asyncio.TimeoutError(f"Cell execution timed out after {timeout_seconds} seconds")
 
         # Check for new outputs and try to trigger sync
@@ -713,7 +787,23 @@ async def execute_cell_with_forced_sync(notebook, cell_index, kernel, timeout_se
         except Exception as e:
             logger.debug(f"Output check failed: {e}")
 
-        await asyncio.sleep(1)  # Check every second
+        # MCP clients often idle-timeout around a few minutes with no protocol
+        # traffic. Emit keepalive progress even when stream=False.
+        if (
+            progress_interval > 0
+            and elapsed > 0
+            and (elapsed - last_progress_emit) >= progress_interval
+        ):
+            last_progress_emit = elapsed
+            await emit_execution_progress(
+                progress_callback,
+                elapsed=elapsed,
+                timeout_seconds=timeout_seconds,
+                output_count=last_output_count,
+            )
+
+        remaining = timeout_seconds - elapsed
+        await asyncio.sleep(min(1.0, max(remaining, 0.0)))
 
     # Get final result
     try:
@@ -800,6 +890,8 @@ async def execute_via_execution_stack(
     logger=None,
     raw_outputs: list | None = None,
     execution_count_out: list | None = None,
+    progress_callback=None,
+    progress_interval: int = 5,
 ) -> list[str | ImageContent]:
     """Execute code using ExecutionStack (JUPYTER_SERVER mode with jupyter-server-nbmodel).
 
@@ -825,6 +917,8 @@ async def execute_via_execution_stack(
             reply execution_count is appended to it (once), so callers that
             persist the cell to disk can use the kernel's real counter instead
             of re-deriving it by scanning the notebook's existing cells.
+        progress_callback: Optional async callback for MCP progress/keepalive
+        progress_interval: Seconds between progress callback invocations
 
     Returns:
         List of formatted outputs (strings or ImageContent)
@@ -872,6 +966,7 @@ async def execute_via_execution_stack(
         # The try/except ensures we cancel the kernel execution on any
         # abnormal exit.
         start_time = asyncio.get_event_loop().time()
+        last_progress_emit = 0.0
         try:
             while True:
                 elapsed = asyncio.get_event_loop().time() - start_time
@@ -957,6 +1052,18 @@ async def execute_via_execution_stack(
                         context=hook_ctx,
                     )
                     return formatted if formatted else ["[No output generated]"]
+
+                if (
+                    progress_interval > 0
+                    and elapsed > 0
+                    and (elapsed - last_progress_emit) >= progress_interval
+                ):
+                    last_progress_emit = elapsed
+                    await emit_execution_progress(
+                        progress_callback,
+                        elapsed=elapsed,
+                        timeout_seconds=timeout,
+                    )
 
                 # Still pending, wait before next poll
                 await asyncio.sleep(poll_interval)

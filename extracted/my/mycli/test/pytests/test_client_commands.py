@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+from collections.abc import Generator
+from io import StringIO
 import logging
 from pathlib import Path
 from typing import Any
 
+from configobj import ConfigObj
 import pytest
 
 from mycli import client_commands
@@ -61,6 +64,28 @@ class FakeSQLExecute:
         return [SQLResult(status=f'ran {query}')]
 
 
+class IteratedFile(StringIO):
+    def read(self, *args: Any, **kwargs: Any) -> str:
+        raise AssertionError('Source files must not be read in full.')
+
+
+class FailingFile:
+    def __init__(self) -> None:
+        self.closed = False
+
+    def __enter__(self) -> FailingFile:
+        return self
+
+    def __exit__(self, *args: Any) -> None:
+        self.closed = True
+
+    def __iter__(self) -> FailingFile:
+        return self
+
+    def __next__(self) -> str:
+        raise OSError('read failed')
+
+
 @pytest.fixture(autouse=True)
 def patch_sql_execute(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(client_commands, 'SQLExecute', FakeSQLExecute)
@@ -77,7 +102,16 @@ def test_register_special_commands_registers_expected_commands(monkeypatch: pyte
 
     client.register_special_commands()
 
-    assert [call[1] for call in calls] == ['use', 'connect', 'rehash', 'tableformat', 'redirectformat', 'source', 'prompt']
+    assert [call[1] for call in calls] == [
+        'use',
+        'connect',
+        'rehash',
+        'tableformat',
+        'redirectformat',
+        'source',
+        'prompt',
+        r'\config',
+    ]
     assert calls[0][0] == client.change_db
     assert calls[1][0] == client.manual_reconnect
     assert calls[2][0] == client.refresh_completions
@@ -86,6 +120,8 @@ def test_register_special_commands_registers_expected_commands(monkeypatch: pyte
     assert calls[5][0] == client.execute_from_file
     assert calls[6][0] == client.change_prompt_format
     assert calls[6][2:4] == ('/prompt [string]', 'Show or change prompt format.')
+    assert calls[7][0] == client.config_command
+    assert calls[7][2:4] == ('/config <help|get|search|edit> [key]', 'Inspect settings from config files.')
 
 
 def test_manual_reconnect_reports_not_connected() -> None:
@@ -154,6 +190,265 @@ def test_change_redirect_format_reports_supported_formats_on_error() -> None:
     ]
 
 
+def test_config_command_returns_unquoted_configobj_value(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(special_main, 'COMMANDS', {})
+    monkeypatch.setattr(special_main, 'CASE_SENSITIVE_COMMANDS', set())
+    monkeypatch.setattr(special_main, 'CASE_INSENSITIVE_COMMANDS', set())
+    client = DummyClient()
+    client.config = ConfigObj(
+        StringIO('[main]\nshow_warnings = "False"\n'),
+        interpolation=False,
+    )
+    client.register_special_commands()
+
+    config_result = [SQLResult(header=['Key', 'Value'], rows=[('main.show_warnings', 'False')])]
+    assert special.execute(None, '/config get main.show_warnings') == config_result
+    assert special.execute(None, r'\config get main.show_warnings') == config_result
+    assert special.execute(None, '/config search SHOW_WARNINGS') == config_result
+    assert special.execute(None, r'\config search SHOW_WARNINGS') == config_result
+    with pytest.raises(special.CommandNotFound, match='Command not found: select'):
+        special.execute(None, r'select 1 \config get main.show_warnings')
+
+
+def test_config_edit_opens_user_config_for_slash_and_backslash_commands(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setattr(special_main, 'COMMANDS', {})
+    monkeypatch.setattr(special_main, 'CASE_SENSITIVE_COMMANDS', set())
+    monkeypatch.setattr(special_main, 'CASE_INSENSITIVE_COMMANDS', set())
+    client = DummyClient()
+    client.myclirc_path = str(tmp_path / 'myclirc')
+    write_calls: list[tuple[str, bool]] = []
+    edit_calls: list[str] = []
+    monkeypatch.setattr(
+        client_commands,
+        'write_default_config',
+        lambda path, overwrite: write_calls.append((path, overwrite)),
+    )
+    monkeypatch.setattr(client_commands.click, 'edit', lambda *, filename: edit_calls.append(filename))
+    client.register_special_commands()
+
+    result = [SQLResult(status=f'Config file edited: {client.myclirc_path}. Restart mycli to apply changes.')]
+    assert special.execute(None, '/config edit') == result
+    assert special.execute(None, r'\config edit') == result
+    assert write_calls == [(client.myclirc_path, False), (client.myclirc_path, False)]
+    assert edit_calls == [client.myclirc_path, client.myclirc_path]
+
+
+@pytest.mark.parametrize(
+    ('failure_source', 'error'),
+    (
+        ('write', OSError('permission denied')),
+        ('edit', client_commands.click.ClickException('editor failed')),
+    ),
+)
+def test_config_edit_reports_file_and_editor_errors(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    failure_source: str,
+    error: Exception,
+) -> None:
+    client = DummyClient()
+    client.myclirc_path = str(tmp_path / 'myclirc')
+
+    def write_default_config(path: str, overwrite: bool) -> None:
+        if failure_source == 'write':
+            raise error
+
+    def edit(*, filename: str) -> None:
+        if failure_source == 'edit':
+            raise error
+
+    monkeypatch.setattr(client_commands, 'write_default_config', write_default_config)
+    monkeypatch.setattr(client_commands.click, 'edit', edit)
+
+    assert client.config_command('edit') == [SQLResult(status=f'Unable to edit config file "{client.myclirc_path}": {error}')]
+
+
+def test_config_edit_handles_keyboard_interrupt(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    client = DummyClient()
+    client.myclirc_path = str(tmp_path / 'myclirc')
+    monkeypatch.setattr(client_commands, 'write_default_config', lambda path, overwrite: None)
+
+    def edit(*, filename: str) -> None:
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(client_commands.click, 'edit', edit)
+
+    assert client.config_command('edit') == [SQLResult(status='Config edit cancelled.')]
+
+
+def test_config_command_resolves_dotted_keys_and_renders_lists() -> None:
+    client = DummyClient()
+    client.config = {
+        'colors': {'sql.keyword': 'bold blue'},
+        'alias_dsn.init-commands': {'prod': ['set one=1', 'set two=2']},
+        'alias_dsn_extra': {'prod': 'visible'},
+        'nested': {'inner': {'value': 42}},
+    }
+
+    assert client.config_command('get colors.sql.keyword') == [
+        SQLResult(header=['Key', 'Value'], rows=[('colors.sql.keyword', 'bold blue')])
+    ]
+    assert client.config_command('get alias_dsn.init-commands.prod') == [
+        SQLResult(header=['Key', 'Value'], rows=[('alias_dsn.init-commands.prod', 'set one=1, set two=2')])
+    ]
+    assert client.config_command('get alias_dsn_extra.prod') == [
+        SQLResult(header=['Key', 'Value'], rows=[('alias_dsn_extra.prod', 'visible')])
+    ]
+    assert client.config_command('GET nested.inner.value') == [SQLResult(header=['Key', 'Value'], rows=[('nested.inner.value', '42')])]
+
+
+def test_get_config_property_names_returns_visible_leaf_paths() -> None:
+    config = {
+        'main': {'show_warnings': 'False', 'empty_section': {}},
+        'alias_dsn': {'prod': 'mysql://user:password@host/database'},
+        'favorite_queries': {'report': 'select secret from reports'},
+        'alias_dsn.init-commands': {'prod': ['set one=1', 'set two=2']},
+    }
+
+    assert client_commands.get_config_property_names(config) == [
+        'alias_dsn.init-commands.prod',
+        'main.show_warnings',
+    ]
+
+
+def test_config_command_searches_paths_and_rendered_values_case_insensitively() -> None:
+    client = DummyClient()
+    client.config = {
+        'main': {'show_warnings': 'False', 'empty': ''},
+        'colors': {'sql.keyword': 'bold BLUE'},
+        'lists': {'commands': ['set one=1', 'set two=2']},
+    }
+
+    assert client.config_command(r'search SHOW_WARNINGS|bold blue|set one\s*=') == [
+        SQLResult(
+            header=['Key', 'Value'],
+            rows=[
+                ('colors.sql.keyword', 'bold BLUE'),
+                ('lists.commands', 'set one=1, set two=2'),
+                ('main.show_warnings', 'False'),
+            ],
+        )
+    ]
+    assert client.config_command('search ^$') == [SQLResult(header=['Key', 'Value'], rows=[('main.empty', '')])]
+
+
+def test_config_command_search_excludes_hidden_sections() -> None:
+    client = DummyClient()
+    client.config = {
+        'alias_dsn': {'prod': 'mysql://user:password@host/database'},
+        'favorite_queries': {'report': 'select secret from reports'},
+        'alias_dsn.init-commands': {'prod': 'set visible=1'},
+        'alias_dsn_extra': {'prod': 'also visible'},
+    }
+
+    assert client.config_command('search password|secret|report') == [
+        SQLResult(status='No configuration values match "password|secret|report".')
+    ]
+    assert client.config_command('search visible') == [
+        SQLResult(
+            header=['Key', 'Value'],
+            rows=[
+                ('alias_dsn.init-commands.prod', 'set visible=1'),
+                ('alias_dsn_extra.prod', 'also visible'),
+            ],
+        )
+    ]
+
+
+@pytest.mark.parametrize(
+    ('arg', 'status'),
+    (
+        ('search does-not-match', 'No configuration values match "does-not-match".'),
+        ('search [', 'Invalid regular expression: unterminated character set at position 0.'),
+    ),
+)
+def test_config_command_search_reports_errors(arg: str, status: str) -> None:
+    client = DummyClient()
+    client.config = {'main': {'show_warnings': 'False'}}
+
+    assert client.config_command(arg) == [SQLResult(status=status)]
+
+
+@pytest.mark.parametrize(
+    'path',
+    (
+        'alias_dsn',
+        'alias_dsn.prod',
+        'alias_dsn.missing',
+    ),
+)
+def test_config_command_hides_dsn_aliases(path: str) -> None:
+    client = DummyClient()
+    client.config = {
+        'alias_dsn': {'prod': 'mysql://user:password@host/database'},
+        'favorite_queries': {'report': 'select secret from reports'},
+    }
+
+    assert client.config_command(f'get {path}') == [SQLResult(status='See "/dsn list" for DSNs.')]
+
+
+@pytest.mark.parametrize(
+    'path',
+    (
+        'favorite_queries',
+        'favorite_queries.report',
+        'favorite_queries.missing',
+    ),
+)
+def test_config_command_hides_favorite_queries(path: str) -> None:
+    client = DummyClient()
+    client.config = {
+        'alias_dsn': {'prod': 'mysql://user:password@host/database'},
+        'favorite_queries': {'report': 'select secret from reports'},
+    }
+
+    assert client.config_command(f'get {path}') == [SQLResult(status='See "/f" for favorite queries.')]
+
+
+@pytest.mark.parametrize(
+    ('arg', 'preamble'),
+    (
+        ('', client_commands.CONFIG_COMMAND_USAGE),
+        ('help', client_commands.CONFIG_COMMAND_USAGE),
+        ('get', client_commands.CONFIG_COMMAND_USAGE),
+        ('search', client_commands.CONFIG_COMMAND_USAGE),
+        ('edit extra', client_commands.CONFIG_COMMAND_USAGE),
+        ('list main.show_warnings', client_commands.CONFIG_COMMAND_USAGE),
+        ('get main.show_warnings extra', client_commands.CONFIG_COMMAND_USAGE),
+    ),
+)
+def test_config_command_returns_usage(arg: str, preamble: str) -> None:
+    client = DummyClient()
+    client.config = {'main': {'show_warnings': 'False', 'empty': ''}}
+
+    assert client.config_command(arg) == [SQLResult(preamble=preamble)]
+
+
+@pytest.mark.parametrize(
+    ('arg', 'status'),
+    (
+        ('get main.missing', 'Config key not found: main.missing.'),
+        ('get main.show_warnings.extra', 'Config key not found: main.show_warnings.extra.'),
+        ('get main', 'Config path is not a value: main.'),
+    ),
+)
+def test_config_command_reports_errors(arg: str, status: str) -> None:
+    client = DummyClient()
+    client.config = {'main': {'show_warnings': 'False', 'empty': ''}}
+
+    assert client.config_command(arg) == [SQLResult(status=status)]
+
+
+def test_config_command_reports_empty_values() -> None:
+    client = DummyClient()
+    client.config = {'main': {'show_warnings': 'False', 'empty': ''}}
+
+    assert client.config_command('get main.empty') == [SQLResult(header=['Key', 'Value'], rows=[('main.empty', '')])]
+
+
 def test_change_db_unquotes_mysql_identifier(monkeypatch: pytest.MonkeyPatch) -> None:
     client = DummyClient()
     client.sqlexecute = FakeSQLExecute()
@@ -201,18 +496,112 @@ def test_execute_from_file_reports_open_errors() -> None:
     assert '/does/not/exist.sql' in result[0].status
 
 
-def test_execute_from_file_stops_when_destructive_query_is_rejected(
+def test_execute_from_file_skips_rejected_destructive_query(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
     client = DummyClient()
     sql_file = tmp_path / 'query.sql'
+    sql_file.write_text('drop table users;\nselect 1;', encoding='utf-8')
+    client.destructive_warning = True
+    client.destructive_keywords = {'drop'}
+    client.sqlexecute = FakeSQLExecute()
+    confirmation_queries: list[str] = []
+
+    def confirm_destructive_query(keywords: set[str], query: str) -> bool:
+        confirmation_queries.append(query)
+        return not query.startswith('drop')
+
+    monkeypatch.setattr(client_commands, 'confirm_destructive_query', confirm_destructive_query)
+
+    assert list(client.execute_from_file(str(sql_file))) == [SQLResult(status='ran select 1;')]
+    assert client.sqlexecute.runs == ['select 1;']
+    assert confirmation_queries == ['drop table users;', 'select 1;']
+
+
+def test_execute_from_file_runs_accepted_destructive_query(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    client = DummyClient()
+    sql_file = tmp_path / 'query.sql'
     sql_file.write_text('drop table users;', encoding='utf-8')
     client.destructive_warning = True
     client.destructive_keywords = {'drop'}
-    monkeypatch.setattr(client_commands, 'confirm_destructive_query', lambda keywords, query: False)
+    client.sqlexecute = FakeSQLExecute()
+    monkeypatch.setattr(client_commands, 'confirm_destructive_query', lambda keywords, query: True)
 
-    assert list(client.execute_from_file(str(sql_file))) == [SQLResult(status='Wise choice. Command execution stopped.')]
+    assert list(client.execute_from_file(str(sql_file))) == [SQLResult(status='ran drop table users;')]
+    assert client.sqlexecute.runs == ['drop table users;']
+
+
+def test_execute_from_file_iterates_statements_without_reading_entire_file(monkeypatch: pytest.MonkeyPatch) -> None:
+    client = DummyClient()
+    client.destructive_warning = False
+    client.destructive_keywords = set()
+    client.sqlexecute = FakeSQLExecute()
+    file_h = IteratedFile('select 1;\nselect\n 2;\nselect 3; select 4;\nselect 5')
+    opened_paths: list[str] = []
+
+    def open_file(path: str) -> IteratedFile:
+        opened_paths.append(path)
+        return file_h
+
+    monkeypatch.setattr(client_commands.os.path, 'expanduser', lambda path: '/expanded/query.sql')
+    monkeypatch.setattr(client_commands, 'open', open_file, raising=False)
+
+    assert result_statuses(client.execute_from_file('~/query.sql')) == [
+        'ran select 1;',
+        'ran select\n 2;',
+        'ran select 3;',
+        'ran select 4;',
+        'ran select 5',
+    ]
+    assert opened_paths == ['/expanded/query.sql']
+    assert file_h.closed is True
+
+
+def test_execute_from_file_reports_read_errors(monkeypatch: pytest.MonkeyPatch) -> None:
+    client = DummyClient()
+    client.sqlexecute = FakeSQLExecute()
+    file_h = FailingFile()
+    monkeypatch.setattr(client_commands, 'open', lambda path: file_h, raising=False)
+
+    assert list(client.execute_from_file('query.sql')) == [SQLResult(status='read failed')]
+    assert file_h.closed is True
+
+
+def test_execute_from_file_reports_parser_errors(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    client = DummyClient()
+    client.sqlexecute = FakeSQLExecute()
+    sql_file = tmp_path / 'query.sql'
+    sql_file.write_text('select 1;', encoding='utf-8')
+
+    def invalid_statements(file_h: StringIO) -> Generator[tuple[str, int], None, None]:
+        yield from ()
+        raise ValueError('invalid batch input')
+
+    monkeypatch.setattr(client_commands, 'statements_from_filehandle', invalid_statements)
+
+    assert list(client.execute_from_file(str(sql_file))) == [SQLResult(status='invalid batch input')]
+
+
+def test_execute_from_file_does_not_report_query_errors_as_file_errors(tmp_path: Path) -> None:
+    client = DummyClient()
+    client.destructive_warning = False
+    client.sqlexecute = FakeSQLExecute()
+    client.sqlexecute.run = lambda query: (_ for _ in ()).throw(OSError('query failed'))  # type: ignore[method-assign]
+    sql_file = tmp_path / 'query.sql'
+    sql_file.write_text('select 1;', encoding='utf-8')
+
+    with pytest.raises(OSError, match='query failed'):
+        list(client.execute_from_file(str(sql_file)))
+
+
+def test_execute_from_empty_file_returns_no_results(tmp_path: Path) -> None:
+    client = DummyClient()
+    client.sqlexecute = FakeSQLExecute()
+    sql_file = tmp_path / 'query.sql'
+    sql_file.write_text('', encoding='utf-8')
+
+    assert list(client.execute_from_file(str(sql_file))) == []
 
 
 def test_execute_from_file_runs_file_query(tmp_path: Path) -> None:
@@ -225,6 +614,31 @@ def test_execute_from_file_runs_file_query(tmp_path: Path) -> None:
 
     assert list(client.execute_from_file(str(sql_file))) == [SQLResult(status='ran select 1;')]
     assert client.sqlexecute.runs == ['select 1;']
+
+
+@pytest.mark.parametrize('command', ['/fs report select 1; select 2;', '\\fs report select 1; select 2;', 'pager;'])
+def test_execute_from_file_rejects_special_commands(command: str, tmp_path: Path) -> None:
+    client = DummyClient()
+    sql_file = tmp_path / 'query.sql'
+    sql_file.write_text(command, encoding='utf-8')
+    client.destructive_warning = False
+    client.destructive_keywords = set()
+    client.sqlexecute = FakeSQLExecute()
+
+    assert list(client.execute_from_file(str(sql_file))) == [SQLResult(status='Special commands are not supported in source files.')]
+    assert client.sqlexecute.runs == []
+
+
+def test_execute_from_file_allows_sql_comments(tmp_path: Path) -> None:
+    client = DummyClient()
+    sql_file = tmp_path / 'query.sql'
+    sql_file.write_text('/* comment */ select 1;', encoding='utf-8')
+    client.destructive_warning = False
+    client.destructive_keywords = set()
+    client.sqlexecute = FakeSQLExecute()
+
+    assert list(client.execute_from_file(str(sql_file))) == [SQLResult(status='ran /* comment */ select 1;')]
+    assert client.sqlexecute.runs == ['/* comment */ select 1;']
 
 
 def test_change_prompt_format_without_argument_shows_current_format() -> None:

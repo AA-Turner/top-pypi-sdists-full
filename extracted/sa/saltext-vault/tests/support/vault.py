@@ -25,11 +25,19 @@ def _vault_cmd(cmd, textinput=None, raw=False):
         text=True,
     )
 
+    data = None
+    if proc.returncode == 0 and "-format=json" in cmd:
+        try:
+            data = json.loads(proc.stdout)
+        except json.JSONDecodeError:
+            pass
+
     ret = ProcessResult(
         returncode=proc.returncode,
         stdout=proc.stdout,
         stderr=proc.stderr,
         cmdline=proc.args,
+        data=data,
     )
 
     if raw:
@@ -70,8 +78,7 @@ def vault_read_policy(policy):
             return None
         log.debug("Failed to read policy `%s`:\n%s\nSTDERR: %s", policy, ret, ret.stderr)
         pytest.fail(f"Unable to read policy `{policy}`: {ret.stderr or ret.stdout}")
-    res = json.loads(ret.stdout)
-    return res["policy"]
+    return ret.data["policy"]
 
 
 def vault_list_policies():
@@ -79,7 +86,7 @@ def vault_list_policies():
         ret = _vault_cmd(["policy", "list", "-format=json"])
     except RuntimeError as err:
         pytest.fail(f"Unable to list policies: {err}")
-    return json.loads(ret.stdout)
+    return ret.data
 
 
 def vault_delete_policy(policy):
@@ -89,9 +96,15 @@ def vault_delete_policy(policy):
         pytest.fail(f"Unable to delete policy `{policy}`: {err}")
 
 
-def vault_enable_secret_engine(name, options=None):
+def vault_enable_secret_engine(name, path=None, options=None):
     if options is None:
         options = []
+    elif isinstance(options, str):
+        options = [options]
+    elif not isinstance(options, list):
+        options = list(options)
+    if path is not None:
+        options.append(f"-path={path}")
     try:
         ret = _vault_cmd(["secrets", "enable"] + options + [name])
     except RuntimeError as err:
@@ -119,9 +132,11 @@ def vault_disable_secret_engine(path):
     pytest.fail(f"Could not disable secret engine at path `{path}`: {ret.stderr or ret.stdout}")
 
 
-def vault_enable_auth_method(name, options=None, **kwargs):
+def vault_enable_auth_method(name, path=None, options=None, **kwargs):
     if options is None:
         options = []
+    if path is not None:
+        options.append(f"-path={path}")
     cmd = ["auth", "enable"] + options + [name] + [f"{k}={v}" for k, v in kwargs.items()]
     try:
         ret = _vault_cmd(cmd)
@@ -170,7 +185,7 @@ def vault_get_role_id(name, mount="approle"):
         ret = _vault_cmd(cmd)
     except RuntimeError as err:
         pytest.fail(f"Failed to read role-id for `{name}` at `{mount}`: {err}")
-    return json.loads(ret.stdout)["data"]["role_id"]
+    return ret.data["data"]["role_id"]
 
 
 def vault_create_secret_id(name, mount="approle"):
@@ -179,13 +194,13 @@ def vault_create_secret_id(name, mount="approle"):
         ret = _vault_cmd(cmd)
     except RuntimeError as err:
         pytest.fail(f"Failed to create secret-id for `{name}` at `{mount}`: {err}")
-    return json.loads(ret.stdout)["data"]["secret_id"]
+    return ret.data["data"]["secret_id"]
 
 
 def vault_write_secret(path, **kwargs):
-    cmd = ["kv", "put", path] + [f"{k}={v}" for k, v in kwargs.items()]
+    cmd = ["kv", "put", path, "-"]
     try:
-        ret = _vault_cmd(cmd)
+        ret = _vault_cmd(cmd, textinput=json.dumps(kwargs))
     except RuntimeError as err:
         pytest.fail(f"Failed to write secret at `{path}`: {err}")
 
@@ -211,18 +226,31 @@ def vault_write_secret_file(path, data_name):
     return True
 
 
-def vault_read_secret(path):
-    ret = _vault_cmd(["kv", "get", "-format=json", path], raw=True)
+def vault_read_secret(path, *, version=None):
+    options = ["-format=json"]
+    if version:
+        options.append(f"-version={version}")
+    ret = _vault_cmd(["kv", "get"] + options + [path], raw=True)
 
     if ret.returncode != 0:
         if "No value found at" in ret.stderr:
             return None
         log.debug("Failed to read secret at `%s`:\n%s\nSTDERR: %s", path, ret, ret.stderr)
         pytest.fail(f"Failed to read secret at `{path}`: {ret.stderr or ret.stdout}")
-    res = json.loads(ret.stdout)
-    if "data" in res["data"]:
-        return res["data"]["data"]
-    return res["data"]
+    if "data" in ret.data["data"]:
+        return ret.data["data"]["data"]
+    return ret.data["data"]
+
+
+def vault_read_secret_metadata(path):
+    ret = _vault_cmd(["kv", "metadata", "get", "-format=json", path], raw=True)
+
+    if ret.returncode != 0:
+        if "No value found at" in ret.stderr:
+            return None
+        log.debug("Failed to read secret metadata at `%s`:\n%s\nSTDERR: %s", path, ret, ret.stderr)
+        pytest.fail(f"Failed to read secret metadata at `{path}`: {ret.stderr or ret.stdout}")
+    return ret.data["data"]
 
 
 def vault_list_secrets(path):
@@ -232,18 +260,52 @@ def vault_list_secrets(path):
             return []
         log.debug("Failed to list secrets at `%s`:\n%s\nSTDERR: %s", path, ret, ret.stderr)
         pytest.fail(f"Failed to list secrets at `{path}`: {ret.stderr or ret.stdout}")
-    return json.loads(ret.stdout)
+    return ret.data
 
 
-def vault_delete_secret(path, metadata=False):
+def vault_delete_secret(path, *, metadata=False, recursive=False, versions=None):
+    """
+    Delete secret.
+    Does not fail if the secret does not exist.
+    Does not fail when trying to delete metadata on KV v1.
+    Ensures the secret cannot be read, no need to check.
+    """
+    if recursive:
+        for child in vault_list_secrets(path):
+            vault_delete_secret(
+                f"{path}/{child}", metadata=metadata, recursive=True, versions=versions
+            )
+    if "/" not in path:
+        if not recursive:
+            pytest.fail(
+                "Cannot delete mount. Specify recursive=True if you intend to delete all secrets"
+            )
+        return
+    options = []
+    if versions:
+        if metadata:
+            pytest.fail("metadata and versions arguments exclude each other")
+        if not isinstance(versions, list):
+            versions = [versions]
+        options.append(f"-versions={','.join(str(ver) for ver in versions)}")
     try:
-        ret = _vault_cmd(["kv", "delete", path])
+        ret = _vault_cmd(["kv", "delete"] + options + [path])
     except RuntimeError:
         pytest.fail(f"Failed to delete secret at `{path}`")
 
-    if vault_read_secret(path) is not None:
-        log.debug("Failed to delete secret at `%s`:\n%s\nSTDERR: %s", path, ret, ret.stderr)
-        pytest.fail(f"Failed to delete secret at `{path}`: {ret.stderr or ret.stdout}")
+    versions = versions or [None]
+    for version in versions:
+        if vault_read_secret(path, version=version) is not None:
+            log.debug(
+                "Failed to delete secret%s at `%s`:\n%s\nSTDERR: %s",
+                f" version {version}" if version else "",
+                path,
+                ret,
+                ret.stderr,
+            )
+            pytest.fail(
+                f"Failed to delete secret{(' version ' + str(version)) if version else ''} at `{path}`: {ret.stderr or ret.stdout}"
+            )
 
     if not metadata:
         return True
@@ -257,6 +319,32 @@ def vault_delete_secret(path, metadata=False):
     return True
 
 
+def vault_destroy_secret(path, versions):
+    options = []
+    if not isinstance(versions, list):
+        versions = [versions]
+    options.append(f"-versions={','.join(str(ver) for ver in versions)}")
+    try:
+        ret = _vault_cmd(["kv", "destroy"] + options + [path])
+    except RuntimeError:
+        pytest.fail(f"Failed to destroy secret at `{path}`")
+
+    for version in versions:
+        if vault_read_secret(path, version=version) is not None:
+            log.debug(
+                "Failed to destroy secret%s at `%s`:\n%s\nSTDERR: %s",
+                f" version {version}" if version else "",
+                path,
+                ret,
+                ret.stderr,
+            )
+            pytest.fail(
+                f"Failed to destroy secret{(' version ' + str(version)) if version else ''} at `{path}`: {ret.stderr or ret.stdout}"
+            )
+
+    return True
+
+
 def vault_delete(path, silent=False):
     try:
         ret = _vault_cmd(["delete", "-format=json", path])
@@ -264,10 +352,7 @@ def vault_delete(path, silent=False):
         if silent:
             return True
         pytest.fail(f"Failed to delete path at `{path}`: {err}")
-    try:
-        return json.loads(ret.stdout) or True
-    except json.decoder.JSONDecodeError:
-        return True
+    return ret.data or True
 
 
 def vault_list(path):
@@ -277,7 +362,7 @@ def vault_list(path):
             return []
         log.debug("Failed to list path at `%s`:\n%s\nSTDERR: %s", path, ret, ret.stderr)
         pytest.fail(f"Failed to list path at `{path}`: {ret.stderr or ret.stdout}")
-    return json.loads(ret.stdout)
+    return ret.data
 
 
 def vault_list_detailed(path):
@@ -287,7 +372,7 @@ def vault_list_detailed(path):
             return []
         log.debug("Failed to list path at `%s`:\n%s\nSTDERR: %s", path, ret, ret.stderr)
         pytest.fail(f"Failed to list path at `{path}`: {ret.stderr or ret.stdout}")
-    return json.loads(ret.stdout)["data"]
+    return ret.data["data"]
 
 
 def vault_read(path, default=..., raise_errors=False):
@@ -299,10 +384,10 @@ def vault_read(path, default=..., raise_errors=False):
         if default is not ...:
             return default
         pytest.fail(f"Failed to read path at `{path}`: {err}")
-    return json.loads(ret.stdout)
+    return ret.data
 
 
-def vault_write(path, *args, **kwargs):
+def vault_write(path, *args, _nofail=False, **kwargs):
     cmd = (
         ["write", "-format=json"]
         + (["-f"] if not (args or kwargs) else [])
@@ -311,13 +396,14 @@ def vault_write(path, *args, **kwargs):
         + ["-"]
     )
     try:
-        ret = _vault_cmd(cmd, textinput=json.dumps(kwargs))
+        ret = _vault_cmd(cmd, textinput=json.dumps(kwargs), raw=_nofail)
     except RuntimeError as err:
         pytest.fail(f"Failed to write to path at `{path}`: {err}")
-    try:
-        return json.loads(ret.stdout) or True
-    except json.decoder.JSONDecodeError:
-        return True
+    if _nofail:
+        if ret.returncode != 0:
+            return None, False
+        return ret.data, True
+    return ret.data or True
 
 
 def vault_revoke(lease_id, prefix=False):
@@ -330,3 +416,91 @@ def vault_revoke(lease_id, prefix=False):
     except RuntimeError as err:
         pytest.fail(f"Failed to revoke lease `{lease_id}`: {err}")
     return True
+
+
+def vault_plugin_list(flt=None):
+    return [
+        plugin
+        for plugin in vault_read("sys/plugins/catalog")["data"]["detailed"]
+        if not flt or flt(plugin)
+    ]
+
+
+def vault_plugin_read(plugin_type, name, version=None, *, _nofail=False, **_):
+    cmd = ["plugin", "info", "-format=json"]
+    if version:
+        cmd += [f"-version={version}"]
+    cmd += [plugin_type, name]
+    try:
+        ret = _vault_cmd(cmd).data
+    except RuntimeError as err:
+        if _nofail:
+            return False
+        pytest.fail(f"Failed to read {plugin_type} plugin {name}: {err}")
+    # Make output more similar to read endpoint for easier assertions
+    ret.pop("deprecation_status", None)
+    if "oci_image" in ret and not ret["oci_image"]:
+        ret.pop("oci_image")
+    if "runtime" in ret and not ret["runtime"]:
+        ret.pop("runtime")
+    return ret
+
+
+def vault_plugin_register(
+    plugin_type,
+    name,
+    *,
+    sha256=None,
+    command=None,
+    args=None,
+    env=None,
+    version=None,
+    oci_image=None,
+    runtime=None,
+    download=False,
+):
+    endpoint = f"sys/plugins/catalog/{plugin_type}/{name}"
+    payload = {}
+    if sha256 is not None:
+        payload["sha256"] = sha256
+    if command is not None:
+        payload["command"] = command
+    if args is not None:
+        payload["args"] = args
+    if env is not None:
+        payload["env"] = env
+    if version is not None:
+        payload["version"] = version
+    if oci_image is not None:
+        payload["oci_image"] = oci_image
+    if runtime is not None:
+        payload["runtime"] = runtime
+    if download:
+        payload["download"] = download
+    return vault_write(endpoint, **payload)
+
+
+def vault_plugin_deregister(plugin_type, name, version=None):
+    cmd = ["plugin", "deregister"]
+    if version:
+        cmd += [f"-version={version}"]
+    cmd += [plugin_type, name]
+    try:
+        _vault_cmd(cmd)
+    except RuntimeError as err:
+        pytest.fail(f"Failed to deregister {plugin_type} plugin {name}: {err}")
+    return True
+
+
+def vault_plugin_pin(plugin_type, name, version):
+    return vault_write(f"sys/plugins/pins/{plugin_type}/{name}", version=version)
+
+
+def vault_plugin_show_pin(plugin_type, name):
+    return vault_read(
+        f"sys/plugins/pins/{plugin_type}/{name}", default={"data": {"version": False}}
+    )["data"]["version"]
+
+
+def vault_plugin_unpin(plugin_type, name):
+    return vault_delete(f"sys/plugins/pins/{plugin_type}/{name}")

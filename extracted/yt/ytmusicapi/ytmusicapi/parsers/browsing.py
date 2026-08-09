@@ -21,7 +21,10 @@ def parse_mixed_content(
             results = next(iter(row.values()))
             if "contents" not in results:
                 continue
-            title = nav(results, [*CAROUSEL_TITLE, "text"])
+            # some carousel headers only carry a strapline (e.g. "MORE FROM") instead of a title
+            title = nav(results, [*CAROUSEL_TITLE, "text"], True) or nav(
+                results, [*CAROUSEL_STRAPLINE, "text"], True
+            )
             contents = []
             for result in results["contents"]:
                 data = nav(result, [MTRIR], True)
@@ -57,6 +60,11 @@ def parse_mixed_content(
 def parse_content_list(results: JsonList, parse_func: ParseFuncDictType, key: str = MTRIR) -> JsonList:
     contents = []
     for result in results:
+        # carousels can mix renderer types (e.g. songs/videos alongside playlists),
+        # so skip anything that isn't the renderer parse_func expects
+        if key not in result:
+            continue
+
         contents.append(parse_func(result[key]))
 
     return contents
@@ -112,7 +120,7 @@ def parse_song(result: JsonDict) -> JsonDict:
 
 
 def parse_song_flat(data: JsonDict, with_playlist_id: bool = False) -> JsonDict:
-    columns = [get_flex_column_item(data, i) for i in range(0, len(data["flexColumns"]))]
+    columns = [get_flex_column_item(data, i) for i in range(len(data["flexColumns"]))]
     song = {
         "title": nav(columns[0], TEXT_RUN_TEXT),
         "videoId": nav(columns[0], TEXT_RUN + NAVIGATION_VIDEO_ID, True),
@@ -157,14 +165,30 @@ def parse_video(result: JsonDict) -> JsonDict:
 
 
 def parse_playlist(data: JsonDict) -> JsonDict:
+    playlist_id = nav(data, TITLE + NAVIGATION_BROWSE_ID)[2:]
+    menu_items = nav(data, ["menu", "menuRenderer", "items"], True) or []
     playlist = {
         "title": nav(
             data,
             TITLE_TEXT,
             none_if_absent=True,  # rare but possible for playlist title to be missing
         ),
-        "playlistId": nav(data, TITLE + NAVIGATION_BROWSE_ID)[2:],
-        "thumbnails": nav(data, THUMBNAIL_RENDERER),
+        "playlistId": playlist_id,
+        "thumbnails": nav(data, THUMBNAIL_RENDERER, True),
+        "owned": any(
+            nav(
+                item,
+                [
+                    "menuNavigationItemRenderer",
+                    "navigationEndpoint",
+                    "playlistEditorEndpoint",
+                    "playlistId",
+                ],
+                True,
+            )
+            == playlist_id
+            for item in menu_items
+        ),
     }
     subtitle = data["subtitle"]
     if "runs" in subtitle:

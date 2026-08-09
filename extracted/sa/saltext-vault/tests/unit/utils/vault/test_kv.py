@@ -11,6 +11,35 @@ from saltext.vault.utils.vault import client as vclient
 from saltext.vault.utils.vault import kv as vkv
 
 
+@pytest.mark.parametrize(
+    "data,patch,expected",
+    [
+        # The following test cases are taken from RFC 7396, appendix A.
+        ({"a": "b"}, {"a": "c"}, {"a": "c"}),
+        ({"a": "b"}, {"b": "c"}, {"a": "b", "b": "c"}),
+        ({"a": "b"}, {"a": None}, {}),
+        ({"a": "b", "b": "c"}, {"a": None}, {"b": "c"}),
+        ({"a": ["b"]}, {"a": "c"}, {"a": "c"}),
+        ({"a": "c"}, {"a": ["b"]}, {"a": ["b"]}),
+        ({"a": {"b": "c"}}, {"a": {"b": "d", "c": None}}, {"a": {"b": "d"}}),
+        ({"a": [{"b": "c"}]}, {"a": [1]}, {"a": [1]}),
+        (["a", "b"], ["c", "d"], ["c", "d"]),
+        ({"a": "b"}, ["c"], ["c"]),
+        ({"a": "foo"}, None, None),
+        ({"a": "foo"}, "bar", "bar"),
+        ({"e": None}, {"a": 1}, {"e": None, "a": 1}),
+        ([1, 2], {"a": "b", "c": None}, {"a": "b"}),
+        ({}, {"a": {"bb": {"ccc": None}}}, {"a": {"bb": {}}}),
+    ],
+)
+def test_apply_json_merge_patch(data, patch, expected):
+    """
+    Ensure the JSON merge patch algorithm is implemented as described
+    in RFC 7396
+    """
+    assert vkv.apply_json_merge_patch(data, patch) == expected
+
+
 @pytest.fixture
 def path():
     return "secret/some/path"
@@ -365,6 +394,35 @@ def test_vault_kv_is_v2_cached(kv_meta_cached, expected, request):
     assert res == expected
 
 
+def test_vault_kv_is_v2_cached_prefix_needs_to_be_fully_formed(
+    kvv1_meta_response, kvv2_meta_response
+):
+    """
+    Ensure that for cached metadata to be found valid for a path, the prefix's
+    final segment must match a complete path segment of the lookup path.
+    If not, a cached value for e.g. a KV v2 mount named ``secret`` could interfere
+    with a lookup for a KV v1 mount named ``secret-v1`` (specifically the root path).
+    """
+    cache = Mock(spec=vcache.VaultCache)
+    client = Mock(spec=vclient.AuthenticatedVaultClient)
+    kvv1_meta_response["data"]["path"] = "secret-v1/"
+    client.get.return_value = kvv1_meta_response
+    cache.get.return_value = {"secret": kvv2_meta_response["data"]}
+    kv = vkv.VaultKV(client, cache)
+
+    res = kv.is_v2("secret-v1")
+    assert res == {
+        "v2": False,
+        "data": "secret-v1",
+        "metadata": "secret-v1",
+        "delete": "secret-v1",
+        "type": "kv",
+    }
+    cache.get.assert_called_once()
+    cache.store.assert_called_once()
+    client.get.assert_called_once()
+
+
 class TestKVV1:
     """
     Tests version 1 Vault KV
@@ -379,8 +437,41 @@ class TestKVV1:
         metadata is requested, which is invalid for KV v1.
         """
         res = kvv1.read(path, include_metadata=include_metadata)
-        kvv1.client.get.assert_called_once_with(path)
+        kvv1.client.get.assert_called_once_with(path, payload=None)
         assert res == {"foo": "bar"}
+
+    def test_vault_kv_read_version_zero(self, kvv1, path):
+        """
+        Ensure that VaultKV.read does not fail for KV v1 when version 0
+        (the only existing one) is requested explicitly.
+        """
+        res = kvv1.read(path, version=0)
+        kvv1.client.get.assert_called_once_with(path, payload=None)
+        assert res == {"foo": "bar"}
+
+    def test_vault_kv_read_version(self, kvv1, path):
+        """
+        Ensure that VaultKV.read raises an exception when a specific
+        version is requested on KV v1.
+        """
+        with pytest.raises(
+            vault.VaultInvocationError, match="Cannot request secret versions on KV v1"
+        ):
+            kvv1.read(path, version=1)
+
+    def test_vault_kv_read_meta(self, kvv1, path):
+        """
+        Ensure that VaultKV.read_meta raises an exception for KV v1.
+        """
+        with pytest.raises(vault.VaultInvocationError, match="The backend is not KV v2"):
+            kvv1.read_meta(path)
+
+    def test_vault_kv_restore(self, kvv1, path):
+        """
+        Ensure that VaultKV.restore raises an exception for KV v1.
+        """
+        with pytest.raises(vault.VaultInvocationError, match=".*requires KV v2.*"):
+            kvv1.restore(path)
 
     def test_vault_kv_write(self, kvv1, path):
         """
@@ -435,19 +526,26 @@ class TestKVV1:
         with pytest.raises(vault.VaultInvocationError, match="Versioning support requires KV v2.*"):
             kvv1.delete(path, versions=[1, 2, 3, 4])
 
+    def test_vault_kv_destroy_versions(self, kvv1, path):
+        """
+        Ensure that VaultKV.destroy with versions raises an exception for KV v1.
+        """
+        with pytest.raises(vault.VaultInvocationError, match="Versioning support requires KV v2.*"):
+            kvv1.destroy(path, [1, 2, 3, 4])
+
     def test_vault_kv_destroy(self, kvv1, path):
         """
-        Ensure that VaultKV.destroy raises an exception for KV v1.
+        Ensure that VaultKV.destroy deletes the secret for KV v1.
         """
-        with pytest.raises(vault.VaultInvocationError):
-            kvv1.destroy(path, [1, 2, 3, 4])
+        kvv1.destroy(path)
+        kvv1.client.delete.assert_called_once_with(path)
 
     def test_vault_kv_nuke(self, kvv1, path):
         """
-        Ensure that VaultKV.nuke raises an exception for KV v1.
+        Ensure that VaultKV.nuke deletes the secret for KV v1.
         """
-        with pytest.raises(vault.VaultInvocationError):
-            kvv1.nuke(path)
+        kvv1.nuke(path)
+        kvv1.client.delete.assert_called_once_with(path)
 
     def test_vault_kv_list(self, kvv1, path):
         """
@@ -516,7 +614,7 @@ class TestKVV2:
         if requested.
         """
         res = kvv2.read(path, include_metadata=include_metadata)
-        kvv2.client.get.assert_called_once_with(paths["data"])
+        kvv2.client.get.assert_called_once_with(paths["data"], payload=None)
         if include_metadata:
             assert res == kvv2_response["data"]
         else:
@@ -541,6 +639,58 @@ class TestKVV2:
             payload={"data": data},
             safe_to_retry=True,
         )
+
+    def test_vault_kv_read_version(self, kvv2, path, paths, kvv2_response):
+        """
+        Ensure that VaultKV.read requests a specific version if requested.
+        """
+        res = kvv2.read(path, version=2)
+        kvv2.client.get.assert_called_once_with(paths["data"], payload={"version": 2})
+        assert res == kvv2_response["data"]["data"]
+
+    @pytest.mark.parametrize(
+        "exc", [vault.VaultPermissionDeniedError, vault.VaultUnsupportedOperationError]
+    )
+    def test_vault_kv_patch_fallback(self, kvv2, path, paths, exc, caplog):
+        """
+        Ensure that VaultKV.patch falls back to reading the secret,
+        patching it in memory and writing it back with a CAS parameter
+        when the server does not support PATCH or the token is missing
+        the `patch` capability.
+        """
+        kvv2.client.patch.side_effect = exc
+        kvv2.patch(path, {"bar": "baz"})
+        kvv2.client.get.assert_called_once_with(paths["data"], payload=None)
+        kvv2.client.put.assert_called_once_with(
+            paths["data"],
+            payload={"data": {"foo": "bar", "bar": "baz"}, "options": {"cas": 1}},
+        )
+        assert ("Failed patching secret" in caplog.text) is (
+            exc is vault.VaultPermissionDeniedError
+        )
+
+    @pytest.mark.parametrize(
+        "path,ptype,expected",
+        [
+            # a path of the wrong type is flipped
+            ("secret/data/some/path", "metadata", "secret/metadata/some/path"),
+            ("secret/metadata/some/path", "data", "secret/data/some/path"),
+            # a path of the correct type is returned unchanged
+            ("secret/data/some/path", "data", "secret/data/some/path"),
+            # only complete path segments should match the type checks,
+            # otherwise secrets whose name begins with a type are mangled
+            ("secret/database", "data", "secret/data/database"),
+            ("secret/database", "metadata", "secret/metadata/database"),
+            ("secret/metadatabase", "data", "secret/data/metadatabase"),
+        ],
+    )
+    def test_v2_the_path(self, kvv2, path, ptype, expected):
+        """
+        Ensure paths that already contain a type prefix are flipped to
+        the requested type, while type-like secret name prefixes are
+        not mistaken for one
+        """
+        assert kvv2._v2_the_path(path, "secret", ptype) == expected
 
     def test_vault_kv_delete(self, kvv2, path, paths):
         """

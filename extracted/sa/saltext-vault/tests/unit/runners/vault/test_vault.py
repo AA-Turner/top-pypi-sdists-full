@@ -101,6 +101,7 @@ def default_config():
         },
         "server": {
             "url": "http://test-vault:8200",
+            "url_alts": ["http://test-vault:8200"],
             "namespace": None,
             "verify": None,
         },
@@ -280,7 +281,7 @@ def identity_api():
 
 @pytest.fixture
 def client_token(client, token_response, wrapped_response):  # pylint: disable=unused-argument
-    def res_or_wrap(*args, **kwargs):  # pylint: disable=unused-argument
+    def res_or_wrap(*_, **kwargs):  # pylint: disable=unused-argument
         if kwargs.get("wrap"):
             return vaultutil.VaultWrappedResponse(**wrapped_response["wrap_info"])
         return token_response
@@ -340,9 +341,7 @@ def policies(request, policies_default):
 
 @pytest.fixture
 def metadata(request, metadata_entity_default, metadata_secret_default):
-    def _get_metadata(
-        minion_id, metadata_patterns, *args, **kwargs
-    ):  # pylint: disable=unused-argument
+    def _get_metadata(minion_id, metadata_patterns, *_, **__):  # pylint: disable=unused-argument
         if getattr(request, "param", None) is not None:
             return request.param
         if "saltstack-jid" not in metadata_patterns:
@@ -450,7 +449,15 @@ def test_generate_token_deprecated(ttl, uses, token_serialized, config, validate
             assert "Master is not configured to issue tokens" in caplog.text
 
 
-@pytest.mark.parametrize("config", [{}, {"issue:wrap": False}], indirect=True)
+@pytest.mark.parametrize(
+    "config",
+    [
+        {},
+        {"issue:wrap": False},
+        {"server:url_alts": ["http://test-vault:8200", "http://alt-vault:8200"]},
+    ],
+    indirect=True,
+)
 @pytest.mark.parametrize("issue_params", [None, {"explicit_max_ttl": 120, "num_uses": 3}])
 def test_generate_new_token(
     issue_params, config, validate_signature, token_serialized, wrapped_serialized
@@ -463,7 +470,9 @@ def test_generate_new_token(
             token_serialized["lease_duration"] = issue_params["explicit_max_ttl"]
         if issue_params.get("num_uses") is not None:
             token_serialized["num_uses"] = issue_params["num_uses"]
-    expected = {"server": config("server"), "auth": {}}
+    expected = {"server": config("server").copy(), "auth": {}}
+    if expected["server"]["url_alts"] == [expected["server"]["url"]]:
+        expected["server"].pop("url_alts")
     if config("issue:wrap"):
         expected.update(wrapped_serialized)
         expected.update({"misc_data": {"num_uses": token_serialized["num_uses"]}})
@@ -472,7 +481,7 @@ def test_generate_new_token(
 
     with patch("saltext.vault.runners.vault._generate_token", autospec=True) as gen:
 
-        def res_or_wrap(*args, **kwargs):  # pylint: disable=unused-argument
+        def res_or_wrap(*_, **kwargs):  # pylint: disable=unused-argument
             if kwargs.get("wrap"):
                 return wrapped_serialized, token_serialized["num_uses"]
             return token_serialized, token_serialized["num_uses"]
@@ -497,7 +506,15 @@ def test_generate_new_token_refuses_if_not_configured():
     assert "Master does not issue tokens" in res["error"]
 
 
-@pytest.mark.parametrize("config", [{}, {"issue:wrap": False}], indirect=True)
+@pytest.mark.parametrize(
+    "config",
+    [
+        {},
+        {"issue:wrap": False},
+        {"server:url_alts": ["http://test-vault:8200", "http://alt-vault:8200"]},
+    ],
+    indirect=True,
+)
 @pytest.mark.parametrize("issue_params", [None, {"explicit_max_ttl": 120, "num_uses": 3}])
 def test_get_config_token(
     config, validate_signature, token_serialized, wrapped_serialized, issue_params
@@ -515,9 +532,12 @@ def test_get_config_token(
         },
         "cache": config("cache"),
         "client": config("client"),
-        "server": config("server"),
+        "server": config("server").copy(),
         "wrap_info_nested": [],
     }
+
+    if expected["server"]["url_alts"] == [expected["server"]["url"]]:
+        expected["server"].pop("url_alts")
 
     if issue_params is not None:
         if issue_params.get("explicit_max_ttl") is not None:
@@ -537,7 +557,7 @@ def test_get_config_token(
 
     with patch("saltext.vault.runners.vault._generate_token", autospec=True) as gen:
 
-        def res_or_wrap(*args, **kwargs):  # pylint: disable=unused-argument
+        def res_or_wrap(*_, **kwargs):  # pylint: disable=unused-argument
             if kwargs.get("wrap"):
                 return wrapped_serialized, token_serialized["num_uses"]
             return token_serialized, token_serialized["num_uses"]
@@ -601,7 +621,7 @@ def test_get_config_approle(config, validate_signature, wrapped_serialized, issu
 
     with patch("saltext.vault.runners.vault._get_role_id", autospec=True) as gen:
 
-        def res_or_wrap(*args, **kwargs):  # pylint: disable=unused-argument
+        def res_or_wrap(*_, **kwargs):  # pylint: disable=unused-argument
             if kwargs.get("wrap"):
                 return wrapped_serialized
             return "test-role-id"
@@ -617,7 +637,14 @@ def test_get_config_approle(config, validate_signature, wrapped_serialized, issu
 
 @pytest.mark.parametrize(
     "config",
-    [{"issue:type": "approle"}, {"issue:type": "approle", "issue:wrap": False}],
+    [
+        {"issue:type": "approle"},
+        {"issue:type": "approle", "issue:wrap": False},
+        {
+            "issue:type": "approle",
+            "server:url_alts": ["http://test-vault:8200", "http://alt-vault:8200"],
+        },
+    ],
     indirect=True,
 )
 @pytest.mark.parametrize(
@@ -632,14 +659,17 @@ def test_get_role_id(config, validate_signature, wrapped_serialized, issue_param
     """
     Ensure get_role_id returns data in the expected format
     """
-    expected = {"server": config("server"), "data": {}}
+    expected = {"server": config("server").copy(), "data": {}}
     if config("issue:wrap"):
         expected.update(wrapped_serialized)
     else:
         expected["data"].update({"role_id": "test-role-id"})
+    if expected["server"]["url_alts"] == [expected["server"]["url"]]:
+        expected["server"].pop("url_alts")
+
     with patch("saltext.vault.runners.vault._get_role_id", autospec=True) as gen:
 
-        def res_or_wrap(*args, **kwargs):  # pylint: disable=unused-argument
+        def res_or_wrap(*_, **kwargs):  # pylint: disable=unused-argument
             if kwargs.get("wrap"):
                 return wrapped_serialized
             return "test-role-id"
@@ -790,7 +820,14 @@ class TestGetRoleId:
 
 @pytest.mark.parametrize(
     "config",
-    [{"issue:type": "approle"}, {"issue:type": "approle", "issue:wrap": False}],
+    [
+        {"issue:type": "approle"},
+        {"issue:type": "approle", "issue:wrap": False},
+        {
+            "issue:type": "approle",
+            "server:url_alts": ["http://test-vault:8200", "http://alt-vault:8200"],
+        },
+    ],
     indirect=True,
 )
 def test_generate_secret_id(
@@ -800,7 +837,7 @@ def test_generate_secret_id(
     Ensure generate_secret_id returns data in the expected format
     """
     expected = {
-        "server": config("server"),
+        "server": config("server").copy(),
         "data": {},
         "misc_data": {"secret_id_num_uses": approle_meta["secret_id_num_uses"]},
     }
@@ -808,6 +845,9 @@ def test_generate_secret_id(
         expected.update(wrapped_serialized)
     else:
         expected["data"].update(secret_id_serialized)
+    if expected["server"]["url_alts"] == [expected["server"]["url"]]:
+        expected["server"].pop("url_alts")
+
     with (
         patch("saltext.vault.runners.vault._get_secret_id", autospec=True) as gen,
         patch(
@@ -820,7 +860,7 @@ def test_generate_secret_id(
         ) as lookup_approle,
     ):
 
-        def res_or_wrap(*args, **kwargs):  # pylint: disable=unused-argument
+        def res_or_wrap(*_, **kwargs):  # pylint: disable=unused-argument
             if kwargs.get("wrap"):
                 res = Mock(spec=vaultutil.VaultWrappedResponse)
                 res.serialize_for_minion.return_value = wrapped_serialized
@@ -856,14 +896,109 @@ def test_generate_secret_id_nonexistent_approle():
 
 
 @pytest.mark.usefixtures("validate_signature", "config")
-@pytest.mark.parametrize("config", [{"issue:type": "token"}], indirect=True)
-def test_get_secret_id_refuses_if_not_configured():
+@pytest.mark.parametrize("config", [{"issue:type": "approle"}], indirect=True)
+def test_generate_secret_id_unbound_approle(approle_meta):
     """
-    Ensure get_secret_id returns an error if not configured to issue AppRoles
+    Ensure generate_secret_id refuses to generate a secret ID and prompts
+    the minion to refresh its configuration if its AppRole does not require one.
+    """
+    approle_meta["bind_secret_id"] = False
+    with (
+        patch(
+            "saltext.vault.runners.vault._approle_params_match",
+            autospec=True,
+            return_value=True,
+        ),
+        patch(
+            "saltext.vault.runners.vault._lookup_approle_cached", autospec=True
+        ) as lookup_approle,
+    ):
+        lookup_approle.return_value = approle_meta
+        res = vault.generate_secret_id("test-minion", "sig", issue_params=None)
+    assert res == {
+        "expire_cache": True,
+        "error": "Minion AppRole does not require a secret ID.",
+    }
+
+
+@pytest.mark.usefixtures("validate_signature", "config")
+@pytest.mark.parametrize("config", [{"issue:type": "token"}], indirect=True)
+def test_generate_secret_id_refuses_if_not_configured():
+    """
+    Ensure generate_secret_id returns an error if not configured to issue AppRoles
     """
     res = vault.generate_secret_id("test-minion", "sig")
     assert "error" in res
     assert "Master does not issue AppRoles" in res["error"]
+
+
+@pytest.mark.usefixtures("validate_signature", "config")
+@pytest.mark.parametrize(
+    "func,config,patched",
+    (
+        ("generate_new_token", {}, "_generate_token"),
+        ("get_config", {}, "_generate_token"),
+        ("get_role_id", {"issue:type": "approle"}, "_get_role_id"),
+        ("generate_secret_id", {"issue:type": "approle"}, "_lookup_approle_cached"),
+    ),
+    indirect=("config",),
+)
+def test_errors_are_reported(func, patched):
+    """
+    Ensure unexpected errors are caught and returned in the reply,
+    otherwise the peer runner call would fail with an unhelpful message.
+    """
+    with patch(f"saltext.vault.runners.vault.{patched}", autospec=True) as failing_mock:
+        failing_mock.side_effect = vaultutil.VaultPermissionDeniedError("booh")
+        res = getattr(vault, func)("test-minion", "sig")
+    assert res == {"error": "VaultPermissionDeniedError: booh"}
+
+
+@pytest.mark.parametrize("unseal_after", (1, 2, False))
+def test_unseal(unseal_after):
+    """
+    Ensure unseal submits the configured keys one by one until
+    the server reports itself as unsealed and reports failure if
+    it is still sealed after all of them.
+    """
+    keys = ["one", "two", "three"]
+
+    def submit_key(endpoint, payload):  # pylint: disable=unused-argument
+        return {"sealed": not (unseal_after and keys.index(payload["key"]) + 1 >= unseal_after)}
+
+    with patch("saltext.vault.runners.vault.factory.parse_config", autospec=True) as parse_config:
+        parse_config.return_value = {"server": {"url": "http://127.0.0.1:8200"}, "client": {}}
+        with patch("saltext.vault.runners.vault.VaultClient", autospec=True) as client_cls:
+            client = client_cls.return_value
+            client.put.side_effect = submit_key
+            with patch.dict(vault.__opts__, {"vault": {"keys": keys}}):
+                res = vault.unseal()
+    assert res is bool(unseal_after)
+    expected_key_count = unseal_after or len(keys)
+    assert client.put.call_count == expected_key_count
+    client.put.assert_called_with("sys/unseal", payload={"key": keys[expected_key_count - 1]})
+    client_cls.assert_called_once_with(url="http://127.0.0.1:8200")
+
+
+def test_config_without_key_and_missing_values():
+    """
+    Ensure the parsed master configuration is returned as a whole when no
+    key was specified and that missing values raise an exception by default.
+    """
+    opts_vault = {
+        "auth": {"method": "token", "token": "testsecret"},
+        "server": {"url": "http://127.0.0.1:8200"},
+    }
+    with patch.dict(vault.__opts__, {"vault": opts_vault}):
+        with patch.dict(vault.__context__, clear=True):
+            res = vault._config()
+            assert res == vaultutil.parse_config(opts_vault)
+            assert res["server"]["url"] == "http://127.0.0.1:8200"
+            with pytest.raises(
+                vaultutil.VaultException,
+                match="Requested configuration value foo:bar does not exist",
+            ):
+                vault._config("foo:bar")
 
 
 @pytest.mark.parametrize("config", [{"issue:type": "approle"}], indirect=True)
@@ -905,12 +1040,27 @@ def test_generate_secret_id_updates_params(
 
 @pytest.mark.usefixtures("config")
 @pytest.mark.parametrize("config", [{"issue:type": "token"}], indirect=True)
-def test_list_approles_raises_exception_if_not_configured():
+@pytest.mark.parametrize(
+    "func,args",
+    (
+        ("sync_approles", ()),
+        ("list_approles", ()),
+        ("sync_entities", ()),
+        ("list_entities", ()),
+        ("show_entity", ("test-minion",)),
+        ("show_approle", ("test-minion",)),
+    ),
+)
+def test_approle_funcs_raise_exception_if_not_configured(func, args):
     """
-    Ensure test_list_approles returns an error if not configured to issue AppRoles
+    Ensure AppRole/entity management functions raise an error if the master
+    is not configured to issue AppRoles.
     """
-    with pytest.raises(salt.exceptions.SaltRunnerError, match="Master does not issue AppRoles.*"):
-        vault.list_approles()
+    with pytest.raises(
+        salt.exceptions.SaltRunnerError,
+        match="Master (does not issue|is not configured to issue) AppRoles.*",
+    ):
+        getattr(vault, func)(*args)
 
 
 @pytest.mark.usefixtures("config")
@@ -945,7 +1095,7 @@ def test_get_policies(expected, grains, pillar):
     ):
         with patch(
             "saltext.vault.utils.vault.helpers.expand_pattern_lists",
-            Mock(side_effect=lambda x, *args, **kwargs: [x]),
+            Mock(side_effect=lambda x, *_, **__: [x]),
         ):
             res = vault._get_policies("test-minion", refresh_pillar=False)
             assert res == expected
@@ -969,7 +1119,7 @@ def test_get_policies_does_not_render_pillar_unnecessarily(config, grains, pilla
         get_minion_data.return_value = (None, grains, None)
         with patch(
             "saltext.vault.utils.vault.helpers.expand_pattern_lists",
-            Mock(side_effect=lambda x, *args, **kwargs: [x]),
+            Mock(side_effect=lambda x, *_, **__: [x]),
         ):
             with patch("salt.pillar.get_pillar", autospec=True) as get_pillar:
                 get_pillar.return_value.compile_pillar.return_value = pillar
@@ -995,7 +1145,7 @@ def test_get_policies_for_nonexisting_minions(expected):
         get_minion_data.return_value = (None, None, None)
         with patch(
             "saltext.vault.utils.vault.helpers.expand_pattern_lists",
-            Mock(side_effect=lambda x, *args, **kwargs: [x]),
+            Mock(side_effect=lambda x, *_, **__: [x]),
         ):
             res = vault._get_policies("test-minion", refresh_pillar=False)
             assert res == expected
@@ -1043,7 +1193,7 @@ def test_get_metadata(metadata_patterns, expected, pillar):
         get_minion_data.return_value = (None, None, pillar)
         with patch(
             "saltext.vault.utils.vault.helpers.expand_pattern_lists",
-            Mock(side_effect=lambda x, *args, **kwargs: [x]),
+            Mock(side_effect=lambda x, *_, **__: [x]),
         ):
             res = vault._get_metadata("test-minion", metadata_patterns, refresh_pillar=False)
             assert res == expected
@@ -1073,13 +1223,31 @@ def test_get_metadata_list():
             }
 
 
+@pytest.mark.parametrize(
+    "template",
+    (
+        "salt_role_{pillar[missing]}",  # KeyError
+        "salt_role_{pillar[roles][10]}",  # IndexError
+    ),
+)
+def test_get_metadata_expansion_failure(template, pillar):
+    """
+    Ensure metadata patterns whose template expansion fails are skipped
+    and result in an empty value instead of a crash.
+    """
+    with patch("salt.utils.minions.get_minion_data", autospec=True) as get_minion_data:
+        get_minion_data.return_value = (None, None, pillar)
+        res = vault._get_metadata("test-minion", {"salt_role": template}, refresh_pillar=False)
+    assert res == {"salt_role": ""}
+
+
 def test_get_metadata_list_conflict():
     with patch("salt.utils.minions.get_minion_data", autospec=True) as get_minion_data:
         get_minion_data.return_value = (None, None, None)
         with patch(
             "saltext.vault.utils.vault.helpers.expand_pattern_lists", autospec=True
         ) as expand:
-            expand.side_effect = lambda x, *args, **kwargs: ["foo", "bar"] if "pillar" in x else [x]
+            expand.side_effect = lambda x, *_, **__: ["foo", "bar"] if "pillar" in x else [x]
             res = vault._get_metadata(
                 "test-minion",
                 {"salt_role": "salt_role_{pillar[roles]}", "salt_role__1": "wat"},
@@ -1337,6 +1505,19 @@ def test_parse_issue_params_does_not_allow_bind_secret_id_override(issue_params,
     assert res.get("bind_secret_id", False) == expected
 
 
+@pytest.mark.usefixtures("config")
+@pytest.mark.parametrize("config", [{"issue:type": "invalid"}], indirect=True)
+def test_parse_issue_params_invalid_issue_type():
+    """
+    Ensure an invalid configured issuance type is reported.
+    """
+    with pytest.raises(
+        salt.exceptions.SaltRunnerError,
+        match="Invalid configuration for minion Vault authentication issuance",
+    ):
+        vault._parse_issue_params(None)
+
+
 @pytest.mark.usefixtures("config", "policies")
 def test_manage_approle(approle_api, policies_default):
     """
@@ -1556,3 +1737,61 @@ def test_issue_non_impersonated_only(impersonated):
     with ctx, patch("salt.crypt.verify_signature", autospec=True) as verify:
         vault._validate_signature("test-minion", "", impersonated)
     assert bool(verify.call_count) is impersonated
+
+
+@pytest.fixture
+def get_pillar():
+    with patch("salt.pillar.get_pillar", autospec=True) as _get_pillar:
+        _get_pillar.return_value.compile_pillar.return_value = {"foo": "bar", "baz": 42}
+        yield _get_pillar
+
+
+@pytest.fixture
+def lazy_pillar(master_opts):
+    return vault.LazyPillar(
+        master_opts, {"id": "test-minion"}, "test-minion", extra_minion_data={"extra": True}
+    )
+
+
+def test_lazy_pillar_untouched_is_not_compiled(get_pillar, lazy_pillar):
+    assert lazy_pillar._pillar is None
+    get_pillar.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "access,expected",
+    (
+        (lambda pillar: pillar["foo"], "bar"),
+        # list(pillar) would call __len__ first for preallocation,
+        # compiling the pillar before __iter__ runs
+        (lambda pillar: list(iter(pillar)), ["foo", "baz"]),
+        (len, 2),
+    ),
+)
+def test_lazy_pillar_access_compiles_pillar(get_pillar, lazy_pillar, master_opts, access, expected):
+    """
+    Ensure the pillar is compiled with the expected parameters when
+    it is accessed via __getitem__, __iter__ or __len__
+    """
+    assert access(lazy_pillar) == expected
+    get_pillar.assert_called_once_with(
+        master_opts,
+        {"id": "test-minion"},
+        "test-minion",
+        extra_minion_data={"extra": True},
+    )
+    assert lazy_pillar._pillar == {"foo": "bar", "baz": 42}
+
+
+def test_lazy_pillar_is_only_compiled_once(get_pillar, lazy_pillar):
+    assert lazy_pillar["foo"] == "bar"
+    assert lazy_pillar["baz"] == 42
+    assert len(lazy_pillar) == 2
+    assert dict(lazy_pillar) == {"foo": "bar", "baz": 42}
+    assert get_pillar.call_count == 1
+    assert get_pillar.return_value.compile_pillar.call_count == 1
+
+
+def test_lazy_pillar_extra_minion_data_defaults_to_empty_dict(master_opts):
+    pillar = vault.LazyPillar(master_opts, {"id": "test-minion"}, "test-minion")
+    assert pillar.extra_minion_data == {}

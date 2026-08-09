@@ -1,4 +1,4 @@
-# Copyright 2010-2025 The pygit2 contributors
+# Copyright 2010-2026 The pygit2 contributors
 #
 # This file is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License, version 2,
@@ -25,8 +25,7 @@
 
 from collections.abc import Callable, Iterator
 from os import PathLike
-from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 try:
     from functools import cached_property
@@ -36,18 +35,18 @@ except ImportError:
 # Import from pygit2
 from .errors import check_error
 from .ffi import C, ffi
-from .utils import to_bytes
+from .utils import encode_fs_path, encode_string
 
 if TYPE_CHECKING:
     from ._libgit2.ffi import GitConfigC, GitConfigEntryC
     from .repository import BaseRepository
 
 
-def str_to_bytes(value: str | PathLike[str] | bytes, name: str) -> bytes:
+def str_to_bytes(value: str | bytes, name: str) -> bytes:
     if not isinstance(value, str):
         raise TypeError(f'{name} must be a string')
 
-    return to_bytes(value)
+    return encode_string(value)
 
 
 class ConfigIterator:
@@ -79,25 +78,53 @@ class ConfigMultivarIterator(ConfigIterator):
 
 
 class Config:
-    """Git configuration management."""
+    """Git configuration management.
 
-    _repo: 'BaseRepository'
+    This class is for the reading and writing of Git configuration files.
+    Configuration files are read individually, either by passing a path into
+    the constructor or by using one of the static methods
+    :meth:`Config.get_system_config`, :meth:`Config.get_global_config`, or
+    :meth:`Config.get_xdg_config`. Additional files can be loaded into the
+    `Config` object using :meth:`Config.add_file`.
+
+    Changes made to the configuration with :meth:`Config.set_multivar` are
+    immediately persisted to disk. Reads performed with accessor methods like
+    :meth:`Config.get_multivar` or :meth:`Config.__getitem__` may result in
+    reading from different versions of the configuration file if this or
+    another process has modified the file. To avoid this and have all read
+    operations occur against the same version of the configuration file, use
+    :meth:`Config.snapshot()` to create a snapshot of the current config. This
+    is especially important when iterating, as the contents of the config
+    might change mid-iteration if you don't use a snapshot.
+
+    This class can technically be used to manually read and write a repository's
+    configuration file by pointing the constructor to the repository's
+    ``.git/config`` file, but this is not recommended. The resulting ``Config``
+    object represents only the configuration directly within ``.git/config``.
+    It does not represent the total effective configuration for that repository
+    that includes the combined system, global (user), and global (user) XDG.
+    Instead, use :meth:`BaseRepository.config` for loading a repository's
+    configuration.
+    """
+
+    _repo: Optional['BaseRepository']
     _config: 'GitConfigC'
 
-    def __init__(self, path: str | None = None) -> None:
+    def __init__(self, path: PathLike | str | None = None) -> None:
         cconfig = ffi.new('git_config **')
 
         if not path:
             err = C.git_config_new(cconfig)
         else:
-            path_bytes = str_to_bytes(path, 'path')
+            path_bytes = encode_fs_path(path)
             err = C.git_config_open_ondisk(cconfig, path_bytes)
 
         check_error(err, io=True)
+        self._repo = None
         self._config = cconfig[0]
 
     @classmethod
-    def from_c(cls, repo: 'BaseRepository', ptr: 'GitConfigC') -> 'Config':
+    def from_c(cls, repo: Optional['BaseRepository'], ptr: 'GitConfigC') -> 'Config':
         config = cls.__new__(cls)
         config._repo = repo
         config._config = ptr
@@ -156,7 +183,7 @@ class Config:
         elif isinstance(value, int):
             err = C.git_config_set_int64(self._config, key, value)
         else:
-            err = C.git_config_set_string(self._config, key, to_bytes(value))
+            err = C.git_config_set_string(self._config, key, encode_string(value))
 
         check_error(err)
 
@@ -188,7 +215,7 @@ class Config:
         to filter the variables we're interested in.
         """
         name = str_to_bytes(name, 'name')
-        regex_bytes = to_bytes(regex or None)
+        regex_bytes = encode_string(regex or None)
 
         citer = ffi.new('git_config_iterator **')
         err = C.git_config_multivar_iterator_new(citer, self._config, name, regex_bytes)
@@ -200,7 +227,8 @@ class Config:
         self, name: str | bytes, regex: str | bytes, value: str | bytes
     ) -> None:
         """Set a multivar ''name'' to ''value''. ''regexp'' is a regular
-        expression to indicate which values to replace.
+        expression to indicate which values to replace. Changes are persisted
+        to the configuration file(s) backing this ``Config``.
         """
         name = str_to_bytes(name, 'name')
         regex = str_to_bytes(regex, 'regex')
@@ -211,7 +239,8 @@ class Config:
 
     def delete_multivar(self, name: str | bytes, regex: str | bytes) -> None:
         """Delete a multivar ''name''. ''regexp'' is a regular expression to
-        indicate which values to delete.
+        indicate which values to delete. Changes are persisted to the
+        configuration file(s) backing this ``Config``.
         """
         name = str_to_bytes(name, 'name')
         regex = str_to_bytes(regex, 'regex')
@@ -249,16 +278,16 @@ class Config:
 
         return res[0]
 
-    def add_file(self, path: str | Path, level: int = 0, force: int = 0) -> None:
+    def add_file(self, path: str | PathLike, level: int = 0, force: int = 0) -> None:
         """Add a config file instance to an existing config."""
 
         err = C.git_config_add_file_ondisk(
-            self._config, to_bytes(path), level, ffi.NULL, force
+            self._config, encode_fs_path(path), level, ffi.NULL, force
         )
         check_error(err)
 
     def snapshot(self) -> 'Config':
-        """Create a snapshot from this Config object.
+        """Create a snapshot from this ``Config`` object.
 
         This means that looking up multiple values will use the same version
         of the configuration files.
@@ -276,7 +305,7 @@ class Config:
     @staticmethod
     def parse_bool(text: str) -> bool:
         res = ffi.new('int *')
-        err = C.git_config_parse_bool(res, to_bytes(text))
+        err = C.git_config_parse_bool(res, encode_string(text))
         check_error(err)
 
         return res[0] != 0
@@ -284,7 +313,7 @@ class Config:
     @staticmethod
     def parse_int(text: str) -> int:
         res = ffi.new('int64_t *')
-        err = C.git_config_parse_int64(res, to_bytes(text))
+        err = C.git_config_parse_int64(res, encode_string(text))
         check_error(err)
 
         return res[0]
@@ -305,17 +334,32 @@ class Config:
 
     @staticmethod
     def get_system_config() -> 'Config':
-        """Return a <Config> object representing the system configuration file."""
+        """Return a ``Config`` object representing the system configuration file.
+
+        The system configuration file is the one found at ``/etc/gitconfig`` or
+        ``%PROGRAMFILES%\\Git\\etc\\gitconfig``, depending on the operating system.
+        """
         return Config._from_found_config(C.git_config_find_system)
 
     @staticmethod
     def get_global_config() -> 'Config':
-        """Return a <Config> object representing the global configuration file."""
+        """Return a ``Config`` object representing the global configuration file.
+
+        The global configuration file is the one found at the standard user config
+        location for Git, which is ``$HOME/.gitconfig``. This will not find the file
+        at the XDG-compatible user config file location (for that, see
+        :meth:`Config.get_xdg_config`).
+        """
         return Config._from_found_config(C.git_config_find_global)
 
     @staticmethod
     def get_xdg_config() -> 'Config':
-        """Return a <Config> object representing the global configuration file."""
+        """Return a ``Config`` object representing the XDG-compatible global configuration file.
+
+        The XDG-compatible user config file follows the XDG Base Directory Specification.
+        This file is located at ``$HOME/.config/git/config``. This will not find the file
+        at the standard user config location (for that, see :meth:`Config.get_global_config`).
+        """
         return Config._from_found_config(C.git_config_find_xdg)
 
 

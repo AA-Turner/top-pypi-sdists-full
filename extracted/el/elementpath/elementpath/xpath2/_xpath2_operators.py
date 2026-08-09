@@ -164,7 +164,7 @@ def evaluate__quantified_expressions(self: XPathToken, context: ta.ContextType =
     varnames = [cast(str, self[k][0].value) for k in range(0, len(self) - 1, 2)]
     selectors = [self[k].select for k in range(1, len(self) - 1, 2)]
 
-    for results in context.iter_product(selectors, varnames):
+    for results in copy(context).iter_product(selectors, varnames):
         context.variables.update(x for x in zip(varnames, results))
         if self.boolean_value(self[-1].select(copy(context))):
             if some:
@@ -877,8 +877,7 @@ def select__attribute_kind_test_or_axis(self: XPathToken, context: ta.ContextTyp
         for _ in context.iter_attributes():
             yield from cast(Iterator[AttributeNode], self[0].select(context))
     elif not self:
-        for attribute in context.iter_attributes():
-            yield attribute
+        yield from context.iter_attributes()
     else:
         name = self[0].value
         assert isinstance(name, str)

@@ -1,4 +1,4 @@
-# Copyright 2010-2025 The pygit2 contributors
+# Copyright 2010-2026 The pygit2 contributors
 #
 # This file is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License, version 2,
@@ -87,10 +87,36 @@ class GitRepositoryC:
     # def _from_c(cls, ptr: 'GitRepositoryC', owned: bool) -> 'Repository': ...
     pass
 
+class GitRemoteCallbacksC:
+    # TODO: Several Anys need filling in
+    version: int
+    sideband_progress: Any
+    completion: Any
+    credentials: Any
+    certificate_check: Any
+    transfer_progress: Any
+    update_tips: Any
+    pack_progress: Any
+    push_transfer_progress: Any
+    push_update_reference: Any
+    push_negotiation: Any
+    transport: Any
+    remote_ready: Any
+    payload: Any
+    resolve_url: Any
+    update_refs: Any
+
 class GitFetchOptionsC:
     # TODO: FetchOptions exist in _pygit2.pyi
     # incomplete
     depth: int
+    callbacks: GitRemoteCallbacksC
+    custom_headers: GitStrrayC
+
+class GitPushOptionsC:
+    # TODO incomplete
+    callbacks: GitRemoteCallbacksC
+    custom_headers: GitStrrayC
 
 class GitSubmoduleC:
     pass
@@ -146,6 +172,9 @@ class GitBufC:
 class GitCheckoutOptionsC:
     # incomplete
     checkout_strategy: int
+    ancestor_label: ArrayC[char]
+    our_label: ArrayC[char]
+    their_label: ArrayC[char]
 
 class GitCommitC:
     pass
@@ -225,7 +254,11 @@ class GitRepositoryInitOptionsC:
     origin_url: ArrayC[char]
 
 class GitCloneOptionsC:
-    pass
+    # TODO: Several Anys need filling in
+    repository_cb: Any
+    repository_cb_payload: Any
+    remote_cb: Any
+    remote_cb_payload: Any
 
 class GitPackbuilderC:
     pass
@@ -241,6 +274,22 @@ class GitProxyOptionsC:
     # certificate_check
     # payload
 
+class GitRebaseC:
+    pass
+
+class GitRebaseOperationC:
+    type: int
+    id: GitOidC
+    exec: char_pointer
+
+class GitRebaseOptionsC:
+    version: int
+    quiet: int
+    inmemory: int
+    rewrite_notes_ref: ArrayC[char]
+    merge_options: GitMergeOptionsC
+    checkout_options: GitCheckoutOptionsC
+
 class GitRemoteC:
     pass
 
@@ -255,6 +304,8 @@ def string(a: char_pointer) -> bytes: ...
 def new(a: Literal['git_repository **']) -> _Pointer[GitRepositoryC]: ...
 @overload
 def new(a: Literal['git_remote **']) -> _Pointer[GitRemoteC]: ...
+@overload
+def new(a: Literal['git_remote_callbacks *']) -> GitRemoteCallbacksC: ...
 @overload
 def new(a: Literal['git_transaction **']) -> _Pointer[GitTransactionC]: ...
 @overload
@@ -276,7 +327,11 @@ def new(a: Literal['git_blob **']) -> _Pointer[GitBlobC]: ...
 @overload
 def new(a: Literal['git_clone_options *']) -> GitCloneOptionsC: ...
 @overload
+def new(a: Literal['git_fetch_options *']) -> GitFetchOptionsC: ...
+@overload
 def new(a: Literal['git_merge_options *']) -> GitMergeOptionsC: ...
+@overload
+def new(a: Literal['git_push_options *']) -> GitPushOptionsC: ...
 @overload
 def new(a: Literal['git_blame_options *']) -> GitBlameOptionsC: ...
 @overload
@@ -346,6 +401,12 @@ def new(a: Literal['git_stash_save_options *']) -> GitStashSaveOptionsC: ...
 @overload
 def new(a: Literal['git_strarray *']) -> GitStrrayC: ...
 @overload
+def new(a: Literal['git_rebase **']) -> _Pointer[GitRebaseC]: ...
+@overload
+def new(a: Literal['git_rebase_options *']) -> GitRebaseOptionsC: ...
+@overload
+def new(a: Literal['git_rebase_operation **']) -> _Pointer[GitRebaseOperationC]: ...
+@overload
 def new(a: Literal['git_tree **']) -> _Pointer[GitTreeC]: ...
 @overload
 def new(a: Literal['git_buf *'], b: tuple[NULL_TYPE, Literal[0]]) -> GitBufC: ...
@@ -364,6 +425,8 @@ def new(
     a: Literal['char *[]'], b: list[Any]
 ) -> ArrayC[char_pointer]: ...  # For string arrays
 def addressof(a: object, attribute: str) -> _Pointer[object]: ...
+def new_handle(a: T) -> _Pointer[T]: ...
+def gc(cdata: T, destructor: Any, size: int = ...) -> T: ...
 
 class buffer(bytes):
     def __init__(self, a: object) -> None: ...

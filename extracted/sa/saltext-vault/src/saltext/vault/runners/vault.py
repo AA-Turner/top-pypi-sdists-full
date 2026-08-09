@@ -9,6 +9,7 @@ import base64
 import copy
 import logging
 import os
+import typing
 from collections.abc import Mapping
 from pathlib import Path
 
@@ -17,6 +18,7 @@ import salt.crypt
 import salt.exceptions
 import salt.pillar
 import salt.utils.data
+import salt.utils.minions
 from salt.defaults import NOT_SET
 from salt.exceptions import SaltInvocationError
 from salt.exceptions import SaltRunnerError
@@ -30,7 +32,18 @@ from saltext.vault.utils.vault.client import VaultClient
 from saltext.vault.utils.vault.helpers import timestring_map
 from saltext.vault.utils.versions import warn_until
 
-log = logging.getLogger(__name__)
+if typing.TYPE_CHECKING:
+    from saltext.vault.utils._types import SaltContext
+    from saltext.vault.utils._types import SaltLogger
+    from saltext.vault.utils._types import SaltOpts
+    from saltext.vault.utils._types import SaltRunners
+
+    __opts__: SaltOpts
+    __context__: SaltContext
+    __salt__: SaltRunners
+
+
+log: "SaltLogger" = logging.getLogger(__name__)  # type: ignore
 
 VALID_PARAMS = immutabletypes.freeze(
     {
@@ -92,19 +105,22 @@ def auth_info():
     info = {}
     info["token"] = client.get("auth/token/lookup-self")["data"]
     if _config("auth:method") == "approle":
-        try:
-            info["secret_id"] = _get_approle_api().read_secret_id(
-                _config("auth:approle_name"),
-                mount=_config("auth:approle_mount"),
-                secret_id=str(client.auth.approle.secret_id),
-            )
-        except vault.VaultPermissionDeniedError:
-            info["secret_id"] = (
-                "Permission denied, allow API `create`, `update` access to "
-                f"`auth/{_config('auth:approle_mount')}"
-                f"/role/{_config('auth:approle_name')}/secret-id/lookup` "
-                "to view info"
-            )
+        if client.auth.approle.secret_id:
+            try:
+                info["secret_id"] = _get_approle_api().read_secret_id(
+                    _config("auth:approle_name"),
+                    mount=_config("auth:approle_mount"),
+                    secret_id=str(client.auth.approle.secret_id),
+                )
+            except vault.VaultPermissionDeniedError:
+                info["secret_id"] = (
+                    "Permission denied, allow API `create`, `update` access to "
+                    f"`auth/{_config('auth:approle_mount')}"
+                    f"/role/{_config('auth:approle_name')}/secret-id/lookup` "
+                    "to view info"
+                )
+        else:
+            info["secret_id"] = None
     return info
 
 
@@ -133,7 +149,7 @@ def generate_token(
         True. This happens when the master generates minion pillars.
 
     ttl
-        Ticket time to live in seconds, 1m minutes, or 2h hrs
+        Token time to live in seconds, 1m minutes, or 2h hrs
 
     uses
         Number of times a token can be used
@@ -232,7 +248,7 @@ def generate_new_token(minion_id, signature, impersonated_by_master=False, issue
             return {"expire_cache": True, "error": "Master does not issue tokens."}
 
         ret = {
-            "server": _config("server"),
+            "server": _get_server_config(),
             "auth": {},
         }
 
@@ -326,7 +342,7 @@ def get_config(
             },
             "cache": _config("cache"),
             "client": _config("client"),
-            "server": _config("server"),
+            "server": _get_server_config(),
             "wrap_info_nested": [],
         }
         wrap = _config("issue:wrap")
@@ -391,7 +407,7 @@ def get_role_id(minion_id, signature, impersonated_by_master=False, issue_params
             return {"expire_cache": True, "error": "Master does not issue AppRoles."}
 
         ret = {
-            "server": _config("server"),
+            "server": _get_server_config(),
             "data": {},
         }
 
@@ -411,7 +427,7 @@ def _get_role_id(minion_id, issue_params, wrap):
     issue_params_parsed = _parse_issue_params(issue_params)
 
     if approle is False or (
-        helpers._get_salt_run_type(__opts__) != helpers.SALT_RUNTYPE_MASTER_IMPERSONATING
+        helpers.get_salt_run_type(__opts__) != helpers.SALT_RUNTYPE_MASTER_IMPERSONATING
         and not _approle_params_match(approle, issue_params_parsed)
     ):
         # This means the role has to be created/updated first
@@ -494,7 +510,7 @@ def generate_secret_id(minion_id, signature, impersonated_by_master=False, issue
 
         issue_params_parsed = _parse_issue_params(issue_params)
 
-        if helpers._get_salt_run_type(
+        if helpers.get_salt_run_type(
             __opts__
         ) != helpers.SALT_RUNTYPE_MASTER_IMPERSONATING and not _approle_params_match(
             approle_meta, issue_params_parsed
@@ -509,7 +525,7 @@ def generate_secret_id(minion_id, signature, impersonated_by_master=False, issue
             }
 
         ret = {
-            "server": _config("server"),
+            "server": _get_server_config(),
             "data": {},
         }
 
@@ -569,7 +585,7 @@ def show_policies(minion_id, refresh_pillar=NOT_SET, expire=None):
 
     refresh_pillar
         Whether to refresh the pillar data when rendering templated policies.
-        None only refreshs when the cached data is unavailable, boolean values
+        None only refreshes when the cached data is unavailable, boolean values
         force one behavior always.
         Defaults to :vconf:`policies:refresh_pillar` or None.
 
@@ -595,7 +611,7 @@ def show_policies(minion_id, refresh_pillar=NOT_SET, expire=None):
         meta = _lookup_approle(minion_id)
         if not meta:
             raise SaltRunnerError(
-                f"AppRole for minion `{minion_id}`has not been created yet. "
+                f"AppRole for minion `{minion_id}` has not been created yet. "
                 "You can use `vault.sync_approles` to force its creation."
             )
         return meta["token_policies"]
@@ -856,6 +872,7 @@ def clear_cache(master=True, minions=True):
     .. versionadded:: 1.0.0
 
     Clears master cache of Vault-specific data. This can include:
+
     - AppRole metadata
     - rendered policies
     - cached authentication credentials for impersonated minions
@@ -880,23 +897,41 @@ def clear_cache(master=True, minions=True):
         for pillar compilation as well as AppRole metadata and
         rendered policies for credential issuance.
         Defaults to true. Set this to a list of minion IDs to only clear
-        cached data pertaining to thse minions.
+        cached data pertaining to these minions.
     """
+    # We need the config to know which backend needs to be cleared
+    # for pillar compilation.
     config, _, _ = factory._get_connection_config("vault", __opts__, __context__, force_local=True)
-    cache = vcache._get_cache_backend(config, __opts__)
+    # Regular cache used by all client contexts. Can be the one in __opts__["cache"] or "localfs" or None (just context)
+    client_cache = vcache._get_cache_backend(config, __opts__)
 
-    if cache is None:
-        log.info("Vault cache clearance was requested, but no persistent cache is configured")
+    if master and client_cache:
+        log.debug("Clearing master client Vault cache")
+        vault.clear_cache(__opts__, __context__, force_local=True)
+
+    if not minions:
         return True
 
-    if master:
-        log.debug("Clearing master Vault cache")
-        cache.flush("vault")
-    if minions:
-        for minion in cache.list("minions"):
+    if client_cache:
+        # First, clear cached config/auth/KV metadata per impersonated minion.
+        # Using vault.clear_cache ensures tokens are revoked and the context is cleared.
+        for minion in client_cache.list("minions"):
             if minions is True or (isinstance(minions, list) and minion in minions):
-                log.debug(f"Clearing master Vault cache for minion {minion}")
-                cache.flush(f"minions/{minion}/vault")
+                log.debug(f"Clearing master client Vault cache for minion {minion}")
+                minion_opts = __opts__.copy()
+                minion_opts["minion_id"] = minion
+                minion_opts["grains"] = {"id": minion}
+                # Clear the whole cache. This might already get rid of the runner cache.
+                vault.clear_cache(minion_opts, __context__, connection=False)
+
+    # Cache of AppRole metadata and rendered policies.
+    # Might already be cleared if it's the same backend as the client one.
+    runner_cache = salt.cache.factory(__opts__)
+    for minion in runner_cache.list("minions"):
+        if minions is True or (isinstance(minions, list) and minion in minions):
+            log.debug(f"Clearing master Vault cache for minion {minion}")
+            runner_cache.flush(f"minions/{minion}/vault")
+
     return True
 
 
@@ -979,7 +1014,7 @@ def _get_policies_cached(minion_id, refresh_pillar=None, expire=60):
         minion_id=minion_id,
         refresh_pillar=refresh_pillar,
     )
-    if not isinstance(policies, list):
+    if not isinstance(policies, list):  # pragma: no cover
         log.warning("Cached vault policies were not formed as a list. Refreshing.")
         cache.flush(cbank, ckey)
         policies = cache.cache(
@@ -1273,8 +1308,16 @@ def _get_master_client():
     return vault.get_authd_client(__opts__, __context__, force_local=True)
 
 
+def _get_server_config() -> dict[str, typing.Any]:
+    server = _config("server")
+    if "url_alts" in server and (not server["url_alts"] or server["url_alts"] == [server["url"]]):
+        # Ensure backwards-compatibility with minions running older releases.
+        server.pop("url_alts")
+    return server
+
+
 def _revoke_token(token=None, accessor=None):
-    if not token and not accessor:
+    if not token and not accessor:  # pragma: no cover
         raise SaltInvocationError("Need either token or accessor to revoke token.")
     endpoint = "auth/token/revoke"
     if token:
@@ -1286,20 +1329,26 @@ def _revoke_token(token=None, accessor=None):
     return client.post(endpoint, payload=payload)
 
 
-class LazyPillar(Mapping):
+class LazyPillar(Mapping[typing.Any, typing.Any]):
     """
     Simulates a pillar dictionary. Only compiles the pillar
     once an item is requested.
     """
 
-    def __init__(self, opts, grains, minion_id, extra_minion_data=None):
+    def __init__(
+        self,
+        opts: dict[str, typing.Any],
+        grains: dict[str, typing.Any],
+        minion_id: str,
+        extra_minion_data: dict[str, typing.Any] | None = None,
+    ):
         self.opts = opts
         self.grains = grains
         self.minion_id = minion_id
         self.extra_minion_data = extra_minion_data or {}
-        self._pillar = None
+        self._pillar: dict[typing.Any, typing.Any] | None = None
 
-    def _load(self):
+    def _load(self) -> dict[typing.Any, typing.Any]:
         log.info("Refreshing pillar for vault templating.")
         self._pillar = salt.pillar.get_pillar(
             self.opts,
@@ -1307,18 +1356,22 @@ class LazyPillar(Mapping):
             self.minion_id,
             extra_minion_data=self.extra_minion_data,
         ).compile_pillar()
+        return self._pillar
 
     def __getitem__(self, key):
-        if self._pillar is None:
-            self._load()
-        return self._pillar[key]
+        pillar = self._pillar
+        if pillar is None:
+            pillar = self._load()
+        return pillar[key]
 
     def __iter__(self):
-        if self._pillar is None:
-            self._load()
-        yield from self._pillar
+        pillar = self._pillar
+        if pillar is None:
+            pillar = self._load()
+        yield from pillar
 
     def __len__(self):
-        if self._pillar is None:
-            self._load()
-        return len(self._pillar)
+        pillar = self._pillar
+        if pillar is None:
+            pillar = self._load()
+        return len(pillar)

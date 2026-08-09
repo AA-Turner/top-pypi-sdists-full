@@ -1,7 +1,7 @@
 [project]
 name = "botocore-stubs"
-version = "1.43.14"
-requires-python = ">=3.9"
+version = "1.43.67"
+requires-python = ">=3.10"
 description = "Type annotations and code completion for botocore"
 authors = [{ name = "Vlad Emelianov", email = "vlad.emelianov.nz@gmail.com" }]
 license = "MIT"
@@ -20,12 +20,12 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Python :: Implementation :: CPython",
     "Typing :: Stubs Only",
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
-dependencies = ["types-awscrt"]
 
 [project.optional-dependencies]
 botocore = ["botocore"]
@@ -33,7 +33,6 @@ botocore = ["botocore"]
 [dependency-groups]
 dev = [
     "setuptools>77.0.0",
-    "awscrt",
     "botocore>=1.35.0",
     "mypy",
     "pyright",
@@ -66,7 +65,7 @@ build-backend = 'setuptools.build_meta'
 
 [tool.pyright]
 include = ["botocore-stubs"]
-exclude = ["**/__pycache__", "tests", "typestubs"]
+exclude = ["**/__pycache__", "tests", "typestubs", "**/node_modules", "**/.*", ".venv"]
 ignore = ["test.py"]
 reportMissingImports = "error"
 reportMissingTypeStubs = false
@@ -74,10 +73,10 @@ reportMissingTypeArgument = "error"
 reportIncompatibleMethodOverride = "error"
 reportIncompatibleVariableOverride = false
 reportUnknownParameterType = "error"
-pythonVersion = "3.9"
+pythonVersion = "3.10"
 
 [tool.mypy]
-python_version = "3.9"
+python_version = "3.10"
 warn_return_any = false
 warn_unused_ignores = false
 warn_unused_configs = true
@@ -105,7 +104,7 @@ exclude = [
 
 line-length = 100
 indent-width = 4
-target-version = "py39"
+target-version = "py310"
 
 [tool.ruff.lint]
 preview = true
@@ -127,12 +126,12 @@ unfixable = ["B"]
 dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 exclude = ["test_*.py"]
 ignore = [
-    "N803",   # invalid-argument-name
-    "N818",   # error-suffix-on-exception-name
-    "PYI010", # non-empty-stub-body
-    "PYI019", # custom-type-var-return-type
-    "PYI021", # docstring-in-stub
-    "PYI048", # stub-body-multiple-statements
+    "invalid-argument-name",   # invalid-argument-name
+    "error-suffix-on-exception-name",   # error-suffix-on-exception-name
+    "non-empty-stub-body", # non-empty-stub-body
+    "custom-type-var-for-self", # custom-type-var-return-type
+    "docstring-in-stub", # docstring-in-stub
+    "stub-body-multiple-statements", # stub-body-multiple-statements
 ]
 
 [tool.ruff.format]

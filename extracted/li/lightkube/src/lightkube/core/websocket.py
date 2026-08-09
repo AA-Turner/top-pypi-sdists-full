@@ -1,15 +1,15 @@
 import io
-import json
 import queue
 import sys
 from time import monotonic
 from typing import TYPE_CHECKING, Any, BinaryIO, ClassVar, Iterable, List, Optional, TypeVar, Union, overload
 
-import httpx
-from httpx_ws import aconnect_ws, connect_ws
+import httpx2 as httpx
 
 from ..types import ExecResponse
+from .decoders import decode_status
 from .exceptions import ApiError
+from .internal_models import meta_v1
 
 if sys.version_info >= (3, 11):
     from builtins import BaseExceptionGroup
@@ -18,6 +18,17 @@ else:
 
 if TYPE_CHECKING:
     from .generic_client import BasicRequest
+
+
+def connect_ws(url: str, client: httpx.Client, subprotocols: List[str], params: dict):
+    """Thin wrapper so tests can monkeypatch this function."""
+    return client.websocket(url, subprotocols=subprotocols, params=params)
+
+
+def aconnect_ws(url: str, client: httpx.AsyncClient, subprotocols: List[str], params: dict):
+    """Thin wrapper so tests can monkeypatch this function."""
+    return client.websocket(url, subprotocols=subprotocols, params=params)
+
 
 STDIN_CHANNEL: int = 0
 STDOUT_CHANNEL: int = 1
@@ -63,21 +74,18 @@ class BaseWebsocketDriver:
 
     def __init__(self, client: Union[httpx.Client, httpx.AsyncClient], br: "BasicRequest", timeout: Optional[float] = None):
         self._timeout = timeout
-        ws_func = connect_ws if isinstance(client, httpx.Client) else aconnect_ws
-        self._ws = ws_func(
-            br.url,
-            client,  # type: ignore # this is either httpx.Client or httpx.AsyncClient, both of which are accepted by the respective connect_ws function
-            subprotocols=self.PROTOCOLS,
-            params=br.params,
-        )
+        if isinstance(client, httpx.Client):
+            self._ws = connect_ws(br.url, client, subprotocols=self.PROTOCOLS, params=br.params)
+        else:
+            self._ws = aconnect_ws(br.url, client, subprotocols=self.PROTOCOLS, params=br.params)
 
     def ensure_stdin_supported(self, ws):
         if ws.subprotocol != self.PROTOCOLS[0]:
             raise ApiError(
-                status={
-                    "status": "Failure",
-                    "message": f"Only subprotocol {self.PROTOCOLS[0]} supports writing to stdin",
-                }
+                status=meta_v1.Status(
+                    status="Failure",
+                    message=f"Only subprotocol {self.PROTOCOLS[0]} supports writing to stdin",
+                )
             )
 
     def chunk_stdin(self, msg: Union[str, bytes, BinaryIO], chunk_size: int = 128 * 1024) -> Iterable[bytes]:
@@ -216,7 +224,7 @@ class ExecAccumulator:
             return None
 
         exit_code = 0
-        error = ApiError(status=json.loads(message))
+        error = ApiError(status=decode_status(message))
         if error.status.status == "Failure":
             if error.status.reason != "NonZeroExitCode" or self._raise_on_error:
                 raise error

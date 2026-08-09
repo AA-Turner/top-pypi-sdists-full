@@ -7,15 +7,15 @@ import sys
 import uuid
 from collections.abc import Coroutine
 from contextlib import suppress
+from enum import Enum
 from functools import wraps
 from textwrap import dedent
 from typing import Annotated, Any, Callable, Optional, TypeVar, cast
 
 import coloredlogs
 import hexdump
-import inquirer3
+import questionary
 import typer
-from inquirer3.themes import GreenPassion
 from packaging.version import Version
 from pygments import formatters, highlight, lexers
 from typer_injector import Depends
@@ -33,7 +33,7 @@ from pymobiledevice3.lockdown_service_provider import LockdownServiceProvider
 from pymobiledevice3.osu.os_utils import get_os_utils
 from pymobiledevice3.remote.remote_service_discovery import RemoteServiceDiscoveryService
 from pymobiledevice3.tunneld.api import TUNNELD_DEFAULT_ADDRESS, get_tunneld_devices
-from pymobiledevice3.utils import get_asyncio_loop
+from pymobiledevice3.utils import ask_prompt, get_asyncio_loop
 
 UDID_ENV_VAR = "PYMOBILEDEVICE3_UDID"
 TUNNEL_ENV_VAR = "PYMOBILEDEVICE3_TUNNEL"
@@ -56,14 +56,40 @@ P = ParamSpec("P")
 R = TypeVar("R")
 
 
-def default_json_encoder(obj: Any) -> str:
+class OutputFormat(str, Enum):
+    TEXT = "text"
+    JSON = "json"
+
+
+OutputFormatOption = Annotated[
+    OutputFormat,
+    typer.Option(
+        "--format",
+        help="Output format. 'json' emits one JSON object per line (NDJSON) on stdout.",
+        case_sensitive=False,
+    ),
+]
+
+
+def default_json_encoder(obj: Any) -> Any:
+    """Encode the non-JSON-native types found in device responses.
+
+    ``bytes`` become a single-key ``{"$hex": "..."}`` object so consumers can detect
+    and decode binary values unambiguously (``bytes.fromhex``); datetimes are ISO 8601.
+    This is the machine-readable output contract — see docs/guides/machine-readable-output.md.
+    """
     if isinstance(obj, bytes):
-        return f"<{obj.hex()}>"
+        return {"$hex": obj.hex()}
     if isinstance(obj, datetime.datetime):
-        return str(obj)
+        return obj.isoformat()
     if isinstance(obj, uuid.UUID):
         return str(obj)
     raise TypeError()
+
+
+def print_json_line(obj: Any) -> None:
+    """Emit one compact NDJSON record on stdout — the streaming counterpart of :func:`print_json`."""
+    print(json.dumps(obj, default=default_json_encoder, ensure_ascii=False), flush=True)
 
 
 def print_json(buf: Any, colored: Optional[bool] = None, default: Callable[[Any], Any] = default_json_encoder) -> str:
@@ -133,20 +159,33 @@ def sudo_required(func: Callable[..., Any]) -> Callable[..., Any]:
     return wrapper
 
 
-def prompt_selection(choices: list[Any], message: str, idx: bool = False) -> Any:
-    question = [inquirer3.List("selection", message=message, choices=choices, carousel=True)]
+def prompt_selection(choices: list[Any], message: str, idx: bool = False, hint: Optional[str] = None) -> Any:
+    if not (sys.stdin.isatty() and sys.stdout.isatty()):
+        # Scripts, CI, and agents cannot answer an interactive prompt — fail fast with the
+        # candidates instead of garbling the output stream (or hanging) with escape sequences.
+        typer.secho(f"{message}: interactive selection requires a terminal. Candidates:", err=True, fg="red")
+        for choice in choices:
+            typer.echo(f"  {choice}", err=True)
+        if hint is not None:
+            typer.echo(hint, err=True)
+        raise typer.Exit(code=1)
+    question = questionary.select(
+        message, choices=[questionary.Choice(title=str(choice), value=i) for i, choice in enumerate(choices)]
+    )
     try:
-        result = cast(
-            dict[str, Any], cast(Any, inquirer3).prompt(question, theme=GreenPassion(), raise_keyboard_interrupt=True)
-        )
+        selection = cast(int, ask_prompt(question))
     except KeyboardInterrupt:
         typer.echo(typer.style("No selection was made", fg="red"))
         raise typer.Exit(code=1) from None
-    return result["selection"] if not idx else choices.index(result["selection"])
+    return selection if idx else choices[selection]
 
 
 def prompt_device_list(device_list: list[Any]) -> Any:
-    return prompt_selection(device_list, "Choose device")
+    return prompt_selection(
+        device_list,
+        "Choose device",
+        hint=f"Pass --udid or set {UDID_ENV_VAR} to choose a device non-interactively.",
+    )
 
 
 def is_invoked_for_completion() -> bool:

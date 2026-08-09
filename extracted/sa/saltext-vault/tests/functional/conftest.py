@@ -1,8 +1,16 @@
 import logging
 import shutil
+from contextlib import ExitStack
 
 import pytest
-from saltfactories.utils.functional import Loaders
+from saltfactories.utils import random_string
+
+from tests.integration.conftest import _pillar_files
+from tests.support.helpers import ExtendedLoaders
+from tests.support.vault import vault_disable_auth_method
+from tests.support.vault import vault_enable_auth_method
+from tests.support.vault import vault_read
+from tests.support.vault import vault_write
 
 log = logging.getLogger(__name__)
 
@@ -28,24 +36,6 @@ def state_tree_prod(tmp_path_factory):  # pragma: no cover
         yield state_tree_path
     finally:
         shutil.rmtree(str(state_tree_path), ignore_errors=True)
-
-
-@pytest.fixture(scope="module")
-def minion_config_defaults():  # pragma: no cover
-    """
-    Functional test modules can provide this fixture to tweak the default
-    configuration dictionary passed to the minion factory
-    """
-    return {}
-
-
-@pytest.fixture(scope="module")
-def minion_config_overrides():  # pragma: no cover
-    """
-    Functional test modules can provide this fixture to tweak the configuration
-    overrides dictionary passed to the minion factory
-    """
-    return {}
 
 
 @pytest.fixture(scope="module")
@@ -79,24 +69,6 @@ def minion_opts(
 
 
 @pytest.fixture(scope="module")
-def master_config_defaults():  # pragma: no cover
-    """
-    Functional test modules can provide this fixture to tweak the default
-    configuration dictionary passed to the master factory
-    """
-    return {}
-
-
-@pytest.fixture(scope="module")
-def master_config_overrides():  # pragma: no cover
-    """
-    Functional test modules can provide this fixture to tweak the configuration
-    overrides dictionary passed to the master factory
-    """
-    return {}
-
-
-@pytest.fixture(scope="module")
 def master_opts(
     salt_factories,
     state_tree,
@@ -127,17 +99,23 @@ def master_opts(
 
 @pytest.fixture(scope="module")
 def loaders(minion_opts):  # pragma: no cover
-    return Loaders(minion_opts, loaded_base_name=f"{__name__}.loaded")
+    return ExtendedLoaders(minion_opts, loaded_base_name=f"{__name__}.loaded")
+
+
+@pytest.fixture(scope="module")
+def master_loaders(master_opts):  # pragma: no cover
+    return ExtendedLoaders(master_opts, loaded_base_name=f"{__name__}.master.loaded")
 
 
 @pytest.fixture(autouse=True)
-def reset_loaders_state(loaders):  # pragma: no cover
+def reset_loaders_state(loaders, master_loaders):  # pragma: no cover
     try:
         # Run the tests
         yield
     finally:
         # Reset the loaders state
         loaders.reset_state()
+        master_loaders.reset_state()
 
 
 @pytest.fixture(scope="module")
@@ -148,3 +126,54 @@ def modules(loaders):  # pragma: no cover
 @pytest.fixture(scope="module")
 def states(loaders):  # pragma: no cover
     return loaders.states
+
+
+@pytest.fixture(scope="module")
+def pillar_defaults():
+    """
+    When using the pillar_base fixture, set pillar values for the default minion.
+    Expects a mapping of sls file name (without .sls suffix) to data it should
+    contain. The top file is created automatically, if not set.
+
+    By default, ensures the pillar is refreshed on the minion.
+    Return a tuple of False, {...} to not refresh it.
+    """
+    return {}
+
+
+@pytest.fixture(scope="module")
+def pillar_base(pillar_defaults, minion, loaders):
+    """
+    Module-scoped fixture to create pillars.
+    """
+    files, refresh = _pillar_files(pillar_defaults, "*")
+    with ExitStack() as stack:
+        for pillar, contents in files:
+            stack.enter_context(minion.pillar_tree.base.temp_file(pillar, contents))
+        if refresh:
+            loaders.refresh_pillar()
+        yield
+
+
+@pytest.fixture(scope="module")
+def approle(container, request):  # pylint: disable=unused-argument
+    defaults = {
+        "token_ttl": "60m",
+        "token_num_uses": 0,
+        "secret_id_ttl": "60m",
+        "secret_id_num_uses": 0,
+        "token_policies": ["salt_minion"],
+    }
+    defaults.update(getattr(request, "param", {}))
+    mount = random_string("approle-testsuite", uppercase=False)
+    role = "test-role"
+    assert vault_enable_auth_method("approle", mount)
+    try:
+        vault_write(f"auth/{mount}/role/{role}", **defaults)
+        role_id = vault_read(f"auth/{mount}/role/{role}/role-id")["data"]["role_id"]
+        secret_id = None
+        if defaults.get("bind_secret_id", True):
+            secret_id = vault_write(f"auth/{mount}/role/{role}/secret-id")["data"]["secret_id"]
+        yield {"mount": mount, "role_id": role_id, "secret_id": secret_id}
+    finally:
+        assert vault_disable_auth_method(mount)

@@ -137,7 +137,7 @@ class StateMachine:
         print()
         try:
             value = input("Do you want to apply these changes? (y/N)")
-            print("")
+            print()
             if value.lower() in {"y", "yes"}:
                 return
         except (KeyboardInterrupt, EOFError) as e:  # noqa: F841
@@ -152,7 +152,7 @@ class StateMachine:
                 continue
             print(action)
             print(diff_output)
-            print("")
+            print()
 
     def _compute_actions(
         self, from_state: State, to_state: State, permit_destroy: bool = False

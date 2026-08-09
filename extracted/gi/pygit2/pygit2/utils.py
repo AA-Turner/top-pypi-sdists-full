@@ -1,4 +1,4 @@
-# Copyright 2010-2025 The pygit2 contributors
+# Copyright 2010-2026 The pygit2 contributors
 #
 # This file is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License, version 2,
@@ -44,7 +44,10 @@ if TYPE_CHECKING:
     from ._libgit2.ffi import ArrayC, GitStrrayC, char, char_pointer
 
 
-def maybe_string(ptr: 'char_pointer | None') -> str | None:
+PathStrOrBytes = str | bytes | os.PathLike[str] | os.PathLike[bytes]
+
+
+def decode_string(ptr: 'char_pointer | None') -> str | None:
     if not ptr:
         return None
 
@@ -52,18 +55,53 @@ def maybe_string(ptr: 'char_pointer | None') -> str | None:
 
 
 @overload
-def to_bytes(
+def decode_fs_path(ptr_or_bytes: 'char_pointer | None') -> str | None: ...
+@overload
+def decode_fs_path(ptr_or_bytes: bytes) -> str: ...
+def decode_fs_path(ptr_or_bytes: 'char_pointer | bytes | None') -> str | None:
+    if ptr_or_bytes is None:
+        return None
+
+    if isinstance(ptr_or_bytes, bytes):
+        return os.fsdecode(ptr_or_bytes)
+
+    if not ptr_or_bytes:
+        return None
+
+    return os.fsdecode(ffi.string(ptr_or_bytes))
+
+
+@overload
+def encode_fs_path(s: PathStrOrBytes) -> bytes: ...
+@overload
+def encode_fs_path(s: 'ffi.NULL_TYPE | None') -> 'ffi.NULL_TYPE': ...
+def encode_fs_path(
+    s: 'PathStrOrBytes | ffi.NULL_TYPE | None',
+) -> 'bytes | ffi.NULL_TYPE':
+    if s is None or s == ffi.NULL:
+        return ffi.NULL
+
+    return os.fsencode(s)  # type: ignore[arg-type]
+
+
+# TODO decode_string uses errors='surrogateescape', but encode_string defaults
+# to errors='strict', so a value read from libgit2 with bad bytes cannot be
+# written back without raising. Decide whether encode_string should default to
+# 'surrogateescape' too, and audit every caller to make sure that's safe
+# (this is a behavior change, not just a rename).
+@overload
+def encode_string(
     s: str | bytes | os.PathLike[str] | os.PathLike[bytes],
     encoding: str = 'utf-8',
     errors: str = 'strict',
 ) -> bytes: ...
 @overload
-def to_bytes(
+def encode_string(
     s: Union['ffi.NULL_TYPE', None],
     encoding: str = 'utf-8',
     errors: str = 'strict',
 ) -> Union['ffi.NULL_TYPE']: ...
-def to_bytes(
+def encode_string(
     s: Union[str, bytes, 'ffi.NULL_TYPE', os.PathLike[str], os.PathLike[bytes], None],
     encoding: str = 'utf-8',
     errors: str = 'strict',
@@ -80,7 +118,7 @@ def to_bytes(
     return s.encode(encoding, errors)  # type: ignore[union-attr]
 
 
-def to_str(s: str | bytes | os.PathLike[str] | os.PathLike[bytes]) -> str:
+def path_to_str(s: str | bytes | os.PathLike[str] | os.PathLike[bytes]) -> str:
     if hasattr(s, '__fspath__'):
         s = os.fspath(s)
 
@@ -162,7 +200,7 @@ class StrArray:
             if not isinstance(li, str) and not hasattr(li, '__fspath__'):
                 raise TypeError('Value must be a string or PathLike object')
 
-            strings[i] = ffi.new('char []', to_bytes(li))
+            strings[i] = ffi.new('char []', encode_string(li))
 
         self.__arr = ffi.new('char *[]', strings)
         self.__strings = strings

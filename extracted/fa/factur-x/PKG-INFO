@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: factur-x
-Version: 6.6
+Version: 6.7
 Summary: Factur-X and Order-X: electronic invoicing and ordering standards
 Project-URL: Homepage, https://github.com/akretion/factur-x
 Project-URL: Source, https://github.com/akretion/factur-x
@@ -41,7 +41,8 @@ Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Topic :: Office/Business :: Financial :: Accounting
-Requires-Python: >=3.9
+Requires-Python: >=3.8
+Requires-Dist: importlib-resources; python_version < '3.9'
 Requires-Dist: lxml
 Requires-Dist: pypdf>=5.3.0
 Requires-Dist: python-stdnum
@@ -193,6 +194,12 @@ Contributors
 
 Changelog
 =========
+
+* Version 6.7 dated 2026-08-08:
+
+  * In method xml_check_schematron(), the argument raise_if_http_error has been renamed to saxon_server_raise_if_http_error
+  * In method xml_check_schematron(), the logs have been improved when saxon_server_raise_if_http_error=False and some schematron checks have failed because the saxon server was down or returned an HTTP error: there is now a warning log that lists the skipped schematrons instead of an info logs that wrongly said all schematron checks were successful.
+  * Add argument saxon_server_raise_if_http_error in all methods that have the argument saxon_server_url
 
 * Version 6.6 dated 2026-07-22:
 

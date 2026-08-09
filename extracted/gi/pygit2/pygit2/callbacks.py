@@ -1,4 +1,4 @@
-# Copyright 2010-2025 The pygit2 contributors
+# Copyright 2010-2026 The pygit2 contributors
 #
 # This file is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License, version 2,
@@ -74,14 +74,27 @@ from .credentials import Keypair, Username, UserPass
 from .enums import CheckoutNotify, CheckoutStrategy, CredentialType, StashApplyProgress
 from .errors import Passthrough, check_error
 from .ffi import C, ffi
-from .utils import StrArray, maybe_string, ptr_to_bytes, to_bytes
+from .utils import (
+    StrArray,
+    decode_fs_path,
+    decode_string,
+    encode_fs_path,
+    encode_string,
+    ptr_to_bytes,
+)
 
 _Credentials = Username | UserPass | Keypair
 
 if TYPE_CHECKING:
-    from pygit2._libgit2.ffi import GitProxyOptionsC
+    from pygit2._libgit2.ffi import (
+        GitCloneOptionsC,
+        GitFetchOptionsC,
+        GitProxyOptionsC,
+        GitPushOptionsC,
+        GitStrrayC,
+    )
 
-    from .remotes import PushUpdate, TransferProgress
+    from .remotes import PushUpdate, Remote, TransferProgress
 #
 # The payload is the way to pass information from the pygit2 API, through
 # libgit2, to the Python callbacks. And back.
@@ -92,6 +105,9 @@ class Payload:
     repository: Callable | None
     remote: Callable | None
     clone_options: Any
+    fetch_options: Any
+    push_options: Any
+    remote_callbacks: Any
 
     def __init__(self, **kw: object) -> None:
         for key, value in kw.items():
@@ -120,11 +136,9 @@ class RemoteCallbacks(Payload):
     method, or if it's a constant value, pass the value to the constructor,
     e.g. RemoteCallbacks(credentials=credentials).
 
-    You can as well pass the certificate the same way, for example:
-    RemoteCallbacks(certificate=certificate).
+    You can as well pass the certificate check callback the same way, for example:
+    RemoteCallbacks(certificate_check=certificate_check).
     """
-
-    push_options: Any
 
     def __init__(
         self,
@@ -262,6 +276,19 @@ class RemoteCallbacks(Payload):
             Rejection message from the remote. If None, the update was accepted.
         """
 
+    def custom_headers(self) -> list[str] | None:
+        """
+        Custom headers callback. Override with your own function to return a
+        list of custom headers that should be used when connecting to, pushing
+        to, or fetching from the remote.
+
+        Example use case to authenticate with bearer tokens instead of username/password:
+
+            return [f"Authorization: Bearer {token}"]
+
+        Returns: list of header strings or None
+        """
+
 
 class CheckoutCallbacks(Payload):
     """Base class for pygit2 checkout callbacks.
@@ -352,7 +379,22 @@ class StashApplyCallbacks(CheckoutCallbacks):
 
 
 @contextmanager
-def git_clone_options(payload, opts=None):
+def git_custom_headers(
+    payload: RemoteCallbacks,
+    opts_custom_headers: Optional['GitStrrayC'] = None,
+) -> Generator[StrArray, Any, None]:
+    custom_headers = payload.custom_headers() or None
+    with StrArray(custom_headers) as headers_array:
+        if opts_custom_headers is not None:
+            headers_array.assign_to(opts_custom_headers)
+        yield headers_array
+
+
+@contextmanager
+def git_clone_options(
+    payload: RemoteCallbacks,
+    opts: Optional['GitCloneOptionsC'] = None,
+) -> Generator[RemoteCallbacks, Any, None]:
     if opts is None:
         opts = ffi.new('git_clone_options *')
         C.git_clone_options_init(opts, C.GIT_CLONE_OPTIONS_VERSION)
@@ -374,7 +416,10 @@ def git_clone_options(payload, opts=None):
 
 
 @contextmanager
-def git_fetch_options(payload, opts=None):
+def git_fetch_options(
+    payload: RemoteCallbacks | None,
+    opts: Optional['GitFetchOptionsC'] = None,
+) -> Generator[RemoteCallbacks, Any, None]:
     if payload is None:
         payload = RemoteCallbacks()
 
@@ -392,15 +437,16 @@ def git_fetch_options(payload, opts=None):
     handle = ffi.new_handle(payload)
     opts.callbacks.payload = handle
 
-    # Give back control
-    payload.fetch_options = opts
-    payload._stored_exception = None
-    yield payload
+    with git_custom_headers(payload, opts.custom_headers):
+        # Give back control
+        payload.fetch_options = opts
+        payload._stored_exception = None
+        yield payload
 
 
 @contextmanager
 def git_proxy_options(
-    payload: object,
+    payload: 'Remote | RemoteCallbacks',
     opts: Optional['GitProxyOptionsC'] = None,
     proxy: None | bool | str = None,
 ) -> Generator['GitProxyOptionsC', None, None]:
@@ -414,20 +460,24 @@ def git_proxy_options(
     elif type(proxy) is str:
         opts.type = C.GIT_PROXY_SPECIFIED
         # Keep url in memory, otherwise memory is freed and bad things happen
-        payload.__proxy_url = ffi.new('char[]', to_bytes(proxy))  # type: ignore[attr-defined]
-        opts.url = payload.__proxy_url  # type: ignore[attr-defined]
+        payload.__proxy_url = ffi.new('char[]', encode_string(proxy))  # type: ignore[union-attr]
+        opts.url = payload.__proxy_url  # type: ignore[union-attr]
     else:
         raise TypeError('Proxy must be None, True, or a string')
     yield opts
 
 
 @contextmanager
-def git_push_options(payload, opts=None):
+def git_push_options(
+    payload: RemoteCallbacks | None,
+    opts: Optional['GitPushOptionsC'] = None,
+) -> Generator[RemoteCallbacks, Any, None]:
     if payload is None:
         payload = RemoteCallbacks()
 
-    opts = ffi.new('git_push_options *')
-    C.git_push_options_init(opts, C.GIT_PUSH_OPTIONS_VERSION)
+    if opts is None:
+        opts = ffi.new('git_push_options *')
+        C.git_push_options_init(opts, C.GIT_PUSH_OPTIONS_VERSION)
 
     # Plug callbacks
     opts.callbacks.sideband_progress = C._sideband_progress_cb
@@ -448,14 +498,17 @@ def git_push_options(payload, opts=None):
     handle = ffi.new_handle(payload)
     opts.callbacks.payload = handle
 
-    # Give back control
-    payload.push_options = opts
-    payload._stored_exception = None
-    yield payload
+    with git_custom_headers(payload, opts.custom_headers):
+        # Give back control
+        payload.push_options = opts
+        payload._stored_exception = None
+        yield payload
 
 
 @contextmanager
-def git_remote_callbacks(payload):
+def git_remote_callbacks(
+    payload: RemoteCallbacks | None,
+) -> Generator[RemoteCallbacks, Any, None]:
     if payload is None:
         payload = RemoteCallbacks()
 
@@ -591,8 +644,8 @@ def _push_update_reference_cb(ref, msg, data):
     if not push_update_reference:
         return 0
 
-    refname = maybe_string(ref)
-    message = maybe_string(msg)
+    refname = decode_string(ref)
+    message = decode_string(msg)
     push_update_reference(refname, message)
     return 0
 
@@ -660,7 +713,7 @@ def _update_tips_cb(refname, a, b, data):
     if not update_tips:
         return 0
 
-    s = maybe_string(refname)
+    s = decode_string(refname)
     a = Oid(raw=bytes(ffi.buffer(a)[:]))
     b = Oid(raw=bytes(ffi.buffer(b)[:]))
     update_tips(s, a, b)
@@ -674,8 +727,8 @@ def _update_tips_cb(refname, a, b, data):
 
 def get_credentials(fn, url, username, allowed):
     """Call fn and return the credentials object."""
-    url_str = maybe_string(url)
-    username_str = maybe_string(username)
+    url_str = decode_string(url)
+    username_str = decode_string(username)
 
     creds = fn(url_str, username_str, allowed)
 
@@ -693,22 +746,26 @@ def get_credentials(fn, url, username, allowed):
     if cred_type == CredentialType.USERPASS_PLAINTEXT:
         name, passwd = credential_tuple
         err = C.git_credential_userpass_plaintext_new(
-            ccred, to_bytes(name), to_bytes(passwd)
+            ccred, encode_string(name), encode_string(passwd)
         )
 
     elif cred_type == CredentialType.SSH_KEY:
         name, pubkey, privkey, passphrase = credential_tuple
-        name = to_bytes(name)
+        name = encode_string(name)
         if pubkey is None and privkey is None:
             err = C.git_credential_ssh_key_from_agent(ccred, name)
         else:
             err = C.git_credential_ssh_key_new(
-                ccred, name, to_bytes(pubkey), to_bytes(privkey), to_bytes(passphrase)
+                ccred,
+                name,
+                encode_string(pubkey),
+                encode_string(privkey),
+                encode_string(passphrase),
             )
 
     elif cred_type == CredentialType.USERNAME:
         (name,) = credential_tuple
-        err = C.git_credential_username_new(ccred, to_bytes(name))
+        err = C.git_credential_username_new(ccred, encode_string(name))
 
     elif cred_type == CredentialType.SSH_MEMORY:
         name, pubkey, privkey, passphrase = credential_tuple
@@ -716,10 +773,10 @@ def get_credentials(fn, url, username, allowed):
             raise TypeError('SSH keys from memory are empty')
         err = C.git_credential_ssh_key_memory_new(
             ccred,
-            to_bytes(name),
-            to_bytes(pubkey),
-            to_bytes(privkey),
-            to_bytes(passphrase),
+            encode_string(name),
+            encode_string(pubkey),
+            encode_string(privkey),
+            encode_string(passphrase),
         )
     else:
         raise TypeError('unsupported credential type')
@@ -738,13 +795,13 @@ def get_credentials(fn, url, username, allowed):
 def _checkout_notify_cb(
     why, path_cstr, baseline, target, workdir, data: CheckoutCallbacks
 ):
-    pypath = maybe_string(path_cstr)
+    pypath = decode_fs_path(path_cstr)
     pybaseline = DiffFile.from_c(ptr_to_bytes(baseline))
     pytarget = DiffFile.from_c(ptr_to_bytes(target))
     pyworkdir = DiffFile.from_c(ptr_to_bytes(workdir))
 
     try:
-        data.checkout_notify(why, pypath, pybaseline, pytarget, pyworkdir)  # type: ignore[arg-type]
+        data.checkout_notify(why, pypath, pybaseline, pytarget, pyworkdir)
     except Passthrough:
         # Unlike most other operations with optional callbacks, checkout
         # doesn't support the GIT_PASSTHROUGH return code, so we must bypass
@@ -759,7 +816,7 @@ def _checkout_notify_cb(
 
 @libgit2_callback_void
 def _checkout_progress_cb(path, completed_steps, total_steps, data: CheckoutCallbacks):
-    data.checkout_progress(maybe_string(path), completed_steps, total_steps)  # type: ignore[arg-type]
+    data.checkout_progress(decode_fs_path(path), completed_steps, total_steps)
 
 
 def _git_checkout_options(
@@ -793,7 +850,7 @@ def _git_checkout_options(
     opts.checkout_strategy = int(strategy)
 
     if directory:
-        target_dir = ffi.new('char[]', to_bytes(directory))
+        target_dir = ffi.new('char[]', encode_fs_path(directory))
         refs.append(target_dir)
         opts.target_directory = target_dir
 

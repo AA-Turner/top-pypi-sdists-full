@@ -1,4 +1,4 @@
-# Copyright 2010-2025 The pygit2 contributors
+# Copyright 2010-2026 The pygit2 contributors
 #
 # This file is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License, version 2,
@@ -28,7 +28,7 @@ from collections.abc import Callable
 # Import from pygit2
 from .errors import check_error
 from .ffi import C, ffi
-from .utils import to_bytes
+from .utils import encode_string
 
 
 class Refspec:
@@ -67,16 +67,16 @@ class Refspec:
         """Return True if the given string matches the source of this refspec,
         False otherwise.
         """
-        return bool(C.git_refspec_src_matches(self._refspec, to_bytes(ref)))
+        return bool(C.git_refspec_src_matches(self._refspec, encode_string(ref)))
 
     def dst_matches(self, ref: str) -> bool:
         """Return True if the given string matches the destination of this
         refspec, False otherwise."""
-        return bool(C.git_refspec_dst_matches(self._refspec, to_bytes(ref)))
+        return bool(C.git_refspec_dst_matches(self._refspec, encode_string(ref)))
 
     def _transform(self, ref: str, fn: Callable) -> str:
         buf = ffi.new('git_buf *', (ffi.NULL, 0))
-        err = fn(buf, self._refspec, to_bytes(ref))
+        err = fn(buf, self._refspec, encode_string(ref))
         check_error(err)
 
         try:

@@ -5,6 +5,8 @@ Salt-Vault integration core functions
 import base64
 import copy
 import logging
+import typing
+from collections.abc import Callable
 
 import salt.cache
 import salt.crypt
@@ -14,6 +16,7 @@ import salt.modules.saltutil
 import salt.utils.context
 import salt.utils.data
 import salt.utils.dictupdate
+import salt.utils.event
 import salt.utils.sdb
 from requests.exceptions import ConnectionError  # pylint: disable=redefined-builtin
 from salt.defaults import NOT_SET
@@ -31,7 +34,10 @@ from saltext.vault.utils.vault.exceptions import VaultException
 from saltext.vault.utils.vault.exceptions import VaultPermissionDeniedError
 from saltext.vault.utils.vault.exceptions import VaultUnwrapException
 
-log = logging.getLogger(__name__)
+if typing.TYPE_CHECKING:
+    from saltext.vault.utils._types import SaltLogger
+
+log: "SaltLogger" = logging.getLogger(__name__)  # type: ignore
 logging.getLogger("requests").setLevel(logging.WARNING)
 
 
@@ -39,11 +45,36 @@ TOKEN_CKEY = "__token"
 CLIENT_CKEY = "_vault_authd_client"
 
 
-def get_authd_client(opts, context, force_local=False, get_config=False):
+@typing.overload
+def get_authd_client(
+    opts: dict[str, typing.Any],
+    context: dict[typing.Any, typing.Any],
+    *,
+    force_local: bool = False,
+    get_config: typing.Literal[True],
+) -> tuple[vclient.AuthenticatedVaultClient, dict[str, typing.Any]]: ...
+@typing.overload
+def get_authd_client(
+    opts: dict[str, typing.Any],
+    context: dict[typing.Any, typing.Any],
+    *,
+    force_local: bool = False,
+    get_config: typing.Literal[False] = False,
+) -> vclient.AuthenticatedVaultClient: ...
+def get_authd_client(
+    opts: dict[str, typing.Any],
+    context: dict[typing.Any, typing.Any],
+    *,
+    force_local: bool = False,
+    get_config: bool = False,
+) -> (
+    vclient.AuthenticatedVaultClient
+    | tuple[vclient.AuthenticatedVaultClient, dict[str, typing.Any]]
+):
     """
     Returns an AuthenticatedVaultClient that is valid for at least one query.
     """
-    opts = _check_salt_ssh_opts(opts)
+    opts = hlp.check_salt_ssh_opts(opts)
 
     def try_build():
         client = config = None
@@ -60,18 +91,20 @@ def get_authd_client(opts, context, force_local=False, get_config=False):
         return client, config, retry
 
     cbank = vcache._get_cache_bank(opts, force_local=force_local)
+    session_cbank = cbank + "/session"
     retry = False
     client = config = None
 
     # First, check if an already initialized instance is available
     # and still valid
-    if cbank in context and CLIENT_CKEY in context[cbank]:
+    if session_cbank in context and CLIENT_CKEY in context[session_cbank]:
         log.debug("Fetching client instance and config from context")
-        client, config = context[cbank][CLIENT_CKEY]
+        client, config = context[session_cbank][CLIENT_CKEY]
         if not client.token_valid(remote=False):
             log.debug("Cached client instance was invalid")
+            client.session.close()
             client = config = None
-            context[cbank].pop(CLIENT_CKEY)
+            context[session_cbank].pop(CLIENT_CKEY)
 
     # Otherwise, try to build one from possibly cached data
     if client is None or config is None:
@@ -110,23 +143,30 @@ def get_authd_client(opts, context, force_local=False, get_config=False):
         if not client.token_valid(
             config["auth"]["token_lifecycle"]["minimum_ttl"] or 0, remote=False
         ):
-            if not config["auth"]["token_lifecycle"]["minimum_ttl"]:
+            if not config["auth"]["token_lifecycle"]["minimum_ttl"]:  # pragma: no cover
                 raise VaultException("Could not build valid client. This is most likely a bug.")
             log.warning(
                 "Configuration error: auth:token_lifecycle:minimum_ttl cannot be "
                 "honored because fresh tokens are issued with less ttl. Continuing anyways."
             )
 
-    if cbank not in context:
-        context[cbank] = {}
-    context[cbank][CLIENT_CKEY] = (client, config)
+    if session_cbank not in context:
+        context[session_cbank] = {}
+    context[session_cbank][CLIENT_CKEY] = (client, config)
 
     if get_config:
         return client, config
     return client
 
 
-def clear_cache(opts, context, ckey=None, connection=True, session=False, force_local=False):
+def clear_cache(
+    opts: dict[str, typing.Any],
+    context: dict[typing.Any, typing.Any],
+    ckey: str | None = None,
+    connection: bool = True,
+    session: bool = False,
+    force_local: bool = False,
+) -> bool:
     """
     Clears the Vault cache.
     Ensures the current token and associated leases are revoked
@@ -170,24 +210,26 @@ def clear_cache(opts, context, ckey=None, connection=True, session=False, force_
         regardless of determined run type. Defaults to false and should not
         be set by anything other than the runner.
     """
-    opts = _check_salt_ssh_opts(opts)
+    opts = hlp.check_salt_ssh_opts(opts)
     cbank = vcache._get_cache_bank(
         opts, connection=connection, session=session, force_local=force_local
     )
+    session_cbank = vcache._get_cache_bank(opts, session=True, force_local=force_local)
     if (
         not ckey
         or (not (connection or session) and ckey == "connection")
         or (session and ckey == TOKEN_CKEY)
         or ((connection and not session) and ckey == "config")
     ):
-        client, config = _build_revocation_client(opts, context, force_local=force_local)
+        revocation_res = _build_revocation_client(opts, context, force_local=force_local)
         # config and client are both None if the cached data is invalid
-        if config:
+        if revocation_res:
+            client, config = revocation_res
             try:
                 # Don't revoke the only token that is available to us
                 if config["auth"]["method"] != "token" or not (
                     force_local
-                    or hlp._get_salt_run_type(opts)
+                    or hlp.get_salt_run_type(opts)
                     in (hlp.SALT_RUNTYPE_MASTER, hlp.SALT_RUNTYPE_MINION_LOCAL)
                 ):
                     if config["cache"]["clear_attempt_revocation"]:
@@ -197,7 +239,7 @@ def clear_cache(opts, context, ckey=None, connection=True, session=False, force_
                     if (
                         config["cache"]["expire_events"]
                         and not force_local
-                        and hlp._get_salt_run_type(opts)
+                        and hlp.get_salt_run_type(opts)
                         not in (
                             hlp.SALT_RUNTYPE_MASTER_IMPERSONATING,
                             hlp.SALT_RUNTYPE_MASTER_PEER_RUN,
@@ -211,19 +253,27 @@ def clear_cache(opts, context, ckey=None, connection=True, session=False, force_
                     f"{type(err).__name__}: {err}"
                 )
 
+    # Unless we're clearing a specific session ckey that does not affect the current client,
+    # ensure the client is removed from context and its HTTP session is closed.
+    if (
+        (not session or not ckey or ckey == CLIENT_CKEY)
+        and session_cbank in context
+        and CLIENT_CKEY in context[session_cbank]
+    ):
+        client, _ = context[session_cbank].pop(CLIENT_CKEY)
+        client.session.close()
+        del client
+
     if cbank in context:
         if ckey is None:
             context.pop(cbank)
         else:
             context[cbank].pop(ckey, None)
-            if connection and not session:
-                # Ensure the active client gets recreated after altering the connection cache
-                context[cbank].pop(CLIENT_CKEY, None)
 
     # also remove sub-banks from context to mimic cache behavior
     if ckey is None:
-        for bank in list(context):
-            if bank.startswith(cbank):
+        for bank in tuple(context):
+            if bank.startswith(cbank + "/"):
                 context.pop(bank)
     cache = salt.cache.factory(opts)
     if cache.contains(cbank, ckey):
@@ -232,11 +282,13 @@ def clear_cache(opts, context, ckey=None, connection=True, session=False, force_
     # In case the cache driver was overridden for the Vault integration
     local_opts = copy.copy(opts)
     local_opts["cache"] = "localfs"
-    cache = salt.cache.factory(local_opts)
+    cache: salt.cache.Cache = salt.cache.factory(local_opts)
     return cache.flush(cbank, ckey)
 
 
-def update_config(opts, context, keep_session=False):
+def update_config(
+    opts: dict[str, typing.Any], context: dict[typing.Any, typing.Any], keep_session: bool = False
+) -> bool:
     """
     Attempt to update the cached configuration without
     clearing the currently active Vault session.
@@ -255,8 +307,8 @@ def update_config(opts, context, keep_session=False):
         significantly.
         Defaults to False.
     """
-    opts = _check_salt_ssh_opts(opts)
-    if hlp._get_salt_run_type(opts) in (
+    opts = hlp.check_salt_ssh_opts(opts)
+    if hlp.get_salt_run_type(opts) in (
         hlp.SALT_RUNTYPE_MASTER,
         hlp.SALT_RUNTYPE_MINION_LOCAL,
     ):
@@ -275,7 +327,9 @@ def update_config(opts, context, keep_session=False):
     return True
 
 
-def _build_authd_client(opts, context, force_local=False):
+def _build_authd_client(
+    opts: dict[str, typing.Any], context: dict[typing.Any, typing.Any], force_local: bool = False
+) -> tuple[vclient.AuthenticatedVaultClient, dict[str, typing.Any]]:
     connection_cbank = vcache._get_cache_bank(opts, force_local=force_local)
     config, embedded_token, unauthd_client = _get_connection_config(
         connection_cbank, opts, context, force_local=force_local
@@ -292,8 +346,6 @@ def _build_authd_client(opts, context, force_local=False):
         ttl=cache_ttl,
         flush_exception=VaultAuthExpired,
     )
-
-    client = None
 
     if config["auth"]["method"] == "approle":
         secret_id = config["auth"]["secret_id"] or None
@@ -323,7 +375,7 @@ def _build_authd_client(opts, context, force_local=False):
                 # SecretID is known regardless whether we have a valid token.
                 # For remote sources, we would needlessly request one, so don't.
                 if (
-                    hlp._get_salt_run_type(opts)
+                    hlp.get_salt_run_type(opts)
                     in (hlp.SALT_RUNTYPE_MASTER, hlp.SALT_RUNTYPE_MINION_LOCAL)
                     or force_local
                 ):
@@ -365,13 +417,15 @@ def _build_authd_client(opts, context, force_local=False):
         client = vclient.AuthenticatedVaultClient(
             auth, session=unauthd_client.session, **config["server"], **config["client"]
         )
+    else:
+        raise salt.exceptions.InvalidConfigError("Connection configuration is invalid.")
 
-    if client is not None:
-        return client, config
-    raise salt.exceptions.SaltException("Connection configuration is invalid.")
+    return client, config
 
 
-def _build_revocation_client(opts, context, force_local=False):
+def _build_revocation_client(
+    opts: dict[str, typing.Any], context: dict[typing.Any, typing.Any], force_local: bool = False
+) -> tuple[vclient.AuthenticatedVaultClient, dict[str, typing.Any]] | None:
     """
     Tries to build an AuthenticatedVaultClient solely from caches.
     This client is used to revoke all leases before forgetting about them.
@@ -380,11 +434,12 @@ def _build_revocation_client(opts, context, force_local=False):
     # Disregard a possibly returned locally configured token since
     # it is cached with metadata if it has been used. Also, we do not want
     # to revoke statically configured tokens anyways.
-    config, _, unauthd_client = _get_connection_config(
+    conn_res = _get_connection_config(
         connection_cbank, opts, context, force_local=force_local, pre_flush=True
     )
-    if config is None:
-        return None, None
+    if conn_res is None:
+        return None
+    config, _, unauthd_client = conn_res
 
     # Tokens are cached in a distinct scope to enable cache per session
     session_cbank = vcache._get_cache_bank(opts, force_local=force_local, session=True)
@@ -399,7 +454,7 @@ def _build_revocation_client(opts, context, force_local=False):
     token = token_cache.get(flush=False)
 
     if token is None:
-        return None, None
+        return None
     auth = vauth.VaultTokenAuth(token=token, cache=token_cache)
     client = vclient.AuthenticatedVaultClient(
         auth, session=unauthd_client.session, **config["server"], **config["client"]
@@ -407,7 +462,7 @@ def _build_revocation_client(opts, context, force_local=False):
     return client, config
 
 
-def _render_sdb(val, opts):
+def _render_sdb(val: typing.Any, opts: dict[str, typing.Any]) -> typing.Any:
     """
     Check if the configuration value needs to be pulled from SDB and do so, if so.
     Otherwise, return the value unaltered.
@@ -420,7 +475,7 @@ def _render_sdb(val, opts):
     return salt.utils.sdb.sdb_get(val, opts, strict=True)
 
 
-def _check_upgrade(config, pre_flush=False):
+def _check_upgrade(config: dict[str, typing.Any], pre_flush: bool = False) -> bool:
     """
     Check if cached configuration contains all expected keys.
     Relevant when new keys are introduced to not break immediately after
@@ -434,18 +489,51 @@ def _check_upgrade(config, pre_flush=False):
         if not pre_flush:
             return True
         config["client"] = {}
+    # introduced in v1.8.0
+    if "url_alts" not in config["server"]:
+        if not pre_flush:
+            return True
+        config["server"]["url_alts"] = [config["server"]["url"]]
     return False
 
 
-def _get_connection_config(cbank, opts, context, force_local=False, pre_flush=False, update=False):
+@typing.overload
+def _get_connection_config(
+    cbank: str,
+    opts: dict[str, typing.Any],
+    context: dict[typing.Any, typing.Any],
+    *,
+    force_local: bool = False,
+    pre_flush: typing.Literal[True],
+    update: bool = False,
+) -> tuple[dict[str, typing.Any], str | None, vclient.VaultClient] | None: ...
+@typing.overload
+def _get_connection_config(
+    cbank: str,
+    opts: dict[str, typing.Any],
+    context: dict[typing.Any, typing.Any],
+    *,
+    force_local: bool = False,
+    pre_flush: bool = False,
+    update: bool = False,
+) -> tuple[dict[str, typing.Any], str | None, vclient.VaultClient]: ...
+def _get_connection_config(
+    cbank: str,
+    opts: dict[str, typing.Any],
+    context: dict[typing.Any, typing.Any],
+    *,
+    force_local: bool = False,
+    pre_flush: bool = False,
+    update: bool = False,
+) -> tuple[dict[str, typing.Any], str | None, vclient.VaultClient] | None:
     if (
-        hlp._get_salt_run_type(opts) in (hlp.SALT_RUNTYPE_MASTER, hlp.SALT_RUNTYPE_MINION_LOCAL)
+        hlp.get_salt_run_type(opts) in (hlp.SALT_RUNTYPE_MASTER, hlp.SALT_RUNTYPE_MINION_LOCAL)
         or force_local
     ):
         # only cache config fetched from remote
         return _use_local_config(opts)
 
-    if pre_flush and update:
+    if pre_flush and update:  # pragma: no cover
         raise VaultException("`pre_flush` and `update` are mutually exclusive")
 
     log.debug("Using Vault server connection configuration from remote.")
@@ -470,16 +558,21 @@ def _get_connection_config(cbank, opts, context, force_local=False, pre_flush=Fa
 
     if pre_flush:
         # used when building a client that revokes leases before clearing cache
-        return None, None, None
+        return None
 
     log.debug("Using new Vault server connection configuration.")
+    issue_params = parse_config(opts.get("vault", {}), validate=False)["issue_params"]
     try:
-        issue_params = parse_config(opts.get("vault", {}), validate=False)["issue_params"]
         new_config, unwrap_client = _query_master(
             "get_config",
             opts,
             issue_params=issue_params or None,
             config_only=update,
+            unwrap_expected_creation_path=lambda config, key: (
+                vclient._get_expected_creation_path(key.split(":")[-1], config)  # type: ignore
+                if (key in ("auth:role_id", "auth:token"))
+                else None
+            ),
         )
     except VaultConfigExpired as err:
         # Make sure to still work with old peer_run configuration
@@ -506,7 +599,11 @@ def _get_connection_config(cbank, opts, context, force_local=False, pre_flush=Fa
         "server": new_config["server"],
     }
     if update and config:
-        if new_config["server"] != config["server"]:
+        if (
+            new_config["server"]["url"] != config["server"]["url"]
+            or new_config["server"]["namespace"] != config["server"]["namespace"]
+            or new_config["server"]["verify"] != config["server"]["verify"]
+        ):
             raise VaultConfigExpired()
         if new_config["auth"]["method"] != config["auth"]["method"]:
             raise VaultConfigExpired()
@@ -533,7 +630,9 @@ def _get_connection_config(cbank, opts, context, force_local=False, pre_flush=Fa
     return new_config, embedded_token, unwrap_client
 
 
-def _use_local_config(opts):
+def _use_local_config(
+    opts: dict[str, typing.Any],
+) -> tuple[dict[str, typing.Any], str | None, vclient.VaultClient]:
     log.debug("Using Vault connection details from local config.")
     config = parse_config(opts.get("vault", {}))
     embedded_token = _render_sdb(config["auth"].pop("token", None), opts)
@@ -549,7 +648,13 @@ def _use_local_config(opts):
     )
 
 
-def _fetch_secret_id(config, opts, secret_id_cache, unwrap_client, force_local=False):
+def _fetch_secret_id(
+    config: dict[str, typing.Any],
+    opts: dict[str, typing.Any],
+    secret_id_cache: vcache.VaultAuthCache[vleases.VaultSecretId],
+    unwrap_client: vclient.VaultClient,
+    force_local: bool = False,
+) -> vleases.VaultSecretId:
     def cache_or_fetch(config, opts, secret_id_cache, unwrap_client):
         secret_id = secret_id_cache.get()
         if secret_id is not None:
@@ -571,7 +676,7 @@ def _fetch_secret_id(config, opts, secret_id_cache, unwrap_client, force_local=F
         return secret_id
 
     if (
-        hlp._get_salt_run_type(opts) in (hlp.SALT_RUNTYPE_MASTER, hlp.SALT_RUNTYPE_MINION_LOCAL)
+        hlp.get_salt_run_type(opts) in (hlp.SALT_RUNTYPE_MASTER, hlp.SALT_RUNTYPE_MINION_LOCAL)
         or force_local
     ):
         secret_id = _render_sdb(config["auth"]["secret_id"], opts)
@@ -583,22 +688,30 @@ def _fetch_secret_id(config, opts, secret_id_cache, unwrap_client, force_local=F
                 )
                 secret_id = secret_id["data"]
             return vauth.LocalVaultSecretId(**secret_id)
-        if secret_id:
-            # assume locally configured secret_ids do not expire
-            return vauth.LocalVaultSecretId(
-                secret_id=config["auth"]["secret_id"],
-                secret_id_ttl=0,
-                secret_id_num_uses=0,
-            )
-        # When secret_id is falsey, the approle does not require SecretIDs,
-        # hence a call to this function is superfluous
-        raise salt.exceptions.SaltException("This code path should not be hit at all.")
+        if not secret_id:  # pragma: no cover
+            # When secret_id is falsey, the approle does not require SecretIDs,
+            # hence a call to this function is superfluous
+            raise salt.exceptions.SaltException("This code path should not be hit at all.")
+
+        # assume locally configured secret_ids do not expire
+        return vauth.LocalVaultSecretId(
+            secret_id=config["auth"]["secret_id"],
+            secret_id_ttl=0,
+            secret_id_num_uses=0,
+        )
 
     log.debug("Using secret_id issued by master.")
     return cache_or_fetch(config, opts, secret_id_cache, unwrap_client)
 
 
-def _fetch_token(config, opts, token_cache, unwrap_client, force_local=False, embedded_token=None):
+def _fetch_token(
+    config: dict[str, typing.Any],
+    opts: dict[str, typing.Any],
+    token_cache: vcache.VaultAuthCache[vleases.VaultToken],
+    unwrap_client: vclient.VaultClient,
+    force_local: bool = False,
+    embedded_token: dict[str, typing.Any] | str | None = None,
+) -> vleases.VaultToken:
     def cache_or_fetch(config, opts, token_cache, unwrap_client, embedded_token):
         token = token_cache.get(10)
         if token is not None:
@@ -626,10 +739,9 @@ def _fetch_token(config, opts, token_cache, unwrap_client, force_local=False, em
         return token
 
     if (
-        hlp._get_salt_run_type(opts) in (hlp.SALT_RUNTYPE_MASTER, hlp.SALT_RUNTYPE_MINION_LOCAL)
+        hlp.get_salt_run_type(opts) in (hlp.SALT_RUNTYPE_MASTER, hlp.SALT_RUNTYPE_MINION_LOCAL)
         or force_local
     ):
-        token = None
         if isinstance(embedded_token, dict):
             if embedded_token.get("wrap_info"):
                 embedded_token = unwrap_client.unwrap(
@@ -637,7 +749,7 @@ def _fetch_token(config, opts, token_cache, unwrap_client, force_local=False, em
                     expected_creation_path=vclient._get_expected_creation_path("token", config),
                 )["auth"]
             token = vleases.VaultToken(**embedded_token)
-        elif config["auth"]["method"] == "wrapped_token":
+        elif config["auth"]["method"] == "wrapped_token" and embedded_token is not None:
             embedded_token = unwrap_client.unwrap(
                 embedded_token,
                 expected_creation_path=vclient._get_expected_creation_path("token", config),
@@ -649,7 +761,7 @@ def _fetch_token(config, opts, token_cache, unwrap_client, force_local=False, em
             token = token_cache.get()
             if token is None or embedded_token != str(token):
                 # lookup and verify raw token
-                token_info = unwrap_client.token_lookup(embedded_token, raw=True)
+                token_info = unwrap_client.token_lookup(token=embedded_token, raw=True)
                 if token_info.status_code != 200:
                     log.error("Token lookup failed! status code: %d", token_info.status_code)
                     log.debug("The Vault server response was: %s", token_info.text)
@@ -663,21 +775,23 @@ def _fetch_token(config, opts, token_cache, unwrap_client, force_local=False, em
                     **token_meta,
                 )
                 token_cache.store(token)
-        if token is not None:
-            return token
-        raise VaultException("Invalid configuration, missing token.")
+        else:
+            raise salt.exceptions.InvalidConfigError("Invalid configuration, missing token.")
+        return token
 
     log.debug("Using token generated by master.")
     return cache_or_fetch(config, opts, token_cache, unwrap_client, embedded_token)
 
 
 def _query_master(
-    func,
-    opts,
-    unwrap_client=None,
-    unwrap_expected_creation_path=None,
+    func: str,
+    opts: dict[str, typing.Any],
+    unwrap_client: vclient.VaultClient | None = None,
+    unwrap_expected_creation_path: (
+        str | Callable[[dict[str, typing.Any], str], str | None] | None
+    ) = None,
     **kwargs,
-):
+) -> tuple[dict[str, typing.Any], vclient.VaultClient | None]:
     def check_result(
         result,
         unwrap_client=None,
@@ -710,27 +824,35 @@ def _query_master(
             raise salt.exceptions.CommandExecutionError(result)
 
         config_expired = False
-        expected_server = None
 
         if result.get("expire_cache", False):
             log.info("Master requested Vault config expiration.")
             config_expired = True
 
         if "server" in result:
-            # Ensure locally overridden verify parameter does not
-            # always invalidate cache.
-            reported_server = parse_config(result["server"], validate=False, opts=opts)["server"]
+            # Ensure locally overridden url/verify parameters do not always invalidate cache.
+            reported_server = parse_config({"server": result["server"]}, validate=False, opts=opts)[
+                "server"
+            ]
             result.update({"server": reported_server})
 
         if unwrap_client is not None:
             expected_server = unwrap_client.get_config()
+            # url_alts is currently only used to specify a list of URLs minions can override the URL with locally.
+            # In the future, could be used as a failover when the primary server:url is unreachable.
+            # Either way, changing it should not cause a complete config refresh and re-authentication.
+            expected_server.pop("url_alts")
+            received_server = result.get("server", {}).copy()
+            received_server.pop("url_alts", None)
 
-        if expected_server is not None and result.get("server") != expected_server:
-            log.info("Mismatch of cached and reported server data detected. Invalidating cache.")
-            # make sure to fetch wrapped data anyways for security reasons
-            config_expired = True
-            unwrap_expected_creation_path = None
-            unwrap_client = None
+            if received_server != expected_server:
+                log.info(
+                    "Mismatch of cached and reported server data detected. Invalidating cache."
+                )
+                # make sure to fetch wrapped data anyways for security reasons
+                config_expired = True
+                unwrap_expected_creation_path = None
+                unwrap_client = None
 
         # This is used to augment some vault responses with data fetched by the master
         # e.g. secret_id_num_uses
@@ -747,11 +869,19 @@ def _query_master(
                     wrapped = result
                 if not wrapped or "wrap_info" not in wrapped:
                     continue
+
+                expected_creation_path = None
+                if unwrap_expected_creation_path:
+                    if isinstance(unwrap_expected_creation_path, str):
+                        expected_creation_path = unwrap_expected_creation_path
+                    else:
+                        expected_creation_path = unwrap_expected_creation_path(result, key)
+
                 wrapped_response = vleases.VaultWrappedResponse(**wrapped["wrap_info"])
                 try:
                     unwrapped_response = unwrap_client.unwrap(
                         wrapped_response,
-                        expected_creation_path=unwrap_expected_creation_path,
+                        expected_creation_path=expected_creation_path,
                     )
                 except VaultUnwrapException as err:
                     err.event_data.update({"func": f"vault.{func}"})
@@ -831,7 +961,7 @@ def _query_master(
     )
 
 
-def _get_event(opts):
+def _get_event(opts: dict[str, typing.Any]) -> Callable[..., bool]:
     event = salt.utils.event.get_event(
         opts.get("__role", "minion"), sock_dir=opts["sock_dir"], opts=opts, listen=False
     )
@@ -841,12 +971,28 @@ def _get_event(opts):
     return event.fire_event
 
 
-def get_kv(opts, context, get_config=False):
+@typing.overload
+def get_kv(
+    opts: dict[str, typing.Any],
+    context: dict[typing.Any, typing.Any],
+    *,
+    get_config: typing.Literal[True],
+) -> tuple[vkv.VaultKV, dict[str, typing.Any]]: ...
+@typing.overload
+def get_kv(
+    opts: dict[str, typing.Any],
+    context: dict[typing.Any, typing.Any],
+    *,
+    get_config: typing.Literal[False] = False,
+) -> vkv.VaultKV: ...
+def get_kv(
+    opts: dict[str, typing.Any], context: dict[typing.Any, typing.Any], *, get_config: bool = False
+) -> vkv.VaultKV | tuple[vkv.VaultKV, dict[str, typing.Any]]:
     """
     Return an instance of VaultKV, which can be used
     to interact with the ``kv`` backend.
     """
-    opts = _check_salt_ssh_opts(opts)
+    opts = hlp.check_salt_ssh_opts(opts)
     client, config = get_authd_client(opts, context, get_config=True)
     ttl = None
     connection = True
@@ -868,12 +1014,31 @@ def get_kv(opts, context, get_config=False):
     return kv
 
 
-def get_lease_store(opts, context, get_config=False):
+@typing.overload
+def get_lease_store(
+    opts: dict[str, typing.Any],
+    context: dict[typing.Any, typing.Any],
+    *,
+    get_config: typing.Literal[True],
+) -> tuple[vleases.LeaseStore[vleases.VaultLease], dict[str, typing.Any]]: ...
+@typing.overload
+def get_lease_store(
+    opts: dict[str, typing.Any],
+    context: dict[typing.Any, typing.Any],
+    *,
+    get_config: typing.Literal[False] = False,
+) -> vleases.LeaseStore[vleases.VaultLease]: ...
+def get_lease_store(
+    opts: dict[str, typing.Any], context: dict[typing.Any, typing.Any], *, get_config: bool = False
+) -> (
+    vleases.LeaseStore[vleases.VaultLease]
+    | tuple[vleases.LeaseStore[vleases.VaultLease], dict[str, typing.Any]]
+):
     """
     Return an instance of LeaseStore, which can be used
     to cache leases and handle operations like renewals and revocations.
     """
-    opts = _check_salt_ssh_opts(opts)
+    opts = hlp.check_salt_ssh_opts(opts)
     client, config = get_authd_client(opts, context, get_config=True)
     session_cbank = vcache._get_cache_bank(opts, session=True)
     expire_events = None
@@ -882,6 +1047,7 @@ def get_lease_store(opts, context, get_config=False):
     lease_cache = vcache.VaultLeaseCache(
         context,
         session_cbank + "/leases",
+        lease_cls=vleases.VaultLease,
         cache_backend=vcache._get_cache_backend(config, opts),
         expire_events=expire_events,
     )
@@ -891,11 +1057,33 @@ def get_lease_store(opts, context, get_config=False):
     return store
 
 
-def get_approle_api(opts, context, force_local=False, get_config=False):
+@typing.overload
+def get_approle_api(
+    opts: dict[str, typing.Any],
+    context: dict[typing.Any, typing.Any],
+    *,
+    force_local: bool = False,
+    get_config: typing.Literal[True],
+) -> tuple[vapi.AppRoleApi, dict[str, typing.Any]]: ...
+@typing.overload
+def get_approle_api(
+    opts: dict[str, typing.Any],
+    context: dict[typing.Any, typing.Any],
+    *,
+    force_local: bool = False,
+    get_config: typing.Literal[False] = False,
+) -> vapi.AppRoleApi: ...
+def get_approle_api(
+    opts: dict[str, typing.Any],
+    context: dict[typing.Any, typing.Any],
+    *,
+    force_local: bool = False,
+    get_config: bool = False,
+) -> vapi.AppRoleApi | tuple[vapi.AppRoleApi, dict[str, typing.Any]]:
     """
     Return an instance of AppRoleApi containing an AuthenticatedVaultClient.
     """
-    opts = _check_salt_ssh_opts(opts)
+    opts = hlp.check_salt_ssh_opts(opts)
     client, config = get_authd_client(opts, context, force_local=force_local, get_config=True)
     api = vapi.AppRoleApi(client)
     if get_config:
@@ -903,11 +1091,33 @@ def get_approle_api(opts, context, force_local=False, get_config=False):
     return api
 
 
-def get_identity_api(opts, context, force_local=False, get_config=False):
+@typing.overload
+def get_identity_api(
+    opts: dict[str, typing.Any],
+    context: dict[typing.Any, typing.Any],
+    *,
+    force_local: bool = False,
+    get_config: typing.Literal[True],
+) -> tuple[vapi.IdentityApi, dict[str, typing.Any]]: ...
+@typing.overload
+def get_identity_api(
+    opts: dict[str, typing.Any],
+    context: dict[typing.Any, typing.Any],
+    *,
+    force_local: bool = False,
+    get_config: typing.Literal[False] = False,
+) -> vapi.IdentityApi: ...
+def get_identity_api(
+    opts: dict[str, typing.Any],
+    context: dict[typing.Any, typing.Any],
+    *,
+    force_local: bool = False,
+    get_config: bool = False,
+) -> vapi.IdentityApi | tuple[vapi.IdentityApi, dict[str, typing.Any]]:
     """
     Return an instance of IdentityApi containing an AuthenticatedVaultClient.
     """
-    opts = _check_salt_ssh_opts(opts)
+    opts = hlp.check_salt_ssh_opts(opts)
     client, config = get_authd_client(opts, context, force_local=force_local, get_config=True)
     api = vapi.IdentityApi(client)
     if get_config:
@@ -915,7 +1125,12 @@ def get_identity_api(opts, context, force_local=False, get_config=False):
     return api
 
 
-def parse_config(config, validate=True, opts=None, require_token=True):
+def parse_config(
+    config: dict[str, typing.Any],
+    validate: bool = True,
+    opts: dict[str, typing.Any] | None = None,
+    require_token: bool = True,
+) -> dict[str, typing.Any]:
     """
     Returns a vault configuration dictionary that has all
     keys with defaults. Checks if required data is available.
@@ -995,6 +1210,7 @@ def parse_config(config, validate=True, opts=None, require_token=True):
             "refresh_pillar": None,
         },
         "server": {
+            "url_alts": [],
             "namespace": None,
             "verify": None,
         },
@@ -1033,6 +1249,20 @@ def parse_config(config, validate=True, opts=None, require_token=True):
         )
     if opts is not None and "vault" in opts:
         local_config = opts["vault"]
+        # Respect locally configured url parameter, if url in url_alts
+        if local_url := (local_config.get("url") or local_config.get("server", {}).get("url")):
+            if merged["server"].get("url") == local_url:
+                pass
+            elif local_url in merged["server"]["url_alts"]:
+                merged["server"]["url"] = local_url
+            else:
+                log.warning(
+                    "Locally configured Vault server URL in vault:server:url is not allowed by master. "
+                    "Add it to the master's vault:server:url_alts. "
+                    "Offending URL: `%s` Allowed: %s",
+                    local_url,
+                    ",".join(merged["server"]["url_alts"] or [merged["server"].get("url", "")]),
+                )
         # Respect locally configured verify parameter
         if local_config.get("verify", NOT_SET) != NOT_SET:
             merged["server"]["verify"] = local_config["verify"]
@@ -1045,6 +1275,8 @@ def parse_config(config, validate=True, opts=None, require_token=True):
         if local_config.get("client"):
             merged["client"] = {**merged["client"], **local_config["client"]}
 
+    if "url" in merged["server"] and merged["server"]["url"] not in merged["server"]["url_alts"]:
+        merged["server"]["url_alts"] = [merged["server"]["url"]] + merged["server"]["url_alts"]
     if not validate:
         return merged
 
@@ -1063,18 +1295,3 @@ def parse_config(config, validate=True, opts=None, require_token=True):
     except AssertionError as err:
         raise salt.exceptions.InvalidConfigError(f"Invalid vault configuration: {err}") from err
     return merged
-
-
-def _check_salt_ssh_opts(opts):
-    if "__master_opts__" in opts and "vault" not in opts:
-        # Let's run the same way as during pillar compilation.
-        vopts = {}
-        vopts.update(opts)
-        vopts.update(opts["__master_opts__"])
-        # Salt 3008 OptsDict introduced an issue where the __master_opts__ cachedir
-        # can point to the minion-specific one. The original one is still preserved in _caller_cachedir.
-        if "_caller_cachedir" in opts:
-            vopts["cachedir"] = opts["_caller_cachedir"]
-        vopts["id"] = vopts["minion_id"] = opts["id"]
-        opts = vopts
-    return opts

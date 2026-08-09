@@ -2,15 +2,40 @@
 
 from __future__ import annotations
 
+import sys
+import sysconfig
+import threading
+import time
 import unittest
 
 import pytest
 
 from siphashc import siphash
 
+GIL_THRESHOLD = 8192
+GIL_TEST_ITERATIONS = 10_000
+
+
+class BytesSubclass(bytes):
+    """Bytes subclass used to verify accepted immutable inputs."""
+
+
+class StringSubclass(str):
+    """String subclass used to verify accepted immutable inputs."""
+
+    __slots__ = ()
+
 
 class TestSiphashC(unittest.TestCase):
     """Test for siphashc module."""
+
+    @pytest.mark.skipif(
+        not sysconfig.get_config_var("Py_GIL_DISABLED"),
+        reason="requires free-threaded Python",
+    )
+    def test_gil_disabled(self: TestSiphashC) -> None:
+        """Test that importing the module does not enable the GIL."""
+        assert not sys._is_gil_enabled()  # noqa: SLF001
 
     def test_hash(self: TestSiphashC) -> None:
         """Test simple hashing."""
@@ -19,6 +44,104 @@ class TestSiphashC(unittest.TestCase):
 
         result = siphash("0123456789ABCDEF", "a")
         assert result == 12398370950267227270  # noqa: PLR2004
+
+    def test_immutable_inputs(self: TestSiphashC) -> None:
+        """Test accepted immutable input types."""
+        expected = siphash(b"0123456789ABCDEF", b"a")
+
+        assert siphash("0123456789ABCDEF", "a") == expected
+        assert (
+            siphash(
+                BytesSubclass(b"0123456789ABCDEF"),
+                BytesSubclass(b"a"),
+            )
+            == expected
+        )
+        assert (
+            siphash(
+                StringSubclass("0123456789ABCDEF"),
+                StringSubclass("a"),
+            )
+            == expected
+        )
+
+    def test_rejects_other_inputs(self: TestSiphashC) -> None:
+        """Test rejection of mutable and generic buffer inputs."""
+        invalid_keys = (
+            bytearray(b"0123456789ABCDEF"),
+            memoryview(b"0123456789ABCDEF"),
+            object(),
+        )
+        invalid_plaintexts = (bytearray(b"a"), memoryview(b"a"), object())
+
+        for key in invalid_keys:
+            with pytest.raises(TypeError, match="key must be str or bytes"):
+                siphash(key, b"a")
+
+        for plaintext in invalid_plaintexts:
+            with pytest.raises(TypeError, match="plaintext must be str or bytes"):
+                siphash(b"0123456789ABCDEF", plaintext)
+
+    def test_argument_count(self: TestSiphashC) -> None:
+        """Test positional argument count errors."""
+        for args in ((), (b"key",), (b"key", b"plaintext", b"extra")):
+            with pytest.raises(TypeError) as error:
+                siphash(*args)
+            assert str(error.value) == (
+                f"siphash() takes exactly 2 arguments ({len(args)} given)"
+            )
+
+    def test_rejects_keywords(self: TestSiphashC) -> None:
+        """Test rejection of keyword arguments."""
+        with pytest.raises(
+            TypeError,
+            match=r"siphash\(\) takes no keyword arguments",
+        ):
+            siphash(key=b"0123456789ABCDEF", plaintext=b"a")
+
+    @pytest.mark.skipif(
+        bool(sysconfig.get_config_var("Py_GIL_DISABLED")),
+        reason="requires a GIL-enabled Python",
+    )
+    def test_gil_release_threshold(self: TestSiphashC) -> None:
+        """Test that only inputs at or above the threshold release the GIL."""
+        counter = 0
+        ready = threading.Event()
+        stop = threading.Event()
+
+        def count_in_thread() -> None:
+            nonlocal counter
+            ready.set()
+            while not stop.is_set():
+                counter += 1
+                time.sleep(0)
+
+        thread = threading.Thread(target=count_in_thread)
+        previous_interval = sys.getswitchinterval()
+        sys.setswitchinterval(1.0)
+        try:
+            thread.start()
+            assert ready.wait(timeout=5)
+
+            key = b"0123456789ABCDEF"
+            below_threshold = b"a" * (GIL_THRESHOLD - 1)
+            at_threshold = b"a" * GIL_THRESHOLD
+
+            before = counter
+            for _ in range(GIL_TEST_ITERATIONS):
+                siphash(key, below_threshold)
+            assert counter == before
+
+            before = counter
+            for _ in range(GIL_TEST_ITERATIONS):
+                siphash(key, at_threshold)
+            assert counter > before
+        finally:
+            stop.set()
+            sys.setswitchinterval(previous_interval)
+            thread.join(timeout=5)
+
+        assert not thread.is_alive()
 
     def test_errors(self: TestSiphashC) -> None:
         """Test error handling."""
@@ -106,8 +229,8 @@ class TestSiphashC(unittest.TestCase):
             0xE51B38608EF25F57,
             0x958A324CEB064572,
         ]
-        k = "\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0a\x0b\x0c\x0d\x0e\x0f"
-        message = ""
+        k = bytes(range(16))
+        message = b""
         for i in range(64):
             assert siphash(k, message) == vectors[i]
-            message += chr(i)
+            message += bytes((i,))

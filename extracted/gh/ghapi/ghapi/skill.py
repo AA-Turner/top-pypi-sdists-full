@@ -57,7 +57,7 @@ Many repos require issues to follow their issue-form template, and the API bypas
 
 # GraphQL
 
-Use `gh_query(query, variables)` for GitHub GraphQL requests that are awkward or inefficient with REST, such as nested org/repo queries or cross-repo searches.
+Use `GhGql` for reads that fan out or that REST can't reach (nested org/repo queries, ProjectsV2). `gql = GhGql()`; query fields are attributes (`xdir(gql, 'repo')` to list); chain to build a query, with kwargs for args (`await gql.repo('AnswerDotAI/fastws').ref(qualifiedName='refs/heads/main').target.oid` -- `repo()` takes an `'owner/name'` spec); displaying an unfinished fragment shows its signature, docs, and next fields; `await gql.batch(frag for ... )` runs many fragments as one call (auto-chunked into parallel requests), results in input order (`None` per missing repo). Long lists are Relay connections capped at 100 per request: `async for o in gql.paged(frag, 'field1 field2')` walks the cursors to the end. Call any node with raw GraphQL text for branchy selections (`.object(expression='HEAD:pyproject.toml')('... on Blob { text }')`); `gql.t.TypeName` looks up enums/types; `await gql(query_text, **variables)` runs raw queries. Mutations are blocked.
 
 # Gists
 
@@ -65,7 +65,7 @@ Use `gh_query(query, variables)` for GitHub GraphQL requests that are awkward or
 
 # Local git (fastgit)
 
-For anything that's about the local repo/working tree rather than GitHub itself -- current branch, staged diff, a local commit, log -- `Git` (from `fastgit`, but exported by `ghapi.skill`) wraps the `git` CLI directly:
+For anything that's about the local repo/working tree rather than GitHub itself -- current branch, staged diff, a local commit, log -- `Git` (from `fastgit`, but exported by `ghapi.skill`) wraps the `git` CLI directly. Its `d` takes any path-like and expands `~` itself, so pass paths bare -- `Git('~/git/repo')`:
 
     g = Git('.')
     g.status()
@@ -96,7 +96,7 @@ Once the PR exists, the fork branch is the source of truth, and the local clone 
 """
 
 from ghapi.all import GhApi, paged, pages, read_pr, pr_file_diff, gh_notifs, call_gh, issue_body
-from ghapi.graphql import gh_query
+from ghapi.graphql import GhGql
 from fastgit import Git
 from pyskills import AllowPolicy, allow
 from fastspec.oapi import OpFunc
@@ -123,14 +123,13 @@ class GitPolicy(AllowPolicy):
             vals = [str(x) for x in args[1:]]
             if vals[:1] != ['list']: raise PermissionError("only git stash list allowed")
 
-_gh_query_orig = gh_query
-def _gh_query_guard(query, variables=None):
-    "GraphQL query guard — blocks mutations and subscriptions"
-    if 'mutation' in query.lower() or 'subscription' in query.lower():
-        raise PermissionError('Only GraphQL queries are allowed; mutations and subscriptions are blocked')
-    return _gh_query_orig(query, variables)
-gh_query = _gh_query_guard
+class GqlPolicy(AllowPolicy):
+    "GraphQL query guard -- blocks mutations and subscriptions"
+    def __call__(self, obj, args, kwargs, data):
+        q = args[0] if args else ''
+        if 'mutation' in q.lower() or 'subscription' in q.lower():
+            raise PermissionError('Only GraphQL queries are allowed; mutations and subscriptions are blocked')
 
-allow({Git: [('__call__', GitPolicy())], OpFunc: [('__call__', ReadOnlyGhPolicy())]}, gh_query, paged, pages, read_pr, pr_file_diff, gh_notifs)
+allow({Git: [('__call__', GitPolicy())], OpFunc: [('__call__', ReadOnlyGhPolicy())], GhGql: [('__call__', GqlPolicy())]}, paged, pages, read_pr, pr_file_diff, gh_notifs)
 
-__all__ = ['Git', 'GhApi', 'gh_query', 'call_gh', 'paged', 'pages', 'read_pr', 'pr_file_diff', 'gh_notifs', 'issue_body']
+__all__ = ['Git', 'GhApi', 'GhGql', 'call_gh', 'paged', 'pages', 'read_pr', 'pr_file_diff', 'gh_notifs', 'issue_body']

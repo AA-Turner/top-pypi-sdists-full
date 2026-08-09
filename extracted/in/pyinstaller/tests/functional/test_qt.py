@@ -19,6 +19,13 @@ from PyInstaller.utils.hooks import check_requirement, can_import_module
 from PyInstaller.utils.hooks.qt import get_qt_library_info
 from PyInstaller.utils.tests import importorskip, requires, skipif, onedir_only
 
+# Several tests in this module have a @pytest.mark.flaky() with `condition` argument, which allows us to perform re-runs
+# only under special conditions (for example, specific version of Qt bindings, specific OS, etc.). However, having a
+# falsy `condition` argument precludes us from enabling re-runs globally by adding `--reruns=1` to `pytest` arguments;
+# at the time of writing (`pytest-rerunfailures` v16.4), this is true even if `--reruns-mode append` is used. Therefore,
+# we use a special environment variable that allows us to manually activate the reruns for marked tests.
+force_flaky_rerun = os.environ.get("PYINSTALLER_TEST_FORCE_FLAKY_RERUN", "0") == "1"
+
 
 def qt_param(qt_flavor, *args, **kwargs):
     """
@@ -70,19 +77,35 @@ def test_Qt_QtWidgets(pyi_builder, QtPyLib):
 
         is_qt6 = '{QtPyLib}' in {{'PySide6', 'PyQt6'}}
 
+        print("Instantiating QApplication...", file=sys.stderr)
         app = QApplication(sys.argv)
+
+        print("Creating window...", file=sys.stderr)
         window = QWidget()
         window.setWindowTitle('Hello world!')
         window.show()
 
-        # Exit Qt when the main loop becomes idle.
-        QTimer.singleShot(0, app.exit)
+        # Exit the application 5 seconds after entering the main loop.
+        # Emit a debug message every second until shutdown to show that application's main loop is processing events
+        # after the application window is shown.
+        for i in range(5):
+            QTimer.singleShot(i * 1000, lambda i=i: print(f"Timer event at {{i}} second(s)!", file=sys.stderr))
 
+        def _shutdown_program():
+            print("Shutting down application from timer callback...", file=sys.stderr)
+            app.exit()
+
+        QTimer.singleShot(5000, _shutdown_program)
+
+        print("Entering application's main loop...", file=sys.stderr)
         if is_qt6:
             # Qt6: exec_() is deprecated in PySide6 and removed from PyQt6 in favor of exec()
             res = app.exec()
         else:
             res = app.exec_()
+        print("Exited application's main loop!", file=sys.stderr)
+
+        print("Calling sys.exit()...", file=sys.stderr)
         sys.exit(res)
         """, **USE_WINDOWED_KWARG
     )
@@ -118,8 +141,13 @@ def test_Qt_QtQml(pyi_builder, QtPyLib):
         # https://github.com/pyinstaller/pyinstaller/issues/3711.
         #
         # In Qt5, the style name is lower case ('imagine'), whereas in Qt6, it is capitalized ('Imagine')
+        print("Instantiating QGuiApplication...", file=sys.stderr)
         app = QGuiApplication(sys.argv + ['-style', 'Imagine' if is_qt6 else 'imagine'])
+
+        print("Instantiating QQmlApplicationEngine...", file=sys.stderr)
         engine = QQmlApplicationEngine()
+
+        print("Loading application QML...", file=sys.stderr)
         engine.loadData(b'''
             import QtQuick 2.11
             import QtQuick.Controls 2.4
@@ -131,17 +159,31 @@ def test_Qt_QtQml(pyi_builder, QtPyLib):
             ''', QUrl())
 
         if not engine.rootObjects():
-            sys.exit(-1)
+            raise RuntimeError("No root objects loaded from QML!")
 
-        # Exit Qt when the main loop becomes idle.
-        QTimer.singleShot(0, app.exit)
+        # Exit the application 5 seconds after entering the main loop.
+        # Emit a debug message every second until shutdown to show that application's main loop is processing events
+        # after the application window is shown.
+        for i in range(5):
+            QTimer.singleShot(i * 1000, lambda i=i: print(f"Timer event at {{i}} second(s)!", file=sys.stderr))
 
+        def _shutdown_program():
+            print("Shutting down application from timer callback...", file=sys.stderr)
+            app.exit()
+
+        QTimer.singleShot(5000, _shutdown_program)
+
+        print("Entering application's main loop...", file=sys.stderr)
         if is_qt6:
             # Qt6: exec_() is deprecated in PySide6 and removed from PyQt6 in favor of exec()
             res = app.exec()
         else:
             res = app.exec_()
+        print("Exited application's main loop!", file=sys.stderr)
+
         del engine
+
+        print("Calling sys.exit()...", file=sys.stderr)
         sys.exit(res)
         """, **USE_WINDOWED_KWARG
     )
@@ -261,6 +303,7 @@ def test_Qt_Ui_file(pyi_builder, data_dir, QtPyLib):
         is_qt6 = '{QtPyLib}' in {{'PyQt6', 'PySide6'}}
         is_pyqt = '{QtPyLib}' in {{'PyQt5', 'PyQt6'}}
 
+        print("Instantiating QApplication...", file=sys.stderr)
         app = QApplication(sys.argv)
 
         # In Qt6, QtQuick supports multiple render APIs and automatically selects one.
@@ -275,6 +318,7 @@ def test_Qt_Ui_file(pyi_builder, data_dir, QtPyLib):
                 pass
 
         # Load the UI
+        print("Loading application UI...", file=sys.stderr)
         ui_file = os.path.join(os.path.dirname(__file__), 'gui.ui')
         if is_pyqt:
             # Use PyQt.uic
@@ -288,15 +332,28 @@ def test_Qt_Ui_file(pyi_builder, data_dir, QtPyLib):
             window = loader.load(ui_file)
         window.show()
 
-        # Exit Qt when the main loop becomes idle.
-        QTimer.singleShot(0, app.exit)
+        # Exit the application 5 seconds after entering the main loop.
+        # Emit a debug message every second until shutdown to show that application's main loop is processing events
+        # after the application window is shown.
+        for i in range(5):
+            QTimer.singleShot(i * 1000, lambda i=i: print(f"Timer event at {{i}} second(s)!", file=sys.stderr))
+
+        def _shutdown_program():
+            print("Shutting down application from timer callback...", file=sys.stderr)
+            app.exit()
+
+        QTimer.singleShot(5000, _shutdown_program)
 
         # Run the main loop
+        print("Entering application's main loop...", file=sys.stderr)
         if is_qt6:
             # Qt6: exec_() is deprecated in PySide6 and removed from PyQt6 in favor of exec()
             res = app.exec()
         else:
             res = app.exec_()
+        print("Exited application's main loop!", file=sys.stderr)
+
+        print("Calling sys.exit()...", file=sys.stderr)
         sys.exit(res)
         """,
         # Collect the .ui file into top-level application directory.
@@ -370,6 +427,7 @@ def _test_Qt_QtWebEngineWidgets(pyi_builder, qt_flavor):
         # Disable QtWebEngine/chromium sanbox, if necessary
         if {disable_sandbox}:
             import os
+            print("Disabling QtWebEngine/Chromium sandbox (QTWEBENGINE_DISABLE_SANDBOX=1)...", file=sys.stderr)
             os.environ['QTWEBENGINE_DISABLE_SANDBOX'] = '1'
 
         from {qt_flavor}.QtWidgets import QApplication
@@ -393,6 +451,7 @@ def _test_Qt_QtWebEngineWidgets(pyi_builder, qt_flavor):
             </html>
         '''
 
+        print("Instantiating QApplication...", file=sys.stderr)
         app = QApplication(sys.argv)
 
         class JSResultTester:
@@ -425,6 +484,7 @@ def _test_Qt_QtWebEngineWidgets(pyi_builder, qt_flavor):
                 print("Exiting application's main loop...", file=sys.stderr)
                 app.quit()
 
+        print("Instantiating QWebEngineView and loading test web page...", file=sys.stderr)
         view = QWebEngineView()
         view.setHtml(WEB_PAGE_HTML)
         view.show()
@@ -456,6 +516,7 @@ def _test_Qt_QtWebEngineQuick(pyi_builder, qt_flavor):
         # Disable QtWebEngine/chromium sanbox, if necessary
         if {disable_sandbox}:
             import os
+            print("Disabling QtWebEngine/Chromium sandbox (QTWEBENGINE_DISABLE_SANDBOX=1)...", file=sys.stderr)
             os.environ['QTWEBENGINE_DISABLE_SANDBOX'] = '1'
 
         from {qt_flavor}.QtGui import QGuiApplication
@@ -469,10 +530,16 @@ def _test_Qt_QtWebEngineQuick(pyi_builder, qt_flavor):
             from {qt_flavor}.QtWebEngine import QtWebEngine as QtWebEngineQuick
 
         # Must be called before QGuiApplication is instantiated!
+        print("Initializing QtWebEngineQuick...", file=sys.stderr)
         QtWebEngineQuick.initialize()
 
+        print("Instantiating QGuiApplication...", file=sys.stderr)
         app = QGuiApplication(sys.argv)
+
+        print("Instantiating QQmlApplicationEngine...", file=sys.stderr)
         engine = QQmlApplicationEngine()
+
+        print("Loading application QML...", file=sys.stderr)
         engine.loadData(b'''
             import QtQuick 2.0
             import QtQuick.Window 2.0
@@ -564,7 +631,7 @@ def test_Qt_QtWebEngineQuick_PySide2(pyi_builder):
 @requires('PyQt6-WebEngine')  # NOTE: base Qt6 must be 6.2.2 or newer, QtWebEngine can be older
 @pytest.mark.flaky(
     # Attempt to mitigate issues with QtWebEngine 6.10.1
-    condition=check_requirement('PyQt6-WebEngine-Qt6 == 6.10.1'),
+    condition=force_flaky_rerun or check_requirement('PyQt6-WebEngine-Qt6 == 6.10.1'),
     reruns=1,
 )
 def test_Qt_QtWebEngineWidgets_PyQt6(pyi_builder):
@@ -584,7 +651,7 @@ def test_Qt_QtWebEngineWidgets_PyQt6(pyi_builder):
 @pytest.mark.flaky(
     # The generated .app bundle seems to sporadically freeze during shutdown on GHA macos-14 runners.
     # Attempt to mitigate issues with QtWebEngine 6.10.1
-    condition=is_darwin or check_requirement('PyQt6-WebEngine-Qt6 == 6.10.1'),
+    condition=force_flaky_rerun or is_darwin or check_requirement('PyQt6-WebEngine-Qt6 == 6.10.1'),
     reruns=1,
 )
 def test_Qt_QtWebEngineQuick_PyQt6(pyi_builder):
@@ -598,7 +665,8 @@ def test_Qt_QtWebEngineQuick_PyQt6(pyi_builder):
 )
 @pytest.mark.flaky(
     # Attempt to mitigate issues with QtWebEngine 6.10.1
-    condition=check_requirement('PySide6 == 6.10.1'),
+    condition=force_flaky_rerun or check_requirement('PySide6 == 6.10.1'),
+    reruns=1,
 )
 def test_Qt_QtWebEngineWidgets_PySide6(pyi_builder):
     _test_Qt_QtWebEngineWidgets(pyi_builder, 'PySide6')
@@ -612,7 +680,7 @@ def test_Qt_QtWebEngineWidgets_PySide6(pyi_builder):
 @pytest.mark.flaky(
     # The generated .app bundle seems to sporadically freeze during shutdown on GHA macos-14 runners.
     # Attempt to mitigate issues with QtWebEngine 6.10.1
-    condition=is_darwin or check_requirement('PySide6 == 6.10.1'),
+    condition=force_flaky_rerun or is_darwin or check_requirement('PySide6 == 6.10.1'),
     reruns=1,
 )
 def test_Qt_QtWebEngineQuick_PySide6(pyi_builder):

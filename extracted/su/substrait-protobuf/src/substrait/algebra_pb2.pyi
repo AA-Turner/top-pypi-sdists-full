@@ -118,7 +118,7 @@ class RelCommon(google.protobuf.message.Message):
 
     @typing.final
     class Direct(google.protobuf.message.Message):
-        """Direct indicates no change on presence and ordering of fields in the output"""
+        """Direct indicates no change on presence and ordering of fields in the output."""
 
         DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
@@ -1594,6 +1594,7 @@ class ExpandRel(google.protobuf.message.Message):
     COMMON_FIELD_NUMBER: builtins.int
     INPUT_FIELD_NUMBER: builtins.int
     FIELDS_FIELD_NUMBER: builtins.int
+    ADVANCED_EXTENSION_FIELD_NUMBER: builtins.int
     @property
     def common(self) -> Global___RelCommon: ...
     @property
@@ -1605,15 +1606,18 @@ class ExpandRel(google.protobuf.message.Message):
         expression was provided).
         """
 
+    @property
+    def advanced_extension(self) -> substrait.extensions.extensions_pb2.AdvancedExtension: ...
     def __init__(
         self,
         *,
         common: Global___RelCommon | None = ...,
         input: Global___Rel | None = ...,
         fields: collections.abc.Iterable[Global___ExpandRel.ExpandField] | None = ...,
+        advanced_extension: substrait.extensions.extensions_pb2.AdvancedExtension | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["common", b"common", "input", b"input"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["common", b"common", "fields", b"fields", "input", b"input"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["advanced_extension", b"advanced_extension", "common", b"common", "input", b"input"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["advanced_extension", b"advanced_extension", "common", b"common", "fields", b"fields", "input", b"input"]) -> None: ...
 
 Global___ExpandRel: typing_extensions.TypeAlias = ExpandRel
 

@@ -65,7 +65,7 @@ class ClusterMetadata(BaseModel):
     num_clusters: Optional[StrictInt] = Field(default=None, description="Number of clusters found (excludes noise/outliers, populated after execution)")
     num_documents_clustered: Optional[StrictInt] = Field(default=None, description="Total documents processed")
     execution_time_seconds: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, description="Time taken to complete clustering")
-    quality_metrics: Optional[Dict[str, Union[StrictFloat, StrictInt]]] = Field(default=None, description="Clustering quality metrics (silhouette_score, davies_bouldin_score, calinski_harabasz_score, etc.)")
+    quality_metrics: Optional[Dict[str, Any]] = Field(default=None, description="Clustering quality metrics (silhouette_score, davies_bouldin_score, calinski_harabasz_score, etc.). Open diagnostic bag like ClusteringResult.metrics: mostly numeric, but the three-state degenerate flag (False | reason string) and its prose degenerate_detail are non-numeric, so the value type is Any. A float-only type 400'd every GET on a cluster whose run flagged a degenerate result (MC-1256's read-path sibling: the write side persisted the string, this read side then rejected it).")
     hierarchy_detected: Optional[StrictBool] = Field(default=False, description="Whether implicit hierarchy was detected (multi-feature independent) or created (hierarchical attributes)")
     parent_cluster_id: Optional[StrictStr] = Field(default=None, description="For child clusters in hierarchy")
     child_cluster_ids: Optional[List[StrictStr]] = Field(default=None, description="For parent clusters")

@@ -1,6 +1,6 @@
 [project]
 name = "odfdo"
-version = "3.24.0"
+version = "3.24.1"
 description = "Python library for OpenDocument Format"
 license = "Apache-2.0"
 license-files = [
@@ -82,7 +82,7 @@ dev = [
     "pytest-cov>=7.0.0",
     "tox>=4.51.0",
     "ruff>=0.15.4",
-    "ty>=0.0.56",
+    "ty>=0.0.65",
 ]
 
 [tool.uv]
@@ -93,6 +93,9 @@ default-groups = [
 
 [tool.uv.build-backend]
 source-exclude = [".DS_Store"]
+
+[tool.ty.environment]
+python-version = "3.10"
 
 [tool.ty.src]
 exclude = ["tests"]
@@ -111,10 +114,10 @@ not-subscriptable = "ignore"
 profile = "black"
 
 [tool.ruff]
+target-version = "py310"
 exclude = [".venv"]
 line-length = 88
 indent-width = 4
-target-version = "py314"
 
 [tool.ruff.lint]
 select = [
@@ -143,7 +146,6 @@ ignore = [
     "A003",
     "TRY003",
     "SIM108",
-    "S101",
     "C901",
     "B904",
 ]
@@ -206,5 +208,5 @@ close-quotes-on-newline = true
 non-strict = true
 
 [build-system]
-requires = ["uv_build>=0.9.0,<0.12.0"]
+requires = ["uv_build>=0.9.0,<0.13.0"]
 build-backend = "uv_build"

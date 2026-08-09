@@ -1,4 +1,4 @@
-# Copyright 2010-2025 The pygit2 contributors
+# Copyright 2010-2026 The pygit2 contributors
 #
 # This file is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License, version 2,
@@ -28,20 +28,19 @@ from pathlib import Path
 
 import pytest
 
-from pygit2 import Config, Repository
+from pygit2 import Config, Repository, Settings
 
 from . import utils
 
-CONFIG_FILENAME = 'test_config'
+
+@pytest.fixture
+def config_path(tmp_path: Path) -> Path:
+    return tmp_path / 'test_config'
 
 
 @pytest.fixture
-def config(testrepo: Repository) -> Generator[object, None, None]:
+def config(testrepo: Repository) -> Generator[Config, None, None]:
     yield testrepo.config
-    try:
-        Path(CONFIG_FILENAME).unlink()
-    except OSError:
-        pass
 
 
 def test_config(config: Config) -> None:
@@ -51,55 +50,54 @@ def test_config(config: Config) -> None:
 def test_global_config() -> None:
     try:
         assert Config.get_global_config() is not None
-    except IOError:
-        # There is no user config
-        pass
+    except IOError as e:
+        settings = Settings()
+        pytest.skip(f'Unavailable for testing with home dir = {settings.homedir}: {e}')
 
 
 def test_system_config() -> None:
     try:
         assert Config.get_system_config() is not None
-    except IOError:
-        # There is no system config
-        pass
+    except IOError as e:
+        pytest.skip(f'Unavailable for testing: {e}')
 
 
-def test_new() -> None:
+def test_new(config_path: Path) -> None:
     # Touch file
-    open(CONFIG_FILENAME, 'w').close()
+    config_path.touch()
 
-    config_write = Config(CONFIG_FILENAME)
+    config_write = Config(str(config_path))
     assert config_write is not None
 
     config_write['core.bare'] = False
     config_write['core.editor'] = 'ed'
 
-    config_read = Config(CONFIG_FILENAME)
+    config_read = Config(str(config_path))
     assert 'core.bare' in config_read
     assert not config_read.get_bool('core.bare')
     assert 'core.editor' in config_read
     assert config_read['core.editor'] == 'ed'
 
 
-def test_add() -> None:
-    with open(CONFIG_FILENAME, 'w') as new_file:
+def test_add(config_path: Path) -> None:
+    with open(config_path, 'w') as new_file:
         new_file.write('[this]\n\tthat = true\n')
         new_file.write('[something "other"]\n\there = false')
 
     config = Config()
-    config.add_file(CONFIG_FILENAME, 0)
+    config.add_file(config_path, 0)
     assert 'this.that' in config
     assert config.get_bool('this.that')
     assert 'something.other.here' in config
     assert not config.get_bool('something.other.here')
 
 
-def test_add_aspath() -> None:
-    with open(CONFIG_FILENAME, 'w') as new_file:
+def test_add_aspath(config_path: Path) -> None:
+    with open(config_path, 'w') as new_file:
         new_file.write('[this]\n\tthat = true\n')
 
     config = Config()
-    config.add_file(Path(CONFIG_FILENAME), 0)
+    config.add_file(config_path, 0)
     assert 'this.that' in config
 
 
@@ -148,12 +146,12 @@ def test_write(config: Config) -> None:
     assert 'core.dummy3' not in config
 
 
-def test_multivar() -> None:
-    with open(CONFIG_FILENAME, 'w') as new_file:
+def test_multivar(config_path: Path) -> None:
+    with open(config_path, 'w') as new_file:
         new_file.write('[this]\n\tthat = foobar\n\tthat = foobeer\n')
 
     config = Config()
-    config.add_file(CONFIG_FILENAME, 6)
+    config.add_file(config_path, 6)
     assert 'this.that' in config
 
     assert ['foobar', 'foobeer'] == list(config.get_multivar('this.that'))
@@ -185,27 +183,27 @@ def test_iterator(config: Config) -> None:
     assert lst['core.bare']
 
 
-def test_valueless_key_iteration() -> None:
+def test_valueless_key_iteration(config_path: Path) -> None:
     # A valueless key (no `= value`) has a NULL value pointer in libgit2.
     # Iterating over such entries must not raise a RuntimeError.
-    with open(CONFIG_FILENAME, 'w') as new_file:
+    with open(config_path, 'w') as new_file:
         new_file.write('[section]\n\tvaluelesskey\n\tnormalkey = somevalue\n')
 
     config = Config()
-    config.add_file(CONFIG_FILENAME, 6)
+    config.add_file(config_path, 6)
 
     entries = {entry.name: entry for entry in config}
     assert 'section.valuelesskey' in entries
     assert 'section.normalkey' in entries
 
 
-def test_valueless_key_value() -> None:
+def test_valueless_key_value(config_path: Path) -> None:
     # A valueless key must expose value=None and raw_value=None.
-    with open(CONFIG_FILENAME, 'w') as new_file:
+    with open(config_path, 'w') as new_file:
         new_file.write('[section]\n\tvaluelesskey\n\tnormalkey = somevalue\n')
 
     config = Config()
-    config.add_file(CONFIG_FILENAME, 6)
+    config.add_file(config_path, 6)
 
     entries = {entry.name: entry for entry in config}
     assert entries['section.valuelesskey'].raw_value is None
@@ -220,3 +218,62 @@ def test_parsing() -> None:
 
     assert 5 == Config.parse_int('5')
     assert 1024 == Config.parse_int('1k')
+
+
+def test_repository_config_snapshot(config: Config) -> None:
+    assert 'core.bare' in config
+    assert not config.get_bool('core.bare')
+    assert 'core.editor' in config
+    assert config['core.editor'] == 'ed'
+    assert 'core.repositoryformatversion' in config
+    assert config.get_int('core.repositoryformatversion') == 0
+
+    snapshot = config.snapshot()
+    assert 'core.bare' in snapshot
+    assert not snapshot.get_bool('core.bare')
+    assert 'core.editor' in snapshot
+    assert snapshot['core.editor'] == 'ed'
+    assert 'core.repositoryformatversion' in snapshot
+    assert snapshot.get_int('core.repositoryformatversion') == 0
+
+    assert 'core.snapshot1' not in config
+    assert 'core.snapshot1' not in snapshot
+    config['core.snapshot1'] = 42
+    assert 'core.snapshot1' in config
+    assert 'core.snapshot1' not in snapshot
+    assert config.get_int('core.snapshot1') == 42
+    utils.assertRaisesWithArg(
+        KeyError,
+        'core.snapshot1',
+        lambda: snapshot.get_int('core.snapshot1'),
+    )
+
+
+def test_non_repository_config_snapshot(config_path: Path) -> None:
+    with config_path.open('w') as new_file:
+        new_file.write('[this]\n\tthat = true\n')
+        new_file.write('[something "other"]\n\there = false')
+
+    config = Config(config_path)
+    assert 'this.that' in config
+    assert config.get_bool('this.that')
+    assert 'something.other.here' in config
+    assert not config.get_bool('something.other.here')
+
+    snapshot = config.snapshot()
+    assert 'this.that' in snapshot
+    assert snapshot.get_bool('this.that')
+    assert 'something.other.here' in snapshot
+    assert not snapshot.get_bool('something.other.here')
+
+    assert 'this.snapshot1' not in config
+    assert 'this.snapshot1' not in snapshot
+    config['this.snapshot1'] = 42
+    assert 'this.snapshot1' in config
+    assert 'this.snapshot1' not in snapshot
+    assert config.get_int('this.snapshot1') == 42
+    utils.assertRaisesWithArg(
+        KeyError,
+        'this.snapshot1',
+        lambda: snapshot.get_int('this.snapshot1'),
+    )

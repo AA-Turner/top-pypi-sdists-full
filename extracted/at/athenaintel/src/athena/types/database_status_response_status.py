@@ -3,5 +3,5 @@
 import typing
 
 DatabaseStatusResponseStatus = typing.Union[
-    typing.Literal["running", "suspended", "starting", "failed", "unknown"], typing.Any
+    typing.Literal["running", "suspended", "starting", "creating", "failed", "unknown"], typing.Any
 ]

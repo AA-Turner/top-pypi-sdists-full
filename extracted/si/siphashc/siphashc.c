@@ -24,21 +24,75 @@
 
 #define PY_SSIZE_T_CLEAN
 
+#include <Python.h>
 #include <stdlib.h>
 #include <string.h>
-#include <Python.h>
 #include "siphash/siphash.h"
 
-static PyObject *pysiphash(PyObject *self, PyObject *args) {
+#define SIPHASH_GIL_THRESHOLD 8192
+#if PY_VERSION_HEX < 0x030B0000
+#define SIPHASHC_PYC_FUNCTION_CAST(func) \
+    ((PyCFunction)(void (*)(void))(func))
+#else
+#define SIPHASHC_PYC_FUNCTION_CAST(func) _PyCFunction_CAST(func)
+#endif
+
+static int get_immutable_data(
+        PyObject *object,
+        const char *argument_name,
+        const char **data,
+        Py_ssize_t *size) {
+    if (PyBytes_Check(object)) {
+        char *bytes_data;
+
+        if (PyBytes_AsStringAndSize(object, &bytes_data, size) < 0) {
+            return 0;
+        }
+        *data = bytes_data;
+        return 1;
+    }
+
+    if (PyUnicode_Check(object)) {
+        *data = PyUnicode_AsUTF8AndSize(object, size);
+        return *data != NULL;
+    }
+
+    PyErr_Format(
+        PyExc_TypeError,
+        "%s must be str or bytes",
+        argument_name);
+    return 0;
+}
+
+static PyObject *pysiphash(
+        PyObject *self,
+        PyObject *const *args,
+        Py_ssize_t nargs) {
+    PyObject *key_object;
+    PyObject *plaintext_object;
     const char *key = NULL;
     Py_ssize_t key_sz;
     const char *plaintext = NULL;
     Py_ssize_t plain_sz;
     uint64_t hash;
 
-    if (!PyArg_ParseTuple(
-            args, "s#s#:siphash",
-            &key, &key_sz, &plaintext, &plain_sz)) {
+    if (nargs != 2) {
+        PyErr_Format(
+            PyExc_TypeError,
+            "siphash() takes exactly 2 arguments (%zd given)",
+            nargs);
+        return NULL;
+    }
+    key_object = args[0];
+    plaintext_object = args[1];
+
+    /* Both objects own immutable storage and remain alive for the call. */
+    if (!get_immutable_data(key_object, "key", &key, &key_sz) ||
+            !get_immutable_data(
+                plaintext_object,
+                "plaintext",
+                &plaintext,
+                &plain_sz)) {
         return NULL;
     }
 
@@ -49,10 +103,26 @@ static PyObject *pysiphash(PyObject *self, PyObject *args) {
         return NULL;
     }
 
+#ifdef Py_GIL_DISABLED
     hash = siphash(
-        (const unsigned char*)key,
-        (const unsigned char*)plaintext,
+        (const unsigned char *)key,
+        (const unsigned char *)plaintext,
         plain_sz);
+#else
+    if (plain_sz >= SIPHASH_GIL_THRESHOLD) {
+        Py_BEGIN_ALLOW_THREADS
+        hash = siphash(
+            (const unsigned char *)key,
+            (const unsigned char *)plaintext,
+            plain_sz);
+        Py_END_ALLOW_THREADS
+    } else {
+        hash = siphash(
+            (const unsigned char *)key,
+            (const unsigned char *)plaintext,
+            plain_sz);
+    }
+#endif
 
     return PyLong_FromUnsignedLongLong(hash);
 }
@@ -65,9 +135,30 @@ static char siphash_docstring[] = ""
     "returns 64-bit output (python Long)\n";
 
 static PyMethodDef siphashc_methods[] = {
-    {"siphash", pysiphash, METH_VARARGS, siphash_docstring},
+    {"siphash", SIPHASHC_PYC_FUNCTION_CAST(pysiphash), METH_FASTCALL,
+     siphash_docstring},
     {NULL, NULL, 0, NULL} /* sentinel */
 };
+
+#ifdef Py_TARGET_ABI3T
+
+PyABIInfo_VAR(abi_info);
+
+static PySlot siphashc_slots[] = {
+    PySlot_STATIC_DATA(Py_mod_abi, &abi_info),
+    PySlot_STATIC_DATA(Py_mod_name, "siphashc"),
+    PySlot_STATIC_DATA(Py_mod_methods, siphashc_methods),
+    PySlot_STATIC_DATA(Py_mod_gil, Py_MOD_GIL_NOT_USED),
+    PySlot_END,
+};
+
+PyMODEXPORT_FUNC
+PyModExport_siphashc(void)
+{
+    return siphashc_slots;
+}
+
+#else
 
 static struct PyModuleDef moduledef = {
     PyModuleDef_HEAD_INIT,
@@ -84,5 +175,17 @@ static struct PyModuleDef moduledef = {
 PyObject *
 PyInit_siphashc(void)
 {
-    return PyModule_Create(&moduledef);
+    PyObject *module = PyModule_Create(&moduledef);
+
+#ifdef Py_GIL_DISABLED
+    if (module != NULL &&
+            PyUnstable_Module_SetGIL(module, Py_MOD_GIL_NOT_USED) < 0) {
+        Py_DECREF(module);
+        return NULL;
+    }
+#endif
+
+    return module;
 }
+
+#endif

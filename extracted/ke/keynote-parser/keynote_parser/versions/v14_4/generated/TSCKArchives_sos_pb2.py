@@ -7,6 +7,7 @@ from google.protobuf import descriptor as _descriptor
 from google.protobuf import descriptor_pool as _descriptor_pool
 from google.protobuf import symbol_database as _symbol_database
 # @@protoc_insertion_point(imports)
+from keynote_parser.versions.v14_4.generated import _descriptor_pool_for_version as _version_pool
 
 _sym_db = _symbol_database.Default()
 
@@ -15,7 +16,7 @@ import keynote_parser.versions.v14_4.generated.TSKArchives_pb2 as TSKArchives__p
 import keynote_parser.versions.v14_4.generated.TSPMessages_pb2 as TSPMessages__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x16TSCKArchives_sos.proto\x12\x07TSCKSOS\x1a\x11TSKArchives.proto\x1a\x11TSPMessages.proto\"\x8c\x01\n\x1e\x46ixCorruptedDataCommandArchive\x12\"\n\x05super\x18\x01 \x02(\x0b\x32\x13.TSK.CommandArchive\x12\x1d\n\x15\x63orrupted_digest_list\x18\x02 \x03(\t\x12\'\n\x1f\x63orrupted_digest_list_undefined\x18\x03 \x01(\x08\"\x98\x01\n%RemoveAuthorIdentifiersCommandArchive\x12\"\n\x05super\x18\x01 \x02(\x0b\x32\x13.TSK.CommandArchive\x12%\n\x12\x61uthor_identifiers\x18\x02 \x03(\x0b\x32\t.TSP.UUID\x12$\n\x1c\x61uthor_identifiers_undefined\x18\x03 \x01(\x08\"G\n!ResetActivityStreamCommandArchive\x12\"\n\x05super\x18\x01 \x02(\x0b\x32\x13.TSK.CommandArchive')
+DESCRIPTOR = _version_pool.POOL.AddSerializedFile(b'\n\x16TSCKArchives_sos.proto\x12\x07TSCKSOS\x1a\x11TSKArchives.proto\x1a\x11TSPMessages.proto\"\x8c\x01\n\x1e\x46ixCorruptedDataCommandArchive\x12\"\n\x05super\x18\x01 \x02(\x0b\x32\x13.TSK.CommandArchive\x12\x1d\n\x15\x63orrupted_digest_list\x18\x02 \x03(\t\x12\'\n\x1f\x63orrupted_digest_list_undefined\x18\x03 \x01(\x08\"\x98\x01\n%RemoveAuthorIdentifiersCommandArchive\x12\"\n\x05super\x18\x01 \x02(\x0b\x32\x13.TSK.CommandArchive\x12%\n\x12\x61uthor_identifiers\x18\x02 \x03(\x0b\x32\t.TSP.UUID\x12$\n\x1c\x61uthor_identifiers_undefined\x18\x03 \x01(\x08\"G\n!ResetActivityStreamCommandArchive\x12\"\n\x05super\x18\x01 \x02(\x0b\x32\x13.TSK.CommandArchive')
 
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, globals())
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'TSCKArchives_sos_pb2', globals())

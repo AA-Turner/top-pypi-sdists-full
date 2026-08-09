@@ -1753,6 +1753,59 @@ mod unit_tests {
     }
 
     #[test]
+    fn test_normal_mode_collision_handling_no_actual_collisions() {
+        // handle_key_collision(true) alone (no key replacements, already-unique
+        // keys at every nesting depth) should leave the document completely
+        // unaffected -- guards SlowObjectEntry's String -> Cow<'a, str> refactor
+        // on its "key unchanged" path (the common case).
+        let json = r#"{"a": 1, "nested": {"b": 2, "deeper": {"c": 3, "d": 4}}, "e": 5}"#;
+        let result = JSONTools::new()
+            .normal()
+            .handle_key_collision(true)
+            .execute(json)
+            .unwrap();
+        let processed = extract_single(result);
+        let parsed: Value = serde_json::from_str(&processed).unwrap();
+
+        assert_eq!(parsed["a"], 1);
+        assert_eq!(parsed["nested"]["b"], 2);
+        assert_eq!(parsed["nested"]["deeper"]["c"], 3);
+        assert_eq!(parsed["nested"]["deeper"]["d"], 4);
+        assert_eq!(parsed["e"], 5);
+        // None of these should have been wrapped into collision arrays
+        assert!(!parsed["a"].is_array());
+        assert!(!parsed["nested"]["b"].is_array());
+    }
+
+    #[test]
+    fn test_normal_mode_collision_handling_nested_object() {
+        // Collisions inside a NESTED object, not just top-level -- NormalSlowWalker
+        // recurses into every object, so this guards serialize_with_collisions's
+        // ordered/key_positions rewrite at a nesting depth beyond the root.
+        let json = r#"{"outer": {"user_name": "Alice", "admin_name": "Bob", "id": 1}}"#;
+        let result = JSONTools::new()
+            .normal()
+            .key_replacement("user_", "")
+            .key_replacement("admin_", "")
+            .handle_key_collision(true)
+            .execute(json)
+            .unwrap();
+        let processed = extract_single(result);
+        let parsed: Value = serde_json::from_str(&processed).unwrap();
+
+        assert!(parsed["outer"]["name"].is_array());
+        let names: Vec<&str> = parsed["outer"]["name"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|v| v.as_str().unwrap())
+            .collect();
+        assert!(names.contains(&"Alice"));
+        assert!(names.contains(&"Bob"));
+        assert_eq!(parsed["outer"]["id"], 1);
+    }
+
+    #[test]
     fn test_normal_mode_deep_nesting_with_filtering() {
         // Build 50+ levels of nesting with a mix of filterable and retained values
         let inner = r#"{"a":{"b":{"keep":"hello","remove":"","null_val":null}}}"#;
@@ -3417,7 +3470,9 @@ mod json_output_tests {
 
 #[cfg(test)]
 mod max_array_index_tests {
+    use crate::tests::extract_single;
     use crate::JSONTools;
+    use serde_json::Value;
 
     #[test]
     fn test_max_array_index_rejects_huge_index() {
@@ -3452,6 +3507,28 @@ mod max_array_index_tests {
             .max_array_index(10)
             .execute(json_ok);
         assert!(result_ok.is_ok());
+    }
+
+    #[test]
+    fn test_array_index_overflow_converts_to_object() {
+        // A digit-only key that overflows `usize` (25 nines) is *not* caught by
+        // the `max_array_index` bounds check -- that check only runs after
+        // `.parse::<usize>()` already succeeded. Such a key still passes the
+        // digits-only `is_valid_array_index` check used by the whole-document
+        // path-type pre-analysis, so the parent path is classified as an array
+        // up front; `.parse::<usize>()` then fails during tree-building, which
+        // must fall back to converting the in-progress array into an object
+        // (see `set_nested_value_recursive`'s "Non-numeric key in array
+        // context" branch) rather than erroring or silently dropping data.
+        let json = r#"{"items.0": "a", "items.1": "b", "items.99999999999999999999999": "c"}"#;
+        let result = JSONTools::new().unflatten().execute(json).unwrap();
+        let processed = extract_single(result);
+        let parsed: Value = serde_json::from_str(&processed).unwrap();
+
+        assert!(parsed["items"].is_object(), "items should become an object");
+        assert_eq!(parsed["items"]["0"], "a");
+        assert_eq!(parsed["items"]["1"], "b");
+        assert_eq!(parsed["items"]["99999999999999999999999"], "c");
     }
 }
 

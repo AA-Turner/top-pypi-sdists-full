@@ -6,8 +6,8 @@ Copyright 2025 Vlad Emelianov
 
 import datetime
 import logging
-from collections.abc import Iterable, Mapping
-from typing import Any, Callable, NamedTuple
+from collections.abc import Callable, Iterable, Mapping
+from typing import Any, NamedTuple
 
 from botocore.session import Session
 from botocore.utils import JSONFileCache
@@ -31,6 +31,10 @@ class DeferredRefreshableToken:
 
 class TokenProviderChain:
     def __init__(self, providers: Iterable[Any] | None = ...) -> None: ...
+    def insert_before(self, name: str, token_provider: Any) -> None: ...
+    def insert_after(self, name: str, token_provider: Any) -> None: ...
+    def remove(self, name: str) -> None: ...
+    def get_provider(self, name: str) -> Any: ...
     def load_token(self) -> DeferredRefreshableToken: ...
 
 class SSOTokenProvider:

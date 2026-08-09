@@ -11,10 +11,10 @@ lint = [
   {include-group = "pre-commit"}
 ]
 pre-commit = [
-  "pre-commit==4.3.0"
+  "prek==0.4.11"
 ]
 test = [
-  "pytest==8.4.2"
+  "pytest==9.1.1"
 ]
 
 [project]
@@ -29,6 +29,7 @@ classifiers = [
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14",
+  "Programming Language :: Python :: 3.15",
   "Topic :: Software Development :: Libraries :: Python Modules"
 ]
 description = "Python module (in c) for siphash-2-4"
@@ -37,7 +38,7 @@ license = "ISC"
 license-files = ["LICENSE.md"]
 name = "siphashc"
 requires-python = ">=3.10"
-version = "2.7"
+version = "2.8"
 
 [[project.authors]]
 email = "michal@weblate.org"
@@ -80,6 +81,7 @@ docstring-code-format = true
 
 [tool.ruff.lint]
 ignore = [
+  "CPY001",  # TODO: update copyright info
   "S101",  # CONFIG: using pytest
   "D203",  # CONFIG: incompatible with D211
   "D212"  # CONFIG: incompatible with D213
@@ -95,6 +97,20 @@ max-complexity = 16
 
 [tool.ruff.lint.per-file-ignores]
 "benchmark.py" = ["T201"]
+
+[tool.rumdl]
+disable = [
+  # We do not enforce heading
+  "first-line-heading",
+  # Avoid length limit checks
+  "line-length"
+]
+
+[tool.rumdl.per-file-ignores]
+"README.md" = [
+  # Allow HTML
+  "MD033"
+]
 
 [tool.setuptools]
 include-package-data = true

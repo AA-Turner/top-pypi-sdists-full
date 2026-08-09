@@ -1,3 +1,4 @@
+import contextlib
 from datetime import datetime
 from datetime import timedelta
 from datetime import timezone
@@ -5,10 +6,11 @@ from datetime import timezone
 import pytest
 from cryptography import x509
 from cryptography.hazmat.primitives import serialization
+from salt.exceptions import CommandExecutionError
 from salt.utils.x509 import generate_rsa_privkey
 from salt.utils.x509 import load_cert
 
-from saltext.vault.utils.vault.pki import dec2hex
+from saltext.vault.utils.vault.helpers import dec2hex
 from tests.support.vault import vault_delete
 from tests.support.vault import vault_disable_secret_engine
 from tests.support.vault import vault_enable_secret_engine
@@ -21,34 +23,22 @@ pytest.importorskip("docker")
 
 pytestmark = [
     pytest.mark.skip_if_binaries_missing("vault"),
-    pytest.mark.usefixtures("container"),
+    pytest.mark.usefixtures("container", "secret_mounts"),
+    pytest.mark.parametrize("secret_mounts", ("pki",), indirect=True),
 ]
 
 
 @pytest.fixture(scope="module")
-def minion_config_overrides(vault_port):
-    return {
-        "features": {
-            "x509_v2": True,
-        },
-        "vault": {
-            "auth": {
-                "method": "token",
-                "token": "testsecret",
-            },
-            "cache": {
-                "backend": "disk",  # ensure a persistent cache is available for get_creds
-            },
-            "server": {
-                "url": f"http://127.0.0.1:{vault_port}",
-            },
-        },
-    }
+def minion_config_overrides(salt_version):
+    if salt_version[0] < 3008:
+        # Need to enable x509_v2 explicitly on Salt <3008
+        return {"features": {"x509_v2": True}}
+    return {}
 
 
 @pytest.fixture
-def testrole():
-    return {
+def testrole(request):
+    defaults = {
         "ttl": 3600,
         "max_ttl": 86400,
         "allow_any_name": True,
@@ -56,6 +46,8 @@ def testrole():
         "allowed_uri_sans": ["*"],
         "issuer_ref": "testissuer",
     }
+    defaults.update(getattr(request, "param", {}))
+    return defaults
 
 
 @pytest.fixture
@@ -77,13 +69,6 @@ def private_key():
         encryption_algorithm=serialization.NoEncryption(),
     )
     return pk_bytes.decode()
-
-
-@pytest.fixture(scope="module", autouse=True)
-def pki_engine(container):  # pylint: disable=unused-argument
-    assert vault_enable_secret_engine("pki")
-    yield
-    assert vault_disable_secret_engine("pki")
 
 
 @pytest.fixture(params=[["testrole"]])
@@ -130,7 +115,7 @@ def issuers_setup(request, root_issuer_setup):  # pylint: disable=unused-argumen
         all_issuers = vault_list_detailed("pki/issuers")
         issuers_names = []
         if len(all_issuers) > 0:
-            issuers_names = [v["issuer_name"] for k, v in all_issuers["key_info"].items()]
+            issuers_names = [v["issuer_name"] for v in all_issuers["key_info"].values()]
         for issuer_name in request.param:
             if issuer_name in issuers_names:
                 vault_delete(f"pki/issuer/{issuer_name}")
@@ -141,17 +126,20 @@ def vault_pki(modules):
     try:
         yield modules.vault_pki
     finally:
-        if "testrole" in vault_list("pki/roles"):
-            vault_delete("pki/roles/testrole")
-            assert "testrole" not in vault_list("pki/roles")
+        testroles = {"testrole", "testrole2"}
+        for role in testroles.intersection(vault_list("pki/roles")):
+            vault_delete(f"pki/roles/{role}")
+        assert not testroles.intersection(vault_list("pki/roles"))
 
         vault_delete("pki/issuer/test-issuer-root")
 
 
 @pytest.fixture
 def generated_root():
-    yield
-    vault_delete("pki/issuer/generated-root")
+    try:
+        yield
+    finally:
+        vault_delete("pki/issuer/generated-root")
 
 
 @pytest.mark.usefixtures("roles_setup")
@@ -172,9 +160,13 @@ def test_delete_role(vault_pki):
     assert "testrole" not in vault_list("pki/roles")
 
 
-def test_write_role(vault_pki):
-    assert vault_pki.write_role("testrole2", ttl="360h") is True
+@pytest.mark.parametrize("key_usage", ("DigitalSignature", ["DigitalSignature", "KeyAgreement"]))
+def test_write_role(vault_pki, key_usage):
+    assert vault_pki.write_role("testrole2", ttl="360h", key_usage=key_usage) is True
     assert "testrole2" in vault_list("pki/roles")
+    if not isinstance(key_usage, list):
+        key_usage = [key_usage]
+    assert vault_read("pki/roles/testrole2")["data"]["key_usage"] == key_usage
 
 
 @pytest.mark.usefixtures("roles_setup")
@@ -235,8 +227,8 @@ def test_issue_certificate(vault_pki):
     assert "test.example.com" in dns_sans
     assert any(str(ip) == "1.2.3.4" for ip in ip_sans)
     assert any(str(ip) == "5.6.7.8" for ip in ip_sans)
-    assert any(uri == "https://foo.bar" for uri in uri_sans)
-    assert any(uri == "https://bar.baz" for uri in uri_sans)
+    assert "https://foo.bar" in uri_sans
+    assert "https://bar.baz" in uri_sans
     assert any(
         other.type_id.dotted_string == "1.2.3.4" and other.value == b"\x0c\x0fsome identifier"
         for other in other_sans
@@ -245,6 +237,67 @@ def test_issue_certificate(vault_pki):
         other.type_id.dotted_string == "2.3.4.5" and other.value == b"\x0c\x15some other identifier"
         for other in other_sans
     )
+
+
+@pytest.mark.usefixtures("issuers_setup")
+@pytest.mark.usefixtures("roles_setup")
+@pytest.mark.parametrize("value_is_list", (False, True))
+def test_issue_certificate_with_dict_alt_names(vault_pki, value_is_list):
+    alt_names = {
+        "DNS": "test2.example.com",
+        "IP": "1.2.3.4",
+        "URI": "https://foo.bar",
+        "1.2.3.4": "some identifier",
+    }
+    if value_is_list:
+        alt_names["DNS"] = [alt_names["DNS"], "test3.example.com"]
+        alt_names["IP"] = [alt_names["IP"], "2.3.4.5"]
+        alt_names["URI"] = [alt_names["URI"], "https://bar.baz"]
+        alt_names["1.2.3.4"] = [alt_names["1.2.3.4"], "some other identifier"]
+    ret = vault_pki.issue_certificate(
+        role_name="testrole",
+        common_name="test.example.com",
+        ttl="2h",
+        alt_names=alt_names,
+    )
+    assert "certificate" in ret
+    certificate = load_cert(ret["certificate"])
+    san = certificate.extensions.get_extension_for_class(x509.SubjectAlternativeName)
+    dns_sans = san.value.get_values_for_type(x509.DNSName)
+    ip_sans = san.value.get_values_for_type(x509.IPAddress)
+    uri_sans = san.value.get_values_for_type(x509.UniformResourceIdentifier)
+    other_sans = san.value.get_values_for_type(x509.OtherName)
+    assert "test2.example.com" in dns_sans
+    assert any(str(ip) == "1.2.3.4" for ip in ip_sans)
+    assert "https://foo.bar" in uri_sans
+    assert any(
+        other.type_id.dotted_string == "1.2.3.4" and other.value == b"\x0c\x0fsome identifier"
+        for other in other_sans
+    )
+    if value_is_list:
+        assert "test3.example.com" in dns_sans
+        assert any(str(ip) == "2.3.4.5" for ip in ip_sans)
+        assert "https://bar.baz" in uri_sans
+        assert any(
+            other.type_id.dotted_string == "1.2.3.4"
+            and other.value == b"\x0c\x15some other identifier"
+            for other in other_sans
+        )
+
+
+@pytest.mark.usefixtures("issuers_setup")
+@pytest.mark.usefixtures("roles_setup")
+@pytest.mark.parametrize("issuers_setup", [["testissuer", "testissuer2"]], indirect=True)
+def test_issue_certificate_with_alternative_issuer(vault_pki):
+    ret = vault_pki.issue_certificate(
+        role_name="testrole",
+        common_name="test.example.com",
+        ttl="2h",
+        issuer_ref="testissuer2",
+    )
+    assert "certificate" in ret
+    certificate = load_cert(ret["certificate"])
+    assert certificate.issuer.rfc4514_string() == "CN=Test Issuer CA 2"
 
 
 @pytest.mark.usefixtures("issuers_setup")
@@ -271,6 +324,77 @@ def test_sign_certificate_with_private_key(vault_pki, private_key):
     assert certificate.not_valid_after_utc - run_time > timedelta(hours=1)
     assert "test2.example.com" in dns_sans
     assert "test.example.com" in dns_sans
+
+
+@pytest.mark.usefixtures("issuers_setup")
+@pytest.mark.usefixtures("roles_setup")
+@pytest.mark.parametrize(
+    "testrole,fail,sans_as_list",
+    (
+        ({}, False, False),
+        ({"usr_csr_sans": False}, False, True),
+        ({}, True, False),
+    ),
+    indirect=["testrole"],
+)
+def test_sign_certificate_with_dict_alt_names(vault_pki, private_key, sans_as_list, testrole, fail):
+    alt_names = {
+        "DNS": "test2.example.com",
+        "IP": "1.2.3.4",
+        "URI": "https://foo.bar",
+        "1.2.3.4": "some identifier",  # otherName is currently not supported by x509_v2
+    }
+    if sans_as_list:
+        alt_names["DNS"] = [alt_names["DNS"], "test3.example.com"]
+        alt_names["IP"] = [alt_names["IP"], "2.3.4.5"]
+        alt_names["URI"] = [alt_names["URI"], "https://bar.baz"]
+        alt_names["1.2.3.4"] = [alt_names["1.2.3.4"], "some other identifier"]
+    ctx = contextlib.nullcontext()
+    use_csr_sans = testrole.get("use_csr_sans", True)
+    if use_csr_sans:
+        if not fail:
+            alt_names.pop("1.2.3.4")
+        else:
+            ctx = pytest.raises(
+                CommandExecutionError, match=".*use_csr_sans.*set it to false.*otherName"
+            )
+
+    with ctx:
+        ret = vault_pki.sign_certificate(
+            "testrole",
+            common_name="test.example.com",
+            private_key=private_key,
+            ttl="2h",
+            alt_names=alt_names,
+        )
+    if fail:
+        return
+    assert "certificate" in ret
+    certificate = load_cert(ret["certificate"])
+    san = certificate.extensions.get_extension_for_class(x509.SubjectAlternativeName)
+    dns_sans = san.value.get_values_for_type(x509.DNSName)
+    ip_sans = san.value.get_values_for_type(x509.IPAddress)
+    uri_sans = san.value.get_values_for_type(x509.UniformResourceIdentifier)
+    other_sans = san.value.get_values_for_type(x509.OtherName)
+    assert "test2.example.com" in dns_sans
+    assert "test.example.com" in dns_sans
+    assert any(str(ip) == "1.2.3.4" for ip in ip_sans)
+    assert "https://foo.bar" in uri_sans
+    if not use_csr_sans:
+        assert any(
+            other.type_id.dotted_string == "1.2.3.4" and other.value == b"\x0c\x0fsome identifier"
+            for other in other_sans
+        )
+    if sans_as_list:
+        assert "test3.example.com" in dns_sans
+        assert any(str(ip) == "2.3.4.5" for ip in ip_sans)
+        assert "https://bar.baz" in uri_sans
+        if not use_csr_sans:
+            assert any(
+                other.type_id.dotted_string == "1.2.3.4"
+                and other.value == b"\x0c\x15some other identifier"
+                for other in other_sans
+            )
 
 
 @pytest.mark.usefixtures("issuers_setup")
@@ -350,6 +474,11 @@ def test_read_issuer_certificate_with_chain(vault_pki):
     assert chain[0].subject.rfc4514_string() == "CN=Test Issuer Root CA"
 
 
+def test_read_issuer_certificate_missing(vault_pki):
+    with pytest.raises(CommandExecutionError, match="Issuer does not exist"):
+        vault_pki.read_issuer_certificate("missingissuer")
+
+
 @pytest.mark.usefixtures("issuers_setup")
 def test_delete_issuer(vault_pki):
     ret = [info["issuer_name"] for info in vault_pki.list_issuers().values()]
@@ -360,6 +489,9 @@ def test_delete_issuer(vault_pki):
 
     ret = [info["issuer_name"] for info in vault_pki.list_issuers().values()]
     assert "testissuer" not in ret
+
+    # Does not throw missing issuer exception
+    assert vault_pki.delete_issuer("testissuer", include_key=True) is True
 
 
 @pytest.mark.usefixtures("issuers_setup")
@@ -376,6 +508,20 @@ def test_delete_issuer_with_private_key(vault_pki):
 
     keys = vault_list("pki/keys")
     assert private_key_id not in keys
+
+
+@pytest.mark.usefixtures("issuers_setup")
+def test_delete_key(vault_pki):
+    ret = vault_pki.read_issuer("testissuer")
+    assert ret["key_id"]
+    private_key_id = ret["key_id"]
+
+    ret = vault_pki.delete_issuer("testissuer")
+    assert ret
+
+    ret = vault_pki.delete_key(private_key_id)
+    assert ret is True
+    assert private_key_id not in vault_list("pki/keys")
 
 
 @pytest.mark.usefixtures("issuers_setup")
@@ -403,6 +549,35 @@ def test_update_issuer(vault_pki):
     assert "http://aia.example.com/ca.list" in ret["issuing_certificates"]
     assert "http://ocsp.example.com" in ret["ocsp_servers"]
 
+    # Now update manual chain and usage.
+    issuer_id = ret["issuer_id"]
+    root_id = vault_pki.read_issuer("test-issuer-root")["issuer_id"]
+    ret = vault_pki.update_issuer(
+        "testissuer",
+        manual_chain=[issuer_id, root_id],
+        usage=["read-only", "issuing-certificates", "crl-signing"],
+    )
+    assert ret
+
+    ret = vault_pki.read_issuer("testissuer")
+    assert ret["manual_chain"] == [issuer_id, root_id]
+    assert set(ret["usage"].split(",")) == {"read-only", "issuing-certificates", "crl-signing"}
+
+
+def test_read_urls(vault_pki):
+    urls = {
+        "issuing_certificates": ["http://aia.example.com/ca.list"],
+        "crl_distribution_points": ["http://crl.example.com/ca.crl"],
+        "ocsp_servers": ["http://ocsp.example.com"],
+    }
+    try:
+        vault_write("pki/config/urls", **urls)
+        ret = vault_pki.read_urls()
+        for key, val in urls.items():
+            assert ret[key] == val
+    finally:
+        vault_write("pki/config/urls", **{key: [] for key in urls})
+
 
 @pytest.mark.usefixtures("issuers_setup")
 def test_read_issuer_crl(vault_pki):
@@ -415,6 +590,10 @@ def test_read_issuer_crl(vault_pki):
     assert crl_delta.issuer.rfc4514_string() == "CN=Test Issuer CA"
     assert ret_delta != ret_complete
 
+    # An issuer that is not allowed to sign CRLs does not have one
+    assert vault_pki.update_issuer("testissuer", usage=["read-only", "issuing-certificates"])
+    assert vault_pki.read_issuer_crl("testissuer") is None
+
 
 @pytest.mark.usefixtures("issuers_setup")
 def test_read_issuer_crl_missing_issuer(vault_pki):
@@ -423,7 +602,8 @@ def test_read_issuer_crl_missing_issuer(vault_pki):
 
 @pytest.mark.usefixtures("issuers_setup")
 @pytest.mark.usefixtures("roles_setup")
-def test_revoke_certificate(vault_pki, private_key):
+@pytest.mark.parametrize("revoke_by", ("serial", "serial_int", "certificate"))
+def test_revoke_certificate(vault_pki, private_key, revoke_by):
     ret = vault_pki.sign_certificate(
         "testrole",
         common_name="test.example.com",
@@ -434,11 +614,24 @@ def test_revoke_certificate(vault_pki, private_key):
 
     serial = dec2hex(certificate.serial_number)
 
-    ret = vault_pki.revoke_certificate(serial=serial)
+    if revoke_by == "serial":
+        ret = vault_pki.revoke_certificate(serial=serial)
+    elif revoke_by == "serial_int":
+        ret = vault_pki.revoke_certificate(serial=certificate.serial_number)
+    else:
+        with pytest.helpers.temp_file("cert", contents=ret["certificate"]) as cert:  # type: ignore
+            ret = vault_pki.revoke_certificate(certificate=str(cert))
     assert ret
 
     revoked_certs = [serial.upper() for serial in vault_pki.list_revoked_certificates()]
     assert serial in revoked_certs
+
+
+@pytest.mark.usefixtures("issuers_setup")
+@pytest.mark.usefixtures("roles_setup")
+def test_revoke_certificate_missing(vault_pki):
+    ret = vault_pki.revoke_certificate(serial=1337)
+    assert ret is False
 
 
 @pytest.mark.usefixtures("issuers_setup")
@@ -474,12 +667,18 @@ def test_generate_root(vault_pki):
     ret = vault_pki.generate_root(
         common_name="generated root",
         issuer_name="generated-root",
+        key_name="generated-root-key",
+        ttl="2h",
     )
 
     assert "certificate" in ret
 
     certificate = load_cert(ret["certificate"])
     assert certificate.subject.rfc4514_string() == "CN=generated root"
+    validity = certificate.not_valid_after_utc - certificate.not_valid_before_utc
+    assert timedelta(hours=2) <= validity <= timedelta(hours=2, minutes=5)
+
+    assert vault_read(f"pki/key/{ret['key_id']}")["data"]["key_name"] == "generated-root-key"
 
     ret = vault_pki.list_issuers()
     assert len(ret) == 1
@@ -516,6 +715,33 @@ def test_list_certificates(vault_pki, private_key):
     all_certs = [serial.upper() for serial in vault_pki.list_certificates()]
 
     assert serial in all_certs
+
+
+@pytest.fixture
+def empty_pki_mount():
+    # The module-scoped pki mount retains issued certificates,
+    # so use a separate mount to test empty listing.
+    assert vault_enable_secret_engine("pki", "pki-empty")
+    try:
+        yield "pki-empty"
+    finally:
+        vault_disable_secret_engine("pki-empty")
+
+
+def test_list_certificates_empty(vault_pki, empty_pki_mount):
+    """
+    A mount without any issued certificates should yield an empty list,
+    not a not-found error.
+    """
+    assert vault_pki.list_certificates(mount=empty_pki_mount) == []
+
+
+def test_list_revoked_certificates_empty(vault_pki, empty_pki_mount):
+    """
+    A mount without any revoked certificates should yield an empty list,
+    not a not-found error.
+    """
+    assert vault_pki.list_revoked_certificates(mount=empty_pki_mount) == []
 
 
 @pytest.mark.usefixtures("issuers_setup")

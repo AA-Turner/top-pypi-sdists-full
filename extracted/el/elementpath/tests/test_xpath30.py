@@ -1019,24 +1019,30 @@ class XPath30FunctionsTest(test_xpath2_functions.XPath2FunctionsTest):
                 text = fp.read()
             self.assertEqual([x.strip() for x in text.strip().split('\n')], file_lines)
 
+            parser = self.parser.__class__()
             path = 'fn:unparsed-text("file://{}")'.format(str(filepath))
-            text = self.parser.parse(path).evaluate()
+            with self.assertRaises(ValueError) as ctx:
+                parser.parse(path).evaluate()
+            self.assertIn('FOUT1170', str(ctx.exception))
+
+            parser = self.parser.__class__(allow_external_resources=True)
+            path = 'fn:unparsed-text("file://{}")'.format(str(filepath))
+            text = parser.parse(path).evaluate()
             self.assertEqual([x.strip() for x in text.strip().split('\n')], file_lines)
 
             path = 'fn:unparsed-text("file://{}", "unknown")'.format(str(filepath))
             with self.assertRaises(ValueError) as ctx:
-                self.parser.parse(path).evaluate()
+                parser.parse(path).evaluate()
             self.assertIn('FOUT1190', str(ctx.exception))
 
     def test_environment_variable_function(self):
-        with self.assertRaises(MissingContextError):
-            self.parser.parse('fn:environment-variable("PATH")').evaluate()
+        parser = self.parser.__class__()
 
         root = self.etree.XML('<root/>')
         context = XPathContext(root=root)
         path = 'fn:environment-variable("PATH")'
-        self.assertEqual(self.parser.parse(path).evaluate(context), [])
-        context = XPathContext(root=root, allow_environment=True)
+        self.assertEqual(parser.parse(path).evaluate(context), [])
+        self.assertEqual(parser.parse(path).evaluate(), [])
 
         try:
             key = list(os.environ)[0]
@@ -1044,18 +1050,30 @@ class XPath30FunctionsTest(test_xpath2_functions.XPath2FunctionsTest):
             pass
         else:
             path = 'fn:environment-variable("{}")'.format(key)
-            self.assertEqual(self.parser.parse(path).evaluate(context), os.environ[key])
+
+            parser = self.parser.__class__(allow_environment=True)
+            self.assertEqual(parser.parse(path).evaluate(context), os.environ[key])
+            self.assertEqual(parser.parse(path).evaluate(context), os.environ[key])
+
+            parser = self.parser.__class__(allow_environment=[key])
+            self.assertEqual(parser.parse(path).evaluate(context), os.environ[key])
+            self.assertEqual(parser.parse(path).evaluate(context), os.environ[key])
+
+            parser = self.parser.__class__(allow_environment=['FOO'])
+            self.assertEqual(parser.parse(path).evaluate(context), [])
+            self.assertEqual(parser.parse(path).evaluate(context), [])
 
     def test_available_environment_variables_function(self):
-        with self.assertRaises(MissingContextError):
-            self.parser.parse('fn:available-environment-variables()').evaluate()
-
+        parser = self.parser.__class__()
         root = self.etree.XML('<root/>')
         context = XPathContext(root=root)
         path = 'fn:available-environment-variables()'
-        self.assertEqual(self.parser.parse(path).evaluate(context), [])
-        context = XPathContext(root=root, allow_environment=True)
-        self.assertEqual(self.parser.parse(path).evaluate(context), list(os.environ))
+        self.assertEqual(parser.parse(path).evaluate(context), [])
+        self.assertEqual(parser.parse(path).evaluate(), [])
+
+        parser = self.parser.__class__(allow_environment=True)
+        self.assertEqual(parser.parse(path).evaluate(context), list(os.environ))
+        self.assertEqual(parser.parse(path).evaluate(), list(os.environ))
 
     def test_inline_function_expression(self):
         expression = "function() as xs:integer+ {2, 3, 5, 7, 11, 13}"

@@ -15,7 +15,6 @@ import decimal
 import operator
 from collections.abc import Iterator
 from copy import copy
-from typing import cast
 
 import elementpath.aliases as ta
 
@@ -26,7 +25,7 @@ from elementpath.exceptions import ElementPathTypeError
 from elementpath.helpers import node_position
 from elementpath.xpath_context import XPathSchemaContext
 from elementpath.xpath_tokens import XPathToken, NameToken, VariableToken, \
-    ContextItemToken, AsteriskToken, ParentShortcutToken
+    ContextItemToken, AsteriskToken, ParentShortcutToken, XPathAxis
 
 from .xpath1_parser import XPath1Parser
 
@@ -255,13 +254,17 @@ def select__union_operator(self: XPathToken, context: ta.ContextType = None) \
     if context is None:
         raise self.missing_context()
 
-    results = {item for k in range(2) for item in self[k].select(copy(context))}
-    if any(not isinstance(x, XPathNode) for x in results):
-        raise self.error('XPTY0004', 'only XPath nodes are allowed')
-    elif self.concatenated:
-        yield from cast(set[XPathNode], results)
+    results: set[XPathNode] = set()
+    for k in range(2):
+        for item in self[k].select(copy(context)):
+            if not isinstance(item, XPathNode):
+                raise self.error('XPTY0004', 'only XPath nodes are allowed')
+            results.add(item)
+
+    if self.concatenated:
+        yield from results
     else:
-        yield from cast(list[XPathNode], sorted(results, key=node_position))
+        yield from sorted(results, key=node_position)
 
 
 ###
@@ -381,7 +384,7 @@ def select__descendant_path(self: XPathToken, context: ta.ContextType = None) \
         for _ in context.iter_descendants():
             for result in self[0].select(context):
                 if not isinstance(result, XPathNode):
-                    items.add(result)
+                    yield result
                 elif result in items:
                     pass
                 elif isinstance(result, ElementNode):
@@ -407,7 +410,16 @@ def select__predicate(self: XPathToken, context: ta.ContextType = None) -> Itera
     if context is None:
         raise self.missing_context()
 
-    for _ in self[0].select_with_focus(context):
+    left = self[0]
+    while left.symbol == '[':
+        left = left[0]
+    else:
+        if isinstance(left, XPathAxis):
+            reverse_axis = left.reverse_axis
+        else:
+            reverse_axis = False
+
+    for _ in self[0].select_with_focus(context, reverse_axis):
         if (self[1].label in ('axis', 'kind test') or self[1].symbol == '..') \
                 and not isinstance(context.item, XPathNode):
             raise self.error('XPTY0020')

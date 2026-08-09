@@ -1,28 +1,11 @@
 import pytest
 
 from tests.support.vault import vault_delete
-from tests.support.vault import vault_disable_secret_engine
-from tests.support.vault import vault_enable_secret_engine
 from tests.support.vault import vault_list
 from tests.support.vault import vault_read
 from tests.support.vault import vault_write
 
 pytest.importorskip("docker")
-
-
-@pytest.fixture(scope="module")
-def minion_config_overrides(vault_port):
-    return {
-        "vault": {
-            "auth": {
-                "method": "token",
-                "token": "testsecret",
-            },
-            "server": {
-                "url": f"http://127.0.0.1:{vault_port}",
-            },
-        },
-    }
 
 
 @pytest.fixture
@@ -99,11 +82,36 @@ def ec_pub_file(ec_pub, tmp_path):
     return str(path)
 
 
-@pytest.fixture(scope="module", autouse=True)
-def ssh_engine(container):  # pylint: disable=unused-argument
-    assert vault_enable_secret_engine("ssh")
-    yield
-    assert vault_disable_secret_engine("ssh")
+@pytest.fixture
+def ca_priv():
+    return """\
+-----BEGIN OPENSSH PRIVATE KEY-----
+b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAaAAAABNlY2RzYS1zaGEy
+LW5pc3RwMjU2AAAACG5pc3RwMjU2AAAAQQScOqN2HTar84e+l3Er4Ti0ZsY3nbR9RkRsgZb0Flie
+lc8SN/zIHSLroaJ21ofSqfu+mazGpGFWkNo34zSbBW5+AAAAoEaJqOBGiajgAAAAE2VjZHNhLXNo
+YTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBJw6o3YdNqvzh76XcSvhOLRmxjedtH1GRGyBlvQW
+WJ6VzxI3/MgdIuuhonbWh9Kp+76ZrMakYVaQ2jfjNJsFbn4AAAAhAL7DzNqGQYRNLOeXUt/t+DFz
+R4+26CwTk8SDLHiIt2dpAAAAAAECAwQFBgc=
+-----END OPENSSH PRIVATE KEY-----"""
+
+
+@pytest.fixture
+def ca_priv_file(ca_priv, tmp_path):
+    path = tmp_path / "ca"
+    path.write_text(ca_priv)
+    return str(path)
+
+
+@pytest.fixture
+def ca_pub():
+    return "ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBJw6o3YdNqvzh76XcSvhOLRmxjedtH1GRGyBlvQWWJ6VzxI3/MgdIuuhonbWh9Kp+76ZrMakYVaQ2jfjNJsFbn4="
+
+
+@pytest.fixture
+def ca_pub_file(ca_pub, tmp_path):
+    path = tmp_path / "ca.pub"
+    path.write_text(ca_pub)
+    return str(path)
 
 
 @pytest.fixture(params=(("userrole", "hostrole", "iprole"),))
@@ -133,8 +141,8 @@ def roles_setup(request):
 
 
 @pytest.fixture
-def ca_setup(ec_priv, ec_pub):
-    vault_write("ssh/config/ca", private_key=ec_priv, public_key=ec_pub)
+def ca_setup(ca_priv, ca_pub):
+    vault_write("ssh/config/ca", private_key=ca_priv, public_key=ca_pub)
     assert vault_read("ssh/config/ca", default=False)
     try:
         yield
@@ -144,7 +152,4 @@ def ca_setup(ec_priv, ec_pub):
 
 @pytest.fixture
 def vault_ssh(modules):
-    try:
-        yield modules.vault_ssh
-    finally:
-        pass
+    return modules.vault_ssh

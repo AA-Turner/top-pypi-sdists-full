@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fast-agent-mcp
-Version: 0.10.1
+Version: 0.10.3
 Summary: Code, Build and Evaluate agents - excellent Model and Skills/MCP/ACP/A2A Support
 Author-email: Shaun Smith <fastagent@llmindset.co.uk>
 License:                                  Apache License
@@ -222,21 +222,21 @@ Classifier: Programming Language :: Python :: 3
 Requires-Python: <3.15,>=3.12
 Requires-Dist: a2a-sdk==1.1.0
 Requires-Dist: agent-client-protocol==0.10.1
-Requires-Dist: aiohttp==3.14.1
+Requires-Dist: aiohttp==3.14.3
 Requires-Dist: anthropic[vertex]==0.116.0
 Requires-Dist: deprecated==1.3.1
 Requires-Dist: email-validator==2.3.0
 Requires-Dist: fastapi==0.136.3
-Requires-Dist: fastmcp-slim[server]==4.0.0b1
+Requires-Dist: fastmcp-slim[server]==4.0.0b2
 Requires-Dist: filelock==3.29.1
 Requires-Dist: google-genai==2.15.0
-Requires-Dist: huggingface-hub==1.24.0
+Requires-Dist: huggingface-hub==1.27.0
 Requires-Dist: jsonschema==4.26.0
 Requires-Dist: keyring==25.7.0
 Requires-Dist: mcp-types==2.0.0
 Requires-Dist: mcp==2.0.0
 Requires-Dist: mslex==1.3.0
-Requires-Dist: openai[aiohttp]==2.48.0
+Requires-Dist: openai[aiohttp,realtime]==2.53.0
 Requires-Dist: opentelemetry-exporter-otlp-proto-http==1.43.0
 Requires-Dist: opentelemetry-instrumentation-anthropic==0.62.1; python_version >= '3.10' and python_version < '4.0'
 Requires-Dist: opentelemetry-instrumentation-google-genai==1.0b1
@@ -481,6 +481,7 @@ Model strings also accept query overrides. For example:
 - `uv run sizer.py --model "gpt-5?reasoning=low"`
 - `uv run sizer.py --model "claude-sonnet-4-6?web_search=on"`
 - `uv run sizer.py --model "claude-sonnet-4-5?context=1m"`
+- `uv run sizer.py --model "gpt-5?poll_period=240"`
 
 For Anthropic models, `?context=1m` is only needed for earlier Sonnet 4 / Sonnet 4.5
 models that still require the explicit 1M context opt-in. Claude Sonnet 4.6 and

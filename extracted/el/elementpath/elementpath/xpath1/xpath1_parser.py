@@ -62,6 +62,11 @@ class XPath1Parser(Parser[ta.XPathTokenType]):
         '(integer)', '(string)', '(float)', '(decimal)', '(name)', '*', '@', '..', '.', '{'
     }
 
+    # Flag to skip argument parsing (set by XPath 3.1+ arrow operator)
+    # TODO: to revise with a TDOP instant parser created by parse() providing
+    #  XPath static context in a separated object.
+    parse_arguments: bool = True
+
     # Class attributes for compatibility with XPath 2.0+
     schema: Optional[AbstractSchemaProxy] = None
     variable_types: Optional[dict[str, str]] = None
@@ -71,9 +76,12 @@ class XPath1Parser(Parser[ta.XPathTokenType]):
     base_uri: Optional[str] = None
     function_namespace = XPATH_FUNCTIONS_NAMESPACE
     function_signatures: dict[tuple[QName, int], str] = {}
+
+    # Class attributes for compatibility with XPath 3.0+
     decimal_formats: dict[Optional[str], Any] = {}
-    parse_arguments: bool = True
     defuse_xml: bool = True
+    allow_environment: bool | list[str] = False
+    allow_external_resources: bool | list[str] = False
 
     compatibility_mode: bool = True
     """XPath 1.0 compatibility mode."""

@@ -23,7 +23,7 @@ class ServerContext:
     _kernel_spec_manager = None
     _session_manager = None
     _server_client = None
-    _kernel_client = None
+    _document_client = None
     _code_sandbox_password_auth = None
     _document_password_auth = None
     _initialized = False
@@ -50,6 +50,7 @@ class ServerContext:
             cls._instance._kernel_spec_manager = None
             cls._instance._session_manager = None
             cls._instance._server_client = None
+            cls._instance._document_client = None
 
     def _close_auth(self):
         """Close auth sessions if present; safe to call multiple times.
@@ -65,6 +66,29 @@ class ServerContext:
             code_sandbox.close()
         if document is not None and document is not code_sandbox:
             document.close()
+
+    @staticmethod
+    def _try_anonymous_auth(code_sandbox_url):
+        """Fetch the anonymous `_xsrf` cookie.
+
+        Unlike explicit password auth, nobody configured this deployment to
+        expect a cookie, so a server that isn't reachable yet must not block
+        startup: on failure this returns the (unauthenticated) auth object
+        rather than raising. `inject_into_session`/`get_headers` already
+        no-op when `_authenticated` is False, so callers can use the result
+        unconditionally, same as before this class existed.
+        """
+        from jupyter_mcp_server.auth import JupyterAnonymousAuth
+
+        auth = JupyterAnonymousAuth(code_sandbox_url)
+        try:
+            auth.login()
+        except RuntimeError as error:
+            logger.warning(
+                f"Anonymous XSRF cookie fetch failed for {code_sandbox_url}, "
+                f"continuing without it: {error}"
+            )
+        return auth
 
     def _init_mcp_server_mode(self):
         """Initialize MCP_SERVER mode with HTTP client and optional password auth.
@@ -84,7 +108,7 @@ class ServerContext:
         code_sandbox_url = config.code_sandbox_url
         if not code_sandbox_url or code_sandbox_url in ("None", "none", "null", ""):
             raise ValueError(
-                f"code_sandbox_url is not configured (current value: {repr(code_sandbox_url)}). "
+                f"code_sandbox_url is not configured (current value: {code_sandbox_url!r}). "
                 "Please check:\n"
                 "1. CODE_SANDBOX_URL environment variable is set correctly (not the string 'None')\n"
                 "2. --code-sandbox-url argument is provided when starting the server\n"
@@ -98,14 +122,31 @@ class ServerContext:
         try:
             # Code Sandbox auth — password takes precedence over token
             if config.code_sandbox_password:
-                self._code_sandbox_password_auth = JupyterPasswordAuth(code_sandbox_url, config.code_sandbox_password)
+                self._code_sandbox_password_auth = JupyterPasswordAuth(
+                    code_sandbox_url, config.code_sandbox_password
+                )
                 self._code_sandbox_password_auth.login()
                 if config.code_sandbox_token:
-                    logger.warning("Both code_sandbox_password and code_sandbox_token are set. Password auth takes precedence.")
+                    logger.warning(
+                        "Both code_sandbox_password and code_sandbox_token are set. Password auth takes precedence."
+                    )
                 self._server_client = JupyterServerClient(base_url=code_sandbox_url, token=None)
-                self._code_sandbox_password_auth.inject_into_session(self._server_client.http_client.session)
+                self._code_sandbox_password_auth.inject_into_session(
+                    self._server_client.http_client.session
+                )
+                self._install_code_sandbox_auth_retry(self._server_client)
             else:
-                self._server_client = JupyterServerClient(base_url=code_sandbox_url, token=config.code_sandbox_token)
+                self._server_client = JupyterServerClient(
+                    base_url=code_sandbox_url, token=config.code_sandbox_token
+                )
+                if not config.code_sandbox_token:
+                    # No password and no token, but the server may still require the
+                    # anonymous `_xsrf` cookie on state-changing requests (SSO/reverse-proxy
+                    # auth, JupyterHub single-user servers, --IdentityProvider.token='').
+                    self._code_sandbox_password_auth = self._try_anonymous_auth(code_sandbox_url)
+                    self._code_sandbox_password_auth.inject_into_session(
+                        self._server_client.http_client.session
+                    )
 
             # Document auth — only needed when the document server is explicitly
             # different from the code sandbox server. When URLs match (or document_url
@@ -115,10 +156,14 @@ class ServerContext:
             if urls_match:
                 self._document_password_auth = self._code_sandbox_password_auth
             elif config.document_password:
-                self._document_password_auth = JupyterPasswordAuth(document_url, config.document_password)
+                self._document_password_auth = JupyterPasswordAuth(
+                    document_url, config.document_password
+                )
                 self._document_password_auth.login()
                 if config.document_token:
-                    logger.warning("Both document_password and document_token are set. Password auth takes precedence.")
+                    logger.warning(
+                        "Both document_password and document_token are set. Password auth takes precedence."
+                    )
             elif config.code_sandbox_password and not config.document_token:
                 # Document server is genuinely different but only code_sandbox_password is set —
                 # the code sandbox cookies won't authenticate there.
@@ -126,7 +171,8 @@ class ServerContext:
                     "document_url (%s) differs from code_sandbox_url (%s) but no document_password "
                     "is configured. Collaboration API requests will not be authenticated. "
                     "Set --document-password (or DOCUMENT_PASSWORD), or --document-token.",
-                    document_url, code_sandbox_url,
+                    document_url,
+                    code_sandbox_url,
                 )
         except BaseException:
             self._close_auth()
@@ -207,10 +253,30 @@ class ServerContext:
         return self._server_client
 
     @property
-    def kernel_client(self):
+    def document_client(self):
+        """Return an HTTP client for document server operations.
+
+        Reuse the server client when ``document_url`` is unset or matches the
+        code sandbox URL; otherwise create a client with document auth.
+        """
         if not self._initialized:
             self.initialize()
-        return self._kernel_client
+        if self._document_client is not None:
+            return self._document_client
+        config = get_config()
+        document_url = config.document_url
+        if (not document_url) or (document_url == config.code_sandbox_url):
+            return self._server_client
+        if (
+            self._document_password_auth is not None
+            and self._document_password_auth is not self._code_sandbox_password_auth
+        ):
+            client = JupyterServerClient(base_url=document_url, token=None)
+            self._document_password_auth.inject_into_session(client.http_client.session)
+        else:
+            client = JupyterServerClient(base_url=document_url, token=config.document_token)
+        self._document_client = client
+        return self._document_client
 
     @property
     def code_sandbox_auth_headers(self) -> dict[str, str]:
@@ -256,6 +322,34 @@ class ServerContext:
             return self.code_sandbox_auth_headers
         return self._document_password_auth.get_headers()
 
+    def _install_code_sandbox_auth_retry(self, server_client: JupyterServerClient) -> None:
+        """Make every request through `server_client` retry once on a 401/403.
+
+        The collaboration/document path already survives a cookie expiry via
+        `NotebookConnection._get_ws_url`, which catches the error, calls
+        `relogin_document()`, and retries. Every kernel/contents/kernelspec
+        call from the tools goes through `JupyterServerClient`'s single
+        `http_client.request()` instead, so wrapping that one method gives all
+        of them the same protection without touching each call site.
+        """
+        from jupyter_server_client.exceptions import AuthenticationError, ForbiddenError
+
+        original_request = server_client.http_client.request
+
+        def request_with_relogin(*args, **kwargs):
+            try:
+                return original_request(*args, **kwargs)
+            except (AuthenticationError, ForbiddenError) as error:
+                logger.warning(
+                    "Code sandbox request returned %s, session cookie likely "
+                    "expired. Re-authenticating and retrying.",
+                    error.status_code,
+                )
+                self.relogin_code_sandbox()
+                return original_request(*args, **kwargs)
+
+        server_client.http_client.request = request_with_relogin
+
     def relogin_code_sandbox(self, timeout: float = 10.0) -> None:
         """Re-authenticate the code sandbox server session after cookie expiry.
 
@@ -289,6 +383,10 @@ class ServerContext:
             self.relogin_code_sandbox(timeout=timeout)
             return
         self._document_password_auth.relogin(timeout=timeout)
+        if self._document_client is not None:
+            self._document_password_auth.inject_into_session(
+                self._document_client.http_client.session
+            )
         logger.info("Document session re-authenticated after cookie expiry.")
 
     @property

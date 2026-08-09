@@ -7,6 +7,8 @@ import pytest
 IS_PYTEST4_PLUS = int(pytest.__version__[0]) >= 4  # noqa: WPS609
 FAILED_WORD = "FAILED" if IS_PYTEST4_PLUS else "FAIL"
 PYTEST_GTE_7_2 = hasattr(pytest, "version_tuple") and pytest.version_tuple >= (7, 2)  # type: ignore[attr-defined]
+PYTEST_GTE_8_0 = hasattr(pytest, "version_tuple") and pytest.version_tuple >= (8, 0)  # type: ignore[attr-defined]
+PYTEST_GTE_9_0 = hasattr(pytest, "version_tuple") and pytest.version_tuple >= (9, 0)  # type: ignore[attr-defined]
 
 pytestmark = pytest.mark.skipif(  # pylint: disable=invalid-name
     not hasattr(os, "fork"),  # noqa: WPS421
@@ -49,7 +51,7 @@ def test_xfail(is_crashing, is_strict, testdir):
         expected_word = "XPASS"
 
     session_start_title = "*==== test session starts ====*"
-    loaded_pytest_plugins = "plugins: forked*"
+    loaded_pytest_plugins = "plugins:* forked*"
     collected_tests_num = "collected 1 item"
     expected_progress = f"test_xfail.py {expected_letter!s}*"
     failures_title = "*==== FAILURES ====*"
@@ -60,20 +62,20 @@ def test_xfail(is_crashing, is_strict, testdir):
     if expected_lowercase == "xpassed":
         # XPASS wouldn't have the crash message from
         # pytest-forked because the crash doesn't happen
-        short_test_summary = " ".join(
-            (
-                short_test_summary,
-                "The process gets terminated",
-            )
-        )
+        if PYTEST_GTE_8_0:
+            short_test_summary += " -"
+        short_test_summary += " The process gets terminated"
+
     reason_string = (
         f"reason: The process gets terminated; "
         f"pytest-forked reason: "
-        f"*:*: running the test CRASHED with signal {sig_num:d}"
+        f"*:*: running the test CRASHED with signal {sig_num:d}*"
     )
     if expected_lowercase == "xfailed" and PYTEST_GTE_7_2:
         short_test_summary += " - " + reason_string
-    total_summary_line = f"*==== 1 {expected_lowercase!s} in 0.*s* ====*"
+    if expected_lowercase == "failed" and PYTEST_GTE_9_0:
+        short_test_summary += " - [XPASS(strict)] The process gets termin..."
+    total_summary_line = f"*==== 1 {expected_lowercase!s} in *s* ====*"
 
     expected_lines = (
         session_start_title,

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: setuptools
-Version: 83.0.0
+Version: 84.0.0
 Summary: Most extensible Python build backend with support for C/C++ extension modules
 Author-email: Python Packaging Authority <distutils-sig@python.org>
 License-Expression: MIT

@@ -119,9 +119,7 @@ class TestClusterMetadata(unittest.TestCase):
                 num_clusters = 56,
                 num_documents_clustered = 56,
                 execution_time_seconds = 1.337,
-                quality_metrics = {
-                    'key' : 1.337
-                    },
+                quality_metrics = { },
                 hierarchy_detected = True,
                 parent_cluster_id = '',
                 child_cluster_ids = [

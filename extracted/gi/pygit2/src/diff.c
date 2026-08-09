@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2025 The pygit2 contributors
+ * Copyright 2010-2026 The pygit2 contributors
  *
  * This file is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License, version 2,
@@ -228,9 +228,19 @@ DiffFile_mode__get__(DiffFile *self)
     return pygit2_enum(FileModeEnum, self->mode);
 }
 
+PyDoc_STRVAR(DiffFile_path__doc__, "Path to the entry.");
+
+PyObject *
+DiffFile_path__get__(DiffFile *self)
+{
+    if (self->path == NULL)
+        Py_RETURN_NONE;
+
+    return PyUnicode_DecodeFSDefault(self->path);
+}
+
 PyMemberDef DiffFile_members[] = {
     MEMBER(DiffFile, id, T_OBJECT, "Oid of the item."),
-    MEMBER(DiffFile, path, T_STRING, "Path to the entry."),
     MEMBER(DiffFile, raw_path, T_OBJECT, "Path to the entry (bytes)."),
     MEMBER(DiffFile, size, T_LONG, "Size of the entry."),
     {NULL}
@@ -244,6 +254,7 @@ static PyMethodDef DiffFile_methods[] = {
 PyGetSetDef DiffFile_getsetters[] = {
     GETTER(DiffFile, flags),
     GETTER(DiffFile, mode),
+    GETTER(DiffFile, path),
     {NULL},
 };
 

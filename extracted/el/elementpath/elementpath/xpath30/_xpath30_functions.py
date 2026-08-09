@@ -28,7 +28,8 @@ import elementpath.aliases as ta
 
 from elementpath.exceptions import ElementPathError
 from elementpath.tdop import MultiLabel
-from elementpath.helpers import Patterns, is_xml_codepoint, node_position
+from elementpath.helpers import Patterns, is_xml_codepoint, node_position, \
+    is_allowed_variable, is_allowed_uri
 from elementpath.namespaces import get_expanded_name, split_expanded_name, \
     XPATH_FUNCTIONS_NAMESPACE
 from elementpath.datatypes import NumericProxy, QName, Date, DateTime, Time, AnyURI
@@ -1114,8 +1115,8 @@ def select__innermost(self: XPathFunction, context: ta.ContextType = None) \
         raise self.error('XPTY0004', 'argument must contain only nodes')
 
     ancestors = {x for context.item in nodes for x in context.iter_ancestors(axis='ancestor')}
-    results = {x for x in nodes if x not in ancestors}
-    yield from cast(list[XPathNode], sorted(results, key=node_position))
+    results = {cast(XPathNode, x) for x in nodes if x not in ancestors}
+    yield from sorted(results, key=node_position)
 
 
 @method(function('outermost', nargs=1, sequence_types=('node()*', 'node()*')))
@@ -1138,6 +1139,7 @@ def select__outermost(self: XPathFunction, context: ta.ContextType = None) \
         ancestors = {x for x in context.iter_ancestors(axis='ancestor')}
         if any(x in nodes for x in ancestors):
             continue
+        assert isinstance(item, XPathNode)
         results.add(item)
 
     yield from cast(list[XPathNode], sorted(results, key=node_position))
@@ -1250,6 +1252,8 @@ def evaluate__unparsed_text(self: XPathFunction, context: ta.ContextType = None)
 
     if context is not None and uri in context.text_resources:
         text = context.text_resources[uri]
+    elif not is_allowed_uri(uri, self.parser.allow_external_resources):
+        raise self.error('FOUT1170', f'URI {uri} is not allowed')
     else:
         try:
             with urlopen(uri) as rp:
@@ -1307,6 +1311,9 @@ def evaluate__unparsed_text_available(self: XPathFunction, context: ta.ContextTy
         uri = self.get_absolute_uri(href)
     except ValueError:
         return False
+    else:
+        if not is_allowed_uri(uri, self.parser.allow_external_resources):
+            return False
 
     try:
         codecs.lookup(encoding)
@@ -1348,28 +1355,29 @@ def evaluate__environment_variable(self: XPathFunction, context: ta.ContextType 
         context = self.context
 
     name: str = self.get_argument(context, required=True, cls=str)
-    if context is None:
-        raise self.missing_context()
-    elif not context.allow_environment:
-        return []
-    else:
+    if is_allowed_variable(name, self.parser.allow_environment) or \
+            (not self.parser.allow_environment and context is not None and
+             is_allowed_variable(name, context.allow_environment)):
         value = os.environ.get(name)
         return value if value is not None else []
+    else:
+        return []
 
 
 @method(function('available-environment-variables', nargs=0,
                  sequence_types=('xs:string*',)))
 def evaluate__available_env_vars(self: XPathFunction, context: ta.ContextType = None) \
         -> list[str] | list[NoReturn]:
-    if self.context is not None:
-        context = self.context
-    elif context is None:
-        raise self.missing_context()
-
-    if not context.allow_environment:
-        return []
-    else:
+    if self.parser.allow_environment is True:
         return xlist(os.environ)
+    elif isinstance(self.parser.allow_environment, list):
+        varnames = []
+        for name in os.environ:
+            if is_allowed_variable(name, self.parser.allow_environment):
+                varnames.append(name)
+        return xlist(varnames) if varnames else varnames
+    else:
+        return []
 
 
 ###

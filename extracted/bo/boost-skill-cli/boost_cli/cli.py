@@ -64,7 +64,7 @@ COMMANDS = [
     # Discovery & Search (9)
     ("search",      "find", "discovery", "Search skills across tap registries (AI-ranked)"),
     ("reindex",     "find", "discovery", "Build/refresh the full-content search index"),
-    ("discover",    "find", "discovery", "Browse & search the GitHub-wide skill discovery index"),
+    ("discover",    "find", "discovery", "Search GitHub for skill repos you have not tapped yet"),
     ("recommend",   "find", "discovery", "Suggest skills based on your project's tech stack"),
     ("browse",      "find", "discovery", "Interactive full-screen TUI with fuzzy search"),
     ("index",       "find", "discovery", "Build the discovery registry via GitHub Code Search"),
@@ -121,7 +121,7 @@ COMMANDS = [
     ("onboard",     "cfg", "configuration", "Add skill-tracker telemetry to a repo & open a PR"),
     ("completions", "cfg", "configuration", "Generate shell tab-completion scripts"),
     ("schedule",    "cfg", "configuration", "Manage automatic skill-sync scheduling"),
-    ("serve",       "cfg", "configuration", "Serve the skill catalog over HTTP (port 8787)"),
+    ("serve",       "cfg", "configuration", "Browse the catalogue in a browser: search, facets and a tap graph"),
     ("mcp",         "cfg", "configuration", "Register boost as an MCP server (Claude Code, Gemini CLI)"),
     ("hooks",       "cfg", "hooks", "Manage Claude Code hooks (scope-aware) in settings.json"),
     ("bmad",        "cfg", "bmad", "BMAD Method autopilot — `bmad on` routes every task to a persona"),

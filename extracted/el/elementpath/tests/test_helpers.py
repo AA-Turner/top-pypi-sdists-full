@@ -17,7 +17,8 @@ from xml.etree import ElementTree
 from elementpath.helpers import LazyPattern, days_from_common_era, \
     months2days, round_number, is_idrefs, collapse_white_spaces, escape_json_string, \
     get_double, numeric_equal, numeric_not_equal, equal, not_equal, \
-    match_wildcard, unescape_json_string, split_function_test
+    match_wildcard, unescape_json_string, split_function_test, is_allowed_variable, \
+    is_allowed_uri
 from elementpath.xpath30.xpath30_helpers import decimal_to_string, int_to_roman, \
     int_to_month, int_to_weekday, int_to_words, int_to_alphabetic, week_in_month, \
     to_ordinal_en, to_ordinal_it, format_digits, ordinal_suffix
@@ -252,6 +253,84 @@ class HelperFunctionsTest(unittest.TestCase):
             split_function_test('function(item()*, item()*, item()*) as item()*'),
             ['item()*', 'item()*', 'item()*', 'item()*']
         )
+
+    def test_is_allowed_variable_function(self):
+        self.assertFalse(is_allowed_variable('x'))
+        self.assertTrue(is_allowed_variable('var', allow_environment=True))
+        self.assertFalse(is_allowed_variable('var', allow_environment=False))
+
+        # Invalid variable names
+        self.assertFalse(is_allowed_variable('foo'))
+        self.assertFalse(is_allowed_variable('123'))
+        self.assertFalse(is_allowed_variable('1var'))
+        self.assertFalse(is_allowed_variable('var:name'))
+        self.assertFalse(is_allowed_variable('var name'))
+        self.assertFalse(is_allowed_variable('var@name'))
+        self.assertFalse(is_allowed_variable('var#name'))
+        self.assertFalse(is_allowed_variable('var!'))
+        self.assertFalse(is_allowed_variable('var$'))
+        self.assertFalse(is_allowed_variable('var%'))
+        self.assertFalse(is_allowed_variable('var&'))
+        self.assertFalse(is_allowed_variable('var*'))
+        self.assertFalse(is_allowed_variable('var+'))
+        self.assertFalse(is_allowed_variable('var='))
+
+    def test_is_allowed_uri_function(self):
+        self.assertFalse(is_allowed_uri('https://www.example.com'))
+        self.assertFalse(is_allowed_uri('ftp://ftp.example.com'))
+        self.assertFalse(is_allowed_uri('file:///path/to/file'))
+        self.assertFalse(is_allowed_uri('urn:isbn:0451450523'))
+        self.assertFalse(is_allowed_uri('mailto:user@example.com'))
+        self.assertFalse(is_allowed_uri('http://example.com/path?query=value'))
+        self.assertFalse(is_allowed_uri('http://example.com/path#fragment'))
+        self.assertFalse(is_allowed_uri('http://example.com:8080/path'))
+        self.assertFalse(is_allowed_uri('http://user:pass@example.com'))
+        self.assertFalse(is_allowed_uri('http://192.168.1.1'))
+        self.assertFalse(is_allowed_uri('http://[::1]'))
+        self.assertFalse(is_allowed_uri('http://example.com/path%20with%20spaces'))
+        self.assertFalse(is_allowed_uri('scheme://example.com'))
+        self.assertFalse(is_allowed_uri('a:b'))
+
+        self.assertTrue(is_allowed_uri('https://www.example.com', allow_external_resources=True))
+        self.assertTrue(is_allowed_uri('ftp://ftp.example.com', True))
+        self.assertTrue(is_allowed_uri('file:///path/to/file', True))
+        self.assertTrue(is_allowed_uri('urn:isbn:0451450523', True))
+        self.assertFalse(is_allowed_uri('mailto:user@example.com', True))
+        self.assertTrue(is_allowed_uri('http://example.com/path?query=value', True))
+        self.assertTrue(is_allowed_uri('http://example.com/path#fragment', True))
+        self.assertTrue(is_allowed_uri('http://example.com:8080/path', True))
+        self.assertTrue(is_allowed_uri('http://user:pass@example.com', True))
+        self.assertTrue(is_allowed_uri('http://192.168.1.1', True))
+        self.assertTrue(is_allowed_uri('http://[::1]', True))
+        self.assertTrue(is_allowed_uri('http://example.com/path%20with%20spaces', True))
+        self.assertFalse(is_allowed_uri('scheme://example.com', False))
+        self.assertFalse(is_allowed_uri('a:b', False))
+
+        allow_external_resources = ['https://www.example.com/',
+                                    'ftp://ftp.example.com',
+                                    'http://example.com/',
+                                    'file:///path/to/file']
+
+        self.assertTrue(is_allowed_uri('https://www.example.com', allow_external_resources))
+        self.assertTrue(is_allowed_uri('ftp://ftp.example.com', allow_external_resources))
+        self.assertTrue(is_allowed_uri('file:///path/to/file', allow_external_resources))
+        self.assertFalse(is_allowed_uri('urn:isbn:0451450523', allow_external_resources))
+        self.assertTrue(is_allowed_uri('urn:isbn:0451450523', ['urn:']))
+
+        self.assertFalse(is_allowed_uri('mailto:user@example.com', ['mailto:user@example.com']))
+        self.assertTrue(is_allowed_uri('http://example.com/path?query=value',
+                                       allow_external_resources))
+        self.assertTrue(is_allowed_uri('http://example.com/path#fragment',
+                                       allow_external_resources))
+        self.assertFalse(is_allowed_uri('http://example.com:8080/path', allow_external_resources))
+        self.assertFalse(is_allowed_uri('http://user:pass@example.com', allow_external_resources))
+        self.assertFalse(is_allowed_uri('http://192.168.1.1', allow_external_resources))
+        self.assertFalse(
+            is_allowed_uri('http://[::1]', allow_external_resources))
+        self.assertFalse(is_allowed_uri('http://www.example.com/path%20with%20spaces',
+                                        allow_external_resources))
+        self.assertFalse(is_allowed_uri('scheme://example.com', allow_external_resources))
+        self.assertFalse(is_allowed_uri('a:b', allow_external_resources))
 
 
 class XPath30HelperFunctionsTest(unittest.TestCase):

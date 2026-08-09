@@ -784,12 +784,46 @@ class CIDs:
                 crop_for_cci = self.crop or utils.get_crop_season(self.file_name)[0]
                 cci_frame = _cci.get_cci_frame(cci_path, crop_for_cci, years=yrs)
                 if cci_frame is not None and not cci_frame.empty:
-                    cci_frame = cci_frame.rename(
-                        columns={"region": "adm1_name", "year": key_col}
-                    )
-                    df = df.merge(
-                        cci_frame, on=["adm1_name", key_col, "Month"], how="left"
-                    )
+                    # CCI is reported at the state (admin_1) level. For an
+                    # admin_1 run, adm1_name IS the state -> join directly. For
+                    # an admin_2 run, adm1_name is the county, so map each
+                    # county's region_id (= boundary ADM_ID) to its parent state
+                    # and broadcast that state's CCI onto every county of it.
+                    cci_frame = cci_frame.rename(columns={"year": key_col})
+                    if self.admin_zone == "admin_2" and "region_id" in df.columns:
+                        country = (
+                            str(df["adm0_name"].iloc[0]).lower().replace(" ", "_")
+                            if "adm0_name" in df.columns and not df.empty
+                            else self.country
+                        )
+                        shp = self.parser.get(
+                            country, "boundary_file", fallback=""
+                        ).strip()
+                        state_map = (
+                            _cci.get_region_state_map(
+                                self.parser, country,
+                                Path(self.parser.get("PATHS", "dir_boundary_files")) / shp,
+                            )
+                            if shp else {}
+                        )
+                        if state_map:
+                            df["_cci_state"] = (
+                                df["region_id"].map(_cci._norm_id).map(state_map)
+                            )
+                            df = df.merge(
+                                cci_frame.rename(columns={"region": "_cci_state"}),
+                                on=["_cci_state", key_col, "Month"], how="left",
+                            ).drop(columns=["_cci_state"])
+                        else:
+                            logger.warning(
+                                f"CCI: admin_2 run but no county->state map "
+                                f"(country={country!r}); skipping CCI merge."
+                            )
+                    else:
+                        df = df.merge(
+                            cci_frame.rename(columns={"region": "adm1_name"}),
+                            on=["adm1_name", key_col, "Month"], how="left",
+                        )
         except Exception as e:
             logger.warning(f"CCI ingestion skipped: {type(e).__name__}: {e}")
 

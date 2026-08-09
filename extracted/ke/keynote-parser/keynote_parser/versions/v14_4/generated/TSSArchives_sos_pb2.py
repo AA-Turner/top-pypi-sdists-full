@@ -7,6 +7,7 @@ from google.protobuf import descriptor as _descriptor
 from google.protobuf import descriptor_pool as _descriptor_pool
 from google.protobuf import symbol_database as _symbol_database
 # @@protoc_insertion_point(imports)
+from keynote_parser.versions.v14_4.generated import _descriptor_pool_for_version as _version_pool
 
 _sym_db = _symbol_database.Default()
 
@@ -14,7 +15,7 @@ _sym_db = _symbol_database.Default()
 import keynote_parser.versions.v14_4.generated.TSPMessages_pb2 as TSPMessages__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x15TSSArchives_sos.proto\x12\x06TSSSOS\x1a\x11TSPMessages.proto\"2\n\x12SpecSetBoolArchive\x12\r\n\x05value\x18\x01 \x02(\x08\x12\r\n\x05unset\x18\x02 \x02(\x08\"?\n\x13SpecSetColorArchive\x12\x19\n\x05\x63olor\x18\x01 \x01(\x0b\x32\n.TSP.Color\x12\r\n\x05unset\x18\x02 \x02(\x08\"4\n\x14SpecSetDoubleArchive\x12\r\n\x05value\x18\x01 \x02(\x01\x12\r\n\x05unset\x18\x02 \x02(\x08\"5\n\x15SpecSetIntegerArchive\x12\r\n\x05value\x18\x01 \x02(\x05\x12\r\n\x05unset\x18\x02 \x02(\x08\"4\n\x14SpecSetStringArchive\x12\r\n\x05value\x18\x01 \x01(\t\x12\r\n\x05unset\x18\x02 \x02(\x08\"D\n\x0fSpecBoolArchive\x12\x31\n\rspec_set_bool\x18\x01 \x01(\x0b\x32\x1a.TSSSOS.SpecSetBoolArchive\"G\n\x10SpecColorArchive\x12\x33\n\x0espec_set_color\x18\x01 \x01(\x0b\x32\x1b.TSSSOS.SpecSetColorArchive\"J\n\x11SpecDoubleArchive\x12\x35\n\x0fspec_set_double\x18\x01 \x01(\x0b\x32\x1c.TSSSOS.SpecSetDoubleArchive\"M\n\x12SpecIntegerArchive\x12\x37\n\x10spec_set_integer\x18\x01 \x01(\x0b\x32\x1d.TSSSOS.SpecSetIntegerArchive\"J\n\x11SpecStringArchive\x12\x35\n\x0fspec_set_string\x18\x01 \x01(\x0b\x32\x1c.TSSSOS.SpecSetStringArchive')
+DESCRIPTOR = _version_pool.POOL.AddSerializedFile(b'\n\x15TSSArchives_sos.proto\x12\x06TSSSOS\x1a\x11TSPMessages.proto\"2\n\x12SpecSetBoolArchive\x12\r\n\x05value\x18\x01 \x02(\x08\x12\r\n\x05unset\x18\x02 \x02(\x08\"?\n\x13SpecSetColorArchive\x12\x19\n\x05\x63olor\x18\x01 \x01(\x0b\x32\n.TSP.Color\x12\r\n\x05unset\x18\x02 \x02(\x08\"4\n\x14SpecSetDoubleArchive\x12\r\n\x05value\x18\x01 \x02(\x01\x12\r\n\x05unset\x18\x02 \x02(\x08\"5\n\x15SpecSetIntegerArchive\x12\r\n\x05value\x18\x01 \x02(\x05\x12\r\n\x05unset\x18\x02 \x02(\x08\"4\n\x14SpecSetStringArchive\x12\r\n\x05value\x18\x01 \x01(\t\x12\r\n\x05unset\x18\x02 \x02(\x08\"D\n\x0fSpecBoolArchive\x12\x31\n\rspec_set_bool\x18\x01 \x01(\x0b\x32\x1a.TSSSOS.SpecSetBoolArchive\"G\n\x10SpecColorArchive\x12\x33\n\x0espec_set_color\x18\x01 \x01(\x0b\x32\x1b.TSSSOS.SpecSetColorArchive\"J\n\x11SpecDoubleArchive\x12\x35\n\x0fspec_set_double\x18\x01 \x01(\x0b\x32\x1c.TSSSOS.SpecSetDoubleArchive\"M\n\x12SpecIntegerArchive\x12\x37\n\x10spec_set_integer\x18\x01 \x01(\x0b\x32\x1d.TSSSOS.SpecSetIntegerArchive\"J\n\x11SpecStringArchive\x12\x35\n\x0fspec_set_string\x18\x01 \x01(\x0b\x32\x1c.TSSSOS.SpecSetStringArchive')
 
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, globals())
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'TSSArchives_sos_pb2', globals())

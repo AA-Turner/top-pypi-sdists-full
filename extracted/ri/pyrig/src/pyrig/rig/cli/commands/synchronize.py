@@ -43,7 +43,7 @@ def validate_config_files(files: Iterable[Path] | None) -> tuple[type[ConfigFile
     Returns:
         A tuple of ConfigFile subclasses that were changed.
     """
-    subclasses = ConfigFile.concrete_subclasses()
+    subclasses = ConfigFile.concrete_leaves()
     if files is not None:
         files = set(files)
         subclasses = (cls for cls in subclasses if cls().path() in files)
@@ -81,5 +81,7 @@ def validate_test_files(
         path_as_module_name(file.relative_to(source_root)) for file in files
     )
     modules = (import_module(name) for name in module_names)
-    subclasses = (MirrorTestConfigFile.generate_subclass(module) for module in modules)
-    return MirrorTestConfigFile.validate_subclasses(subclasses)
+    subclasses = (
+        MirrorTestConfigFile.L.generate_subclass(module) for module in modules
+    )
+    return MirrorTestConfigFile.L.validate_subclasses(subclasses)

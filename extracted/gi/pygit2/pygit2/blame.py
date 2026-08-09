@@ -1,4 +1,4 @@
-# Copyright 2010-2025 The pygit2 contributors
+# Copyright 2010-2026 The pygit2 contributors
 #
 # This file is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License, version 2,
@@ -30,7 +30,7 @@ from ._pygit2 import Oid, Repository, Signature
 
 # Import from pygit2
 from .ffi import C, ffi
-from .utils import GenericIterator
+from .utils import GenericIterator, decode_fs_path
 
 if TYPE_CHECKING:
     from ._libgit2.ffi import GitBlameC, GitHunkC, GitSignatureC
@@ -110,7 +110,7 @@ class BlameHunk:
         if not path:
             return None
 
-        return ffi.string(path).decode('utf-8')
+        return decode_fs_path(path)
 
 
 class Blame:

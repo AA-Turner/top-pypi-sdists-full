@@ -1,4 +1,4 @@
-# Copyright 2010-2025 The pygit2 contributors
+# Copyright 2010-2026 The pygit2 contributors
 #
 # This file is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License, version 2,
@@ -34,7 +34,7 @@ from typing import TYPE_CHECKING, Any, Literal, cast, overload
 
 from .errors import check_error
 from .ffi import C, ffi
-from .utils import to_bytes, to_str
+from .utils import decode_fs_path, decode_string, encode_fs_path, encode_string
 
 if TYPE_CHECKING:
     from ._libgit2.ffi import NULL_TYPE, ArrayC, char, char_pointer
@@ -348,7 +348,7 @@ def option(option_type: Option, arg1: Any = NOT_PASSED, arg2: Any = NOT_PASSED) 
 
         try:
             if buf.ptr != ffi.NULL:
-                result = to_str(ffi.string(buf.ptr))
+                result = decode_fs_path(ffi.string(buf.ptr))
             else:
                 result = None
         finally:
@@ -366,7 +366,7 @@ def option(option_type: Option, arg1: Any = NOT_PASSED, arg2: Any = NOT_PASSED) 
         if path is None:
             path_cdata = ffi.NULL
         else:
-            path_bytes = to_bytes(path)
+            path_bytes = encode_fs_path(path)
             path_cdata = ffi.new('char[]', path_bytes)
 
         err = C.git_libgit2_opts(option_type, ffi.cast('int', level), path_cdata)
@@ -423,14 +423,14 @@ def option(option_type: Option, arg1: Any = NOT_PASSED, arg2: Any = NOT_PASSED) 
         if cert_file is None:
             cert_file_cdata = ffi.NULL
         else:
-            cert_file_bytes = to_bytes(cert_file)
+            cert_file_bytes = encode_fs_path(cert_file)
             cert_file_cdata = ffi.new('char[]', cert_file_bytes)
 
         cert_dir_cdata: ArrayC[char] | NULL_TYPE
         if cert_dir is None:
             cert_dir_cdata = ffi.NULL
         else:
-            cert_dir_bytes = to_bytes(cert_dir)
+            cert_dir_bytes = encode_fs_path(cert_dir)
             cert_dir_cdata = ffi.new('char[]', cert_dir_bytes)
 
         err = C.git_libgit2_opts(option_type, cert_file_cdata, cert_dir_cdata)
@@ -476,7 +476,7 @@ def option(option_type: Option, arg1: Any = NOT_PASSED, arg2: Any = NOT_PASSED) 
 
         try:
             if buf.ptr != ffi.NULL:
-                result = to_str(ffi.string(buf.ptr))
+                result = decode_fs_path(ffi.string(buf.ptr))
             else:
                 result = None
         finally:
@@ -492,7 +492,7 @@ def option(option_type: Option, arg1: Any = NOT_PASSED, arg2: Any = NOT_PASSED) 
         if path is None:
             template_path_cdata = ffi.NULL
         else:
-            path_bytes = to_bytes(path)
+            path_bytes = encode_fs_path(path)
             template_path_cdata = ffi.new('char[]', path_bytes)
 
         err = C.git_libgit2_opts(option_type, template_path_cdata)
@@ -507,10 +507,7 @@ def option(option_type: Option, arg1: Any = NOT_PASSED, arg2: Any = NOT_PASSED) 
         check_error(err)
 
         try:
-            if buf.ptr != ffi.NULL:
-                result = to_str(ffi.string(buf.ptr))
-            else:
-                result = None
+            result = decode_string(buf.ptr)
         finally:
             C.git_buf_dispose(buf)
 
@@ -520,7 +517,7 @@ def option(option_type: Option, arg1: Any = NOT_PASSED, arg2: Any = NOT_PASSED) 
         check_args(option_type, arg1, arg2, 1)
 
         agent = arg1
-        agent_bytes = to_bytes(agent)
+        agent_bytes = encode_string(agent)
         agent_cdata = ffi.new('char[]', agent_bytes)
 
         err = C.git_libgit2_opts(option_type, agent_cdata)
@@ -531,7 +528,7 @@ def option(option_type: Option, arg1: Any = NOT_PASSED, arg2: Any = NOT_PASSED) 
         check_args(option_type, arg1, arg2, 1)
 
         ciphers = arg1
-        ciphers_bytes = to_bytes(ciphers)
+        ciphers_bytes = encode_string(ciphers)
         ciphers_cdata = ffi.new('char[]', ciphers_bytes)
 
         err = C.git_libgit2_opts(option_type, ciphers_cdata)
@@ -643,8 +640,9 @@ def option(option_type: Option, arg1: Any = NOT_PASSED, arg2: Any = NOT_PASSED) 
                 # Cast to the non-NULL type for type checking
                 strings = cast('ArrayC[char_pointer]', strarray.strings)
                 for i in range(strarray.count):
-                    if strings[i] != ffi.NULL:
-                        result.append(to_str(ffi.string(strings[i])))
+                    s = decode_string(strings[i])
+                    if s is not None:
+                        result.append(s)
         finally:
             # Must dispose of the strarray to free the memory
             C.git_strarray_dispose(strarray)
@@ -669,7 +667,7 @@ def option(option_type: Option, arg1: Any = NOT_PASSED, arg2: Any = NOT_PASSED) 
         ext_strings: list[ArrayC[char]] = []  # Keep references during the call
 
         for i, ext in enumerate(extensions):
-            ext_bytes = to_bytes(ext)
+            ext_bytes = encode_string(ext)
             ext_string: ArrayC[char] = ffi.new('char[]', ext_bytes)
             ext_strings.append(ext_string)
             ext_array[i] = ffi.cast('char *', ext_string)
@@ -688,7 +686,7 @@ def option(option_type: Option, arg1: Any = NOT_PASSED, arg2: Any = NOT_PASSED) 
 
         try:
             if buf.ptr != ffi.NULL:
-                result = to_str(ffi.string(buf.ptr))
+                result = decode_fs_path(ffi.string(buf.ptr))
             else:
                 result = None
         finally:
@@ -705,7 +703,7 @@ def option(option_type: Option, arg1: Any = NOT_PASSED, arg2: Any = NOT_PASSED) 
         if path is None:
             homedir_cdata = ffi.NULL
         else:
-            path_bytes = to_bytes(path)
+            path_bytes = encode_fs_path(path)
             homedir_cdata = ffi.new('char[]', path_bytes)
 
         err = C.git_libgit2_opts(option_type, homedir_cdata)
@@ -767,10 +765,7 @@ def option(option_type: Option, arg1: Any = NOT_PASSED, arg2: Any = NOT_PASSED) 
         check_error(err)
 
         try:
-            if buf.ptr != ffi.NULL:
-                result = to_str(ffi.string(buf.ptr))
-            else:
-                result = None
+            result = decode_string(buf.ptr)
         finally:
             C.git_buf_dispose(buf)
 
@@ -781,7 +776,7 @@ def option(option_type: Option, arg1: Any = NOT_PASSED, arg2: Any = NOT_PASSED) 
         check_args(option_type, arg1, arg2, 1)
 
         product = arg1
-        product_bytes = to_bytes(product)
+        product_bytes = encode_string(product)
         product_cdata = ffi.new('char[]', product_bytes)
 
         err = C.git_libgit2_opts(option_type, product_cdata)

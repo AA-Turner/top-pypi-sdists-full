@@ -114,6 +114,7 @@ def config_defaults():
             "refresh_pillar": None,
         },
         "server": {
+            "url_alts": [],
             "namespace": None,
             "verify": None,
         },
@@ -124,6 +125,7 @@ def config_defaults():
 def server_config(request):
     conf = {
         "url": "http://127.0.0.1:8200",
+        "url_alts": ["http://127.0.0.1:8200"],
         "namespace": None,
         "verify": None,
     }
@@ -361,39 +363,51 @@ def token_lookup_self_response():
 @pytest.fixture
 def token_renew_self_response():
     return {
+        "request_id": "0e8c388e-2cb6-bcb2-83b7-625127d568bb",
+        "lease_id": "",
+        "lease_duration": 0,
+        "renewable": False,
         "auth": {
             "client_token": "test-token",
             "policies": ["default", "renewed"],
             "metadata": {},
+            "lease_duration": 3600,
+            "renewable": True,
         },
-        "lease_duration": 3600,
-        "renewable": True,
     }
 
 
 @pytest.fixture
 def token_renew_other_response():
     return {
+        "request_id": "0e8c388e-2cb6-bcb2-83b7-625127d568bb",
+        "lease_id": "",
+        "lease_duration": 0,
+        "renewable": False,
         "auth": {
             "client_token": "other-test-token",
             "policies": ["default", "renewed"],
             "metadata": {},
+            "lease_duration": 3600,
+            "renewable": True,
         },
-        "lease_duration": 3600,
-        "renewable": True,
     }
 
 
 @pytest.fixture
 def token_renew_accessor_response():
     return {
+        "request_id": "0e8c388e-2cb6-bcb2-83b7-625127d568bb",
+        "lease_id": "",
+        "lease_duration": 0,
+        "renewable": False,
         "auth": {
             "client_token": "",
             "policies": ["default", "renewed"],
             "metadata": {},
+            "lease_duration": 3600,
+            "renewable": True,
         },
-        "lease_duration": 3600,
-        "renewable": True,
     }
 
 
@@ -410,6 +424,71 @@ def token_auth():
             "lease_duration": 9999999999,
             "num_uses": 0,
             "creation_time": 1661188581,
+        },
+    }
+
+
+@pytest.fixture
+def token_renew_response():
+    return {
+        "request_id": "0e8c388e-2cb6-bcb2-83b7-625127d568bb",
+        "lease_id": "",
+        "lease_duration": 0,
+        "renewable": False,
+        "auth": {
+            "accessor": "pakUh4PF8hg1MME9ykGPliSy",
+            "client_token": "test-token",
+            "entity_id": None,
+            "lease_duration": 9999999999,
+            "metadata": {
+                "saltstack-jid": "20260707152708962211",
+                "saltstack-minion": "test-minion",
+                "saltstack-user": "root",
+            },
+            "mfa_requirement": None,
+            "num_uses": 0,
+            "orphan": True,
+            "policies": ["default", "salt_minions"],
+            "renewable": True,
+            "token_policies": ["default", "salt_minions"],
+            "token_type": "service",
+        },
+        "data": None,
+    }
+
+
+@pytest.fixture
+def token_lookup_response():
+    return {
+        "request_id": "0e8c388e-2cb6-bcb2-83b7-625127d568bb",
+        "lease_id": "",
+        "lease_duration": 0,
+        "renewable": False,
+        "auth": None,
+        "data": {
+            "accessor": "authpakUh4PF8hg1MME9ykGPliSy",
+            "creation_time": 1661188581,
+            "creation_ttl": 9999999999,
+            "display_name": "salt_minions",
+            "entity_id": None,
+            "expire_time": "2343-06-13T03:09:08.439202603Z",
+            "explicit_max_ttl": 0,
+            "id": "test-token",
+            "issue_time": "2022-08-22T17:16:21.020204603Z",
+            "last_renewal": "2026-07-23T09:22:29.439202603Z",
+            "last_renewal_time": 1784798549,
+            "meta": {
+                "saltstack-jid": "20260707152708962211",
+                "saltstack-minion": "test-minion",
+                "saltstack-user": "root",
+            },
+            "num_uses": 0,
+            "orphan": True,
+            "path": "auth/salt_minions/login",
+            "policies": ["default", "salt_minions"],
+            "renewable": True,
+            "ttl": 9999999324,
+            "type": "service",
         },
     }
 
@@ -473,13 +552,15 @@ def lease_lookup_response():
 
 
 @pytest.fixture
-def session():
-    return Mock(spec=requests.Session)
+def http_session():
+    sess = Mock(spec=requests.Session)
+    sess.get_adapter.return_value = Mock(spec=vclient.VaultAPIAdapter)
+    return sess
 
 
 @pytest.fixture
-def req(session):
-    yield session.request
+def req(http_session):
+    yield http_session.request
 
 
 @pytest.fixture
@@ -508,7 +589,7 @@ def req_any(req, request):
 
 @pytest.fixture
 def req_unwrapping(wrapped_role_id_lookup_response, role_id_response, req):
-    req.side_effect = lambda method, url, **kwargs: (
+    req.side_effect = lambda _method, url, **_: (
         _mock_json_response(wrapped_role_id_lookup_response)
         if url.endswith("sys/wrapping/lookup")
         else _mock_json_response(role_id_response)
@@ -525,22 +606,24 @@ def unauthd_client_mock(server_config, request):
 
 
 @pytest.fixture(params=[None, "valid_token"])
-def client(server_config, request, session):
+def client(server_config, request, http_session):
     if request.param is None:
-        return vclient.VaultClient(**server_config, session=session)
+        return vclient.VaultClient(**server_config, session=http_session)
     if request.param == "valid_token":
         token = request.getfixturevalue(request.param)
         auth = Mock(spec=vauth.VaultTokenAuth)
         auth.is_renewable.return_value = True
         auth.is_valid.return_value = True
         auth.get_token.return_value = token
-    if request.param == "invalid_token":
-        token = request.getfixturevalue(request.param)
+    elif request.param == "invalid_token":
+        request.getfixturevalue(request.param)
         auth = Mock(spec=vauth.VaultTokenAuth)
         auth.is_renewable.return_value = True
         auth.is_valid.return_value = False
         auth.get_token.side_effect = vault.VaultAuthExpired
-    return vclient.AuthenticatedVaultClient(auth, **server_config, session=session)
+    else:
+        raise TypeError(f"Unknown param: {request.param}")
+    return vclient.AuthenticatedVaultClient(auth, **server_config, session=http_session)
 
 
 @pytest.fixture
@@ -574,9 +657,9 @@ def events():
 
 @pytest.fixture(params=["MASTER", "MASTER_IMPERSONATING", "MINION_LOCAL", "MINION_REMOTE"])
 def salt_runtype(request):
-    runtype = Mock(spec=hlp._get_salt_run_type)
+    runtype = Mock(spec=hlp.get_salt_run_type)
     runtype.return_value = getattr(hlp, f"SALT_RUNTYPE_{request.param}")
-    with patch("saltext.vault.utils.vault.helpers._get_salt_run_type", runtype):
+    with patch("saltext.vault.utils.vault.helpers.get_salt_run_type", runtype):
         yield
 
 

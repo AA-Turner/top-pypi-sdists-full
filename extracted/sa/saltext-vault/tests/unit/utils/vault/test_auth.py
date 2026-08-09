@@ -174,7 +174,7 @@ def test_token_auth_update_token(uncached, token, num_uses):
     auth = vauth.VaultTokenAuth(cache=uncached, token=token)
     old_token = token
     old_token_ttl = old_token.duration
-    auth.update_token({"num_uses": num_uses, "ttl": 8483})
+    auth.update_token(auth={"num_uses": num_uses, "ttl": 8483})
     updated_token = token.with_renewed(num_uses=num_uses, ttl=8483)
     assert auth.token == updated_token
     assert old_token.duration == old_token_ttl
@@ -203,11 +203,11 @@ def test_approle_auth_is_valid(token, approle):
     Test that is_valid reports true when either the token
     or the secret ID is valid
     """
-    token = Mock(spec=vleases.VaultToken)
-    token.is_valid.return_value = token
-    approle = Mock(spec=vleases.VaultSecretId)
-    approle.is_valid.return_value = approle
-    auth = vauth.VaultAppRoleAuth(approle, None, token_store=token)
+    token_mock = Mock(spec=vleases.VaultToken)
+    token_mock.is_valid.return_value = token
+    approle_mock = Mock(spec=vleases.VaultSecretId)
+    approle_mock.is_valid.return_value = approle
+    auth = vauth.VaultAppRoleAuth(approle_mock, None, token_store=token_mock)  # type: ignore
     assert auth.is_valid() is (token or approle)
 
 
@@ -215,7 +215,7 @@ def test_approle_auth_get_token_store_available(token_store, approle, token):
     """
     Ensure no login attempt is made when a cached token is available
     """
-    auth = vauth.VaultAppRoleAuth(approle, None, token_store=token_store)
+    auth = vauth.VaultAppRoleAuth(approle, None, token_store=token_store)  # type: ignore
     with patch("saltext.vault.utils.vault.auth.VaultAppRoleAuth._login") as login:
         res = auth.get_token()
         login.assert_not_called()
@@ -227,7 +227,7 @@ def test_approle_auth_get_token_store_empty(token_store_empty, approle, token):
     """
     Ensure a token is returned if no cached token is available
     """
-    auth = vauth.VaultAppRoleAuth(approle, None, token_store=token_store_empty)
+    auth = vauth.VaultAppRoleAuth(approle, None, token_store=token_store_empty)  # type: ignore
     with patch("saltext.vault.utils.vault.auth.VaultAppRoleAuth._login") as login:
         login.return_value = token
         res = auth.get_token()
@@ -240,7 +240,7 @@ def test_approle_auth_get_token_invalid(token_store_empty, approle_invalid):
     Ensure VaultAuthExpired is raised if a token request was made, but
     cannot be fulfilled
     """
-    auth = vauth.VaultAppRoleAuth(approle_invalid, None, token_store=token_store_empty)
+    auth = vauth.VaultAppRoleAuth(approle_invalid, None, token_store=token_store_empty)  # type: ignore
     with pytest.raises(vault.VaultAuthExpired):
         auth.get_token()
 

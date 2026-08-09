@@ -24,6 +24,42 @@ from .exceptions import (
 _LOGGER: logging.Logger = logging.getLogger(__name__)
 
 
+class _ExceptionLogDetails:
+    """Lazily render redacted exception details for an emitted log record."""
+
+    def __init__(self, error: Exception) -> None:
+        """Capture safe exception details before creating a log record.
+
+        Args:
+            error (Exception): Caught exception to redact and render.
+        """
+        self._error_type = type(error).__name__
+        self._logged_message = (
+            _INVALID_URL_ERROR_MESSAGE
+            if isinstance(error, aiohttp.InvalidURL)
+            else re.sub(
+                r"(://)([^:/@\s]+):([^@\s]+)@",
+                r"\1<redacted>:<redacted>@",
+                str(error),
+            )
+        )
+        self._traceback_snapshot = traceback.extract_tb(error.__traceback__)
+        self._rendered: str | None = None
+
+    def __str__(self) -> str:
+        """Render the redacted message and traceback.
+
+        Returns:
+            str: Exception type, redacted message, and formatted traceback.
+        """
+        if self._rendered is None:
+            self._rendered = (
+                f"{self._error_type}: {self._logged_message}\n"
+                f"{''.join(self._traceback_snapshot.format())}"
+            )
+        return self._rendered
+
+
 def _log_errors(func: Callable[..., Any]) -> Callable[..., Any]:
     """Wrap coroutine methods with shared timeout/error logging behavior.
 
@@ -41,12 +77,29 @@ def _log_errors(func: Callable[..., Any]) -> Callable[..., Any]:
         """Execute wrapped coroutine with shared timeout/exception logging.
 
         Args:
-            *args (Any): Positional arguments forwarded to the wrapped callable.
-            **kwargs (Any): Keyword arguments forwarded to the wrapped callable.
+            self (Any): Client instance whose ``_throw_errors`` setting controls
+                whether caught errors are mapped and propagated or logged and
+                suppressed.
+            args (Any): Positional arguments forwarded to the wrapped coroutine.
+            kwargs (Any): Keyword arguments forwarded to the wrapped coroutine.
 
         Returns:
-            Any: Value produced by the wrapped callable, or ``None`` when an
-                error is suppressed.
+            Any: Wrapped coroutine result, or ``None`` when an error is
+                suppressed.
+
+        Raises:
+            asyncio.CancelledError: Re-raised when the wrapped coroutine is
+                cancelled.
+            OPNsenseTimeoutError: Re-raised when ``_throw_errors`` is true
+                and the wrapped coroutine raises this OPNsense error.
+            TimeoutError: Caught and mapped to an OPNsense error when
+                ``_throw_errors`` is true.
+            aiohttp.ServerTimeoutError: Caught and mapped to an OPNsense error
+                when ``_throw_errors`` is true.
+            Exception: Re-raised or mapped to an OPNsense error when
+                ``_throw_errors`` is true.
+            _map_opnsense_exception: Maps caught errors to an OPNsense error
+                when ``_throw_errors`` is true.
         """
         try:
             return await func(self, *args, **kwargs)
@@ -59,21 +112,10 @@ def _log_errors(func: Callable[..., Any]) -> Callable[..., Any]:
                     raise
                 raise _map_opnsense_exception(e) from e
         except Exception as e:
-            logged_message = (
-                _INVALID_URL_ERROR_MESSAGE
-                if isinstance(e, aiohttp.InvalidURL)
-                else re.sub(
-                    r"(://)([^:/@\s]+):([^@\s]+)@",
-                    r"\1<redacted>:<redacted>@",
-                    str(e),
-                )
-            )
             _LOGGER.error(
-                "Error in %s. %s: %s\n%s",
+                "Error in %s. %s",
                 func.__name__.strip("_"),
-                type(e).__name__,
-                logged_message,
-                "".join(traceback.format_tb(e.__traceback__)),
+                _ExceptionLogDetails(e),
             )
             if self._throw_errors:
                 if isinstance(e, OPNsenseError):
@@ -392,14 +434,16 @@ def normalize_lookup_token(value: Any) -> str:
 
 
 def api_value_matches(value: object, expected: str) -> bool:
-    """Compare OPNsense API values across string, numeric, and boolean forms.
+    """Compare a normalized OPNsense API value with its expected string.
 
     Args:
-        value: Raw value returned by OPNsense APIs.
-        expected: Normalized expected value.
+        value (object): API value to normalize; booleans become integer strings and
+            all other values are converted directly to strings.
+        expected (str): Expected normalized string value.
 
     Returns:
-        ``True`` when the normalized API value matches ``expected``.
+        bool: ``True`` when the normalized API value has the same string representation
+        as ``expected``.
     """
     if isinstance(value, bool):
         value = int(value)

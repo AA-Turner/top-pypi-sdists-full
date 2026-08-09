@@ -149,7 +149,7 @@ class PlaylistsMixin(MixinProtocol):
         response = request_func("")
 
         request_func_continuations: RequestFuncBodyType = lambda body: self._send_request(endpoint, body)
-        is_ola = playlistId.startswith("OLA") or playlistId.startswith("VLOLA")
+        is_ola = playlistId.startswith(("OLA", "VLOLA"))
         has_playlist_header = nav(response, [*TWO_COLUMN_RENDERER, *TAB_CONTENT, *SECTION_LIST_ITEM], True)
         if is_ola and not has_playlist_header:
             return parse_audio_playlist(response, limit, request_func_continuations)
@@ -290,7 +290,12 @@ class PlaylistsMixin(MixinProtocol):
 
         endpoint = "playlist/create"
         response = self._send_request(endpoint, body)
-        return response["playlistId"] if "playlistId" in response else response
+        if "playlistId" in response:
+            playlist_id: str = response["playlistId"]
+            return playlist_id
+
+        validate_write_response(response)
+        return response
 
     def join_collaborative_playlist(self, playlistId: str, joinCollaborationToken: str) -> str | JsonDict:
         """
@@ -310,7 +315,8 @@ class PlaylistsMixin(MixinProtocol):
         }
         endpoint = "browse/edit_playlist"
         response = self._send_request(endpoint, body)
-        return response["status"] if "status" in response else response
+        result: str | JsonDict = response.get("status", response)
+        return result
 
     def edit_playlist(
         self,
@@ -388,11 +394,8 @@ class PlaylistsMixin(MixinProtocol):
                 {"action": "ACTION_SET_PLAYLIST_VIDEO_ORDER", "playlistVideoOrder": sortOrder.value}
             )
 
-        if addToTop:
-            actions.append({"action": "ACTION_SET_ADD_TO_TOP", "addToTop": "true"})
-
         if addToTop is not None:
-            actions.append({"action": "ACTION_SET_ADD_TO_TOP", "addToTop": str(addToTop)})
+            actions.append({"action": "ACTION_SET_ADD_TO_TOP", "addToTop": str(addToTop).lower()})
 
         if voteOption is not None:
             actions.append(
@@ -413,7 +416,8 @@ class PlaylistsMixin(MixinProtocol):
                 "joinCollaborationToken": nav(parse_qs(urlparse(invite_link).query), ["jct", 0]),
             }
 
-        return response["status"] if "status" in response else response
+        result: str | JsonDict = response.get("status", response)
+        return result
 
     def delete_playlist(self, playlistId: str) -> str | JsonDict:
         """
@@ -426,7 +430,8 @@ class PlaylistsMixin(MixinProtocol):
         body = {"playlistId": validate_playlist_id(playlistId)}
         endpoint = "playlist/delete"
         response = self._send_request(endpoint, body)
-        return response["status"] if "status" in response else response
+        result: str | JsonDict = response.get("status", response)
+        return result
 
     def add_playlist_items(
         self,
@@ -505,4 +510,5 @@ class PlaylistsMixin(MixinProtocol):
 
         endpoint = "browse/edit_playlist"
         response = self._send_request(endpoint, body)
-        return response["status"] if "status" in response else response
+        result: str | JsonDict = response.get("status", response)
+        return result

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: json-tools-rs
-Version: 0.9.28
+Version: 0.9.29
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
@@ -414,7 +414,13 @@ Dual-licensed under either [MIT](LICENSE-MIT) or [Apache-2.0](LICENSE-APACHE), a
 
 ## Changelog
 
-### v0.9.28 (Current)
+### v0.9.29 (Current)
+
+* **Performance**: round 15 algorithmic audit, moving from `python.rs`'s DataFrame layer (rounds 13-14) to the core engine (`flatten.rs`, `unflatten.rs`, `convert.rs`, `transform.rs`). Normal mode's (non-`.flatten()`/`.unflatten()`) key-transform/collision path no longer allocates a `String` for every object key -- switched to `Cow<'a, str>`, only allocating when a transform actually changed the key, plus removed a redundant hashmap lookup in collision serialization (confirmed 1.4x-1.85x faster). Unflatten's array-to-object conversion (triggered by a digit-only key that overflows `usize`) now pre-sizes the new map instead of growing from zero capacity (confirmed 1.54x faster).
+
+See [CHANGELOG.md](CHANGELOG.md) for the full, itemized list.
+
+### v0.9.28
 
 * **Performance**: round 14 algorithmic audit, continuing round 13 into the pandas fast path and general splice/unnest pipeline. Pandas fast-path eligibility now samples before fully extracting an object-dtype column (~2.1x faster for a disqualifying embedded-JSON column at scale). Splicing and un-nesting fused into one parse+reconstruct pass instead of two (~2x faster pandas / ~2.3x faster Polars for a DataFrame with an embedded-JSON string column) -- caught and fixed a real double-un-nesting regression in a second call site (`normalise=True` on DataFrame input) via the existing test suite before shipping.
 

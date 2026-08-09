@@ -4,14 +4,13 @@ SSH wrapper for the :py:mod:`vault <saltext.vault.modules.vault>` execution modu
 See there for documentation.
 """
 
-from salt.utils.functools import namespaced_function
-
 from saltext.vault.modules.vault import clear_cache
 from saltext.vault.modules.vault import clear_token_cache
 from saltext.vault.modules.vault import delete_secret
 from saltext.vault.modules.vault import destroy_secret
 from saltext.vault.modules.vault import get_server_config
 from saltext.vault.modules.vault import list_secrets
+from saltext.vault.modules.vault import patch_raw
 from saltext.vault.modules.vault import patch_secret
 from saltext.vault.modules.vault import policies_list
 from saltext.vault.modules.vault import policy_delete
@@ -25,6 +24,7 @@ from saltext.vault.modules.vault import update_config
 from saltext.vault.modules.vault import wipe_secret
 from saltext.vault.modules.vault import write_raw
 from saltext.vault.modules.vault import write_secret
+from saltext.vault.utils.functools import namespaced_function
 
 globals_dict = globals()
 
@@ -34,6 +34,7 @@ delete_secret = namespaced_function(delete_secret, globals_dict)
 destroy_secret = namespaced_function(destroy_secret, globals_dict)
 get_server_config = namespaced_function(get_server_config, globals_dict)
 list_secrets = namespaced_function(list_secrets, globals_dict)
+patch_raw = namespaced_function(patch_raw, globals_dict)
 patch_secret = namespaced_function(patch_secret, globals_dict)
 policies_list = namespaced_function(policies_list, globals_dict)
 policy_delete = namespaced_function(policy_delete, globals_dict)

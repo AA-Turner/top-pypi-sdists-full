@@ -1,6 +1,6 @@
 [project]
 name = "lightkube"
-version = "0.22.0"
+version = "1.0.0"
 description = "Lightweight kubernetes client library"
 readme = "README.md"
 authors = [
@@ -9,13 +9,11 @@ authors = [
 license = "MIT"
 license-files = ["LICENSE"]
 urls = {Repository="https://github.com/gtsystem/lightkube"}
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "Intended Audience :: System Administrators",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -24,9 +22,9 @@ classifiers = [
 ]
 dependencies = [
     "lightkube-models >= 1.15.12.0",
-    "httpx[http2] >= 0.28.1, < 1.0.0",
+    "httpx2[http2,ws] >= 0.28.1",
     "PyYAML",
-    "httpx-ws>=0.6.2",
+    "msgspec>=0.18",
 ]
 
 [project.optional-dependencies]
@@ -43,7 +41,7 @@ testing = [
     "pytest>=8.3.5",
     "pytest-asyncio",
     "pytest-missing-modules",
-    "respx",
+    "pytest-httpx2",
 ]
 coverage = [
     "coveralls",
@@ -105,7 +103,7 @@ module = [
     "lightkube.core.internal_resources",
     "lightkube.core.resource",
     "lightkube.core.sort_objects",
-    "lightkube.models.core_v1",
+    "lightkube.models.*",
     "lightkube.generic_resource",
     "lightkube.utils.quantity",
     "tests.test_async_client",

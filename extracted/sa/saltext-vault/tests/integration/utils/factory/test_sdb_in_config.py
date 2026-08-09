@@ -1,5 +1,6 @@
 import pytest
 
+from tests.conftest import CONTAINER_TARGETS
 from tests.support.helpers import PatchedEnviron
 from tests.support.vault import vault_create_secret_id
 from tests.support.vault import vault_delete_approle
@@ -10,28 +11,27 @@ from tests.support.vault import vault_write_approle
 
 pytestmark = [
     pytest.mark.skip_if_binaries_missing("vault"),
+    pytest.mark.parametrize(
+        "container", (CONTAINER_TARGETS[0],), indirect=True
+    ),  # We only want to check the internal logic, not the API access
 ]
 
 
 @pytest.fixture(scope="module")
-def minion_config_overrides(vault_port):
+def minion_config_overrides():
     return {
         "osenv": {"driver": "env"},
         "vault": {
             "auth": {
-                "method": "token",
                 "token": "sdb://osenv/VAULT_TOKEN",
             },
             "config_location": "local",
-            "server": {
-                "url": f"http://127.0.0.1:{vault_port}",
-            },
         },
     }
 
 
 @pytest.fixture(scope="module")
-def master_config_overrides(vault_port):
+def master_config_overrides():
     return {
         "osenv": {"driver": "env"},
         "vault": {
@@ -40,17 +40,13 @@ def master_config_overrides(vault_port):
                 "role_id": "sdb://osenv/VAULT_ROLEID",
                 "secret_id": "sdb://osenv/VAULT_SECRETID",
             },
-            "config_location": "local",
-            "server": {
-                "url": f"http://127.0.0.1:{vault_port}",
-            },
         },
     }
 
 
 @pytest.fixture(scope="module")
 def approle_configured(container):  # pylint: disable=unused-argument
-    vault_enable_auth_method("approle", ["-path=approle"])
+    vault_enable_auth_method("approle", "approle")
     vault_write_approle("sdbrole")
     try:
         role_id = vault_get_role_id("sdbrole")

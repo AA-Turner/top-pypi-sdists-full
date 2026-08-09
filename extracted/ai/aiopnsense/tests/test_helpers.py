@@ -4,6 +4,7 @@ from collections.abc import Callable
 from datetime import UTC, datetime, timedelta, timezone
 import inspect
 import logging
+import traceback
 from unittest.mock import MagicMock
 from typing import Any, NoReturn
 
@@ -192,6 +193,9 @@ def test_firmware_is_newer_returns_none_when_version_comparison_raises(
 
             Args:
                 _version (str): Version value passed by the helper.
+
+            Raises:
+                ValueError: Always raised to simulate a comparison failure.
             """
             raise ValueError("comparison failed")
 
@@ -248,7 +252,13 @@ def test_normalize_lookup_token() -> None:
     ],
 )
 def test_api_value_matches(value: object, expected: str, matches: bool) -> None:
-    """Compare API flag values consistently across mixed payload types."""
+    """Compare API flag values consistently across mixed payload types.
+
+    Args:
+        value (object): API payload value evaluated for equivalence.
+        expected (str): Normalized string expected from the API value.
+        matches (bool): Whether the normalized comparison should succeed.
+    """
     assert aiopnsense_helpers.api_value_matches(value, expected) is matches
 
 
@@ -282,7 +292,11 @@ async def test_log_errors_decorator_re_raise_and_suppress() -> None:
 
         @aiopnsense_helpers._log_errors
         async def boom(self) -> None:
-            """Raise RuntimeError for testing error handling."""
+            """Raise RuntimeError for testing error handling.
+
+            Raises:
+                RuntimeError: Always raised to exercise error handling.
+            """
             raise RuntimeError("boom")
 
     # When error throwing is disabled, errors are logged and suppressed.
@@ -294,6 +308,87 @@ async def test_log_errors_decorator_re_raise_and_suppress() -> None:
     d2 = Dummy(throw_errors=True)
     with pytest.raises(OPNsenseError, match="boom"):
         await d2.boom()
+
+
+@pytest.mark.asyncio
+async def test_log_errors_captures_safe_details_and_caches_rendering(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Capture only safe details in the record and cache their rendered form.
+
+    Args:
+        monkeypatch (pytest.MonkeyPatch): Fixture for replacing logging and traceback calls.
+    """
+
+    rendered_messages = 0
+
+    class LazyMessageError(Exception):
+        """Exception that records when its message is sanitized for logging."""
+
+        def __str__(self) -> str:
+            """Record message rendering during eager sanitization.
+
+            Returns:
+                str: Stable exception message.
+            """
+            nonlocal rendered_messages
+            rendered_messages += 1
+            return "request failed for https://user:secret@example.invalid"
+
+    class Dummy:
+        """Small wrapper for exercising safe exception logging."""
+
+        _throw_errors = False
+
+        @aiopnsense_helpers._log_errors
+        async def boom(self) -> None:
+            """Raise an exception whose message must be sanitized before logging.
+
+            Raises:
+                LazyMessageError: Always raised to exercise safe logging.
+            """
+            raise LazyMessageError
+
+    error_log = MagicMock()
+    traceback_format_calls = 0
+    original_format = traceback.StackSummary.format
+
+    def format_traceback_snapshot(
+        snapshot: traceback.StackSummary,
+    ) -> list[str]:
+        """Record and perform formatting of a frame-free traceback snapshot.
+
+        Args:
+            snapshot (traceback.StackSummary): Captured traceback metadata.
+
+        Returns:
+            list[str]: Formatted traceback lines.
+        """
+        nonlocal traceback_format_calls
+        traceback_format_calls += 1
+        return original_format(snapshot)
+
+    monkeypatch.setattr(aiopnsense_helpers._LOGGER, "error", error_log)
+    monkeypatch.setattr(traceback.StackSummary, "format", format_traceback_snapshot)
+
+    assert await Dummy().boom() is None
+    assert rendered_messages == 1
+    assert traceback_format_calls == 0
+    log_details = error_log.call_args.args[2]
+    traceback_snapshot = log_details._traceback_snapshot
+
+    first_render = log_details.__str__()
+    second_render = log_details.__str__()
+    assert first_render.startswith(
+        "LazyMessageError: request failed for https://<redacted>:<redacted>@example.invalid\n"
+    )
+    assert second_render is first_render
+    assert rendered_messages == 1
+    assert traceback_format_calls == 1
+    assert not hasattr(log_details, "_error")
+    assert all(not hasattr(frame, "tb_frame") for frame in traceback_snapshot)
+    assert "user" not in repr(vars(log_details))
+    assert "secret" not in repr(vars(log_details))
 
 
 def test_log_errors_preserves_wrapped_metadata() -> None:
@@ -337,11 +432,14 @@ async def test_log_errors_timeout_re_raise_and_suppress(make_client: ClientType)
             """Raising timeout.
 
             Args:
-                *args (Any): Positional arguments forwarded to the wrapped callable.
-                **kwargs (Any): Keyword arguments forwarded to the wrapped callable.
+                args (Any): Positional arguments accepted by `raising_timeout`.
+                kwargs (Any): Keyword arguments accepted by `raising_timeout`.
 
             Returns:
                 NoReturn: This helper always raises ``TimeoutError``.
+
+            Raises:
+                TimeoutError: Always raised to test timeout handling.
             """
             raise TimeoutError("boom")
 
@@ -373,7 +471,11 @@ async def test_log_errors_re_raises_existing_opnsense_timeout_instance() -> None
 
         @aiopnsense_helpers._log_errors
         async def boom(self) -> None:
-            """Raise the pre-existing timeout error instance."""
+            """Raise the pre-existing timeout error instance.
+
+            Raises:
+                timeout_error: Always raised to preserve the original instance.
+            """
             raise timeout_error
 
     with pytest.raises(OPNsenseTimeoutError) as exc_info:
@@ -399,11 +501,14 @@ async def test_log_errors_server_timeout_re_raise_and_suppress(make_client: Clie
             """Raising server timeout.
 
             Args:
-                *args (Any): Positional arguments forwarded to the wrapped callable.
-                **kwargs (Any): Keyword arguments forwarded to the wrapped callable.
+                args (Any): Positional arguments accepted by `raising_server_timeout`.
+                kwargs (Any): Keyword arguments accepted by `raising_server_timeout`.
 
             Returns:
-                Any: Value produced by the wrapped callable.
+                Any: This coroutine only raises the configured timeout.
+
+            Raises:
+                aiohttp.ServerTimeoutError: Always raised to test server-timeout handling.
             """
             raise aiohttp.ServerTimeoutError("srv")
 
@@ -464,7 +569,11 @@ async def test_log_errors_redacts_url_userinfo(raw_url: str, forbidden: tuple[st
 
         @aiopnsense_helpers._log_errors
         async def boom(self) -> None:
-            """Raise an invalid URL with credential leaks."""
+            """Raise an invalid URL with credential leaks.
+
+            Raises:
+                aiohttp.InvalidURL: Always raised to test credential redaction.
+            """
             raise aiohttp.InvalidURL(raw_url)
 
     client = Dummy()
@@ -482,7 +591,11 @@ async def test_log_errors_redacts_url_userinfo(raw_url: str, forbidden: tuple[st
 async def test_log_errors_redacts_client_response_error_userinfo(
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """Verify _log_errors redacts credentials in ClientResponseError messages."""
+    """Verify _log_errors redacts credentials in ClientResponseError messages.
+
+    Args:
+        caplog (pytest.LogCaptureFixture): Captures the redacted response-error log output.
+    """
 
     class Dummy:
         """Small wrapper for testing logged ClientResponseError redaction."""
@@ -491,7 +604,11 @@ async def test_log_errors_redacts_client_response_error_userinfo(
 
         @aiopnsense_helpers._log_errors
         async def boom(self) -> None:
-            """Raise ClientResponseError with embedded user credentials."""
+            """Raise ClientResponseError with embedded user credentials.
+
+            Raises:
+                aiohttp.ClientResponseError: Always raised to test credential redaction.
+            """
             request_info = MagicMock()
             request_info.real_url = "https://alice:secret@api.example/opn"
             raise aiohttp.ClientResponseError(

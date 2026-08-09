@@ -5,7 +5,7 @@ config files are validated.
 """
 
 from abc import abstractmethod
-from collections.abc import Iterable, Iterator
+from collections.abc import Hashable, Iterable, Iterator
 from functools import cache
 from pathlib import Path
 from types import ModuleType
@@ -115,6 +115,19 @@ class ConfigFile[ConfigT: dict[str, Any] | list[Any]](DependencySubclass):
         return configs
 
     @classmethod
+    def merge_key(cls) -> Hashable:
+        """Return the file path, so subclasses targeting the same file are merged.
+
+        Overrides the base class-name key: concrete subclasses across
+        different packages that write to the same path are merged into one
+        class by `leaves()`, even when their class names differ.
+
+        Returns:
+            The config file's `path()`.
+        """
+        return cls().path()
+
+    @classmethod
     def sort_key(cls) -> float:
         """Return a sort key that places higher-priority subclasses first.
 
@@ -158,9 +171,7 @@ class ConfigFile[ConfigT: dict[str, Any] | list[Any]](DependencySubclass):
             `ConfigFile` subclasses for which `version_control_ignored()`
             returns `True`.
         """
-        return (
-            cf for cf in cls.concrete_subclasses() if cf().version_control_ignored()
-        )
+        return (cf for cf in cls.concrete_leaves() if cf().version_control_ignored())
 
     @classmethod
     def validate_subclasses(
@@ -319,7 +330,7 @@ class ConfigFile[ConfigT: dict[str, Any] | list[Any]](DependencySubclass):
         Yields:
             `ConfigFile` subclasses for which `removable()` returns `True`.
         """
-        return (cf for cf in cls.concrete_subclasses() if cf().removable())
+        return (cf for cf in cls.concrete_leaves() if cf().removable())
 
     def removable(self) -> bool:
         """Return whether this config file can be safely removed.

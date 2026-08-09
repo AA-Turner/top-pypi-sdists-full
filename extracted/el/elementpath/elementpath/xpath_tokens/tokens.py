@@ -82,7 +82,7 @@ class ProxyToken(XPathToken):
 
 
 ###
-# Name related tokens for matching elements and attributes
+# Name-related tokens for matching elements and attributes
 class NameToken(XPathToken):
     """
     The special '(name)' token for matching attributes or element nodes.
@@ -134,7 +134,7 @@ class PrefixedNameToken(XPathToken):
     def __init__(self, parser: ta.XPathParserType, value: Literal[':'] = ':') -> None:
         super().__init__(parser, value)
 
-        # Change bind powers if it cannot be a namespace related token
+        # Change bind powers if it cannot be a namespace-related token
         if self.is_spaced():
             self.lbp = self.rbp = 0
         elif self.parser.token.symbol not in ('*', '(name)', 'array'):
@@ -217,7 +217,7 @@ class PrefixedNameToken(XPathToken):
 
 
 class BracedNameToken(XPathToken):
-    """Braced expanded name for expressing namespace related names."""
+    """Braced expanded name for expressing namespace-related names."""
 
     symbol = lookup_name = '{'
     label = 'expanded name'

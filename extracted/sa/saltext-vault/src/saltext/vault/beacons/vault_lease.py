@@ -12,6 +12,10 @@ When a lease undercuts its minimum TTL, an event is sent.
 
 The event tag's format is: ``salt/beacon/<minion ID>/vault_lease_<lease cache key>/expire``
 
+.. note::
+    If :vconf:`expire_events <cache:expire_events>` are enabled, they are not emitted
+    when leases are requested by this beacon. This prevents duplicate events from being fired.
+
 The event data contains (non-exhaustive):
 
 * ``expires_in`` - number of seconds left until the lease is revoked by Vault (can be ``-1`` if already revoked)
@@ -110,6 +114,7 @@ Configuration reference
 """
 
 import logging
+from typing import TYPE_CHECKING
 
 import salt.utils.beacons
 import salt.utils.dictupdate as dup
@@ -117,8 +122,16 @@ import salt.utils.dictupdate as dup
 from saltext.vault.utils import vault
 from saltext.vault.utils.vault.helpers import timestring_map
 
-log = logging.getLogger(__name__)
+if TYPE_CHECKING:
+    from saltext.vault.utils._types import SaltContext
+    from saltext.vault.utils._types import SaltLogger
+    from saltext.vault.utils._types import SaltOpts
 
+    __opts__: SaltOpts
+    __context__: SaltContext
+
+
+log: "SaltLogger" = logging.getLogger(__name__)  # type: ignore
 
 __virtualname__ = "vault_lease"
 
@@ -138,18 +151,19 @@ def validate(config):
         return False, "Requires monitored lease(s) cache key(s) in `leases`"
     if not isinstance(config["leases"], (dict, list, str)):
         return False, "`leases` must be a dict, list or str"
-
     if isinstance(config["leases"], str):
         if "*" in config["leases"]:
             return False, "`leases` does not support globs"
+    elif isinstance(config["leases"], dict) and any(
+        not isinstance(cfg, dict) for cfg in config["leases"].values()
+    ):
+        return False, "`leases` mapping values must be dicts"
     else:
-        if any("*" in lease for lease in config["leases"]):
-            return False, "`leases` does not support globs"
-        if isinstance(config["leases"], dict) and any(
-            not isinstance(cfg, dict) for cfg in config["leases"].values()
-        ):
-            return False, "`leases` mapping values must be dicts"
-
+        try:
+            if any("*" in lease for lease in config["leases"]):
+                return False, "`leases` does not support globs"
+        except TypeError:
+            return False, "`leases` mapping keys must be strings"
     return True, "Valid beacon configuration."
 
 
@@ -160,6 +174,8 @@ def beacon(config):
     config = _render_config(config)
     # background processes should not pass __context__
     store = vault.get_lease_store(__opts__, {})
+    # Our store should not fire events, we do that here already in a more controlled fashion
+    store.expire_events = store.cache.expire_events = None
     events = []
     for lease, lease_config in config["leases"].items():
         info = store.list_info(match=lease)
@@ -168,7 +184,7 @@ def beacon(config):
             continue
         lease_info = info[lease]
         effective_config = _merge_lease_config(lease_config, lease_info)
-        if effective_config.get("check_server"):
+        if lease_info["lease_id"] and effective_config.get("check_server"):
             try:
                 store.lookup(lease_info["lease_id"])
             except vault.VaultNotFoundError:
@@ -177,11 +193,16 @@ def beacon(config):
                 lease_info["expired"] = True
                 events.append(_enrich_info(lease, effective_config, lease_info))
                 continue
-        if lease_info["expired"]:
+        if lease_info["expired"]:  # pragma: no cover
+            # This should not be hit usually since expired leases are not returned by the cache backend
             events.append(_enrich_info(lease, effective_config, lease_info))
             continue
         if timestring_map(effective_config["min_ttl"]) >= lease_info["expires_in"]:
-            if not effective_config.get("renew", True):
+            if not (
+                lease_info["lease_id"]
+                and lease_info["renewable"]
+                and effective_config.get("renew", True)
+            ):
                 events.append(_enrich_info(lease, effective_config, lease_info))
                 continue
             # attempt renewal
@@ -189,9 +210,11 @@ def beacon(config):
                 lease,
                 valid_for=effective_config["min_ttl"],
                 revoke=False,
-                check_server=effective_config.get("check_server", False),
+                check_server=False,  # already did that
             )
             if not res:
+                # Update our info after attempted renewal before sending it in event
+                lease_info = store.list_info(lease).get(lease) or lease_info
                 events.append(_enrich_info(lease, effective_config, lease_info))
                 continue
     return events
@@ -233,7 +256,7 @@ def _merge_lease_config(cfg, lease):
         )
     elif lease.get("min_ttl") is not None:
         cfg["min_ttl"] = lease["min_ttl"]
-    elif "min_ttl" not in cfg:
+    elif cfg.get("min_ttl") is None:
         cfg["min_ttl"] = 300
     cfg["meta"] = _merge_meta(cfg.get("meta"), lease.get("meta"))
     return cfg

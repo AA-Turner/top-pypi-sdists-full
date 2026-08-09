@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2025 The pygit2 contributors
+ * Copyright 2010-2026 The pygit2 contributors
  *
  * This file is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License, version 2,
@@ -25,9 +25,9 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#include <git2/status.h>
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
+#include <git2/status.h>
 #include "error.h"
 #include "types.h"
 #include "reference.h"
@@ -1797,7 +1797,14 @@ Repository_status(Repository *self, PyObject *args, PyObject *kw)
         if (status == NULL)
             goto error;
 
-        err = PyDict_SetItemString(dict, path, status);
+        PyObject *py_path = PyUnicode_DecodeFSDefault(path);
+        if (py_path == NULL) {
+            Py_CLEAR(status);
+            goto error;
+        }
+
+        err = PyDict_SetItem(dict, py_path, status);
+        Py_DECREF(py_path);
         Py_CLEAR(status);
 
         if (err < 0)

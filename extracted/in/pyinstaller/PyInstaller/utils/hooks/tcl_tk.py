@@ -47,10 +47,16 @@ def _get_tcl_tk_info():
     # Query the location of Tcl library/data directory.
     tcl_data_dir = tcl.eval("info library")
 
+    # Query the version of the loaded Tcl library. Normally, this matches `_tkinter.TCL_VERSION` (which is the
+    # version of Tcl headers that the `_tkinter` module was compiled against); in case there is a mismatch, the
+    # actual run-time version should be authoritative for our purposes (although it also likely means that the
+    # `_tkinter` module is defunc...).
+    tcl_runtime_version = tcl.eval("info tclversion")
+
     # Check if Tcl/Tk is built with multi-threaded support (built with --enable-threads), as indicated by the presence
     # of optional `threaded` member in `tcl_platform` array. Tcl 9.0 removed the --enable-threads flag, and is always
     # built with multi-threaded support (and thus the `threaded` array member has been removed).
-    TCL_MAJOR = int(_tkinter.TCL_VERSION.split(".")[0])
+    TCL_MAJOR = int(tcl_runtime_version.split(".")[0])
     if TCL_MAJOR >= 9:
         tcl_threaded = True
     else:
@@ -68,6 +74,7 @@ def _get_tcl_tk_info():
         "tk_version": _tkinter.TK_VERSION,
         "tcl_threaded": tcl_threaded,
         "tcl_data_dir": tcl_data_dir,
+        "_tcl_runtime_version": tcl_runtime_version,
     }
 
 
@@ -115,6 +122,9 @@ class TclTkInfo:
         self.tk_data_dir = None
         self.tcl_module_dir = None
 
+        self.tcl_data_missing = False
+        self.tk_data_missing = False
+
         self.is_macos_system_framework = False
         self.tcl_shared_library = None
         self.tk_shared_library = None
@@ -141,6 +151,20 @@ class TclTkInfo:
         # Parse Tcl/Tk version into (major, minor) tuple.
         self.tcl_version = tuple((int(x) for x in self.tcl_version.split(".")[:2]))
         self.tk_version = tuple((int(x) for x in self.tk_version.split(".")[:2]))
+
+        self._tcl_runtime_version = tuple((int(x) for x in self._tcl_runtime_version.split(".")[:2]))
+
+        if self.tcl_version != self._tcl_runtime_version:
+            # Mismatch between the Tcl headers used to build `_tkinter`, and the Tcl library that the module was
+            # ultimately linked against. Assume that the same mismatch exists with Tk, and use the Tcl run-time version
+            # as source of truth for version of both Tcl and Tk.
+            logger.warning(
+                "%s: mismatch between the version of loaded Tcl library %r and version of Tcl headers that were used "
+                "to build _tkinter %r - forcing version of both Tcl and Tk to %r!", self, self._tcl_runtime_version,
+                self.tcl_version, self._tcl_runtime_version
+            )
+            self.tcl_version = self._tcl_runtime_version
+            self.tk_version = self._tcl_runtime_version
 
         # Determine full path to Tcl and Tk shared libraries against which the `_tkinter` extension module is linked.
         # This can only be done when `_tkinter` is in fact an extension, and not a built-in. In the latter case, the
@@ -180,6 +204,9 @@ class TclTkInfo:
         #  - otherwise, look for: $tcl_root/../tkX.Y, where X and Y are Tk major and minor version.
         if "TK_LIBRARY" in os.environ:
             self.tk_data_dir = os.environ["TK_LIBRARY"]
+        elif self.tcl_data_dir.startswith('//zipfs:/'):
+            # Tcl shared library has embedded library/data archive, so assume that the same is true for Tk...
+            self.tk_data_dir = '//zipfs:/lib/tk/tk_library'
         elif compat.is_darwin and self.tk_shared_library and (
             # is_framework_bundle_lib handles only fully-versioned framework library paths...
             (osxutils.is_framework_bundle_lib(self.tk_shared_library)) or
@@ -214,7 +241,10 @@ class TclTkInfo:
         else:
             # Collect Tcl and Tk scripts from their corresponding library/data directories. See comment at the
             # definition of TK_ROOTNAME and TK_ROOTNAME variables.
-            if os.path.isdir(self.tcl_data_dir):
+            if self.tcl_data_dir.startswith('//zipfs:/'):
+                # Tcl 9 with library/data archive embedded in shared library
+                pass
+            elif os.path.isdir(self.tcl_data_dir):
                 self.data_files += self._collect_files_from_directory(
                     self.tcl_data_dir,
                     prefix=self.TCL_ROOTNAME,
@@ -222,8 +252,12 @@ class TclTkInfo:
                 )
             else:
                 logger.warning("%s: Tcl library/data directory %r does not exist!", self, self.tcl_data_dir)
+                self.tcl_data_missing = True
 
-            if os.path.isdir(self.tk_data_dir):
+            if self.tk_data_dir.startswith('//zipfs:/'):
+                # Tk 9 with library/data archive embedded in shared library
+                pass
+            elif os.path.isdir(self.tk_data_dir):
                 self.data_files += self._collect_files_from_directory(
                     self.tk_data_dir,
                     prefix=self.TK_ROOTNAME,
@@ -231,6 +265,7 @@ class TclTkInfo:
                 )
             else:
                 logger.warning("%s: Tk library/data directory %r does not exist!", self, self.tk_data_dir)
+                self.tk_data_missing = True
 
             # Collect Tcl modules from optional modules directory
             if os.path.isdir(self.tcl_module_dir):

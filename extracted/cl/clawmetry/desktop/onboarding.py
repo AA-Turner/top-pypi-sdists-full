@@ -114,6 +114,18 @@ def mark_onboarding_completed(
         pass  # onboarding stamp is best-effort; a re-shown pane is not a bug
 
 
+def _win_subprocess_kwargs() -> dict:
+    """Extra Popen/run kwargs that stop Windows from flashing a console
+    window when this windowed (console=False) shell spawns a console
+    executable (the venv's python.exe / clawmetry.exe). No-op elsewhere.
+    Mirrors app.py's helper — duplicated rather than imported to keep
+    onboarding.py importable standalone (app.py imports IT, not vice
+    versa)."""
+    if platform.system() == "Windows":
+        return {"creationflags": subprocess.CREATE_NO_WINDOW}  # type: ignore[attr-defined]
+    return {}
+
+
 # ─── Runtime detection ──────────────────────────────────────────────────
 # The clawmetry package (which lives in the runtime venv) has the
 # canonical detection logic in ``clawmetry/entitlements.py``. From the
@@ -148,6 +160,7 @@ def detect_runtimes_via_venv(venv_python: Path, *, timeout: float = 6.0) -> list
         r = subprocess.run(
             [str(py), "-c", script],
             capture_output=True, text=True, timeout=timeout,
+            **_win_subprocess_kwargs(),
         )
         if r.returncode == 0:
             data = json.loads(r.stdout.strip() or "[]")
@@ -182,6 +195,7 @@ def apply_cm_key(venv_clawmetry: Path, cm_key: str, *, timeout: float = 60.0) ->
         r = subprocess.run(
             [str(bin_), "connect", "--key", cm_key, "--start-sync-now"],
             capture_output=True, text=True, timeout=timeout,
+            **_win_subprocess_kwargs(),
         )
         if r.returncode == 0:
             return True, "signed in"
@@ -218,10 +232,10 @@ CROSS_SELL_SLIDES = [
         "art": "dashboard",
     },
     {
-        "eyebrow": "Also from InstaLabs",
-        "title": "ClawMetry Agent Builder — ship an agent in an afternoon.",
+        "eyebrow": "Also from ClawMetry",
+        "title": "ClawMetry Agent Builder: ship an agent in an afternoon.",
         "body": (
-            "Blueprints, requirements, work orders — the same platform that "
+            "Blueprints, requirements, work orders: the same platform that "
             "ships ClawMetry itself. If you can describe the agent, the builder "
             "can scaffold it and keep the docs in sync with the code."
         ),
@@ -230,20 +244,22 @@ CROSS_SELL_SLIDES = [
         "art": "builder",
     },
     {
-        "eyebrow": "Also from InstaLabs",
-        "title": "ClawMetry Desk — always-on hardware for your agents.",
+        "eyebrow": "Also from ClawMetry",
+        "title": "ClawMetry Desk: always-on hardware for your agents.",
         "body": (
-            "A pocket-sized ambient device that runs OpenClaw, listens for "
-            "voice prompts, and reports up to this dashboard automatically. "
-            "Ships with a 5,000 mAh battery and a physical mute switch."
+            "A pocket-sized ambient device that shows every agent at a "
+            "glance and lets you tap Approve, Deny, Stop, Pause, or Resume "
+            "right on its 4-inch touchscreen. Wi-Fi, USB-C powered, "
+            "end-to-end encrypted."
         ),
         "cta_label": "See the Desk device",
-        "cta_url": "https://clawmetry.com/desk",
+        "cta_url": "https://clawmetry.com/device",
         "art": "desk",
+        "img": "https://clawmetry.com/device-square.png",
     },
     {
         "eyebrow": "For teams",
-        "title": "SSO, RBAC, and audit — Enterprise-ready.",
+        "title": "SSO, RBAC, and audit: Enterprise-ready.",
         "body": (
             "Okta, Azure AD, or Google Workspace. Per-runtime role scoping. "
             "Every action logged. SOC 2 Type II, GDPR, and CCPA covered. "
@@ -332,7 +348,7 @@ def render_auth_pane(
         headline = f"Detected {names} on this machine."
         subline = (
             "Start your free 7-day ClawMetry Pro trial to watch these live. "
-            "No card required — payment kicks in on day 8 if you keep it."
+            "No card required. Payment kicks in on day 8 if you keep it."
         )
     else:
         headline = "Welcome to ClawMetry."
@@ -344,7 +360,7 @@ def render_auth_pane(
     return f"""<!doctype html>
 <html><head>
   <meta charset="utf-8"/>
-  <title>ClawMetry — Sign in</title>
+  <title>ClawMetry: Sign in</title>
   <style>
     {_shared_css()}
     .card {{
@@ -460,7 +476,7 @@ def render_auth_pane(
     <div class="status" id="status"></div>
 
     <a class="skip-link" href="#" onclick="skipAuth(); return false;">
-      Skip for now — I'll sign in later
+      Skip for now, I'll sign in later
     </a>
   </div></div>
 
@@ -608,6 +624,10 @@ def render_bootstrap_carousel(*, assets_dir: Path, status: str = "Preparing runt
       display: flex; align-items: center; justify-content: center;
       font-size: 56px;
     }}
+    .slide-art img {{
+      max-width: 100%; max-height: 100%; object-fit: contain;
+      border-radius: 8px;
+    }}
     .eyebrow {{
       font-size: 11px; font-weight: 700; letter-spacing: 0.12em;
       text-transform: uppercase; color: var(--accent);
@@ -662,7 +682,7 @@ def render_bootstrap_carousel(*, assets_dir: Path, status: str = "Preparing runt
       const c = document.getElementById('carousel');
       c.innerHTML = SLIDES.map((s, i) => `
         <div class="slide ${{i === idx ? 'active' : ''}}" data-i="${{i}}">
-          <div class="slide-art">${{ART[s.art] || '★'}}</div>
+          <div class="slide-art">${{s.img ? `<img src="${{s.img}}" alt="" loading="lazy" onerror="this.parentElement.textContent='${{ART[s.art] || '★'}}'"/>` : (ART[s.art] || '★')}}</div>
           <div class="eyebrow">${{s.eyebrow}}</div>
           <h2>${{s.title}}</h2>
           <p>${{s.body}}</p>

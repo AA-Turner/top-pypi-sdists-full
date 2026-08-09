@@ -254,7 +254,16 @@ class ProtobufPatch(object):
                 "Message info was:\n%s\nObject was:\n%s" % (message_info, data)
             )
         for diff_path in message_info.diff_field_path.path:
-            patched_field = proto_klass.DESCRIPTOR.fields_by_number[diff_path]
+            if diff_path in proto_klass.DESCRIPTOR.fields_by_number:
+                patched_field = proto_klass.DESCRIPTOR.fields_by_number[diff_path]
+            else:
+                # Extension fields (proto2 `extend` blocks) are not in
+                # fields_by_number. Look them up in the pool this class was
+                # actually built in: each bundled version now has its own, so
+                # the default pool no longer contains any of them.
+                patched_field = proto_klass.DESCRIPTOR.file.pool.FindExtensionByNumber(
+                    proto_klass.DESCRIPTOR, diff_path
+                )
             field_message_class = import_version(version)[1][
                 patched_field.message_type.full_name
             ]

@@ -26,8 +26,8 @@ class UntypedAtomic(AnyAtomicType):
     Class for xs:untypedAtomic data. Provides special methods for comparing
     and converting to basic data types.
 
-    :param value: the untyped value, usually a string.
-    :param parser: the XPath parser that creates the instance, if any.
+    :param value: The untyped value, usually a string.
+    :param parser: The XPath parser that creates the instance if any.
     """
     name = 'untypedAtomic'
     value: str
@@ -77,7 +77,7 @@ class UntypedAtomic(AnyAtomicType):
         Returns a couple of operands, applying a cast to the instance value based on
         the type of the *other* argument.
 
-        :param other: The other operand, that determines the cast for the untyped instance.
+        :param other: The other operand that determines the cast for the untyped instance.
         :param force_float: Force a conversion to float if *other* is an UntypedAtomic instance.
         :return: A couple of values.
         """

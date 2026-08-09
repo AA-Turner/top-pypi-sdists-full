@@ -1,3 +1,6 @@
+from ytmusicapi.exceptions import YTMusicServerError
+
+
 class TestPodcasts:
     def test_get_channel(self, config, yt):
         podcast_id = config["podcasts"]["channel_id"]
@@ -26,8 +29,10 @@ class TestPodcasts:
     def test_many_podcasts(self, yt):
         results = yt.search("europe", filter="podcasts")
         for result in results:
-            results = yt.get_podcast(result["browseId"])
-            assert len(results) > 0
+            if result["browseId"] is None:
+                continue  # search can surface non-podcast results even with the podcasts filter
+            podcast = yt.get_podcast(result["browseId"])
+            assert len(podcast) > 0
 
     def test_get_episode(self, config, yt, yt_brand):
         episode_id = config["podcasts"]["episode_id"]
@@ -44,9 +49,13 @@ class TestPodcasts:
         results = yt.search("europe", filter="episodes")
         episodes = []
         for result in results:
-            episode = yt.get_episode(result["videoId"])
+            try:
+                episode = yt.get_episode(result["videoId"])
+            except YTMusicServerError:
+                continue  # search can surface episodes that are no longer available
             episodes.append(episode)
 
+        assert episodes
         assert all(
             episode["description"] is None or len(episode["description"].text) > 0 for episode in episodes
         )

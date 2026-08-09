@@ -9,6 +9,7 @@ leased database credentials.
 """
 
 import logging
+import typing
 
 from salt.defaults import NOT_SET
 from salt.exceptions import CommandExecutionError
@@ -17,7 +18,21 @@ from salt.exceptions import SaltInvocationError
 from saltext.vault.utils.vault import db as vaultdb
 from saltext.vault.utils.vault.helpers import timestring_map
 
-log = logging.getLogger(__name__)
+if typing.TYPE_CHECKING:
+
+    from saltext.vault.utils._types import SaltContext
+    from saltext.vault.utils._types import SaltFunctions
+    from saltext.vault.utils._types import SaltLogger
+    from saltext.vault.utils._types import SaltOpts
+    from saltext.vault.utils._types import SaltStates
+
+    __opts__: SaltOpts
+    __context__: SaltContext
+    __salt__: SaltFunctions
+    __states__: SaltStates
+
+
+log: "SaltLogger" = logging.getLogger(__name__)  # type: ignore
 
 
 def connection_present(
@@ -90,6 +105,7 @@ def connection_present(
         "changes": {},
     }
     kwargs = {k: v for k, v in kwargs.items() if not k.startswith("_")}
+    secret_params = vaultdb.get_plugin_meta(plugin)["secret"]
 
     def _diff_params(current):
         nonlocal version, allowed_roles, root_rotation_statements, password_policy, kwargs
@@ -105,15 +121,16 @@ def connection_present(
             if arg is None:
                 continue
             # Strip statements to avoid tripping over final newlines
-            if param.endswith("statements"):
+            if param == "root_credentials_rotate_statements":
+                if not isinstance(arg, list):
+                    arg = [arg]
                 arg = [x.rstrip() for x in arg]
                 if param in current:
                     current[param] = [x.rstrip() for x in current[param]]
             if param not in current or current[param] != arg:
                 changed.update({param: {"old": current.get(param), "new": arg}})
         for param, val in kwargs.items():
-            if param == "password":
-                # password is not reported
+            if param in secret_params:
                 continue
             if (
                 param not in current["connection_details"]
@@ -154,8 +171,9 @@ def connection_present(
                 ret["changes"]["created"] = name
             return ret
 
-        if current and "password" in kwargs:
-            kwargs.pop("password")
+        if current:
+            for param in secret_params:
+                kwargs.pop(param, None)
 
         __salt__["vault_db.write_connection"](
             name,
@@ -173,7 +191,7 @@ def connection_present(
 
         if new is None:
             raise CommandExecutionError(
-                "There were no errors during role management, but it is still reported as absent."
+                "There were no errors during connection management, but it is still reported as absent."
             )
         if not current:
             ret["changes"]["created"] = name
@@ -189,7 +207,7 @@ def connection_present(
         ret["changes"].update(changes)
         ret["comment"] = f"Connection `{name}` has been {'updated' if current else 'created'}"
 
-    except CommandExecutionError as err:
+    except (CommandExecutionError, SaltInvocationError) as err:
         ret["result"] = False
         ret["comment"] = str(err)
         # do not reset changes
@@ -333,6 +351,7 @@ def role_present(
                 continue
             # Strip statements to avoid tripping over final newlines
             if param.endswith("statements"):
+                arg = typing.cast(list[str], arg)
                 arg = [x.rstrip() for x in arg]
                 if param in current:
                     current[param] = [x.rstrip() for x in current[param]]
@@ -616,8 +635,8 @@ def creds_cached(
         otherwise request new ones.
         This can be an integer, which is interpreted as seconds, or a time string
         using the same format as Vault does:
-        Suffix ``s`` for seconds, ``m`` for minuts, ``h`` for hours, ``d`` for days.
-        Defaults to ``0``.
+        Suffix ``s`` for seconds, ``m`` for minutes, ``h`` for hours, ``d`` for days.
+        Defaults to the cached lease's ``min_ttl`` or ``0``.
 
     renew_increment
         When using cache and ``valid_for`` results in a renewal attempt, request this
@@ -636,7 +655,7 @@ def creds_cached(
         be emitted by the ``vault_lease`` beacon module whenever a lease is
         running out (usually because it cannot be extended further). It is intended
         to support the reactor in deciding what needs to be done in order
-        to to reconfigure dependent, Vault-unaware software with newly issued
+        to reconfigure dependent, Vault-unaware software with newly issued
         credentials. Entirely optional.
 
     mount
@@ -649,71 +668,87 @@ def creds_cached(
         "changes": {},
     }
 
-    cached = __salt__["vault_db.list_cached"](
-        name, static=static, cache=cache or True if not static else True, mount=mount
-    )
-    pp = "issued"
-    if cached:
-        info = cached[next(iter(cached))]
-        if valid_for is NOT_SET:
-            if info["min_ttl"] is not None:
-                valid_for = info["min_ttl"]
-            else:
-                valid_for = None
-        for attr, val in (
-            ("min_ttl", valid_for),
-            ("renew_increment", renew_increment),
-            ("revoke_delay", revoke_delay),
-            ("meta", meta),
-        ):
-            if val is not None and info.get(attr) != val:
-                # Meta-only changes should be reported as well because the
-                # execution module needs to be called later to update them.
-                # This is especially valid for a lowering of min_ttl, which
-                # might result in a reissuance if the current lease has already
-                # reached its min_ttl (the current logic would not recognize that
-                # situation otherwise).
-                ret["changes"][attr] = {"old": info.get(attr), "new": val}
-                pp = "edited"
-
-        current_effective_valid_for = valid_for or 0
-        if info["min_ttl"] is not None:
-            current_effective_valid_for = max(info["min_ttl"], valid_for or 0)
-        if info["expires_in"] <= timestring_map(current_effective_valid_for):
-            ret["changes"]["expiry"] = True
-            pp = "renewed"
-        if not ret["changes"]:
-            return ret
-    else:
-        ret["changes"]["new"] = True
-    if __opts__["test"]:
-        ret["result"] = None
-        if pp == "renewed":
-            pp = "renewed/reissued"
-        ret["comment"] = f"The credentials would have been {pp}"
-        return ret
-    __salt__["vault_db.get_creds"](
-        name,
-        static=static,
-        cache=cache or True,
-        valid_for=valid_for,
-        renew_increment=renew_increment,
-        revoke_delay=revoke_delay,
-        meta=meta,
-        mount=mount,
-        _warn_about_attr_change=False,
-    )
-    new_cached = __salt__["vault_db.list_cached"](name, static=static, cache=cache, mount=mount)
-    if not new_cached:
-        raise CommandExecutionError(
-            "Could not find cached credentials after issuing, this is likely a bug"
+    try:
+        cached = __salt__["vault_db.list_cached"](
+            name, static=static, cache=cache or True if not static else True, mount=mount
         )
-    # Ensure the reporting is correct.
-    if cached and new_cached[next(iter(cached))]["lease_id"] != info["lease_id"]:
-        pp = "reissued"
-        ret["changes"][pp] = True
+        pp = "issued"
+        info = None
+        if cached:
+            info = cached[next(iter(cached))]
+            if valid_for is NOT_SET:
+                if info["min_ttl"] is not None:
+                    valid_for = info["min_ttl"]
+                else:
+                    valid_for = None
+            valid_for = typing.cast(int | str | None, valid_for)
+            for attr, val in (
+                ("min_ttl", valid_for),
+                ("renew_increment", renew_increment),
+                ("revoke_delay", revoke_delay),
+                ("meta", meta),
+            ):
+                if val is None:
+                    continue
+                curr_val = info.get(attr)
+                if attr == "meta":
+                    changed = curr_val != val
+                else:
+                    # Time values can be specified as time strings or integers
+                    changed = timestring_map(curr_val) != timestring_map(val)
+                if changed:
+                    # Meta-only changes should be reported as well because the
+                    # execution module needs to be called later to update them.
+                    # This is especially valid for a lowering of min_ttl, which
+                    # might result in a reissuance if the current lease has already
+                    # reached its min_ttl (the current logic would not recognize that
+                    # situation otherwise).
+                    ret["changes"][attr] = {"old": curr_val, "new": val}
+                    pp = "edited"
 
-    ret["comment"] = f"The credentials have been {pp}"
+            current_effective_valid_for = max(
+                timestring_map(valid_for) or 0, timestring_map(info["min_ttl"]) or 0
+            )
+            if info["expires_in"] <= current_effective_valid_for:
+                ret["changes"]["expiry"] = True
+                pp = "renewed"
+            if not ret["changes"]:
+                return ret
+        else:
+            ret["changes"]["new"] = True
+        if __opts__["test"]:
+            ret["result"] = None
+            if pp == "renewed":
+                pp = "renewed/reissued"
+            ret["comment"] = f"The credentials would have been {pp}"
+            return ret
+        __salt__["vault_db.get_creds"](
+            name,
+            static=static,
+            cache=cache or True,
+            valid_for=valid_for,
+            # Unspecified attributes must not be reset on the cached lease,
+            # the sentinel for that is NOT_SET, not None.
+            renew_increment=renew_increment if renew_increment is not None else NOT_SET,
+            revoke_delay=revoke_delay if revoke_delay is not None else NOT_SET,
+            meta=meta if meta is not None else NOT_SET,
+            mount=mount,
+            _warn_about_attr_change=False,
+        )
+        new_cached = __salt__["vault_db.list_cached"](name, static=static, cache=cache, mount=mount)
+        if not new_cached:  # pragma: no cover
+            raise CommandExecutionError(
+                "Could not find cached credentials after issuing, this is likely a bug"
+            )
+        # Ensure the reporting is correct.
+        if cached and info and new_cached[next(iter(cached))]["lease_id"] != info["lease_id"]:
+            pp = "reissued"
+            ret["changes"][pp] = True
+        ret["comment"] = f"The credentials have been {pp}"
+    except (CommandExecutionError, SaltInvocationError) as err:
+        ret["result"] = False
+        ret["comment"] = str(err)
+        ret["changes"] = {}
     return ret
 
 
@@ -752,16 +787,21 @@ def creds_uncached(
         "changes": {},
     }
 
-    cached = __salt__["vault_db.list_cached"](name, static=static, cache=cache, mount=mount)
-    if not cached:
-        return ret
-    ret["changes"]["revoked"] = list(cached)
-    if __opts__["test"]:
-        ret["result"] = None
-        ret["comment"] = "The credentials would have been revoked"
-        return ret
-    __salt__["vault_db.clear_cached"](name, static=static, cache=cache, mount=mount)
-    ret["comment"] = "The credentials have been revoked"
+    try:
+        cached = __salt__["vault_db.list_cached"](name, static=static, cache=cache, mount=mount)
+        if not cached:
+            return ret
+        ret["changes"]["revoked"] = list(cached)
+        if __opts__["test"]:
+            ret["result"] = None
+            ret["comment"] = "The credentials would have been revoked"
+            return ret
+        __salt__["vault_db.clear_cached"](name, static=static, cache=cache, mount=mount)
+        ret["comment"] = "The credentials have been revoked"
+    except (CommandExecutionError, SaltInvocationError) as err:
+        ret["result"] = False
+        ret["comment"] = str(err)
+        ret["changes"] = {}
     return ret
 
 

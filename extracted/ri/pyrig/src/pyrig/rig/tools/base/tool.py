@@ -2,6 +2,7 @@
 
 from abc import abstractmethod
 from collections import defaultdict
+from collections.abc import Hashable
 from types import ModuleType
 
 from pyrig_runtime.core.dependencies.subclass import DependencySubclass
@@ -62,6 +63,19 @@ class Tool(DependencySubclass):
         return tools
 
     @classmethod
+    def merge_key(cls) -> Hashable:
+        """Return the tool's name, so subclasses wrapping the same tool are merged.
+
+        Overrides the base class-name key: concrete subclasses across
+        different packages that wrap the same executable are merged into
+        one class by `leaves()`, even when their class names differ.
+
+        Returns:
+            The tool's `name()`.
+        """
+        return cls().name()
+
+    @classmethod
     def sort_key(cls) -> tuple[int, str]:
         """Return a tuple for sorting tools by group and name."""
         return (cls.group_order(cls().group()), cls.__name__)
@@ -75,7 +89,7 @@ class Tool(DependencySubclass):
             tools in that group. Groups are ordered by `groups()`; badges
             within a group are ordered by each tool's `sort_key()`.
         """
-        subclasses = cls.sorted_subclasses(cls.concrete_subclasses())
+        subclasses = cls.sorted_subclasses(cls.concrete_leaves())
         groups: defaultdict[str, list[str]] = defaultdict(list)
         for subclass in subclasses:
             tool = subclass()
@@ -120,7 +134,7 @@ class Tool(DependencySubclass):
         return sorted(
             {
                 dep
-                for subclass in cls.concrete_subclasses()
+                for subclass in cls.concrete_leaves()
                 for dep in subclass().dev_dependencies()
             },
         )
@@ -135,7 +149,7 @@ class Tool(DependencySubclass):
         """
         return sorted(
             path
-            for subclass in cls.concrete_subclasses()
+            for subclass in cls.concrete_leaves()
             for path in subclass().version_control_ignore_patterns()
         )
 

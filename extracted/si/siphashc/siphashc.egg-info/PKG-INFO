@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: siphashc
-Version: 2.7
+Version: 2.8
 Summary: Python module (in c) for siphash-2-4
 Author-email: Michal Čihař <michal@weblate.org>
 License-Expression: ISC
@@ -20,6 +20,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.10
 Description-Content-Type: text/x-rst

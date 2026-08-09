@@ -18,19 +18,22 @@ classifiers = [
     "Programming Language :: Python :: 3 :: Only",
     "Topic :: Multimedia :: Graphics :: Graphics Conversion",
     "Topic :: Scientific/Engineering :: GIS",
+    "Typing :: Typed",
 ]
 license = {text = "BSD-3-Clause"}
-requires-python = ">=3.7"
+requires-python = ">=3.9"
+dependencies = [
+    "attrs",
+]
 
 [project.optional-dependencies]
 test = [
-    "pytest >=4.6",
+    "numpy>=1.20",
+    "pytest>=6.0",
     "pytest-cov",
 ]
 dev = [
-    "pydocstyle",
-    "flake8",
-    "coveralls",
+    "coveralls>=3.0",
 ]
 
 [project.urls]
@@ -41,4 +44,39 @@ include = [
     "AUTHORS.txt",
     "CHANGES.txt",
     "LICENSE.txt",
+    "docs/",
+    "tests/",
 ]
+exclude = ["docs/build/**"]
+
+[tool.pytest.ini_options]
+pythonpath = "src"
+testpaths = ["tests"]
+
+[tool.ruff.lint]
+select = [
+    "B",  # flake8-bugbear
+    "D",  # pydocstyle
+    "E", "W",  # pycodestyle
+    "F",  # Pyflakes
+    "I",  # isort
+    "NPY", # NumPy-specific rules
+    "PT", # flake8-pytest-style
+    "RET", # flake8-return
+    "RUF", # Ruff-specific rules
+    "SIM", # flake8-simplify
+    "UP", # pyupgrade
+]
+ignore = [
+    "D105",  # Missing docstring in magic method
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**.py" = ["B", "D"]
+"docs/**.py" = ["D"]
+
+[tool.ruff.lint.isort]
+force-sort-within-sections = true
+
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"

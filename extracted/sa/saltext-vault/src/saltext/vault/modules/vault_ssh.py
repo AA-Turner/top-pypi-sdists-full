@@ -1,11 +1,11 @@
 """
-.. versionadded:: 1.2.0
-
 Manage the Vault (or OpenBao) SSH secret engine, request SSH credentials
 and certificates.
 
+.. versionadded:: 1.2.0
+
 .. versionadded:: 1.6.0
-    You can specify this module as the ``backend`` parameter to the ``ssh_pki.certificate_managed``
+    You can specify this module as the ``backend`` parameter to the :py:func:`ssh_pki.certificate_managed <salt.states.ssh_pki.certificate_managed>`
     state introduced in Salt 3008 for stateful management of Vault-issued certificates.
 
     See :py:func:`create_certificate <saltext.vault.modules.vault_ssh.create_certificate>` for details.
@@ -16,6 +16,7 @@ and certificates.
 
 import logging
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import salt.utils.json
 from salt.exceptions import CommandExecutionError
@@ -25,9 +26,21 @@ from saltext.vault.utils import vault
 from saltext.vault.utils.vault.exceptions import VaultException
 from saltext.vault.utils.vault.helpers import deserialize_csl
 
+if TYPE_CHECKING:
+    from saltext.vault.utils._types import SaltContext
+    from saltext.vault.utils._types import SaltFunctions
+    from saltext.vault.utils._types import SaltGrains
+    from saltext.vault.utils._types import SaltLogger
+    from saltext.vault.utils._types import SaltOpts
+
+    __opts__: SaltOpts
+    __context__: SaltContext
+    __salt__: SaltFunctions
+    __grains__: SaltGrains
+
 __virtualname__ = "vault_ssh"
 
-log = logging.getLogger(__name__)
+log: "SaltLogger" = logging.getLogger(__name__)  # type: ignore
 
 
 def __virtual__():
@@ -95,7 +108,7 @@ def write_role_otp(
         Name of the SSH role.
 
     default_user
-        Default username for which a credential should be generated.
+        Default username(s) for which a credential should be generated.
         Required.
 
     cidr_list
@@ -120,13 +133,11 @@ def write_role_otp(
     """
     payload = {
         "default_user": default_user,
-        "cidr_list": cidr_list,
-        "allowed_users": allowed_users,
-        "exclude_cidr_list": exclude_cidr_list,
+        "cidr_list": deserialize_csl(cidr_list),
+        "allowed_users": deserialize_csl(allowed_users),
+        "exclude_cidr_list": deserialize_csl(exclude_cidr_list),
         "port": int(port) if port else None,
     }
-    for param in ("allowed_users", "cidr_list", "exclude_cidr_list"):
-        payload[param] = deserialize_csl(payload[param])
     return _write_role(name, "otp", mount=mount, **payload)
 
 
@@ -154,6 +165,7 @@ def write_role_ca(
     allowed_user_key_lengths=None,
     algorithm_signer=None,
     not_before_duration=None,
+    allow_commas_in_identity_templates=None,
     mount="ssh",
 ):
     """
@@ -177,13 +189,13 @@ def write_role_ca(
         Name of the SSH role.
 
     default_user
-        Default username for which a credential should be generated.
+        Default username(s) for which a credential should be generated.
         When ``default_user_template`` is true, this can contain an identity
         template with any prefix or suffix, like ``ssh-{{identity.entity.id}}-user``.
         If you wish this to be a valid principal, it must also be in ``allowed_users``.
 
     default_user_template
-        Allow ``default_users`` to be specified using identity template values.
+        Allow ``default_user`` to be specified using identity template values.
         A non-templated user is also permitted. Defaults to false.
 
     allowed_users
@@ -281,6 +293,15 @@ def write_role_ca(
         Specifies the duration by which to backdate the ``ValidAfter`` property.
         Defaults to ``30s``.
 
+    allow_commas_in_identity_templates
+        .. versionadded:: 1.8.0
+
+        (OpenBao only, Vault always allows this behavior)
+        If set and templating is enabled, the values substituted in for
+        ``allowed_users`` and ``allowed_domains`` template expressions are allowed to contain a comma.
+        As these values are comma separated lists, this can enable injection attacks.
+        Only use this if the data used by the templates is trusted. Defaults to false.
+
     mount
         Name of the mount point the SSH secret backend is mounted at.
         Defaults to ``ssh``.
@@ -313,6 +334,7 @@ def write_role_ca(
         "allowed_user_key_lengths": allowed_user_key_lengths,
         "algorithm_signer": algorithm_signer,
         "not_before_duration": not_before_duration,
+        "allow_commas_in_identity_templates": allow_commas_in_identity_templates,
     }
     for param in (
         "allowed_users",
@@ -408,7 +430,7 @@ def list_roles(mount="ssh"):
 
     keys = res["key_info"]
     for key in res["keys"]:
-        if key not in keys:
+        if key not in keys:  # pragma: no cover
             keys[key] = {}
     return keys
 
@@ -441,12 +463,15 @@ def list_roles_ip(address, mount="ssh"):
     endpoint = f"{mount}/lookup"
     payload = {"ip": address}
     try:
-        return vault.query(
+        res = vault.query(
             "POST", endpoint, __opts__, __context__, payload=payload, safe_to_retry=True
-        )["data"]["roles"]
+        )
+        # Recent versions return null instead of an error when no roles matched
+        return res["data"].get("roles") or []
     except vault.VaultInvocationError as err:
+        # Older versions returned an error when no roles matched
         if "Missing roles" not in str(err):
-            raise
+            raise CommandExecutionError(f"{type(err).__name__}: {err}") from err
         return []
     except vault.VaultException as err:
         raise CommandExecutionError(f"{type(err).__name__}: {err}") from err
@@ -494,7 +519,7 @@ def write_zeroaddr_roles(roles, mount="ssh"):
 
     .. code-block:: bash
 
-        salt '*' vault_ssh.write_roles_zeroaddr '[super, admin]'
+        salt '*' vault_ssh.write_zeroaddr_roles '[super, admin]'
 
     Required policy:
 
@@ -530,7 +555,7 @@ def delete_zeroaddr_roles(mount="ssh"):
 
     .. code-block:: bash
 
-        salt '*' vault_ssh.delete_roles_zeroaddr
+        salt '*' vault_ssh.delete_zeroaddr_roles
 
     Required policy:
 
@@ -626,12 +651,12 @@ def create_ca(
     public_key
         Public key part of the SSH CA key pair. Can be a file
         local to the minion or a PEM-encoded string.
-        If this or ``public_key`` is unspecified, generates a pair
+        If this or ``private_key`` is unspecified, generates a pair
         on the Vault server.
 
     key_type
         Desired key type for the generated SSH CA key when generating
-        on the Vault server. Valid: ``ssh-rsa`` (default), ``sha2-nistp256``,
+        on the Vault server. Valid: ``ssh-rsa`` (default), ``ecdsa-sha2-nistp256``,
         ``ecdsa-sha2-nistp384``, ``ecdsa-sha2-nistp521``, or ``ssh-ed25519``.
         Can also specify an algorithm: ``rsa``, ``ec``, or ``ed25519``.
 
@@ -736,9 +761,18 @@ def read_ca(mount="ssh"):
         raise CommandExecutionError(f"{type(err).__name__}: {err}") from err
     if res.status_code == 200:
         return res.text
-    res.raise_for_status()
+    if res.status_code in (400, 404):
+        try:
+            errors = ", ".join(res.json()["errors"])
+        except (KeyError, ValueError):
+            errors = ""
+        if not errors:
+            # This endpoint returns an empty error list when the
+            # keys have not been configured yet.
+            errors = "keys haven't been configured yet"
+        raise CommandExecutionError(f"VaultNotFoundError: {errors}")
     raise CommandExecutionError(
-        f"Internal error, this should not have been hit. Response ({res.status_code}): {res.text}"
+        f"Unexpected response status {res.status_code} to unauthenticated public_key query: {res.text}"
     )
 
 
@@ -860,7 +894,7 @@ def generate_key_cert(
 
     .. code-block:: vaultpolicy
 
-        path "<mount>/sign/<role_name>" {
+        path "<mount>/issue/<role_name>" {
             capabilities = ["create", "update"]
         }
 
@@ -868,13 +902,13 @@ def generate_key_cert(
         Name of the SSH role.
 
     key_type
-        Desired key type for the generated SSH CA key.
-        Valid: ``ssh-rsa`` (default), ``sha2-nistp256``,
+        Desired key type for the generated SSH key.
+        Valid: ``ssh-rsa`` (default), ``ecdsa-sha2-nistp256``,
         ``ecdsa-sha2-nistp384``, ``ecdsa-sha2-nistp521``, or ``ssh-ed25519``.
         Can also specify an algorithm: ``rsa``, ``ec``, or ``ed25519``.
 
     key_bits
-        Desired key bits for the generated SSH CA key.
+        Desired key bits for the generated SSH key.
         Only used for variable length keys (e.g. ``ssh-rsa``)
         or when ``ec`` was specified as ``key_type``, in which case this
         selects the NIST P-curve: ``256``, ``384``, ``521``.
@@ -944,8 +978,8 @@ def create_certificate(
     .. versionadded:: 1.6.0
 
     Create an OpenSSH certificate and return an encoded version of it.
-    This functions allows this module to be specified as the ``backend`` parameter to the
-    ``ssh_pki.certificate_managed`` state introduced in Salt 3008.
+    This function allows this module to be specified as the ``backend`` parameter to the
+    :py:func:`ssh_pki.certificate_managed <salt.states.ssh_pki.certificate_managed>` state introduced in Salt 3008.
 
     .. note::
         The following parameters from ``ssh_pki.create_certificate`` are ignored
@@ -1055,7 +1089,7 @@ def create_certificate(
         this parameter is specified. To unset a default extension, specify its value as ``false``.
 
         .. important::
-            Enabling ``default_extensions_template`` in a role can break the idempotency of the ``ssh_pki.certificate_managed``
+            Enabling ``default_extensions_template`` in a role can break the idempotency of the :py:func:`ssh_pki.certificate_managed <salt.states.ssh_pki.certificate_managed>`
             state, unless you allow access for a minion to read its entity as instructed above.
             Similarly, the merging of ``default_extensions`` with the passed ``extensions`` can break as well.
 
@@ -1068,17 +1102,22 @@ def create_certificate(
             It's impossible to unset all ``default_extensions`` without adding others because of Vault's behavior.
 
     valid_principals
-        List of valid principals.
+        List of valid principals. If specified, overrides ``all_principals``.
 
-        All specified principals must be in ``allowed_users``/``allowed_domains``.
-        For user certificates, defaults to a role's ``default_user``.
-        For host certificates, this is required.
+        All specified principals must be allowed by the role (``allowed_users``/``allowed_domains``).
+
+        If this is not specified and ``all_principals`` is not passed:
+
+        * For user certificates: Defaults to a role's ``default_user``, if set. Otherwise fails.
+        * For host certificates: Fails, this is required because there is no host equivalent to ``default_user``.
 
     all_principals
-        Allow any principals. Defaults to false.
+        Allow any principals, i.e. issue a certificate without any. Defaults to false.
 
-        To truly allow any principals, requires ``*`` in a role's ``valid_principals``.
-        Otherwise, defaults to all valid ones.
+        To truly allow any principals, requires an empty ``allowed_users``/``allowed_domains`` (or one containing ``*``)
+        and ``allow_empty_principals`` set in the role.
+
+        Otherwise, defaults to all valid ones, if they can be derived statically.
 
         .. note::
             If a role specifies ``allowed_users_template``/``allowed_domains_template``/``allowed_subdomains``,
@@ -1113,26 +1152,41 @@ def create_certificate(
         )
 
     ca_server = ca_server or "ssh"
+    role = read_role(signing_policy, mount=ca_server)
+    policy = _get_signing_policy(role)
 
-    # Auto-determine cert type, if necessary and possible
-    if not kwargs.get("cert_type"):
-        role = read_role(signing_policy, mount=ca_server)
-        if role["key_type"] != "ca":
-            raise SaltInvocationError("The specified Vault role is not a CA role")
-        user_type = host_type = False
-        host_type = bool(role.get("allow_host_certificates"))
-        user_type = bool(role.get("allow_user_certificates"))
-        if user_type is host_type:
-            raise SaltInvocationError(
-                "Could not determine missing `cert_type` parameter from role definition"
-            )
-        kwargs["cert_type"] = "user" if user_type else "host"
+    kwargs["cert_type"] = kwargs.get("cert_type") or policy.get("cert_type")
+    if not kwargs["cert_type"]:
+        raise SaltInvocationError(
+            "Could not determine missing `cert_type` parameter from role definition"
+        )
 
     if kwargs.get("valid_principals"):
         # The ssh_pki module enforces a list here, don't need to account for strings
         kwargs["valid_principals"] = ",".join(kwargs["valid_principals"])
     elif kwargs.get("all_principals"):
-        kwargs["valid_principals"] = "*"
+        if policy.get("allowed_valid_principals"):
+            kwargs["valid_principals"] = policy["allowed_valid_principals"]
+        else:
+            # A certificate truly valid for all principals carries none.
+            # This requires the role to set allow_empty_principals and, for user
+            # certificates, to leave default_user unset.
+            if not role.get("allow_empty_principals"):
+                raise SaltInvocationError(
+                    "Role does not allow empty valid principals. If you really intend to create "
+                    "a certificate valid for any principal, update the role by setting "
+                    "`allow_empty_principals` to true, otherwise specify valid_principals. "
+                    "If you expected this call to default to all valid principals and "
+                    "this role uses templating for allowed principals, ensure the minion "
+                    "can read its own entity/groups. If this is a host role and has "
+                    "allow_subdomains set, you need to request explicit principals."
+                )
+            kwargs["valid_principals"] = []
+    elif policy.get("default_valid_principals"):
+        kwargs["valid_principals"] = policy["default_valid_principals"]
+    else:  # pragma: no cover
+        # This should be ensured by the ssh_pki.certificate_managed state itself
+        raise SaltInvocationError("Need `valid_principals` or `all_principals` set to true")
     # Otherwise uses default principals if available, or fails
 
     if kwargs.get("private_key"):
@@ -1149,10 +1203,8 @@ def create_certificate(
     # Need to ensure default_critical_options/default_extensions are merged
     # with the overrides, which is expected by the state module, but not
     # the way Vault would work. Don't account for allowed options since Vault checks the policy.
-    role = None
     critical_options = extensions = None
     if kwargs.get("critical_options"):
-        role = read_role(signing_policy, mount=ca_server)
         final_opts = role.get("default_critical_options") or {}
         for opt, optval in kwargs["critical_options"].items():
             if optval:
@@ -1162,27 +1214,11 @@ def create_certificate(
         critical_options = final_opts
 
     if kwargs.get("extensions"):
-        role = role or read_role(signing_policy, mount=ca_server)
-        # Cannot render the templates currently, so disable merging
         if role.get("default_extensions_template"):
-            rends = {}
-            try:
-                for k, v in role.get("default_extensions", {}).items():
-                    rend = vault.render_identity_template(v, __opts__, __context__)
-                    # None means we failed to render, might be us or the template is invalid.
-                    # Missing values will throw an exception from Vault when generating a cert:
-                    # "no value could be found for one of the template directives"
-                    if rend is not None:
-                        rends[k] = rend
-            except VaultException as err:
-                final_exts = {}
-                log.error(
-                    "Failed rendering default extensions template: %s",
-                    err,
-                    exc_info_on_loglevel=logging.DEBUG,
-                )
-            else:
-                final_exts = rends
+            final_exts = {
+                ext: "" if val is True else val
+                for ext, val in (policy.get("default_extensions") or {}).items()
+            }
         else:
             final_exts = role.get("default_extensions") or {}
         for ext, extval in kwargs["extensions"].items():
@@ -1210,9 +1246,9 @@ def get_signing_policy(signing_policy, ca_server=None):
     Returns an SSH role formatted as a signing policy.
     Compatibility layer between ``ssh_pki`` and this module.
     This currently does not support all functionality Vault offers,
-    e.g. dynamic principals (templates/allow_subdomains),
-    so ``ssh_pki.certificate_managed`` might always
-    reissue a certificate in case these options are used.
+    specifically ``allow_subdomains`` for host certificates,
+    so :py:func:`ssh_pki.certificate_managed <salt.states.ssh_pki.certificate_managed>` might always
+    reissue a certificate in case this option is used.
 
     CLI Example:
 
@@ -1237,6 +1273,12 @@ def get_signing_policy(signing_policy, ca_server=None):
     """
     ca_server = ca_server or "ssh"
     role = read_role(signing_policy, mount=ca_server)
+    policy = _get_signing_policy(role)
+    policy["signing_public_key"] = read_ca(mount=ca_server)
+    return policy
+
+
+def _get_signing_policy(role):
     if role["key_type"] != "ca":
         raise SaltInvocationError("The specified Vault role is not a CA role")
     policy = {"allowed_valid_principals": []}
@@ -1244,28 +1286,54 @@ def get_signing_policy(signing_policy, ca_server=None):
     user_type = host_type = False
 
     if role.get("allow_host_certificates"):
-        if role.get("allowed_domains_template") or role.get("allow_subdomains"):
+        if role.get("allow_subdomains"):
             # Patterns are unsupported by the current ssh_pki modules.
             # Ensure the certificate is not always recreated.
             allowed_domains = ["*"]
-            # TODO: Render basic templates.
         else:
-            allowed_domains = role.get("allowed_domains", "").split(",")
+            allowed_domains_str = role.get("allowed_domains", "")
+            if role.get("allowed_domains_template"):
+                # Vault first renders templates and then splits the output
+                try:
+                    allowed_domains_rend = vault.render_identity_template(
+                        allowed_domains_str, __opts__, __context__
+                    )
+                    allowed_domains_str = (
+                        allowed_domains_rend if allowed_domains_rend is not None else "*"
+                    )
+                except VaultException as err:
+                    allowed_domains_str = "*"
+                    log.error(
+                        "Failed rendering allowed_domains template: %s",
+                        err,
+                        exc_info_on_loglevel=logging.DEBUG,
+                    )
+            # This actually requires ``allow_bare_domains``, but one of these must be set to use the role.
+            allowed_domains = deserialize_csl(allowed_domains_str)
         policy["allowed_valid_principals"].extend(allowed_domains)
         host_type = True
 
     if role.get("allow_user_certificates"):
+        allowed_users_str = role.get("allowed_users", "")
         if role.get("allowed_users_template"):
-            # Patterns are unsupported by the current ssh_pki modules.
-            # Ensure the certificate is not always recreated.
-            allowed_users = ["*"]
-            # TODO: Render basic templates via looking up metadata
-        else:
-            allowed_users = role.get("allowed_users", "").split(",")
+            # Vault first renders templates and then splits the output
+            try:
+                allowed_users_rend = vault.render_identity_template(
+                    allowed_users_str, __opts__, __context__
+                )
+                allowed_users_str = allowed_users_rend if allowed_users_rend is not None else "*"
+            except VaultException as err:
+                allowed_users_str = "*"
+                log.error(
+                    "Failed rendering allowed_users template: %s",
+                    err,
+                    exc_info_on_loglevel=logging.DEBUG,
+                )
+        allowed_users = deserialize_csl(allowed_users_str)
         policy["allowed_valid_principals"].extend(allowed_users)
         user_type = True
 
-    if "*" in policy["allowed_valid_principals"]:
+    if "*" in policy["allowed_valid_principals"] or role.get("allow_empty_principals"):
         policy.pop("allowed_valid_principals")
         policy["all_principals"] = True
 
@@ -1273,9 +1341,11 @@ def get_signing_policy(signing_policy, ca_server=None):
         policy["cert_type"] = "user" if user_type else "host"
 
     # allowed_critical_options defaults to allowing any
-    policy["allowed_critical_options"] = (role.get("allowed_critical_options") or "*").split(",")
+    policy["allowed_critical_options"] = deserialize_csl(
+        role.get("allowed_critical_options") or "*"
+    )
     # allowed_extensions_options defaults to denying all
-    policy["allowed_extensions"] = (role.get("allowed_extensions") or "").split(",")
+    policy["allowed_extensions"] = deserialize_csl(role.get("allowed_extensions") or "")
     policy["default_critical_options"] = {
         k: v or True for k, v in role.get("default_critical_options", {}).items()
     }
@@ -1302,9 +1372,25 @@ def get_signing_policy(signing_policy, ca_server=None):
         policy["default_extensions"] = {
             k: v or True for k, v in role.get("default_extensions", {}).items()
         }
-    policy["default_valid_principals"] = (
-        [role["default_user"]] if user_type and role.get("default_user") else []
-    )
+
+    if user_type and role.get("default_user"):
+        default_user_str = role["default_user"]
+        if role.get("default_user_template"):
+            try:
+                default_user_str = vault.render_identity_template(
+                    default_user_str, __opts__, __context__
+                )
+            except VaultException as err:
+                default_user_str = ""
+                log.error(
+                    "Failed rendering default_user template: %s",
+                    err,
+                    exc_info_on_loglevel=logging.DEBUG,
+                )
+        # In spite of its name, multiple default principals are allowed
+        default_users = deserialize_csl(default_user_str)
+        if default_users:
+            policy["default_valid_principals"] = default_users
 
     if role.get("ttl"):
         policy["ttl"] = role["ttl"]
@@ -1314,7 +1400,6 @@ def get_signing_policy(signing_policy, ca_server=None):
     if not role.get("allow_user_key_ids"):
         policy["key_id"] = None
 
-    policy["signing_public_key"] = read_ca(mount=ca_server)
     return policy
 
 

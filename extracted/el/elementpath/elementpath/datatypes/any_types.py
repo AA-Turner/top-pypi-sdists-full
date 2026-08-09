@@ -92,8 +92,8 @@ class AnyType(metaclass=ABCMeta):
         """
         Versioned factory method to create XSD type instances.
 
-        :param value: the value to be converted to the XSD type.
-        :param kwargs: additional keyword arguments to be passed to factory.
+        :param value: The value to be converted to the XSD type.
+        :param kwargs: Additional keyword arguments to be passed to the factory.
         """
         return cls(value)
 

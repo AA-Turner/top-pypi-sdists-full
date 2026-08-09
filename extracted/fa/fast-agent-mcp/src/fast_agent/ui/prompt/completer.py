@@ -6,6 +6,7 @@ import asyncio
 import os
 import re
 import time
+from collections import Counter
 from collections.abc import Mapping
 from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures import TimeoutError as FuturesTimeoutError
@@ -118,6 +119,7 @@ class _ManagedCompletionEntry:
     is_managed: bool
     local_meta: str
     managed_meta: str
+    aliases: tuple[str, ...] = ()
 
     @property
     def display_meta(self) -> str:
@@ -303,7 +305,8 @@ class AgentCompleter(Completer):
                 "(or /history show|detail|save|load|clear|rewind|fix)"
             ),
             "compact": "Compact history into a checkpoint summary (/compact preview|prompt)",
-            "tools": "List tools or show a tool's JSON schema",
+            "tool": "Show one tool's input and structured output JSON schemas",
+            "tools": "List tools or show one tool's JSON schemas",
             "model": _catalog_command_description("model"),
             "check": _catalog_command_description("check"),
             "commands": "Show command map and detailed command help",
@@ -329,6 +332,7 @@ class AgentCompleter(Completer):
         }
         if is_human_input:
             self.commands.pop("prompt", None)  # Remove prompt command in human input mode
+            self.commands.pop("tool", None)  # Remove tool command in human input mode
             self.commands.pop("tools", None)  # Remove tools command in human input mode
             self.commands.pop("usage", None)  # Remove usage command in human input mode
         self._add_plugin_commands()
@@ -829,13 +833,25 @@ class AgentCompleter(Completer):
         *,
         managed_only: bool = False,
         include_indices: bool = True,
+        unambiguous_names_only: bool = False,
     ) -> Iterator[Completion]:
+        entries = list(entries)
+        name_counts: Counter[str] = Counter()
+        for entry in entries:
+            name_counts.update({strip_casefold(name) for name in (entry.name, *entry.aliases)})
         include_numbers = include_indices and (not partial or partial.isdigit())
         for entry in entries:
             if managed_only and not entry.is_managed:
                 continue
 
-            if entry.name and (not partial or starts_with_casefold(entry.name, partial)):
+            name_is_selectable = (
+                not unambiguous_names_only or name_counts[strip_casefold(entry.name)] == 1
+            )
+            if (
+                entry.name
+                and name_is_selectable
+                and (not partial or starts_with_casefold(entry.name, partial))
+            ):
                 yield Completion(
                     entry.name,
                     start_position=-len(partial),
@@ -1048,31 +1064,48 @@ class AgentCompleter(Completer):
         *,
         managed_only: bool = False,
         include_indices: bool = True,
+        all_scopes: bool = False,
+        unambiguous_names_only: bool = False,
+        scope: Literal["global", "project"] | None = None,
     ):
         """Generate completions for installed plugins."""
         from fast_agent.paths import resolve_home_paths
+        from fast_agent.plugins.configuration import installed_plugin_roots
         from fast_agent.plugins.operations import list_local_plugins
 
-        home_paths = resolve_home_paths(get_settings())
-        plugins = list_local_plugins(destination_root=home_paths.plugins)
-        if not plugins:
+        settings = get_settings()
+        home_paths = resolve_home_paths(settings)
+        roots = (
+            installed_plugin_roots(settings, project_plugins=home_paths.plugins)
+            if all_scopes or scope is not None
+            else [("project", home_paths.plugins)]
+        )
+        scoped_plugins = [
+            (root_scope, plugin)
+            for root_scope, root in roots
+            for plugin in list_local_plugins(destination_root=root)
+        ]
+        if not scoped_plugins:
             return
 
         entries = (
             _ManagedCompletionEntry(
-                index=entry.index,
+                index=index,
                 name=entry.name,
                 is_managed=entry.source is not None,
                 local_meta="local plugin",
                 managed_meta="managed plugin",
+                aliases=(entry.plugin_dir.name,),
             )
-            for entry in plugins
+            for index, (entry_scope, entry) in enumerate(scoped_plugins, 1)
+            if scope is None or entry_scope == scope
         )
         yield from self._managed_item_completions(
             entries,
             partial,
             managed_only=managed_only,
             include_indices=include_indices,
+            unambiguous_names_only=unambiguous_names_only,
         )
 
     def _complete_plugin_registries(self, partial: str):

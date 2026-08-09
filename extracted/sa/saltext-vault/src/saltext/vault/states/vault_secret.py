@@ -9,12 +9,28 @@ Manage Vault (or OpenBao) KV v1/v2 secrets statefully.
 
 import copy
 import logging
+from typing import TYPE_CHECKING
 
 from salt.exceptions import CommandExecutionError
 from salt.exceptions import SaltException
 from salt.exceptions import SaltInvocationError
 
-log = logging.getLogger(__name__)
+from saltext.vault.utils.vault import kv
+
+if TYPE_CHECKING:
+
+    from saltext.vault.utils._types import SaltContext
+    from saltext.vault.utils._types import SaltFunctions
+    from saltext.vault.utils._types import SaltLogger
+    from saltext.vault.utils._types import SaltOpts
+    from saltext.vault.utils._types import SaltStates
+
+    __opts__: SaltOpts
+    __context__: SaltContext
+    __salt__: SaltFunctions
+    __states__: SaltStates
+
+log: "SaltLogger" = logging.getLogger(__name__)  # type: ignore
 
 
 def present(name, values, sync=False):
@@ -57,22 +73,7 @@ def present(name, values, sync=False):
                     return ret
             else:
 
-                def apply_json_merge_patch(data, patch):
-                    if not patch:
-                        return data
-                    if not isinstance(data, dict) or not isinstance(patch, dict):
-                        raise ValueError("Data and patch must be dictionaries.")
-
-                    for key, value in patch.items():
-                        if value is None:
-                            data.pop(key, None)
-                        elif isinstance(value, dict):
-                            data[key] = apply_json_merge_patch(data.get(key, {}), value)
-                        else:
-                            data[key] = value
-                    return data
-
-                new = apply_json_merge_patch(copy.deepcopy(current), values)
+                new = kv.apply_json_merge_patch(copy.deepcopy(current), values)
                 if new == current:
                     return ret
         verb = "patch" if current is not None and not sync else "write"
@@ -82,7 +83,7 @@ def present(name, values, sync=False):
             ret["result"] = None
             ret["comment"] = f"Would have {pp} the secret"
             return ret
-        if not __salt__[f"vault.{verb}_secret"](name, **values):
+        if not __salt__[f"vault.{verb}_raw"](name, values):
             # Only read_secret raises exceptions sadly FIXME?
             raise CommandExecutionError(f"Failed to {verb} secret, see logs for details")
         ret["comment"] = f"The secret was {pp}"

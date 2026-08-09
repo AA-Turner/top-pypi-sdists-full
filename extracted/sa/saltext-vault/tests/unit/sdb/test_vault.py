@@ -1,7 +1,3 @@
-"""
-Test case for the vault SDB module
-"""
-
 from unittest.mock import ANY
 from unittest.mock import patch
 
@@ -99,11 +95,20 @@ def test_set_patch(read_kv, patch_kv):
     "exception", (vaultutil.VaultPermissionDeniedError, vaultutil.VaultNotFoundError)
 )
 def test_set_patch_exception_fallback(patch_kv, write_kv, read_kv, exception):
-    read_kv.return_value = {"bar": "baz"}
     patch_kv.side_effect = exception("missing authorization or secret for patch")
+    if exception is vaultutil.VaultNotFoundError:
+        read_kv.side_effect = exception
+    else:
+        read_kv.return_value = {"bar": "baz"}
     vault.set_("path/to/foo", "bar", {"patch": True})
     patch_kv.assert_called_once_with("path/to", {"foo": "bar"}, opts=ANY, context=ANY)
-    write_kv.assert_called_once_with("path/to", {"foo": "bar", "bar": "baz"}, opts=ANY, context=ANY)
+    if exception is vaultutil.VaultNotFoundError:
+        # If patch fails with not found, the secret does not exist
+        write_kv.assert_called_once_with("path/to", {"foo": "bar"}, opts=ANY, context=ANY)
+    else:
+        write_kv.assert_called_once_with(
+            "path/to", {"foo": "bar", "bar": "baz"}, opts=ANY, context=ANY
+        )
 
 
 @pytest.mark.parametrize(
@@ -151,6 +156,24 @@ def test_get_whole_dataset(read_kv_not_found_once, data):
     assert res == data
     read_kv_not_found_once.assert_called_with("path/to/foo", opts=ANY, context=ANY)
     assert read_kv_not_found_once.call_count == 2
+
+
+def test_get_invalid_key_without_separator():
+    """
+    A key without a path/key separator cannot be mapped to a secret.
+    This should be reported as a usage error, not an unhandled ValueError.
+    """
+    with pytest.raises(salt.exceptions.SaltInvocationError):
+        vault.get("no-separator")
+
+
+def test_set_invalid_key_without_separator():
+    """
+    A key without a path/key separator cannot be mapped to a secret.
+    This should be reported as a usage error, not an unhandled ValueError.
+    """
+    with pytest.raises(salt.exceptions.SaltInvocationError):
+        vault.set_("no-separator", "value")
 
 
 @pytest.mark.usefixtures("read_kv_err")

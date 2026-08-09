@@ -9,15 +9,52 @@ from pymobiledevice3.services.web_protocol.session_protocol import SessionProtoc
 
 logger = logging.getLogger(__name__)
 console_logger = logging.getLogger("webinspector.console")
+# console history replayed by the page on attach, distinguishable (and silenceable) by logger name
+console_replay_logger = logging.getLogger("webinspector.console.replay")
 heap_logger = logging.getLogger("webinspector.heap")
 
-webinspector_logger_handlers = {
-    "log": console_logger.info,
-    "info": console_logger.info,
-    "error": console_logger.error,
-    "debug": console_logger.debug,
-    "warning": console_logger.warning,
-}
+
+def _console_logger_handlers(console: logging.Logger) -> "dict[str, Callable[[str], None]]":
+    return {
+        "log": console.info,
+        "info": console.info,
+        "error": console.error,
+        "debug": console.debug,
+        "warning": console.warning,
+    }
+
+
+webinspector_logger_handlers = _console_logger_handlers(console_logger)
+webinspector_replay_logger_handlers = _console_logger_handlers(console_replay_logger)
+
+
+_MAX_PROPERTY_VALUE_LENGTH = 80
+
+
+def _shorten(text: str) -> str:
+    first_line, *rest = text.split("\n", 1)
+    shortened = first_line[:_MAX_PROPERTY_VALUE_LENGTH]
+    if rest or len(first_line) > _MAX_PROPERTY_VALUE_LENGTH:
+        shortened += "…"
+    return shortened
+
+
+def _shorten_remote_object(remote_object: dict[str, Any]) -> str:
+    """One-line, JS-style rendering of a RemoteObject property value."""
+    if remote_object.get("type") == "string":
+        return _shorten(json.dumps(remote_object["value"]))
+    if remote_object.get("type") == "function":
+        return "ƒ"
+    if remote_object.get("subtype") == "null":
+        return "null"
+    if remote_object.get("type") == "object":
+        return remote_object.get("className") or remote_object.get("description") or "Object"
+    if "description" in remote_object:
+        return _shorten(remote_object["description"])
+    if "value" in remote_object:
+        # json.dumps renders JS-style primitives (true/false) rather than Python's
+        return json.dumps(remote_object["value"])
+    return remote_object.get("type", "")
 
 
 class JSObjectPreview(UserDict[str, Any]):
@@ -61,6 +98,9 @@ class InspectorSession:
         self.message_id = 1
         self._last_console_message: dict[str, Any] = {}
         self._dispatch_message_responses: dict[int, dict[str, Any]] = {}
+        # WebKit replays the page's buffered console history to a newly attached frontend
+        # while Console.enable is being processed; mark those messages as replayed
+        self._console_replay = True
 
         self.response_methods: dict[str, Callable[[dict[str, Any]], Any]] = {
             "Target.targetCreated": self._target_created,
@@ -71,6 +111,7 @@ class InspectorSession:
             "Console.messagesCleared": lambda _: _,
             "Console.messageRepeatCountUpdated": self._console_message_repeated_count_updated,
             "Heap.garbageCollected": self._heap_garbage_collected,
+            "Runtime.executionContextCreated": self._runtime_execution_context_created,
         }
 
         self._receive_task = asyncio.create_task(self._receive_loop())
@@ -113,7 +154,9 @@ class InspectorSession:
         return await self.send_command("Heap.enable")
 
     async def console_enable(self):
-        return await self.send_command("Console.enable")
+        result = await self.send_command("Console.enable")
+        self._console_replay = False
+        return result
 
     async def runtime_enable(self):
         return await self.send_command("Runtime.enable")
@@ -187,16 +230,28 @@ class InspectorSession:
                 return self._dispatch_message_responses.pop(message_id)
             await asyncio.sleep(0)
 
-    async def get_properties(self, object_id: str) -> JSObjectProperties:
-        message = cast(
-            dict[str, Any],
-            await self.send_command(
-                "Runtime.getProperties", objectId=object_id, ownProperties=True, generatePreview=True
-            ),
+    async def get_properties_raw(self, object_id: str) -> list[dict[str, Any]]:
+        """Raw ``Runtime.getProperties`` descriptors, preserving RemoteObject dicts (objectIds)."""
+        return await self._fetch_properties(
+            "Runtime.getProperties", objectId=object_id, ownProperties=True, generatePreview=True
         )
+
+    async def get_displayable_properties_raw(self, object_id: str) -> list[dict[str, Any]]:
+        """Raw ``Runtime.getDisplayableProperties`` descriptors - the property set Safari's Web
+        Inspector shows for an object: own properties plus the displayable native accessors
+        (which is where most DOM element attributes live)."""
+        return await self._fetch_properties(
+            "Runtime.getDisplayableProperties", objectId=object_id, generatePreview=True
+        )
+
+    async def _fetch_properties(self, method: str, **kwargs: Any) -> list[dict[str, Any]]:
+        message = cast(dict[str, Any], await self.send_command(method, **kwargs))
         if self.target_id is not None:
             message = json.loads(message["params"]["message"])["result"]
-        return JSObjectProperties(message["properties"])
+        return message["properties"]
+
+    async def get_properties(self, object_id: str) -> JSObjectProperties:
+        return JSObjectProperties(await self.get_properties_raw(object_id))
 
     async def _parse_runtime_evaluate(self, response: dict[str, Any]):
         message = response if self.target_id is None else json.loads(response["params"]["message"])
@@ -218,21 +273,48 @@ class InspectorSession:
             value = result.get("value")
             if value is not None:
                 return value
-
-            # TODO: JSObjectProperties()
-            preview = result["preview"]
-            preview_buf = "{\n"
-            for p in result["preview"]["properties"]:
-                value = p.get("value", "NOT_SUPPORTED_FOR_PREVIEW")
-                preview_buf += f"\t{p['name']}: {value}, // {p['type']}\n"
-            if preview.get("overflow"):
-                preview_buf += "\t// ...\n"
-            preview_buf += "}"
-            return f"[object {result['className']}]\n{preview_buf}"
+            return await self._describe_object(result)
         elif result["type"] == "function":
             return result["description"]
         else:
             return result["value"]
+
+    async def _describe_object(self, result: dict[str, Any]) -> str:
+        """Render an object result with all its top-level properties, one shortened line each,
+        the way a browser console prints an evaluated object:
+
+            Window {
+              window: Window
+              document: Document
+              ...
+            }
+
+        Falls back to the bare class name when the object is not addressable or its
+        properties cannot be fetched (released object, navigated page).
+        """
+        class_name = result.get("className") or result.get("description") or "Object"
+        object_id = result.get("objectId")
+        if object_id is None:
+            return class_name
+        try:
+            # what Safari's Web Inspector shows: own properties + displayable native accessors
+            descriptors = await self.get_displayable_properties_raw(object_id)
+        except Exception:
+            try:
+                descriptors = await self.get_properties_raw(object_id)
+            except Exception:
+                return class_name
+        lines: list[str] = []
+        for descriptor in descriptors:
+            if descriptor["name"] == "__proto__":
+                continue
+            remote_object = descriptor.get("value", descriptor.get("get", descriptor.get("set")))
+            if remote_object is None:
+                continue
+            lines.append(f"  {descriptor['name']}: {_shorten_remote_object(remote_object)}")
+        if not lines:
+            return f"{class_name} {{}}"
+        return "\n".join([f"{class_name} {{", *lines, "}"])
 
     # response methods
     def _target_dispatch_message_from_target(self, response: dict[str, Any]):
@@ -251,16 +333,40 @@ class InspectorSession:
             logger.critical(f"unhandled message: {message}")
 
     def _console_message_added(self, message: dict[str, Any]):
-        log_level = message["params"]["message"]["level"]
-        text = message["params"]["message"]["text"]
+        message_body = message["params"]["message"]
+        log_level = message_body["level"]
+        # console-api messages carry only the first argument in 'text'; all arguments arrive
+        # as RemoteObjects in 'parameters' (e.g. console.log(4,4) -> text '4', parameters [4, 4])
+        parameters = message_body.get("parameters")
+        if parameters:
+            text = " ".join(self._stringify_console_parameter(parameter) for parameter in parameters)
+        else:
+            text = message_body["text"]
         self._last_console_message = message
-        webinspector_logger_handlers[log_level](text)
+        handlers = webinspector_replay_logger_handlers if self._console_replay else webinspector_logger_handlers
+        handlers[log_level](text)
+
+    @staticmethod
+    def _stringify_console_parameter(parameter: dict[str, Any]) -> str:
+        if parameter.get("type") == "string":
+            return cast(str, parameter["value"])
+        if "description" in parameter:
+            return cast(str, parameter["description"])
+        if "value" in parameter:
+            # json.dumps renders JS-style primitives (true/false/null) rather than Python's
+            return json.dumps(parameter["value"])
+        return cast(str, parameter.get("type", ""))
 
     def _console_message_repeated_count_updated(self, message: dict[str, Any]):
         self._console_message_added(self._last_console_message)
 
     def _heap_garbage_collected(self, message: dict[str, Any]):
         heap_logger.debug(message["params"])
+
+    def _runtime_execution_context_created(self, message: dict[str, Any]):
+        # pushed by the page after Runtime.enable for every JS execution context; evaluation
+        # pins uniqueContextId '0.1' (see runtime_evaluate), so the event is informational only
+        logger.debug(f"executionContextCreated: {message['params']['context']}")
 
     def _target_created(self, response: dict[str, Any]):
         pass

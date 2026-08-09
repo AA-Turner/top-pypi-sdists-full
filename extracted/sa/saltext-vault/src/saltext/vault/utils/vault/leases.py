@@ -6,6 +6,7 @@ import copy
 import fnmatch
 import logging
 import time
+import typing
 
 from saltext.vault.utils.vault.exceptions import VaultException
 from saltext.vault.utils.vault.exceptions import VaultInvocationError
@@ -14,7 +15,15 @@ from saltext.vault.utils.vault.exceptions import VaultPermissionDeniedError
 from saltext.vault.utils.vault.helpers import iso_to_timestamp
 from saltext.vault.utils.vault.helpers import timestring_map
 
-log = logging.getLogger(__name__)
+if typing.TYPE_CHECKING:
+    from typing_extensions import Self
+
+    from saltext.vault.utils._types import SaltLogger
+    from saltext.vault.utils.vault import cache as vcache
+    from saltext.vault.utils.vault import client as vclient
+
+
+log: "SaltLogger" = logging.getLogger(__name__)  # type: ignore
 
 
 class DurationMixin:
@@ -22,12 +31,17 @@ class DurationMixin:
     Mixin that handles expiration with time.
     """
 
+    renewable: bool
+    duration: int
+    creation_time: int
+    expire_time: int
+
     def __init__(
         self,
-        renewable=False,
-        duration=0,
-        creation_time=None,
-        expire_time=None,
+        renewable: bool = False,
+        duration: int = 0,
+        creation_time: int | str | None = None,
+        expire_time: int | str | None = None,
         **kwargs,
     ):
         if "lease_duration" in kwargs:
@@ -38,6 +52,7 @@ class DurationMixin:
         try:
             creation_time = int(creation_time)
         except ValueError:
+            creation_time = typing.cast(str, creation_time)
             creation_time = iso_to_timestamp(creation_time)
         self.creation_time = creation_time
 
@@ -45,17 +60,18 @@ class DurationMixin:
         try:
             expire_time = int(expire_time)
         except ValueError:
+            expire_time = typing.cast(str, expire_time)
             expire_time = iso_to_timestamp(expire_time)
         self.expire_time = expire_time
         super().__init__(**kwargs)
 
-    def is_renewable(self):
+    def is_renewable(self) -> bool:
         """
         Checks whether the lease is renewable
         """
         return self.renewable
 
-    def is_valid_for(self, valid_for=0, blur=0):
+    def is_valid_for(self, valid_for: int | str = 0, blur: int = 0) -> bool:
         """
         Checks whether the entity is valid
 
@@ -78,7 +94,7 @@ class DurationMixin:
         return abs(delta) <= blur
 
     @property
-    def ttl_left(self):
+    def ttl_left(self) -> int:
         """
         .. versionadded:: 1.1.0
 
@@ -92,7 +108,10 @@ class UseCountMixin:
     Mixin that handles expiration with number of uses.
     """
 
-    def __init__(self, num_uses=0, use_count=0, **kwargs):
+    num_uses: int
+    use_count: int
+
+    def __init__(self, num_uses: int = 0, use_count: int = 0, **kwargs):
         self.num_uses = num_uses
         self.use_count = use_count
         super().__init__(**kwargs)
@@ -103,7 +122,7 @@ class UseCountMixin:
         """
         self.use_count += 1
 
-    def has_uses_left(self, uses=1):
+    def has_uses_left(self, uses: int = 1) -> bool:
         """
         Check whether this entity has uses left.
         """
@@ -124,19 +143,31 @@ class AccessorMixin:
     Mixin that manages accessor information relevant for tokens/SecretIDs.
     """
 
-    def __init__(self, accessor=None, wrapping_accessor=None, **kwargs):
+    _accessor: str | None
+    wrapping_accessor: str | None
+
+    def __init__(self, accessor: str | None = None, wrapping_accessor: str | None = None, **kwargs):
         # ensure the accessor always points to the actual entity
         if "wrapped_accessor" in kwargs:
             wrapping_accessor = accessor
             accessor = kwargs.pop("wrapped_accessor")
-        self.accessor = accessor
+        self._accessor = accessor
         self.wrapping_accessor = wrapping_accessor
         super().__init__(**kwargs)
 
-    def accessor_payload(self):
-        if self.accessor is not None:
-            return {"accessor": self.accessor}
-        raise VaultInvocationError("No accessor information available")
+    @property
+    def accessor(self) -> str:
+        if self._accessor is None:
+            raise VaultInvocationError("No accessor information available")
+        return self._accessor
+
+    def accessor_payload(self) -> dict[str, str]:
+        return {"accessor": self.accessor}
+
+    def to_dict(self) -> dict[str, typing.Any]:
+        ret = copy.deepcopy(self.__dict__)
+        ret["accessor"] = ret.pop("_accessor")
+        return ret
 
 
 class BaseLease(DurationMixin, DropInitKwargsMixin):
@@ -144,34 +175,48 @@ class BaseLease(DurationMixin, DropInitKwargsMixin):
     Base class for leases that expire with time.
     """
 
-    def __init__(self, lease_id, **kwargs):
+    id: str
+    lease_id: str
+
+    def __init__(self, lease_id: str, **kwargs):
         self.id = self.lease_id = lease_id
         super().__init__(**kwargs)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.id
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return repr(self.to_dict())
 
-    def __eq__(self, other):
+    def __eq__(self, other: typing.Any) -> bool:
+        if not isinstance(other, (BaseLease, dict)):
+            return False
         try:
             data = other.__dict__
         except AttributeError:
             data = other
         return data == self.__dict__
 
-    def with_renewed(self, **kwargs):
+    def with_renewed(self, **kwargs) -> "Self":
         """
         Partially update the contained data after lease renewal.
+        Recalculates expire_time based on the current time and the lease duration.
         """
-        attrs = copy.copy(self.__dict__)
+        attrs = self.to_dict()
         # ensure expire_time is reset properly
         attrs.pop("expire_time")
         attrs.update(kwargs)
         return type(self)(**attrs)
 
-    def to_dict(self):
+    def with_info(self, **kwargs) -> "Self":
+        """
+        Partially update the contained data without resetting anything.
+        """
+        attrs = self.to_dict()
+        attrs.update(kwargs)
+        return type(self)(**attrs)
+
+    def to_dict(self) -> dict[str, typing.Any]:
         """
         Return a dict of all contained attributes.
         """
@@ -211,14 +256,21 @@ class VaultLease(BaseLease):
         .. versionadded:: 1.1.0
     """
 
+    data: dict[str, typing.Any]
+    min_ttl: int | str | None
+    renew_increment: int | str | None
+    revoke_delay: int | str | None
+    meta: typing.Any
+    _cache_key: str | None = None
+
     def __init__(
         self,
-        lease_id,
-        data,
-        min_ttl=None,
-        renew_increment=None,
-        revoke_delay=None,
-        meta=None,
+        lease_id: str,
+        data: dict[str, typing.Any],
+        min_ttl: int | str | None = None,
+        renew_increment: int | str | None = None,
+        revoke_delay: int | str | None = None,
+        meta: typing.Any = None,
         **kwargs,
     ):
         # save lease-associated data
@@ -229,9 +281,10 @@ class VaultLease(BaseLease):
         self.revoke_delay = revoke_delay
         # metadata that is included in expiry events
         self.meta = meta
+        self._cache_key: str | None = None  # A lease must be stored for this to be set
         super().__init__(lease_id, **kwargs)
 
-    def is_valid_for(self, valid_for=None, blur=0):
+    def is_valid_for(self, valid_for: int | str | None = None, blur: int = 0) -> bool:
         """
         Checks whether the lease is valid.
 
@@ -252,20 +305,39 @@ class VaultLease(BaseLease):
             blur=blur,
         )
 
+    def __eq__(self, other: typing.Any) -> bool:
+        if super().__eq__(other):
+            return True
+        try:
+            data = other.to_dict()
+        except AttributeError:
+            try:
+                data = other.__dict__
+            except AttributeError:
+                data = other
+        return data == self.to_dict()
+
+    def to_dict(self) -> dict[str, typing.Any]:
+        ret = super().to_dict()
+        ret.pop("_cache_key", None)
+        return ret
+
 
 class VaultToken(UseCountMixin, AccessorMixin, BaseLease):
     """
     Data object representing an authentication token
     """
 
-    def __init__(self, *, entity_id=None, **kwargs):
+    entity_id: str | typing.Literal[False] | None
+
+    def __init__(self, *, entity_id: str | typing.Literal[False] | None = None, **kwargs):
         if "client_token" in kwargs:
             # Ensure response data from Vault is accepted as well
             kwargs["lease_id"] = kwargs.pop("client_token")
         self.entity_id = entity_id
         super().__init__(**kwargs)
 
-    def is_valid(self, valid_for=0, uses=1):
+    def is_valid(self, valid_for: int | str = 0, uses: int = 1) -> bool:
         """
         Checks whether the token is valid for an amount of time and number of uses.
 
@@ -281,7 +353,7 @@ class VaultToken(UseCountMixin, AccessorMixin, BaseLease):
         """
         return self.is_valid_for(valid_for) and self.has_uses_left(uses)
 
-    def is_renewable(self):
+    def is_renewable(self) -> bool:
         """
         Check whether the token is renewable, which requires it
         to be currently valid for at least two uses and renewable.
@@ -290,13 +362,13 @@ class VaultToken(UseCountMixin, AccessorMixin, BaseLease):
         # renew a token on the last use
         return self.renewable and self.is_valid(uses=2)
 
-    def payload(self):
+    def payload(self) -> dict[str, typing.Any]:
         """
         Return the payload to use for POST requests using this token.
         """
         return {"token": str(self)}
 
-    def serialize_for_minion(self):
+    def serialize_for_minion(self) -> dict[str, typing.Any]:
         """
         Serialize all necessary data to recreate this object
         into a dict that can be sent to a minion.
@@ -327,7 +399,35 @@ class VaultSecretId(UseCountMixin, AccessorMixin, BaseLease):
             kwargs["expire_time"] = kwargs.pop("expiration_time")
         super().__init__(**kwargs)
 
-    def is_valid(self, valid_for=0, uses=1):
+    def with_renewed(self, **kwargs) -> "Self":
+        """
+        Partially update the contained data after renewal.
+        Recalculates expire_time based on the current time and the lease duration.
+        """
+        return super().with_renewed(**self._remap_meta(kwargs))
+
+    def with_info(self, **kwargs) -> "Self":
+        """
+        Partially update the contained data without resetting anything.
+        """
+        return super().with_info(**self._remap_meta(kwargs))
+
+    @staticmethod
+    def _remap_meta(kwargs: dict[str, typing.Any]) -> dict[str, typing.Any]:
+        """
+        Remap SecretID API (lookup) response fields to the generic lease data model.
+        """
+        remapped = dict(kwargs)
+        for src, tgt in (
+            ("secret_id_ttl", "duration"),
+            ("secret_id_num_uses", "num_uses"),
+            ("secret_id_accessor", "accessor"),
+        ):
+            if src in remapped:
+                remapped[tgt] = remapped.pop(src)
+        return remapped
+
+    def is_valid(self, valid_for: int | str = 0, uses: int = 1) -> bool:
         """
         Checks whether the SecretID is valid for an amount of time and number of uses
 
@@ -344,13 +444,13 @@ class VaultSecretId(UseCountMixin, AccessorMixin, BaseLease):
         """
         return self.is_valid_for(valid_for) and self.has_uses_left(uses)
 
-    def payload(self):
+    def payload(self) -> dict[str, typing.Any]:
         """
         Return the payload to use for POST requests using this SecretID.
         """
         return {"secret_id": str(self)}
 
-    def serialize_for_minion(self):
+    def serialize_for_minion(self) -> dict[str, typing.Any]:
         """
         Serialize all necessary data to recreate this object
         into a dict that can be sent to a minion.
@@ -369,9 +469,11 @@ class VaultWrappedResponse(AccessorMixin, BaseLease):
     Data object representing a wrapped response.
     """
 
+    creation_path: str
+
     def __init__(
         self,
-        creation_path,
+        creation_path: str,
         **kwargs,
     ):
         if "token" in kwargs:
@@ -385,7 +487,7 @@ class VaultWrappedResponse(AccessorMixin, BaseLease):
         super().__init__(**kwargs)
         self.creation_path = creation_path
 
-    def serialize_for_minion(self):
+    def serialize_for_minion(self) -> dict[str, typing.Any]:
         """
         Serialize all necessary data to recreate this object
         into a dict that can be sent to a minion.
@@ -400,28 +502,36 @@ class VaultWrappedResponse(AccessorMixin, BaseLease):
         }
 
 
-class LeaseStore:
+LeaseType = typing.TypeVar("LeaseType", bound=VaultLease)  # pylint: disable=invalid-name
+
+
+class LeaseStore(typing.Generic[LeaseType]):
     """
     Caches leases and handles lease operations
     """
 
-    def __init__(self, client, cache, expire_events=None):
+    def __init__(
+        self,
+        client: "vclient.AuthenticatedVaultClient",
+        cache: "vcache.VaultLeaseCache[LeaseType]",
+        expire_events: typing.Callable[..., bool] | None = None,
+    ):
         self.client = client
         self.cache = cache
         self.expire_events = expire_events
         # to update cached leases after renewal/revocation, we need a mapping id => ckey
-        self.lease_id_ckey_cache = {}
+        self.lease_id_ckey_cache: dict[str, str] = {}
 
     def get(
         self,
-        ckey,
-        valid_for=None,
-        renew=True,
-        renew_increment=None,
-        renew_blur=2,
-        revoke=None,
-        check_server=False,
-    ):
+        ckey: str,
+        valid_for: int | str | None = None,
+        renew: bool = True,
+        renew_increment: int | str | None = None,
+        renew_blur: int = 2,
+        revoke: int | str | None = None,
+        check_server: bool = False,
+    ) -> LeaseType | None:
         """
         Return cached lease or None.
 
@@ -467,6 +577,9 @@ class LeaseStore:
             Check on the Vault server whether the lease is still active and was not
             revoked early. Defaults to false.
 
+            .. note::
+                Ignored for "leases" without an ID, such as static database credentials.
+
             .. versionadded:: 1.1.0
         """
         if (
@@ -478,7 +591,7 @@ class LeaseStore:
                 "When renew_increment is set, it must be at least valid_for to make sense"
             )
 
-        def check_revoke(lease, min_valid, validity_override=None):
+        def check_revoke(lease: LeaseType, min_valid: int, validity_override: int | None = None):
             if self.expire_events is not None:
                 event_data = {
                     "valid_for_less": round(min_valid),
@@ -486,19 +599,28 @@ class LeaseStore:
                     "meta": lease.meta,
                 }
                 self.expire_events(tag=f"vault/lease/{ckey}/expire", data=event_data)
-            if revoke is None or revoke:
+            if (revoke is None or revoke) and lease.lease_id and lease.renewable:
                 self.revoke(lease, delta=revoke)
 
-        # Since we can renew leases, do not check for future validity in cache
-        lease = self.cache.get(ckey, flush=bool(revoke))
+        # Since we can renew leases, do not check for future validity in cache.
+        # Flush expired leases from cache. Underlying assumption: Our cache has no
+        # explicit TTL, it just follows lease validity. If it flushes leases
+        # that are still valid, we miss revocations.
+        # For monitoring expected leases being present, use the beacon.
+        lease = self.cache.get(ckey)
         if lease is None:
             return lease
-        self.lease_id_ckey_cache[str(lease)] = ckey
+        lease._cache_key = ckey
+
+        # Some leases don't have an ID (e.g. static database credentials)
+        if str(lease):
+            self.lease_id_ckey_cache[str(lease)] = ckey
+
         # Leases can have an associated min_ttl, which should be taken into
         # account here. It is not done on the lease class to not break internal
         # expectations.
         effective_min_validity = max(
-            timestring_map(valid_for) or 0, timestring_map(lease.min_ttl) or 0
+            timestring_map(valid_for, cast=int) or 0, timestring_map(lease.min_ttl, cast=int) or 0
         )
         if renew_increment is not None and effective_min_validity > timestring_map(renew_increment):
             log.warning(
@@ -508,7 +630,9 @@ class LeaseStore:
             )
             renew_increment = None
         if lease.is_valid_for(effective_min_validity):
-            if check_server:
+            # Leases without an ID (e.g. static DB credentials) cannot
+            # be looked up on the server.
+            if check_server and str(lease):
                 try:
                     # TODO: Save the updated info?
                     self.lookup(lease)
@@ -516,7 +640,7 @@ class LeaseStore:
                     return check_revoke(lease, effective_min_validity, 0)
             return lease
 
-        if not renew:
+        if not (lease.is_renewable and renew):
             return check_revoke(lease, effective_min_validity)
         try:
             lease = self.renew(lease, increment=renew_increment, raise_all_errors=False)
@@ -538,13 +662,9 @@ class LeaseStore:
                 return check_revoke(lease, effective_min_validity)
         return lease
 
-    def list(self):
-        """
-        List all known cache keys of cached leases.
-        """
-        return self.cache.list()
-
-    def _list_cached_leases(self, match="*", flush=False):
+    def _list_cached_leases(
+        self, match: str = "*", flush: bool = False
+    ) -> list[tuple[str, LeaseType]]:
         """
         Helper for functions that operate on the cached leases.
         """
@@ -555,11 +675,19 @@ class LeaseStore:
             lease = self.cache.get(ckey, flush=flush)
             if lease is None:
                 continue
-            self.lease_id_ckey_cache[str(lease)] = ckey
+            if str(lease):
+                self.lease_id_ckey_cache[str(lease)] = ckey
+            lease._cache_key = ckey
             leases.append((ckey, lease))
         return leases
 
-    def list_info(self, match="*"):
+    def list(self) -> set[str]:
+        """
+        List all known cache keys of cached leases.
+        """
+        return self.cache.list()
+
+    def list_info(self, match: str = "*") -> dict[str, dict[str, typing.Any]]:
         """
         .. versionadded:: 1.1.0
 
@@ -580,13 +708,15 @@ class LeaseStore:
             ret[ckey] = info
         return ret
 
-    def lookup(self, lease):
+    def lookup(self, lease: str | LeaseType) -> dict[str, typing.Any]:
         """
         Lookup lease meta information.
 
         lease
             A lease ID or VaultLease object to look up.
         """
+        if not str(lease):
+            raise VaultNotFoundError("Lease does not have an ID, cannot look it up. Is it static?")
         endpoint = "sys/leases/lookup"
         payload = {"lease_id": str(lease)}
         try:
@@ -596,9 +726,32 @@ class LeaseStore:
                 raise
             raise VaultNotFoundError(str(err)) from err
 
+    @typing.overload
     def renew(
-        self, lease, increment=None, raise_all_errors=True, force_increment=False, _store=True
-    ):
+        self,
+        lease: str,
+        increment: int | str | None = None,
+        raise_all_errors: bool = True,
+        force_increment: bool = False,
+        _store: bool = True,
+    ) -> str: ...
+    @typing.overload
+    def renew(
+        self,
+        lease: LeaseType,
+        increment: int | str | None = None,
+        raise_all_errors: bool = True,
+        force_increment: bool = False,
+        _store: bool = True,
+    ) -> LeaseType: ...
+    def renew(
+        self,
+        lease: LeaseType | str,
+        increment: int | str | None,
+        raise_all_errors: bool = True,
+        force_increment: bool = False,
+        _store: bool = True,
+    ) -> LeaseType | str:
         """
         Renew a lease.
 
@@ -622,12 +775,20 @@ class LeaseStore:
             to disable the floor and takes `increment` without modification (e.g. for revocations).
             Defaults to false.
         """
+        if isinstance(lease, BaseLease) and not lease.renewable:
+            raise VaultNotFoundError("Lease is not renewable.")
+
+        if not str(lease):
+            # e.g. static DB credentials are not associated with a lease
+            raise VaultNotFoundError("Lease does not have an ID, cannot renew.")
+
         endpoint = "sys/leases/renew"
         payload = {"lease_id": str(lease)}
         if not isinstance(lease, VaultLease) and lease in self.lease_id_ckey_cache:
-            lease = self.cache.get(self.lease_id_ckey_cache[lease], flush=False)
-            if lease is None:
+            new_lease = self.cache.get(self.lease_id_ckey_cache[lease], flush=False)
+            if new_lease is None:
                 raise VaultNotFoundError("Lease is already expired")
+            lease = new_lease
         if increment is not None:
             payload["increment"] = int(timestring_map(increment))
         if (
@@ -658,7 +819,9 @@ class LeaseStore:
             return new_lease
         return ret
 
-    def renew_cached(self, match="*", increment=None):
+    def renew_cached(
+        self, match: str = "*", increment: int | str | None = None
+    ) -> typing.Literal[True]:
         """
         Renew cached leases.
 
@@ -676,6 +839,10 @@ class LeaseStore:
         """
         failed = []
         for ckey, lease in self._list_cached_leases(match=match, flush=True):
+            if not (lease.renewable and str(lease)):
+                # Leases without an ID (e.g. static DB credentials)
+                # cannot be renewed.
+                continue
             try:
                 self.renew(lease, increment=increment)
             except (VaultPermissionDeniedError, VaultNotFoundError) as err:
@@ -686,7 +853,9 @@ class LeaseStore:
             raise VaultException(f"Failed renewing some leases: {list(failed)}")
         return True
 
-    def revoke(self, lease, delta=None):
+    def revoke(
+        self, lease: str | LeaseType, delta: int | str | None = None
+    ) -> typing.Literal[True]:
         """
         Revoke a lease. Also removes the cached lease,
         if it has been requested from this LeaseStore before.
@@ -700,6 +869,8 @@ class LeaseStore:
             Defaults to the revocation delay that was set when creating
             the lease or 60s.
         """
+        if not str(lease) or (isinstance(lease, VaultLease) and not lease.renewable):
+            raise VaultInvocationError("Lease is not renewable and/or has no ID")
         if delta is None:
             if isinstance(lease, VaultLease) and lease.revoke_delay is not None:
                 delta = lease.revoke_delay
@@ -711,15 +882,21 @@ class LeaseStore:
         except VaultNotFoundError:
             pass
 
-        if str(lease) in self.lease_id_ckey_cache:
-            self.cache.flush(self.lease_id_ckey_cache.pop(str(lease)))
+        try:
+            ckey = lease._cache_key  # type: ignore
+        except AttributeError:
+            ckey = None
+        ckey = ckey or self.lease_id_ckey_cache.get(str(lease))
+        self.lease_id_ckey_cache.pop(str(lease), None)
+        if ckey is not None:
+            self.cache.flush(ckey)
         return True
 
     def revoke_cached(
         self,
-        match="*",
-        delta=None,
-        flush_on_failure=True,
+        match: str = "*",
+        delta: int | str | None = None,
+        flush_on_failure: bool = True,
     ):
         """
         Revoke cached leases.
@@ -739,18 +916,22 @@ class LeaseStore:
         """
         failed = []
         for ckey, lease in self._list_cached_leases(match=match, flush=True):
-            try:
-                self.revoke(lease, delta=delta)
-            except VaultPermissionDeniedError:
-                failed.append(ckey)
-                if flush_on_failure:
-                    # Forget the lease and let Vault's automatic revocation handle it
-                    self.cache.flush(self.lease_id_ckey_cache.pop(str(lease)))
+            if lease.lease_id and lease.renewable:
+                try:
+                    self.revoke(lease, delta=delta)
+                except VaultPermissionDeniedError:
+                    failed.append(ckey)
+                    if flush_on_failure:
+                        # Forget the lease and let Vault's automatic revocation handle it
+                        self.lease_id_ckey_cache.pop(str(lease), None)
+                        self.cache.flush(ckey)
+            else:
+                self.cache.flush(ckey)
         if failed:
             raise VaultException(f"Failed revoking some leases: {list(failed)}")
         return True
 
-    def store(self, ckey, lease):
+    def store(self, ckey: str, lease: LeaseType):
         """
         Cache a lease.
 
@@ -761,5 +942,7 @@ class LeaseStore:
             A lease ID or VaultLease object to store.
         """
         self.cache.store(ckey, lease)
-        self.lease_id_ckey_cache[str(lease)] = ckey
+        lease._cache_key = ckey
+        if str(lease):
+            self.lease_id_ckey_cache[str(lease)] = ckey
         return True

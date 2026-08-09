@@ -9,10 +9,8 @@ from functools import update_wrapper
 from string import Template
 from typing import Annotated, Any, Optional, cast
 
-import inquirer3
 import typer
 import uvicorn
-from inquirer3.themes import GreenPassion
 from prompt_toolkit import HTML, PromptSession
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
 from prompt_toolkit.completion.base import CompleteEvent, Completer, Completion
@@ -25,7 +23,7 @@ from pygments import formatters, highlight, lexers
 from pygments import styles as _pygments_styles
 from typer_injector import InjectingTyper
 
-from pymobiledevice3.cli.cli_common import ServiceProviderDep, async_command
+from pymobiledevice3.cli.cli_common import ServiceProviderDep, async_command, prompt_selection
 from pymobiledevice3.common import get_home_folder
 from pymobiledevice3.exceptions import (
     InspectorEvaluateError,
@@ -49,8 +47,13 @@ function inspectedPage_evalResult_getCompletions(primitiveType) {
     for (let o = object; o; o = o.__proto__) {
         try {
             let names = Object.getOwnPropertyNames(o);
-            for (let i = 0; i < names.length; ++i)
-                resultSet[names[i]] = true;
+            for (let i = 0; i < names.length; ++i) {
+                if (names[i] in resultSet)
+                    continue;
+                // read the kind from the descriptor - accessing the value could invoke getters
+                let d = Object.getOwnPropertyDescriptor(o, names[i]);
+                resultSet[names[i]] = d && 'value' in d ? typeof d.value : 'accessor';
+            }
         } catch(e) {}
     }
     return resultSet;
@@ -351,6 +354,13 @@ async def js_shell(
         bool,
         typer.Option(help="Open Safari before selecting a page."),
     ] = False,
+    no_replayed_log: Annotated[
+        bool,
+        typer.Option(
+            "--no-replayed-log",
+            help="Don't print the console history the page replays on attach (webinspector.console.replay).",
+        ),
+    ] = False,
 ) -> None:
     """
     Create a javascript shell. This interpreter runs on your local machine,
@@ -368,6 +378,9 @@ async def js_shell(
 
     if automation and console_enable is not None:
         raise typer.BadParameter("--console-enable/--no-console-enable cannot be combined with --automation.")
+
+    if no_replayed_log:
+        logging.getLogger("webinspector.console.replay").setLevel(logging.CRITICAL + 1)
 
     js_shell_class = AutomationJsShell if automation else InspectorJsShell
     create_kwargs = {}
@@ -428,10 +441,16 @@ async def get_js_completions(jsshell: "JsShell", obj: str, prefix: str) -> Async
         return
 
     try:
-        for key in await jsshell.evaluate_expression(SCRIPT.substitute(object=obj), return_by_value=True):
+        completions = await jsshell.evaluate_expression(SCRIPT.substitute(object=obj), return_by_value=True)
+        for key in sorted(completions, key=str.lower):
             if not key.startswith(prefix):
                 continue
-            yield Completion(key.removeprefix(prefix), display=key)
+            kind = completions[key]
+            yield Completion(
+                key.removeprefix(prefix),
+                display=key,
+                display_meta="ƒ" if kind == "function" else "",
+            )
     except (Exception, CancelledError):
         # ignore every possible exception
         pass
@@ -449,8 +468,8 @@ class JsShellCompleter(Completer):
         # Build the JS expression we want to inspect
         text = f"globalThis.{document.text_before_cursor}"
 
-        # Extract identifiers / dotted paths
-        matches = re.findall(r"[a-zA-Z_][a-zA-Z_0-9.]+", text)
+        # Extract identifiers / dotted paths ($ is a legal JS identifier character)
+        matches = re.findall(r"[a-zA-Z_$][a-zA-Z_$0-9.]+", text)
         if not matches:
             # async *generator*: just end, don't return a list
             return
@@ -634,11 +653,7 @@ class InspectorJsShell(JsShell):
         if len(available_pages) == 1:
             return available_pages[0]
 
-        page_query = [inquirer3.List("page", message="choose page", choices=available_pages, carousel=True)]
-        page = cast(
-            dict[str, Any], cast(Any, inquirer3).prompt(page_query, theme=GreenPassion(), raise_keyboard_interrupt=True)
-        )["page"]
-        return page
+        return prompt_selection(available_pages, "choose page")
 
 
 async def run_js_shell(

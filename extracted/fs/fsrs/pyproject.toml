@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "fsrs"
-version = "6.3.1"
+version = "6.3.2"
 description = "Free Spaced Repetition Scheduler"
 readme = "README.md"
 authors = [
@@ -30,6 +30,9 @@ optimizer = ["torch", "numpy", "pandas", "tqdm"]
 [tool.pytest.ini_options]
 pythonpath = "."
 filterwarnings = ["error"]
+
+[tool.ruff]
+extend-exclude = ["README.md"]
 
 [tool.setuptools.package-data]
 fsrs = ["py.typed"]

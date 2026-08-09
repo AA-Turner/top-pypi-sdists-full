@@ -745,6 +745,37 @@ fn iso_10_unflatten_only(c: &mut Criterion) {
         });
     });
 
+    // Array-to-object conversion: a wide array path ("arr.0".."arr.999") plus one
+    // *trailing* digit-only key that overflows usize ("arr.999...(25 nines)").
+    // That key passes the digits-only `is_valid_array_index` check used by the
+    // whole-document path-type pre-analysis (so "arr" is classified as an array
+    // up front), but fails `.parse::<usize>()` during tree-building -- the only
+    // way this branch is actually reachable, since an ordinary non-numeric
+    // sibling (e.g. "arr.name") gets the parent classified as an object *before*
+    // any array is ever built, never triggering a conversion at all. Placed last
+    // so the 1000-element array is fully built before conversion, exercising the
+    // capacity pre-sizing on that conversion path for a large array (see
+    // set_nested_value_recursive in unflatten.rs) -- an overflow key placed
+    // first would convert an empty array instead, defeating the point.
+    let mut wide_array_then_object = String::from("{");
+    for i in 0..1000 {
+        if i > 0 {
+            wide_array_then_object.push(',');
+        }
+        wide_array_then_object.push_str(&format!(r#""arr.{i}": {i}"#));
+    }
+    wide_array_then_object.push_str(r#","arr.99999999999999999999999": 0}"#);
+
+    group.bench_function("array_to_object_conversion", |b| {
+        b.iter(|| {
+            let result = JSONTools::new()
+                .unflatten()
+                .execute(black_box(wide_array_then_object.as_str()))
+                .expect("Failed");
+            black_box(result);
+        });
+    });
+
     group.finish();
 }
 

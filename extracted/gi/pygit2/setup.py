@@ -1,4 +1,4 @@
-# Copyright 2010-2025 The pygit2 contributors
+# Copyright 2010-2026 The pygit2 contributors
 #
 # This file is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License, version 2,
@@ -154,7 +154,6 @@ setup(
     ext_modules=ext_modules,
     # Requirements
     python_requires='>=3.11',
-    setup_requires=['cffi>=2.0'],
     install_requires=['cffi>=2.0'],
     # URLs
     url='https://github.com/libgit2/pygit2',

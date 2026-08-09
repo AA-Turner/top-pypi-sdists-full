@@ -31,7 +31,6 @@ class MobileCommand:
     SWITCH_TO_CONTEXT = 'switchToContext'
 
     BACKGROUND = 'background'
-    GET_APP_STRINGS = 'getAppStrings'
 
     IS_LOCKED = 'isLocked'
     LOCK = 'lock'
@@ -78,13 +77,10 @@ class MobileCommand:
     GET_AVAILABLE_LOG_TYPES = 'getAvailableLogTypes'
 
     # Android
-    OPEN_NOTIFICATIONS = 'openNotifications'
     GET_CURRENT_ACTIVITY = 'getCurrentActivity'
-    GET_CURRENT_PACKAGE = 'getCurrentPackage'
     GET_SYSTEM_BARS = 'getSystemBars'
     GET_DISPLAY_DENSITY = 'getDisplayDensity'
     TOGGLE_WIFI = 'toggleWiFi'
-    TOGGLE_LOCATION_SERVICES = 'toggleLocationServices'
     GET_PERFORMANCE_DATA_TYPES = 'getPerformanceDataTypes'
     GET_PERFORMANCE_DATA = 'getPerformanceData'
     GET_NETWORK_CONNECTION = 'getNetworkConnection'

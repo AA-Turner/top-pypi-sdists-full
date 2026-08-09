@@ -6,9 +6,8 @@ from tests.support.mysql import create_mysql_combo  # pylint: disable=unused-imp
 from tests.support.mysql import mysql_combo  # pylint: disable=unused-import
 from tests.support.mysql import mysql_container  # pylint: disable=unused-import
 from tests.support.vault import vault_delete
-from tests.support.vault import vault_disable_secret_engine
-from tests.support.vault import vault_enable_secret_engine
 from tests.support.vault import vault_list
+from tests.support.vault import vault_plugin_read
 from tests.support.vault import vault_read
 from tests.support.vault import vault_revoke
 from tests.support.vault import vault_write
@@ -17,23 +16,17 @@ pytest.importorskip("docker")
 
 pytestmark = [
     pytest.mark.skip_if_binaries_missing("vault"),
-    pytest.mark.usefixtures("container"),
+    pytest.mark.usefixtures("container", "secret_mounts"),
+    pytest.mark.parametrize("secret_mounts", ("database",), indirect=True),
 ]
 
 
 @pytest.fixture(scope="module")
-def minion_config_overrides(vault_port):
+def minion_config_overrides():
     return {
         "vault": {
-            "auth": {
-                "method": "token",
-                "token": "testsecret",
-            },
             "cache": {
                 "backend": "disk",
-            },
-            "server": {
-                "url": f"http://127.0.0.1:{vault_port}",
             },
         }
     }
@@ -91,13 +84,6 @@ def testdb(mysql_container, container_host_ref):
         "username": "root",
         "password": mysql_container.mysql_passwd,
     }
-
-
-@pytest.fixture(scope="module", autouse=True)
-def db_engine(container):  # pylint: disable=unused-argument
-    assert vault_enable_secret_engine("database")
-    yield
-    assert vault_disable_secret_engine("database")
 
 
 @pytest.fixture
@@ -238,6 +224,49 @@ def test_connection_present_test_mode(vault_db, connargs):
     assert "created" in ret.changes
     assert ret.changes["created"] == "testdb"
     assert "testdb" not in vault_list("database/config")
+
+
+def test_connection_present_missing_required_kwargs(vault_db):
+    ret = vault_db.connection_present("testdb", plugin="mysql")
+    assert ret.result is False
+    assert not ret.changes
+    assert "requires the following additional kwargs" in ret.comment
+    assert "Traceback" not in ret.comment
+
+
+@pytest.fixture
+def atlas_connargs():
+    if not vault_plugin_read("database", "mongodbatlas-database-plugin", _nofail=True):
+        pytest.skip("The mongodbatlas database plugin is not available")
+    try:
+        yield {
+            "plugin": "mongodb_atlas",
+            "public_key": "abcdefgh",
+            "private_key": "01234567-89ab-cdef-0123-456789abcdef",
+            "project_id": "5cf5a45a9ccf6400e60981b6",
+            "allowed_roles": ["*"],
+            "verify": False,
+            "rotate": False,
+        }
+    finally:
+        if "testatlas" in vault_list("database/config"):
+            vault_delete("database/config/testatlas")
+            assert "testatlas" not in vault_list("database/config")
+
+
+def test_connection_present_secret_kwargs_idempotent(vault_db, atlas_connargs):
+    """
+    Secret plugin kwargs other than ``password`` (here: ``private_key``)
+    are not reported back by Vault. Ensure they do not cause the state to
+    fail the post-write parameter verification or to report changes and
+    rewrite the connection on every run.
+    """
+    ret = vault_db.connection_present("testatlas", **atlas_connargs)
+    assert ret.result is True
+    assert ret.changes.get("created") == "testatlas"
+    ret = vault_db.connection_present("testatlas", **atlas_connargs)
+    assert ret.result is True
+    assert not ret.changes
 
 
 @pytest.mark.usefixtures("connection_setup")
@@ -544,6 +573,52 @@ def test_creds_cached_reissue_only(testmode, vault_db, loaders):
     new = new[next(iter(new))]
     new.pop("expires_in")
     assert (new == old) is testmode
+
+
+@pytest.mark.parametrize("_cached_creds", ({"valid_for": "50m"},), indirect=True)
+@pytest.mark.parametrize("valid_for", ("240m", 14400))
+def test_creds_cached_renew_min_ttl_timestring(
+    testmode, valid_for, vault_db, modules, _cached_creds
+):
+    """
+    Ensure a lease whose min_ttl was cached as a time string is compared
+    correctly when the state requests a longer validity.
+    """
+    ret = vault_db.creds_cached("testrole", valid_for=valid_for, test=testmode)
+    assert (ret.result is None) is testmode
+    assert ret.changes
+    assert "expiry" in ret.changes
+    assert ret.changes["min_ttl"] == {"old": "50m", "new": valid_for}
+    assert "renewed" in ret.comment
+    assert ("would have" in ret.comment) is testmode
+    if not testmode:
+        assert modules.vault_db.get_creds("testrole") == _cached_creds
+
+
+@pytest.mark.parametrize(
+    "_cached_creds",
+    ({"valid_for": 300, "renew_increment": 120, "revoke_delay": 240, "meta": {"foo": "bar"}},),
+    indirect=True,
+)
+def test_creds_cached_edit_keeps_unspecified_attrs(testmode, vault_db, modules, _cached_creds):
+    """
+    Ensure that when the state needs to call the execution module to apply
+    changes, lease attributes that were not specified in the state call are
+    kept on the cached lease instead of being reset to defaults.
+    """
+    ret = vault_db.creds_cached("testrole", valid_for=600, test=testmode)
+    assert (ret.result is None) is testmode
+    assert ret.changes == {"min_ttl": {"old": 300, "new": 600}}
+    assert "edited" in ret.comment
+    assert ("would have" in ret.comment) is testmode
+    if not testmode:
+        assert modules.vault_db.get_creds("testrole") == _cached_creds
+    curr = modules.vault_db.list_cached()
+    curr = curr[next(iter(curr))]
+    assert curr["min_ttl"] == (300 if testmode else 600)
+    assert curr["renew_increment"] == 120
+    assert curr["revoke_delay"] == 240
+    assert curr["meta"] == {"foo": "bar"}
 
 
 @pytest.mark.usefixtures("_cached_creds")

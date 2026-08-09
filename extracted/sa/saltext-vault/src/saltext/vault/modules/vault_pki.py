@@ -8,6 +8,7 @@ Manage the Vault (or OpenBao) PKI secret engine, request X.509 certificates.
 """
 
 import logging
+import typing
 from datetime import datetime
 from datetime import timezone
 
@@ -15,16 +16,31 @@ from salt.exceptions import CommandExecutionError
 from salt.exceptions import SaltInvocationError
 
 from saltext.vault.utils import vault
-from saltext.vault.utils.vault.pki import dec2hex
+from saltext.vault.utils.vault import helpers as hlp
 
 try:
-    import salt.utils.x509 as x509util
+    from salt.utils import x509 as x509util
 
-    HAS_X509UTIL = True
-except ImportError:
-    HAS_X509UTIL = False
+    from saltext.vault.utils.vault import pki
 
-log = logging.getLogger(__name__)
+    HAS_CRYPTOGRAPHY = True
+except ImportError:  # pragma: no cover
+    HAS_CRYPTOGRAPHY = False
+
+
+if typing.TYPE_CHECKING:
+    from saltext.vault.utils._types import SaltContext
+    from saltext.vault.utils._types import SaltFunctions
+    from saltext.vault.utils._types import SaltGrains
+    from saltext.vault.utils._types import SaltLogger
+    from saltext.vault.utils._types import SaltOpts
+
+    __opts__: SaltOpts
+    __context__: SaltContext
+    __salt__: SaltFunctions
+    __grains__: SaltGrains
+
+log: "SaltLogger" = logging.getLogger(__name__)  # type: ignore
 
 __virtualname__ = "vault_pki"
 
@@ -65,11 +81,19 @@ def list_roles(mount="pki"):
 
     `API method docs <https://developer.hashicorp.com/vault/api-docs/secret/pki#list-roles>`__.
 
+    Required policy:
+
+    .. code-block:: vaultpolicy
+
+        path "<mount>/roles" {
+            capabilities = ["list"]
+        }
+
     CLI Example:
 
     .. code-block:: bash
 
-            salt '*' vault_pki.list_roles
+        salt '*' vault_pki.list_roles
 
     mount
         Mount path the PKI backend is mounted to. Defaults to ``pki``.
@@ -89,11 +113,19 @@ def read_role(name, mount="pki"):
 
     `API method docs <https://developer.hashicorp.com/vault/api-docs/secret/pki#read-role>`__.
 
+    Required policy:
+
+    .. code-block:: vaultpolicy
+
+        path "<mount>/roles/<name>" {
+            capabilities = ["read"]
+        }
+
     CLI Example:
 
     .. code-block:: bash
 
-            salt '*' vault_pki.read_role
+        salt '*' vault_pki.read_role my_role
 
     name
         Name of the role.
@@ -132,11 +164,19 @@ def write_role(
 
     `API method docs <https://developer.hashicorp.com/vault/api-docs/secret/pki#create-update-role>`__.
 
+    Required policy:
+
+    .. code-block:: vaultpolicy
+
+        path "<mount>/roles/<name>" {
+            capabilities = ["create", "update", "patch"]
+        }
+
     CLI Example:
 
     .. code-block:: bash
 
-            salt '*' vault_pki.write_role myrole
+        salt '*' vault_pki.write_role myrole
 
     name
         Name of the role.
@@ -189,8 +229,7 @@ def write_role(
         If set to false, makes the common_name field optional while generating a certificate. Defaults to true.
 
     kwargs:
-        Any other params which can be understand by Vault API.
-
+        Any other params which can be understood by the Vault API.
     """
 
     endpoint = f"{mount}/roles/{name}"
@@ -229,7 +268,7 @@ def write_role(
     try:
         vault.query(method, endpoint, __opts__, __context__, payload=payload, safe_to_retry=True)
         return True
-    except vault.VaultUnsupportedOperationError as err:
+    except vault.VaultUnsupportedOperationError as err:  # pragma: no cover
         raise CommandExecutionError(
             f"Vault version too old. Please upgrade to v1.11.0+: {err}"
         ) from err
@@ -243,11 +282,19 @@ def delete_role(name, mount="pki"):
 
     `API method docs <https://developer.hashicorp.com/vault/api-docs/secret/pki#delete-role>`__.
 
+    Required policy:
+
+    .. code-block:: vaultpolicy
+
+        path "<mount>/roles/<name>" {
+            capabilities = ["delete"]
+        }
+
     CLI Example:
 
     .. code-block:: bash
 
-            salt '*' vault_pki.delete_role myrole
+        salt '*' vault_pki.delete_role myrole
 
     name
         Name of the role.
@@ -269,17 +316,25 @@ def delete_role(name, mount="pki"):
 
 def list_issuers(mount="pki"):
     """
-    List issuers information
+    List issuers information.
+
     Returns ``{ "<issuer_id>" : { "is_default": False, "issuer_name": "...", "key_id": "...", "serial_number": "...."}}``
 
-
     `API method docs <https://developer.hashicorp.com/vault/api-docs/secret/pki#list-issuers>`__.
+
+    Required policy:
+
+    .. code-block:: vaultpolicy
+
+        path "<mount>/issuers" {
+            capabilities = ["list"]
+        }
 
     CLI Example:
 
     .. code-block:: bash
 
-            salt '*' vault_pki.list_issuers
+        salt '*' vault_pki.list_issuers
 
     mount
         Mount path the PKI backend is mounted to. Defaults to ``pki``.
@@ -302,11 +357,19 @@ def read_issuer(ref="default", mount="pki"):
 
     `API method docs <https://developer.hashicorp.com/vault/api-docs/secret/pki#read-issuer-certificate>`__.
 
+    Required policy:
+
+    .. code-block:: vaultpolicy
+
+        path "<mount>/issuer/<name>" {
+            capabilities = ["read"]
+        }
+
     CLI Example:
 
     .. code-block:: bash
 
-            salt '*' vault_pki.read_issuer
+        salt '*' vault_pki.read_issuer
 
     ref
         Reference of the issuer. Can be issuer ID, issuer name or literal ``default``
@@ -321,6 +384,10 @@ def read_issuer(ref="default", mount="pki"):
     try:
         return vault.query("GET", endpoint, __opts__, __context__, is_unauthd=True)["data"]
     except vault.VaultNotFoundError:
+        return None
+    except vault.VaultServerError as err:
+        if "unable to find PKI issuer for reference" not in str(err):
+            raise CommandExecutionError(f"{err.__class__}: {err}") from err
         return None
     except vault.VaultException as err:
         raise CommandExecutionError(f"{err.__class__}: {err}") from err
@@ -340,11 +407,19 @@ def update_issuer(
 
     `API method docs <https://developer.hashicorp.com/vault/api-docs/secret/pki#update-issuer>`__.
 
+    Required policy:
+
+    .. code-block:: vaultpolicy
+
+        path "<mount>/issuer/<name>" {
+            capabilities = ["patch"]
+        }
+
     CLI Example:
 
     .. code-block:: bash
 
-            salt '*' vault_pki.update_issuer ref usage=["crl-signing"]
+        salt '*' vault_pki.update_issuer ref usage=["crl-signing"]
 
     ref
         Reference of the issuer. Can be issuer ID, issuer name or literal ``default``
@@ -416,11 +491,13 @@ def read_issuer_certificate(name="default", mount="pki", include_chain=False):
 
     `API method docs <https://developer.hashicorp.com/vault/api-docs/secret/pki#read-issuer-certificate>`__.
 
+    Required policy: See :func:`read_issuer`
+
     CLI Example:
 
     .. code-block:: bash
 
-            salt '*' vault_pki.read_issuer_certificate
+        salt '*' vault_pki.read_issuer_certificate
 
     name
         Name of the issuer. Can be issuer ID, issuer name or literal ``default``
@@ -447,11 +524,13 @@ def get_default_issuer(mount="pki"):
 
     `API method docs <https://developer.hashicorp.com/vault/api-docs/secret/pki#list-issuers>`__.
 
+    Required policy: See :func:`list_issuers`
+
     CLI Example:
 
     .. code-block:: bash
 
-            salt '*' vault_pki.get_default_issuer
+        salt '*' vault_pki.get_default_issuer
 
     mount
         Mount path the PKI backend is mounted to. Defaults to ``pki``.
@@ -471,11 +550,22 @@ def set_default_issuer(name, mount="pki"):
 
     `API method docs <https://developer.hashicorp.com/vault/api-docs/secret/pki#set-issuers-configuration>`__.
 
+    Required policy:
+
+    .. code-block:: vaultpolicy
+
+        path "<mount>/config/issuers" {
+            capabilities = ["create", "update"]
+        }
+
     CLI Example:
 
     .. code-block:: bash
 
-            salt '*' vault_pki.set_default_issuer myca
+        salt '*' vault_pki.set_default_issuer myca
+
+    name
+        Name of the default issuer to set.
 
     mount
         Mount path the PKI backend is mounted to. Defaults to ``pki``.
@@ -503,17 +593,25 @@ def generate_root(
 ):
     """
     Generate a new root issuer.
-    Returns ``{ "certificate" : "-----BEGIN CERTIFICATE...", "issuer_id": "...", "key_id": "...", }``
+
+    Returns ``{ "certificate" : "-----BEGIN CERTIFICATE...", "issuer_id": "...", "key_id": "...", }``.
     If type is ``exported``, also returns the private key.
 
-
     `API method docs <https://developer.hashicorp.com/vault/api-docs/secret/pki#generate-root>`__.
+
+    Required policy:
+
+    .. code-block:: vaultpolicy
+
+        path "<mount>/root/generate/<type>" {
+            capabilities = ["create", "update"]
+        }
 
     CLI Example:
 
     .. code-block:: bash
 
-            salt '*' vault_pki.generate_root my-root
+        salt '*' vault_pki.generate_root my-root
 
     common_name
         Common Name to be used for the CA.
@@ -598,11 +696,19 @@ def delete_key(ref, mount="pki"):
 
     `API method docs <https://developer.hashicorp.com/vault/api-docs/secret/pki#delete-key>`__.
 
+    Required policy:
+
+    .. code-block:: vaultpolicy
+
+        path "<mount>/key/<ref>" {
+            capabilities = ["delete"]
+        }
+
     CLI Example:
 
     .. code-block:: bash
 
-            salt '*' vault_pki.delete_key ref
+        salt '*' vault_pki.delete_key ref
 
     ref
         Ref of the key. Could be name or key_id.
@@ -615,8 +721,7 @@ def delete_key(ref, mount="pki"):
     try:
         vault.query("DELETE", endpoint, __opts__, __context__)
         return True
-    except vault.VaultNotFoundError:
-        return False
+    # Don't need to catch VaultNotFoundError, it's not thrown for missing key
     except vault.VaultException as err:
         raise CommandExecutionError(f"{err.__class__}: {err}") from err
 
@@ -627,11 +732,19 @@ def delete_issuer(ref, mount="pki", include_key=False):
 
     `API method docs <https://developer.hashicorp.com/vault/api-docs/secret/pki#delete-issuer>`__.
 
+    Required policy:
+
+    .. code-block:: vaultpolicy
+
+        path "<mount>/issuer/<ref>" {
+            capabilities = ["delete"]
+        }
+
     CLI Example:
 
     .. code-block:: bash
 
-            salt '*' vault_pki.delete_issuer ref
+        salt '*' vault_pki.delete_issuer ref
 
     ref
         Ref of the issuer. Could be name or issuer_id.
@@ -657,8 +770,7 @@ def delete_issuer(ref, mount="pki", include_key=False):
         if key_id:
             delete_key(key_id, mount=mount)
         return True
-    except vault.VaultNotFoundError:
-        return False
+    # Don't need to catch VaultNotFoundError, it's not thrown for missing issuer
     except vault.VaultException as err:
         raise CommandExecutionError(f"{err.__class__}: {err}") from err
 
@@ -672,11 +784,27 @@ def read_issuer_crl(ref="default", mount="pki", delta=False):
 
     `API method docs <https://developer.hashicorp.com/vault/api-docs/secret/pki#read-issuer-crl>`__.
 
+    Required policy:
+
+    .. code-block:: vaultpolicy
+
+        path "<mount>/issuer/<ref>" {
+            capabilities = ["read"]
+        }
+
+        path "<mount>/issuer/<ref>/crl" {
+            capabilities = ["read"]
+        }
+
+        path "<mount>/issuer/<ref>/crl/delta" {
+            capabilities = ["read"]
+        }
+
     CLI Example:
 
     .. code-block:: bash
 
-            salt '*' vault_pki.read_issuer_crl ref
+        salt '*' vault_pki.read_issuer_crl ref
 
     ref
         Ref of the issuer, i.e. name or issuer_id. Defaults to default issuer.
@@ -719,11 +847,19 @@ def list_revoked_certificates(mount="pki"):
 
     `API method docs <https://developer.hashicorp.com/vault/api-docs/secret/pki#list-revoked-certificates>`__.
 
+    Required policy:
+
+    .. code-block:: vaultpolicy
+
+        path "<mount>/certs/revoked" {
+            capabilities = ["list"]
+        }
+
     CLI Example:
 
     .. code-block:: bash
 
-            salt '*' vault_pki.list_revoked_certificates
+        salt '*' vault_pki.list_revoked_certificates
 
     mount
         Mount path the PKI backend is mounted to. Defaults to ``pki``.
@@ -732,6 +868,8 @@ def list_revoked_certificates(mount="pki"):
 
     try:
         return vault.query("LIST", endpoint, __opts__, __context__)["data"]["keys"]
+    except vault.VaultNotFoundError:
+        return []
     except vault.VaultException as err:
         raise CommandExecutionError(f"{err.__class__}: {err}") from err
 
@@ -742,11 +880,19 @@ def list_certificates(mount="pki"):
 
     `API method docs <https://developer.hashicorp.com/vault/api-docs/secret/pki#list-certificates>`__.
 
+    Required policy:
+
+    .. code-block:: vaultpolicy
+
+        path "<mount>/certs" {
+            capabilities = ["list"]
+        }
+
     CLI Example:
 
     .. code-block:: bash
 
-            salt '*' vault_pki.list_certificates
+        salt '*' vault_pki.list_certificates
 
     mount
         Mount path the PKI backend is mounted to. Defaults to ``pki``.
@@ -755,6 +901,8 @@ def list_certificates(mount="pki"):
 
     try:
         return vault.query("LIST", endpoint, __opts__, __context__)["data"]["keys"]
+    except vault.VaultNotFoundError:
+        return []
     except vault.VaultException as err:
         raise CommandExecutionError(f"{err.__class__}: {err}") from err
 
@@ -766,11 +914,19 @@ def read_certificate(serial, mount="pki"):
 
     `API method docs <https://developer.hashicorp.com/vault/api-docs/secret/pki#read-certificate>`__.
 
+    Required policy:
+
+    .. code-block:: vaultpolicy
+
+        path "<mount>/cert/<serial>" {
+            capabilities = ["read"]
+        }
+
     CLI Example:
 
     .. code-block:: bash
 
-            salt '*' vault_pki.read_certificate 7e:85:c5:d1:85:94:9a:46:08:b5:1b:9c:22:cb:35:e5:ea:f3:56:3f
+        salt '*' vault_pki.read_certificate 7e:85:c5:d1:85:94:9a:46:08:b5:1b:9c:22:cb:35:e5:ea:f3:56:3f
 
     serial
         Specifies the serial of the key to read. Valid values are:
@@ -802,11 +958,23 @@ def read_certificate_full(serial, mount="pki"):
 
     `API method docs <https://developer.hashicorp.com/vault/api-docs/secret/pki#read-certificate>`__.
 
+    Required policy:
+
+    .. code-block:: vaultpolicy
+
+        path "<mount>/cert/<serial>" {
+            capabilities = ["read"]
+        }
+
+        path "<mount>/issuer/<name>" {
+            capabilities = ["read"]
+        }
+
     CLI Example:
 
     .. code-block:: bash
 
-            salt '*' vault_pki.read_certificate_full 7e:85:c5:d1:85:94:9a:46:08:b5:1b:9c:22:cb:35:e5:ea:f3:56:3f
+        salt '*' vault_pki.read_certificate_full 7e:85:c5:d1:85:94:9a:46:08:b5:1b:9c:22:cb:35:e5:ea:f3:56:3f
 
     serial
         Specifies the serial of the certificate to read. Valid values are:
@@ -867,7 +1035,7 @@ def _find_signing_issuer(leaf_pem, authority_key_id=None, mount="pki"):
     Find the configured issuer whose certificate SubjectKeyIdentifier matches the
     certificate's AuthorityKeyIdentifier. Returns the matching ``issuer_id`` or ``None``.
     """
-    if not HAS_X509UTIL:
+    if not HAS_CRYPTOGRAPHY:  # pragma: no cover
         return None
     try:
         leaf = x509util.load_cert(leaf_pem)
@@ -944,15 +1112,29 @@ def issue_certificate(
     **kwargs,
 ):
     """
-    Generate and issue a new certificate with private key.
+    Generate and issue a new certificate and private key.
 
     `API method docs <https://developer.hashicorp.com/vault/api-docs/secret/pki#generate-certificate-and-key>`__.
+
+    Required policy:
+
+    .. code-block:: vaultpolicy
+
+        # When not specifying issuer_ref
+        path "<mount>/issue/<role_name>" {
+            capabilities = ["create", "update"]
+        }
+
+        # When specifying issuer_ref
+        path "<mount>/issuer/<issuer_ref>/issue/<role_name>" {
+            capabilities = ["create", "update"]
+        }
 
     CLI Example:
 
     .. code-block:: bash
 
-            salt '*' vault_pki.issue_certificate myrole common_name="www.example.com"
+        salt '*' vault_pki.issue_certificate myrole common_name="www.example.com"
 
     role_name
         Name of the role to be used for issuing the certificate.
@@ -964,11 +1146,17 @@ def issue_certificate(
         Mount path the PKI backend is mounted to. Defaults to ``pki``.
 
     issuer_ref
-        Override role's issuer. Can be issuer_name or issuer_id.
+        Specify an explicit issuer instead of taking it from the role definition.
+        Can be issuer_name or issuer_id.
 
     alt_names
-        Any alternative names to be added to the certificate. Can be specified either as dict (``{ "<type>": "<value"}``)
-        or list of SANs (``["<type>:<value>"]``).
+        Any alternative names to be added to the certificate.
+        Can be specified either as dict (``{ "<type>": "<value>" }``),
+        a dict of lists(``{ "<type>": ["<value1>", "<value2>", ...] }``)
+        or list of SAN strings (``["<type>:<value>"]``).
+
+        ``<type>`` can be ``dns``, ``email``, ``uri``, ``ip`` or any OID for otherName SANs.
+        ``<value>`` is the corresponding value. Note that otherName SANs need to omit ``UTF8:``.
 
     ttl
         Specifies the requested Time To Live (after which the certificate expires).
@@ -981,7 +1169,7 @@ def issue_certificate(
         If set to true, the Common Name is not part of the SANs.
 
     kwargs
-        Any additional parameter accepted by Vault API.
+        Any additional parameter accepted by the Vault API.
     """
     endpoint = f"{mount}/issue/{role_name}"
     if issuer_ref is not None:
@@ -997,7 +1185,11 @@ def issue_certificate(
     payload["exclude_cn_from_sans"] = exclude_cn_from_sans
 
     if alt_names is not None:
-        dns_sans, ip_sans, uri_sans, other_sans = _split_sans(alt_names)
+        if not HAS_CRYPTOGRAPHY:  # pragma: no cover
+            raise CommandExecutionError(
+                "Missing `cryptography` library, which is required for this operation"
+            )
+        dns_sans, ip_sans, uri_sans, other_sans = pki.split_sans(pki.norm_sans(alt_names))
         payload["alt_names"] = ",".join(dns_sans)
         payload["ip_sans"] = ",".join(ip_sans)
         payload["uri_sans"] = ",".join(uri_sans)
@@ -1026,17 +1218,47 @@ def sign_certificate(
     **kwargs,
 ):
     """
-    Issue a new certificate from existing private key or CSR.
+    Issue a new certificate from an existing private key or CSR.
 
     `API method docs <https://developer.hashicorp.com/vault/api-docs/secret/pki#sign-certificate>`__.
 
     `API method docs <https://developer.hashicorp.com/vault/api-docs/secret/pki#sign-verbatim>`__
 
+    Required policy:
+
+    .. code-block:: vaultpolicy
+
+        # When sign_verbatim is false and not specifying issuer_ref
+        path "<mount>/sign/<role_name>" {
+            capabilities = ["create", "update"]
+        }
+
+        # When sign_verbatim is false and specifying issuer_ref
+        path "<mount>/issuer/<issuer_ref>/sign/<role_name>" {
+            capabilities = ["create", "update"]
+        }
+
+        # When sign_verbatim is true and not specifying issuer_ref
+        path "<mount>/sign-verbatim/<role_name>" {
+            capabilities = ["create", "update"]
+        }
+
+        # When sign_verbatim is true and specifying issuer_ref
+        path "<mount>/issuer/<issuer_ref>/sign-verbatim/<role_name>" {
+            capabilities = ["create", "update"]
+        }
+
+        # When passing `private_key` and including otherName SANs
+        path "<mount>/roles/<role_name>" {
+            capabilities = ["read"]
+        }
+
     CLI Example:
 
     .. code-block:: bash
 
-            salt '*' vault_pki.issue_certificate myrole common_name="www.example.com"
+        salt '*' vault_pki.sign_certificate myrole common_name="www.example.com" private_key=/private/key/path.key
+        salt '*' vault_pki.sign_certificate myrole common_name="www.example.com" csr=/csr/path.csr
 
     role_name
         Name of the role to be used for issuing the certificate.
@@ -1048,7 +1270,8 @@ def sign_certificate(
         Mount path the PKI backend is mounted to. Defaults to ``pki``.
 
     csr
-        Pass the CSR which should be used for issuing the certificate. Either ``csr`` or ``private_key`` parameter can be set, not both.
+        Pass the CSR which should be used for issuing the certificate.
+        Either ``csr`` or ``private_key`` parameter can be set, not both.
 
     private_key
         Private key for which certificate should be issued. Can be text or path.
@@ -1064,11 +1287,23 @@ def sign_certificate(
         Digest to be used for generating the CSR. Not used in case of ``private_key``. Defaults to ``sha256``
 
     issuer_ref
-        Override role's issuer. Can be issuer_name or issuer_id.
+        Specify an explicit issuer instead of taking it from the role definition.
+        Can be issuer_name or issuer_id.
 
     alt_names
-        Any alternative names to be added to the certificate. Can be specified either as dict (``{ "<type>": "<value"}``)
-        or list of SANs (``["<type>:<value>"]``).
+        Any alternative names to be added to the certificate.
+        Can be specified either as dict (``{ "<type>": "<value>" }``),
+        a dict of lists(``{ "<type>": ["<value1>", "<value2>", ...] }``)
+        or list of SAN strings (``["<type>:<value>"]``).
+
+        ``<type>`` can be ``dns``, ``email``, ``uri``, ``ip`` or any OID for otherName SANs.
+        ``<value>`` is the corresponding value. Note that otherName SANs need to omit ``UTF8:``.
+
+        .. note::
+            As of writing this, otherName SANs require very recent releases of the
+            :py:func:`x509_v2 module <salt.modules.x509_v2.create_csr>`, which is used to generate
+            a CSR when ``csr`` is not specified. If you need to make this work, in the affected role,
+            set ``use_csr_sans`` to ``false``, which circumvents this issue.
 
     ttl
         Specifies the requested Time To Live (after which the certificate be expire).
@@ -1089,58 +1324,94 @@ def sign_certificate(
         If set to true, the Common Name is not part of the SANs.
 
     kwargs
-        Any additional parameter accepted by Vault API or
-        `x509_v2 module <https://docs.saltproject.io/en/latest/ref/modules/all/salt.modules.x509_v2.html#salt.modules.x509_v2.create_csr>`__
+        Any additional parameter accepted by the Vault API or the
+        :py:func:`x509_v2 module <salt.modules.x509_v2.create_csr>`
     """
 
     if csr is None and private_key is None:
-        raise SaltInvocationError("either csr or private_key must be passed.")
+        raise SaltInvocationError("Either csr or private_key must be passed.")
 
     if csr is not None and private_key is not None:
-        raise SaltInvocationError("only one of csr or private_key must be passed, not both")
-
-    csr_args, extra_args = _split_csr_kwargs(kwargs)
+        raise SaltInvocationError("Only one of csr or private_key must be passed, not both")
 
     sign = "sign-verbatim" if sign_verbatim else "sign"
-
     endpoint = f"{mount}/{sign}/{role_name}"
     if issuer_ref is not None:
         endpoint = f"{mount}/issuer/{issuer_ref}/{sign}/{role_name}"
+    csr_args, extra_args = _split_csr_kwargs(kwargs)
 
     payload = {k: v for k, v in extra_args.items() if not k.startswith("_")}
-
     payload["common_name"] = common_name
-
     if ttl is not None:
         payload["ttl"] = ttl
-
     payload["format"] = encoding
     payload["exclude_cn_from_sans"] = exclude_cn_from_sans
 
+    norm_sans = None
     if alt_names is not None:
-        dns_sans, ip_sans, uri_sans, other_sans = _split_sans(alt_names)
+        if not HAS_CRYPTOGRAPHY:  # pragma: no cover
+            raise CommandExecutionError(
+                "Missing `cryptography` library, which is required for this operation"
+            )
+        norm_sans = pki.norm_sans(alt_names)
+        dns_sans, ip_sans, uri_sans, other_sans = pki.split_sans(norm_sans)
         payload["alt_names"] = ",".join(dns_sans)
         payload["ip_sans"] = ",".join(ip_sans)
         payload["uri_sans"] = ",".join(uri_sans)
         payload["other_sans"] = ",".join(other_sans)
 
-    # In case private_key is passed we're going to build
-    # CSR in place.
+    # In case private_key is passed, we're going to build a CSR in place.
     if private_key is not None:
-        if isinstance(alt_names, dict):
-            alt_names = [f"{k}:{v}" for k, v in alt_names.items()]
-
-        if alt_names:
-            csr_args["subjectAltName"] = alt_names
-
+        if norm_sans:
+            csr_args["subjectAltName"] = [
+                f"{k}:{vv}" if k.upper() in pki.SUPPORTED_SAN_TYPES else f"otherName:{k};UTF8:{vv}"
+                for k, v in norm_sans.items()
+                for vv in v
+            ]
         csr_args["CN"] = common_name
-
-        csr = __salt__["x509.create_csr"](
-            private_key=private_key,
-            private_key_passphrase=private_key_passphrase,
-            digest=digest,
-            **csr_args,
-        )
+        try:
+            create_csr = __salt__["x509.create_csr"]
+        except KeyError as err:  # pragma: no cover
+            raise CommandExecutionError(
+                "Missing `x509.create_csr`, provided by the builtin `x509_v2` execution module"
+            ) from err
+        try:
+            csr = create_csr(
+                private_key=private_key,
+                private_key_passphrase=private_key_passphrase,
+                digest=digest,
+                **csr_args,
+            )
+        except SaltInvocationError as err:
+            if not norm_sans or "otherName is currently not implemented" not in str(err):
+                raise
+            # otherName SAN support requires Salt 3006.28/3008.3 (likely, if merged forward in time)
+            try:
+                role = read_role(role_name, mount=mount)
+            except CommandExecutionError as err2:
+                raise CommandExecutionError(
+                    "Cannot include otherName SANs when `private_key` is passed and the role "
+                    "has `use_csr_sans` set to true. Tried checking role for `use_csr_sans` "
+                    "but access was denied. Either permit access and ensure `use_csr_sans` "
+                    "is disabled, remove the otherName SANs or pass `csr` instead of `private_key`."
+                ) from err2
+            if role is None:
+                raise CommandExecutionError(
+                    f"Role '{role_name}' on mount '{mount}' does not exist"
+                ) from err
+            if role.get("use_csr_sans", True):
+                raise CommandExecutionError(
+                    "Cannot include otherName SANs when `private_key` is passed and the role "
+                    "has `use_csr_sans` set to true. Either set it to false, upgrade Salt, "
+                    "remove the otherName SANs or pass `csr` instead of `private_key`."
+                ) from err
+            csr_args.pop("subjectAltName")
+            csr = __salt__["x509.create_csr"](
+                private_key=private_key,
+                private_key_passphrase=private_key_passphrase,
+                digest=digest,
+                **csr_args,
+            )
 
     payload["csr"] = csr
 
@@ -1156,11 +1427,19 @@ def revoke_certificate(serial=None, certificate=None, mount="pki"):
 
     `API method docs <https://developer.hashicorp.com/vault/api-docs/secret/pki#revoke-certificate>`__.
 
+    Required policy:
+
+    .. code-block:: vaultpolicy
+
+        path "<mount>/revoke" {
+            capabilities = ["create", "update"]
+        }
+
     CLI Example:
 
     .. code-block:: bash
 
-            salt '*' vault_pki.revoke_certificate 7e:85:c5:d1:85:94:9a:46:08:b5:1b:9c:22:cb:35:e5:ea:f3:56:3f
+        salt '*' vault_pki.revoke_certificate 7e:85:c5:d1:85:94:9a:46:08:b5:1b:9c:22:cb:35:e5:ea:f3:56:3f
 
     serial
         Specifies the serial of the certificate to revoke. Either ``serial`` or ``certificate`` must be specified.
@@ -1174,7 +1453,7 @@ def revoke_certificate(serial=None, certificate=None, mount="pki"):
     mount
         Mount path the PKI backend is mounted to. Defaults to ``pki``.
     """
-    endpoint = f"{mount}/revoke/"
+    endpoint = f"{mount}/revoke"
     payload = {}
 
     if serial is None and certificate is None:
@@ -1190,8 +1469,10 @@ def revoke_certificate(serial=None, certificate=None, mount="pki"):
             )
         elif serial is not None:
             if isinstance(serial, int):
-                serial = dec2hex(serial)
+                serial = hlp.dec2hex(serial)
             payload["serial_number"] = serial
+        else:  # pragma: no cover
+            raise RuntimeError("This path should not have been hit")
 
         vault.query("POST", endpoint, __opts__, __context__, payload=payload, safe_to_retry=True)
         return True
@@ -1208,11 +1489,19 @@ def read_urls(mount="pki"):
 
     `API method docs <https://developer.hashicorp.com/vault/api-docs/secret/pki#read-urls>`__.
 
+    Required policy:
+
+    .. code-block:: vaultpolicy
+
+        path "<mount>/config/urls" {
+            capabilities = ["read"]
+        }
+
     CLI Example:
 
     .. code-block:: bash
 
-            salt '*' vault_pki.get_urls
+        salt '*' vault_pki.read_urls
 
     mount
         Mount path the PKI backend is mounted to. Defaults to ``pki``.
@@ -1223,36 +1512,6 @@ def read_urls(mount="pki"):
         return vault.query("GET", endpoint, __opts__, __context__)["data"]
     except vault.VaultException as err:
         raise CommandExecutionError(f"{err.__class__}: {err}") from err
-
-
-def _split_sans(sans) -> tuple[list, list, list, list]:
-    dns_sans = []
-    ip_sans = []
-    uri_sans = []
-    other_sans = []
-
-    try:
-        if isinstance(sans, list):
-            dic = {}
-            for typ, val in map(lambda x: x.split(":", 1), sans):
-                dic.setdefault(typ, []).append(val)
-            sans = dic
-
-        for k, v in sans.items():
-            if k.upper() == "DNS" or k.upper() == "EMAIL":
-                dns_sans.extend(v)
-            elif k.upper() == "IP":
-                ip_sans.extend(v)
-            elif k.upper() == "URI":
-                uri_sans.extend(v)
-            else:
-                other_sans.extend(f"{k};UTF8:{vv}" for vv in v)
-    except ValueError as err:
-        raise CommandExecutionError(
-            f"SAN is not in correct format. Must be in format <type>:<value>: {err}"
-        ) from err
-
-    return dns_sans, ip_sans, uri_sans, other_sans
 
 
 def _split_csr_kwargs(kwargs):

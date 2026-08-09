@@ -20,7 +20,7 @@ import re
 import pytest
 
 from PyInstaller import isolated
-from PyInstaller.compat import is_cygwin, is_darwin, is_termux, is_win
+from PyInstaller import compat
 from PyInstaller.utils.tests import importorskip, skipif, xfail, onedir_only, onefile_only
 from PyInstaller.utils.hooks import can_import_module
 
@@ -273,7 +273,7 @@ def test_module_attributes(tmp_path, pyi_builder):
         app_args=app_args,
     )
 
-    with open(output_file, 'r') as fp:
+    with open(output_file, 'r', encoding='utf-8') as fp:
         import json
         output_frozen = json.load(fp)
 
@@ -419,9 +419,9 @@ def test_python_makefile(pyi_builder, distutils):
 
 
 def test_set_icon(pyi_builder, data_dir):
-    if is_win:
+    if compat.is_win:
         args = ['--icon', str(data_dir / 'pyi_icon.ico')]
-    elif is_darwin:
+    elif compat.is_darwin:
         # On macOS icon is applied only for windowed mode.
         args = ['--windowed', '--icon', str(data_dir / 'pyi_icon.icns')]
     else:
@@ -460,19 +460,35 @@ def test_standard_stream_encoding(stream, tmp_path, pyi_builder):
     frozen_encoding = frozen_encoding_file.read_text(encoding='utf-8')
     print(f"Frozen encoding: {frozen_encoding}")
 
-    # For non-interactive stdout/stderr, assume locale encoding (on Windows, this will be ANSI codepage). This fixes the
-    # test when running with pytest and capturing output.
-    unfrozen_stream = getattr(sys, stream)
-    unfrozen_encoding = (
-        str(unfrozen_stream.encoding) if unfrozen_stream.isatty() else locale.getpreferredencoding(False)
-    )
-    print(f"Unfrozen encoding: {frozen_encoding}")
+    # Starting with python 3.15, the UTF-8 mode is on by default (PEP-686); since we do not explicitly disable when
+    # building the frozen test application, the expected stream encoding is always UTF-8.
+    # In earlier python versions, the UTF-8 mode is not enabled by default, and we do not explicitly enable it when
+    # building the frozen test application. Therefore, the encoding of streams also depends on whether they are
+    # redirected (for example, when using `pytest` and capturing the output). For regular streams, we expect the same
+    # encoding as in streams of the parent test process; for redirected streams, assume locale encoding (on Windows,
+    # this will be ANSI codepage).
+    if compat.is_py315:
+        expected_encoding = 'utf-8'
+    else:
+        unfrozen_stream = getattr(sys, stream)
+        if unfrozen_stream.isatty():
+            expected_encoding = str(unfrozen_stream.encoding)
+        else:
+            # `locale.getpreferredencoding()` is affected by UTF-8 mode, which is not enabled in the frozen test
+            # program, but might be enabled in the unfrozen python (i.e., `python -Xutf8 -m pytest ...`). Therefore,
+            # its use emits an `EncodingWarning: UTF-8 Mode affects locale.getpreferredencoding(). Consider
+            # locale.getencoding() instead.` under python 3.11 and later, and we should heed its advice...
+            if compat.is_py311:
+                expected_encoding = locale.getencoding()
+            else:
+                expected_encoding = locale.getpreferredencoding(False)
+    print(f"Expected encoding: {expected_encoding}")
 
     # Normalize encoding names - "UTF-8" should be the same as "utf8".
-    unfrozen_encoding = codecs.lookup(unfrozen_encoding).name
+    expected_encoding = codecs.lookup(expected_encoding).name
     frozen_encoding = codecs.lookup(frozen_encoding).name
 
-    assert frozen_encoding == unfrozen_encoding
+    assert frozen_encoding == expected_encoding
 
 
 def test_site_module_disabled(pyi_builder):
@@ -534,7 +550,7 @@ def test_user_preferred_locale(pyi_builder):
     )
 
     # Find executable and run additional tests with locale set via LC_ALL.
-    if is_termux:
+    if compat.is_termux:
         return
 
     exes = pyi_builder._find_executables('test_source')
@@ -817,7 +833,7 @@ def test_sys_executable(pyi_builder, append_pkg, monkeypatch):
 
     # Expected executable basename
     exe_basename = 'test_source'
-    if is_win or is_cygwin:
+    if compat.is_win or compat.is_cygwin:
         exe_basename += '.exe'
 
     pyi_builder.test_source(
@@ -831,35 +847,93 @@ def test_sys_executable(pyi_builder, append_pkg, monkeypatch):
 
 
 @pytest.mark.win32
-def test_subprocess_in_windowed_mode(pyi_windowed_builder):
+def test_standard_streams_in_windowed_mode(pyi_builder, tmp_path):
+    # NOTE: this is windowed/noconsole win32 test, and unhandled exceptions bring up unhandled exception dialog, which
+    # blocks the test until the timeout. Therefore, exception messages are recorded in a text file, which allows us to
+    # fail the test with a detailed error message.
+    error_file = tmp_path / 'error.txt'
+
+    pyi_builder.test_source(
+        """
+        import sys
+
+        try:
+            # In a windowed/noconsole build, all streams should be None.
+            # With contemporary PyInstaller versions, this applies to both underscored and "regular" variables.
+            assert sys.__stdin__ is None, f"sys.__stdin__ is not None: {sys.__stdin__}"
+            assert sys.__stdout__ is None, f"sys.__stdout__ is not None: {sys.__stdout__}"
+            assert sys.__stderr__ is None, f"sys.__stderr__ is not None: {sys.__stderr__}"
+
+            assert sys.stdin is None, f"sys.stdin is not None: {sys.stdin}"
+            assert sys.stdout is None, f"sys.stdout is not None: {sys.stdout}"
+            assert sys.stderr is None, f"sys.stderr is not None: {sys.stderr}"
+        except Exception as e:
+            try:
+                error_file = sys.argv[1]
+                with open(error_file, "w", encoding="utf-8") as fp:
+                    import traceback
+                    fp.write(traceback.format_exc())
+            except Exception:
+                sys.exit(1)
+        """,
+        pyi_args=['--windowed'],
+        app_args=[str(error_file)],
+    )
+
+    if error_file.is_file():
+        error_text = error_file.read_text(encoding='utf-8')
+        pytest.fail(f"Test program wrote error file (see below)!\n{error_text}")
+
+
+@pytest.mark.win32
+def test_subprocess_in_windowed_mode(pyi_builder, tmp_path):
     """Test invoking subprocesses from a PyInstaller app built in windowed mode."""
 
-    pyi_windowed_builder.test_source(
-        fr"""
-        from subprocess import PIPE, run
-        from unittest import TestCase
+    # See comment in the `test_standard_streams_in_windowed_mode` above.
+    error_file = tmp_path / 'error.txt'
 
-        # Lazily use unittest's rich assertEqual() for assertions with builtin diagnostics.
-        assert_equal = TestCase().assertEqual
+    pyi_builder.test_source(
+        r"""
+        import sys
 
-        # Path to python interpreter
-        python = {sys.executable!r}
+        try:
+            from subprocess import PIPE, run
+            from unittest import TestCase
 
-        # Run with empty command to ensure interpreter works.
-        run([python, "-c", ""], check=True)
+            # Lazily use unittest's rich assertEqual() for assertions with builtin diagnostics.
+            assert_equal = TestCase().assertEqual
 
-        # Verify that stdin, stdout and stderr still work and haven't been muddled.
-        p = run([python, "-c", "print('foo')"], stdout=PIPE, universal_newlines=True)
-        assert_equal(p.stdout, "foo\n", p.stdout)
+            # Path to python interpreter, passed as first argument.
+            python = sys.argv[1]
 
-        p = run([python, "-c", r"import sys; sys.stderr.write('bar\n')"], stderr=PIPE, universal_newlines=True)
-        assert_equal(p.stderr, "bar\n", p.stderr)
+            # Run with empty command to ensure interpreter works.
+            run([python, "-c", ""], check=True)
 
-        p = run([python], input="print('foo')\nprint('bar')\n", stdout=PIPE, universal_newlines=True)
-        assert_equal(p.stdout, "foo\nbar\n", p.stdout)
+            # Verify that stdin, stdout and stderr still work and haven't been muddled.
+            p = run([python, "-c", "print('foo')"], stdout=PIPE, encoding='utf-8')
+            assert_equal(p.stdout, "foo\n", p.stdout)
+
+            p = run([python, "-c", r"import sys; sys.stderr.write('bar\n')"], stderr=PIPE, encoding='utf-8')
+            assert_equal(p.stderr, "bar\n", p.stderr)
+
+            p = run([python], input="print('foo')\nprint('bar')\n", stdout=PIPE, encoding='utf-8')
+            assert_equal(p.stdout, "foo\nbar\n", p.stdout)
+        except Exception as e:
+            try:
+                error_file = sys.argv[2]
+                with open(error_file, "w", encoding="utf-8") as fp:
+                    import traceback
+                    fp.write(traceback.format_exc())
+            except Exception:
+                sys.exit(1)
         """,
-        pyi_args=["--windowed"]
+        pyi_args=["--windowed"],
+        app_args=[str(sys.executable), str(error_file)],
     )
+
+    if error_file.is_file():
+        error_text = error_file.read_text(encoding='utf-8')
+        pytest.fail(f"Test program wrote error file (see below)!\n{error_text}")
 
 
 def test_package_entry_point_name_collision(pyi_builder):

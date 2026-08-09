@@ -28,6 +28,10 @@ from rich.logging import RichHandler
 from dumper.extract_mapping import extract_mapping
 from dumper.generate_mapping import generate_mapping
 from dumper.rename_proto_files import rename_proto_files
+from dumper.rewrite_descriptor_pool import (
+    rewrite_descriptor_pool,
+    write_pool_module,
+)
 from dumper.rewrite_imports import rewrite_imports
 
 # NOTE: dumper.protodump is imported lazily, inside the --app-path branch. It
@@ -97,18 +101,19 @@ def vendored_protoc(repo_root_directory: str) -> str:
 def unsigned_copy_of(app_path: str) -> Generator[str, None, None]:
     app_name = os.path.basename(app_path).replace(".app", "")
     unsigned_app_bundle_filename = f"{app_name}.unsigned.app"
+    # The executable name may differ from the bundle name (e.g. "Keynote 2025.app" contains "Keynote")
+    exe_name = plistlib.load(
+        open(os.path.join(app_path, "Contents", "Info.plist"), "rb")
+    )["CFBundleExecutable"]
 
-    # Get the identity from the system:
+    # Get the identity from the system, falling back to ad-hoc signing ("-")
+    # which requires no certificate and is sufficient for LLDB to attach.
     logging.info("Getting codesigning identity...")
-    identity = subprocess.check_output(
+    identity_output = subprocess.check_output(
         ["security", "find-identity", "-v", "-p", "codesigning"]
     ).decode()
-    identity = identity.split('"')[1]
-    if not identity:
-        raise ValueError(
-            "No codesigning identity found; please create one in Keychain Access first."
-        )
-    logging.info(f"Resigning {app_path} with local codesigning identity: {identity!r}")
+    identity = identity_output.split('"')[1] if '"' in identity_output else "-"
+    logging.info(f"Resigning {app_path} with codesigning identity: {identity!r}")
 
     with tempfile.TemporaryDirectory() as temp_dir:
         target = os.path.join(temp_dir, unsigned_app_bundle_filename)
@@ -120,20 +125,18 @@ def unsigned_copy_of(app_path: str) -> Generator[str, None, None]:
                 "codesign",
                 "--remove-signature",
                 "--verbose",
-                os.path.join(target, "Contents", "MacOS", app_name),
+                os.path.join(target, "Contents", "MacOS", exe_name),
             ]
         )
-        # Resign the app with the local identity:
-        logging.info(
-            f"Resigning {target} with local codesigning identity: {identity!r}"
-        )
+        # Resign the app with the local identity (or ad-hoc if none available):
+        logging.info(f"Resigning {target} with codesigning identity: {identity!r}")
         subprocess.run(
             [
                 "codesign",
                 "--sign",
                 identity,
                 "--verbose",
-                os.path.join(target, "Contents", "MacOS", app_name),
+                os.path.join(target, "Contents", "MacOS", exe_name),
             ]
         )
         logging.info(f"Successfully re-signed {target}.")
@@ -245,9 +248,21 @@ def main():
         open(os.path.join(gencode_proto_output_directory, "__init__.py"), "w").close()
 
         # Step 7: Rewrite the imports in the generated code.
+        package_prefix = (
+            f"keynote_parser.versions.{python_identifier_version}.generated"
+        )
         rewrite_imports(
             glob.glob(os.path.join(gencode_proto_output_directory, "*.py")),
-            f"keynote_parser.versions.{python_identifier_version}.generated",
+            package_prefix,
+        )
+
+        # Step 8: Give this version its own descriptor pool. Without this every
+        # version registers the same .proto filenames into the global default
+        # pool, so importing a second version fails with "duplicate file name".
+        write_pool_module(gencode_proto_output_directory)
+        rewrite_descriptor_pool(
+            glob.glob(os.path.join(gencode_proto_output_directory, "*.py")),
+            package_prefix,
         )
 
         logging.info(f"Dumped {version} to {gencode_proto_output_directory}.")

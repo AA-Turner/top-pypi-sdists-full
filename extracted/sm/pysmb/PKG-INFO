@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pysmb
-Version: 1.2.14
+Version: 1.2.15
 Summary: pysmb is an experimental SMB/CIFS library written in Python to support file sharing between Windows and Linux machines
 Home-page: https://miketeo.net/projects/pysmb
 Author: Michael Teo

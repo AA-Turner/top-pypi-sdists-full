@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: jcodemunch-mcp
-Version: 1.108.264
+Version: 1.108.267
 Summary: Token-efficient MCP server for source code exploration via tree-sitter AST parsing
 Project-URL: Homepage, https://github.com/jgravelle/jcodemunch-mcp
 Project-URL: Repository, https://github.com/jgravelle/jcodemunch-mcp
@@ -328,9 +328,9 @@ That's the highlight reel. The complete tour of 90+ tools, the MUNCH compact wir
 <!-- WHATSNEW:START -->
 #### What's new
 
-- **[v1.108.241](https://github.com/jgravelle/jcodemunch-mcp/releases/tag/v1.108.241)** (2026-08-04) — offloadable-work annotation, off by default
-- **[v1.108.240](https://github.com/jgravelle/jcodemunch-mcp/releases/tag/v1.108.240)** (2026-08-04) — `fresh` stops meaning "we could not find out"
-- **[v1.108.239](https://github.com/jgravelle/jcodemunch-mcp/releases/tag/v1.108.239)** (2026-08-04) — a YAML key keeps its own name
+- **[v1.108.267](https://github.com/jgravelle/jcodemunch-mcp/releases/tag/v1.108.267)** (2026-08-08) — Kotlin and Bash constants are extracted, and a declared pattern must now prove itself
+- **[v1.108.266](https://github.com/jgravelle/jcodemunch-mcp/releases/tag/v1.108.266)** (2026-08-08) — A blank line inside a table cell no longer truncates it
+- **[v1.108.265](https://github.com/jgravelle/jcodemunch-mcp/releases/tag/v1.108.265)** (2026-08-08) — Retrieval confidence grades ranking quality, not units
 <!-- WHATSNEW:END -->
 
 ---

@@ -25,7 +25,7 @@ class AnyURI(AnyAtomicType):
 
     def __init__(self, value: Union[str, bytes, UntypedAtomic, 'AnyURI']) -> None:
         """
-        :param value: string or an untyped atomic that represents a valid URI.
+        :param value: string or an untyped atomics that represents a valid URI.
         """
         match value:
             case str():

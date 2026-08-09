@@ -6,11 +6,12 @@ corresponding test counterpart, without overwriting tests that already exist.
 
 import inspect
 from abc import abstractmethod
-from collections.abc import Iterable, Iterator
+from collections.abc import Hashable, Iterable, Iterator
 from pathlib import Path
 from types import FunctionType, ModuleType
 from typing import Any, Self
 
+from pyrig_runtime.core.introspection.classes import generate_class
 from pyrig_runtime.core.introspection.functions import (
     filter_module_functions,
 )
@@ -18,9 +19,8 @@ from pyrig_runtime.core.introspection.inspection import obj_members
 
 from pyrig.core.introspection.classes import (
     cls_methods,
-    discard_parent_methods,
+    filter_direct_methods,
     filter_module_classes,
-    generate_class,
 )
 from pyrig.core.introspection.inspection import (
     def_line_sorted,
@@ -64,6 +64,19 @@ class MirrorTestConfigFile(PythonPackageConfigFile):
         Returns:
             The source module to mirror.
         """
+
+    @classmethod
+    def merge_key(cls) -> Hashable:
+        """Return the same key for every subclass, so they always merge into one leaf.
+
+        There is only one test file generator which generates the subclasses itself,
+        so the key must be constant.
+
+        Returns:
+            The literal class name `"MirrorTestConfigFile"`, regardless of
+            which subclass it is called on.
+        """
+        return MirrorTestConfigFile.__name__
 
     def create_file(self) -> None:
         """Create the test file with its default module docstring as content.
@@ -432,12 +445,12 @@ def {test_func_name}() -> None:
         class_to_methods = (
             (
                 c,
-                def_line_sorted(discard_parent_methods(c, cls_methods(c))),
+                def_line_sorted(filter_direct_methods(c, cls_methods(c))),
             )
             for c in classes
         )
         test_class_to_test_methods = (
-            (tc, (discard_parent_methods(tc, cls_methods(tc)))) for tc in test_classes
+            (tc, (filter_direct_methods(tc, cls_methods(tc)))) for tc in test_classes
         )
 
         supposed_test_class_to_test_methods_names = (

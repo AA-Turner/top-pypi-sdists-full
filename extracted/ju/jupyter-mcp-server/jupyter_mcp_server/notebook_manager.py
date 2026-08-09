@@ -24,7 +24,7 @@ from jupyter_nbmodel_client import NbModelClient, get_notebook_websocket_url
 from .config import get_config
 
 if TYPE_CHECKING:
-    from code_sandboxes.interfaces import ISandboxClient
+    from code_sandboxes import CodeSandboxClient
 
 logger = logging.getLogger(__name__)
 
@@ -59,8 +59,8 @@ class NotebookConnection:
             )
 
         config = get_config()
-        server_url = self.notebook_info.get("server_url", config.document_url)
-        token = self.notebook_info.get("token", config.document_token)
+        server_url = self.notebook_info.get("server_url") or config.resolved_document_url()
+        token = self.notebook_info.get("token") or config.resolved_document_token()
         path = self.notebook_info.get("path", config.document_id)
 
         from jupyter_mcp_server.server_context import ServerContext
@@ -160,7 +160,7 @@ class NotebookManager:
     def add_notebook(
         self,
         name: str,
-        kernel: ISandboxClient | dict[str, Any],  # Can be sandbox client or dict with kernel metadata
+        kernel: CodeSandboxClient | dict[str, Any],
         server_url: str | None = None,
         token: str | None = None,
         path: str | None = None,
@@ -184,8 +184,8 @@ class NotebookManager:
             "kernel": kernel,
             "is_local": is_local_mode,
             "notebook_info": {
-                "server_url": server_url or config.document_url,
-                "token": token or config.document_token,
+                "server_url": server_url or config.resolved_document_url(),
+                "token": token or config.resolved_document_token(),
                 "path": path or config.document_id,
             },
         }
@@ -235,7 +235,7 @@ class NotebookManager:
             return True
         return False
 
-    def get_kernel(self, name: str) -> ISandboxClient | dict[str, Any] | None:
+    def get_kernel(self, name: str) -> CodeSandboxClient | dict[str, Any] | None:
         """
         Get the kernel for a specific notebook.
 
@@ -339,8 +339,8 @@ class NotebookManager:
         return len(self._notebooks) == 0
 
     def ensure_kernel_alive(
-        self, name: str, kernel_factory: Callable[[], ISandboxClient]
-    ) -> ISandboxClient:
+        self, name: str, kernel_factory: Callable[[], CodeSandboxClient]
+    ) -> CodeSandboxClient:
         """
         Ensure a kernel is alive, create if necessary.
 
@@ -411,8 +411,8 @@ class NotebookManager:
             config = get_config()
             return NotebookConnection(
                 {
-                    "server_url": config.document_url,
-                    "token": config.document_token,
+                    "server_url": config.resolved_document_url(),
+                    "token": config.resolved_document_token(),
                     "path": config.document_id,
                 }
             )

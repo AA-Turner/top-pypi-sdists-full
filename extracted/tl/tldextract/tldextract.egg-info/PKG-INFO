@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tldextract
-Version: 5.3.1
+Version: 5.3.2
 Summary: Accurately separates a URL's subdomain, domain, and public suffix, using the Public Suffix List (PSL). By default, this includes the public ICANN TLDs and their exceptions. You can optionally support the Public Suffix List's private domains as well.
 Author-email: John Kurkowski <john.kurkowski@gmail.com>
 License-Expression: BSD-3-Clause
@@ -21,21 +21,6 @@ Requires-Dist: idna
 Requires-Dist: requests>=2.1.0
 Requires-Dist: requests-file>=1.4
 Requires-Dist: filelock>=3.0.8
-Provides-Extra: release
-Requires-Dist: build; extra == "release"
-Requires-Dist: twine; extra == "release"
-Provides-Extra: testing
-Requires-Dist: mypy; extra == "testing"
-Requires-Dist: pytest; extra == "testing"
-Requires-Dist: pytest-gitignore; extra == "testing"
-Requires-Dist: pytest-mock; extra == "testing"
-Requires-Dist: responses; extra == "testing"
-Requires-Dist: ruff; extra == "testing"
-Requires-Dist: syrupy; extra == "testing"
-Requires-Dist: tox; extra == "testing"
-Requires-Dist: tox-uv; extra == "testing"
-Requires-Dist: types-filelock; extra == "testing"
-Requires-Dist: types-requests; extra == "testing"
 Dynamic: license-file
 
 # tldextract [![PyPI version](https://badge.fury.io/py/tldextract.svg)](https://badge.fury.io/py/tldextract) [![Build Status](https://github.com/john-kurkowski/tldextract/actions/workflows/ci.yml/badge.svg)](https://github.com/john-kurkowski/tldextract/actions/workflows/ci.yml)
@@ -80,21 +65,21 @@ pip install tldextract
 
 ```python
 no_fetch_extract = tldextract.TLDExtract(suffix_list_urls=())
-no_fetch_extract('http://www.google.com')
+no_fetch_extract("http://www.google.com")
 ```
 
 ### How to set a custom cache location
 
 Via environment variable:
 
-```python
+```zsh
 export TLDEXTRACT_CACHE="/path/to/cache"
 ```
 
 Or in code:
 
 ```python
-custom_cache_extract = tldextract.TLDExtract(cache_dir='/path/to/cache/')
+custom_cache_extract = tldextract.TLDExtract(cache_dir="/path/to/cache/")
 ```
 
 ### How to update TLD definitions
@@ -115,7 +100,7 @@ rm -rf $HOME/.cache/python-tldextract
 
 ```python
 extract = tldextract.TLDExtract(include_psl_private_domains=True)
-extract('waiterrant.blogspot.com')
+extract("waiterrant.blogspot.com")
 # ExtractResult(subdomain='', domain='waiterrant', suffix='blogspot.com', is_private=True)
 ```
 
@@ -124,22 +109,23 @@ extract('waiterrant.blogspot.com')
 ```python
 extract = tldextract.TLDExtract(
     suffix_list_urls=["file:///path/to/your/list.dat"],
-    cache_dir='/path/to/cache/',
-    fallback_to_snapshot=False)
+    cache_dir="/path/to/cache/",
+    fallback_to_snapshot=False,
+)
 ```
 
 ### How to use a remote suffix list
 
 ```python
 extract = tldextract.TLDExtract(
-    suffix_list_urls=["https://myserver.com/suffix-list.dat"])
+    suffix_list_urls=["https://myserver.com/suffix-list.dat"]
+)
 ```
 
 ### How to add extra suffixes
 
 ```python
-extract = tldextract.TLDExtract(
-    extra_suffixes=["foo", "bar.baz"])
+extract = tldextract.TLDExtract(extra_suffixes=["foo", "bar.baz"])
 ```
 
 ### How to validate URLs before extraction
@@ -147,8 +133,9 @@ extract = tldextract.TLDExtract(
 ```python
 from urllib.parse import urlsplit
 
-split_url = urlsplit("https://example.com:8080/path")
-result = tldextract.extract_urllib(split_url)
+extract = tldextract.TLDExtract()
+split_url = urlsplit("https://example.com/path")
+result = extract.extract_urllib(split_url)
 ```
 
 ## Command Line
@@ -192,6 +179,27 @@ ExtractResult(subdomain='waiterrant', domain='blogspot', suffix='com', is_privat
 To treat them as suffixes instead, see
 [How to treat private domains as suffixes](#how-to-treat-private-domains-as-suffixes).
 
+### Default behavior with unlisted suffixes
+
+Unlike the [formal PSL algorithm](https://github.com/publicsuffix/list/wiki/Format#algorithm),
+`tldextract` does not apply the implicit `*` rule when no suffix matches. For an
+unlisted final label, `suffix` remains empty so callers can distinguish configured
+public suffixes from unknown, invalid, or internal hostnames.
+
+### Hostname representation
+
+`tldextract` identifies public suffix boundaries but does not validate or
+canonicalize hostnames. Returned strings can retain the input's casing and its
+Unicode or ASCII-compatible encoding (ACE, commonly called Punycode).
+Equivalent IDNA hostnames can therefore produce textually different values even
+when `tldextract` identifies the same suffix boundary.
+
+Before using `suffix`, `fqdn`, or joined-domain properties in equality checks,
+allowlists, blocklists, or other security decisions, validate and normalize
+both hostnames to the same IDNA representation. IDNA defines label equivalence
+in terms of A-labels. See
+[RFC 5890, section 2.3.2.4](https://www.rfc-editor.org/rfc/rfc5890.html#section-2.3.2.4).
+
 ### Caching behavior
 
 By default, `tldextract` fetches the latest Public Suffix List on first use and
@@ -227,16 +235,18 @@ See [URL validation](#url-validation) and
 
 ### Setting up
 
-1. `git clone` this repository.
-2. Change into the new directory.
-3. `pip install --upgrade --editable '.[testing]'`
+1. [Install uv](https://docs.astral.sh/uv/getting-started/installation/).
+2. `git clone` this repository.
+3. Change into the new directory.
+4. `uv sync`
 
 ### Running tests
 
 ```zsh
-tox --parallel       # Test all Python versions
-tox -e py311         # Test specific Python version
-ruff format .        # Format code
+uv run pytest          # Fast local suite
+uv run tox -e py310    # Supported-version suite
+uv run tox --parallel  # Full matrix
+uv run ruff format .   # Format code
 ```
 
 ## History

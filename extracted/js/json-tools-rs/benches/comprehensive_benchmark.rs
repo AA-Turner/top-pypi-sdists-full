@@ -747,6 +747,81 @@ fn bench_key_collision(c: &mut Criterion) {
     group.finish();
 }
 
+/// Benchmark 8b: Normal (non-flatten) mode key transforms — exercises
+/// `NormalSlowWalker` directly, unlike `bench_key_collision` above which
+/// only measures collision handling through flatten mode's `CollectingWalker`.
+fn bench_normal_mode_key_transforms(c: &mut Criterion) {
+    let mut group = c.benchmark_group("08b_normal_mode_key_transforms");
+    group.measurement_time(Duration::from_secs(5));
+
+    let test_cases = vec![
+        ("large", large_json().to_string()),
+        ("xlarge", xlarge_json()),
+    ];
+
+    for (size, json) in &test_cases {
+        group.bench_with_input(BenchmarkId::new("no_transforms", size), json, |b, json| {
+            b.iter(|| {
+                let result = JSONTools::new()
+                    .normal()
+                    .remove_nulls(true)
+                    .execute(black_box(json.as_str()))
+                    .expect("Normal-mode processing failed");
+                black_box(result);
+            });
+        });
+
+        group.bench_with_input(BenchmarkId::new("lowercase_keys", size), json, |b, json| {
+            b.iter(|| {
+                let result = JSONTools::new()
+                    .normal()
+                    .lowercase_keys(true)
+                    .execute(black_box(json.as_str()))
+                    .expect("Normal-mode processing failed");
+                black_box(result);
+            });
+        });
+
+        // No actual key collisions occur here -- this isolates the cost of the
+        // unconditional per-key allocation on the collision-handling path from
+        // the cost of collision merging itself.
+        group.bench_with_input(
+            BenchmarkId::new("collision_handling_no_collisions", size),
+            json,
+            |b, json| {
+                b.iter(|| {
+                    let result = JSONTools::new()
+                        .normal()
+                        .handle_key_collision(true)
+                        .execute(black_box(json.as_str()))
+                        .expect("Normal-mode processing failed");
+                    black_box(result);
+                });
+            },
+        );
+
+        // Key replacement collapses several distinct keys down to "id", forcing
+        // real collisions on every record.
+        group.bench_with_input(
+            BenchmarkId::new("collision_handling_with_collisions", size),
+            json,
+            |b, json| {
+                b.iter(|| {
+                    let result = JSONTools::new()
+                        .normal()
+                        .key_replacement("r'^(id|orderId)$'", "id")
+                        .handle_key_collision(true)
+                        .execute(black_box(json.as_str()))
+                        .expect("Normal-mode processing failed");
+                    black_box(result);
+                });
+            },
+        );
+    }
+
+    group.finish();
+}
+
 /// Benchmark 9: Auto type conversion
 fn bench_auto_type_conversion(c: &mut Criterion) {
     let mut group = c.benchmark_group("09_auto_type_conversion");
@@ -1035,6 +1110,7 @@ criterion_group!(
     bench_individual_filters,
     bench_all_filters,
     bench_key_collision,
+    bench_normal_mode_key_transforms,
     bench_auto_type_conversion,
     bench_all_key_transformations,
     bench_all_value_transformations,

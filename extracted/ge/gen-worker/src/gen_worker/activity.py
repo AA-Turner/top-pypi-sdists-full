@@ -92,6 +92,10 @@ KIND_LORA_FIDELITY = "lora_fidelity"
 # eager) that nothing in the worker would have noticed, which is why the
 # verdict has to reach the hub whether or not it refuses.
 KIND_CELL_NUMERICS = "cell_numerics"
+# pgw#1036: modular-pipeline hydration provenance — one event per slot load,
+# detail lists component<-local_source pairs (the hydration guard's proof that
+# every weight came from OUR tree, bankable hub-side; phase=hydrated).
+KIND_MODULAR_HYDRATION = "modular_hydration"
 KIND_ROTATION_PRELOAD = "rotation_preload"
 KIND_CAPABILITY_RENEWAL = "capability_renewal"
 KIND_RESIDENCY_FAULT = "residency_fault"
@@ -166,6 +170,20 @@ def bind_sink(
     global _sink
     with _lock:
         _sink = sink
+
+
+def reset_for_tests() -> None:
+    """Drop the bound sink and any in-flight activity. Test-only.
+
+    The sink is process-lifetime in production (one worker, one transport), so
+    nothing unbinds it. In a suite that is a leak: a bound sink outlives the
+    ``Worker`` whose queue it feeds, and under ``--dist loadfile`` the next FILE
+    in the same process reports into a queue nothing drains (pgw#1024).
+    """
+    global _sink, _current
+    with _lock:
+        _sink = None
+        _current = None
 
 
 def _next_seq() -> int:

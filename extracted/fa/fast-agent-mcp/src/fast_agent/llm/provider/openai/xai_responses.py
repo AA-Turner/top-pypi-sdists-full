@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import os
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Final
 
 from mcp_types import ContentBlock, TextContent
 
@@ -11,6 +11,7 @@ from fast_agent.llm.provider.openai.responses import ResponsesLLM
 from fast_agent.llm.provider.openai.responses_websocket import (
     ManagedWebSocketConnection,
     ResponsesWebSocketError,
+    ResponsesWebSocketKeepaliveOptions,
     ResponsesWsRequestPlanner,
     StatelessResponsesWsPlanner,
 )
@@ -35,6 +36,7 @@ if TYPE_CHECKING:
     from fast_agent.types import RequestParams
 
 DEFAULT_XAI_MODEL = "grok-4.3"
+GROK_45_HIGH_STREAMING_TIMEOUT: Final = 300.0
 XAI_BASE_URL = "https://api.x.ai/v1"
 XAI_X_SEARCH_INTERNAL_TOOL_NAMES = frozenset(
     {
@@ -69,9 +71,20 @@ class XAIResponsesLLM(ResponsesLLM):
         provider = kwargs.pop("provider", provider)
         self.config_section = "xai"
         super().__init__(provider=provider, **kwargs)
+        self._apply_reasoning_streaming_timeout_default()
         self._x_search_override: bool | None = (
             bool(x_search_override) if isinstance(x_search_override, bool) else None
         )
+
+    def _apply_reasoning_streaming_timeout_default(self) -> None:
+        params = self.default_request_params
+        if (
+            self._init_request_params is not None
+            and "streaming_timeout" in self._init_request_params.model_fields_set
+        ):
+            return
+        if params.model == "grok-4.5" and self._resolve_reasoning_effort() == "high":
+            params.streaming_timeout = GROK_45_HIGH_STREAMING_TIMEOUT
 
     def _initialize_default_params(self, kwargs: dict[str, Any]) -> RequestParams:
         params = self._initialize_default_params_with_model_fallback(
@@ -207,6 +220,12 @@ class XAIResponsesLLM(ResponsesLLM):
         # by replaying full context on each websocket turn until xAI's in-memory
         # continuation path behaves as documented.
         return StatelessResponsesWsPlanner()
+
+    def _websocket_keepalive_options(self) -> ResponsesWebSocketKeepaliveOptions:
+        # xAI currently doesn't reliably answer client-generated Ping frames.
+        # Keep automatic Pong replies enabled while restoring the previous
+        # aiohttp behavior of relying on application stream-idle detection.
+        return {"ping_interval": None}
 
     async def _create_websocket_connection(
         self,

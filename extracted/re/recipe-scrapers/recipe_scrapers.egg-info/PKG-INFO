@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: recipe_scrapers
-Version: 15.11.0
+Version: 15.12.0
 Summary: Python package, scraping recipes from all over the internet
-Author-email: Hristo Harsev <r+pypi@hharsev.com>, James Addison <james@reciperadar.com>
-Maintainer-email: Hristo Harsev <r+pypi@hharsev.com>, James Addison <james@reciperadar.com>
+Author-email: Hristo Harsev <r+pypi@hharsev.com>, Joey Kennedy <JoeyDevs@proton.me>, James Addison <james@reciperadar.com>
+Maintainer-email: Hristo Harsev <r+pypi@hharsev.com>, Joey Kennedy <JoeyDevs@proton.me>, James Addison <james@reciperadar.com>
 License: MIT License
 Project-URL: Homepage, https://github.com/hhursev/recipe-scrapers/
 Keywords: python,recipes,scraper,harvest,recipe-scraper,recipe-scrapers

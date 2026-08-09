@@ -10,36 +10,57 @@ Manage the Vault (or OpenBao) PKI secret engine and Vault-issued X.509 certifica
 import base64
 import logging
 import os
+from typing import TYPE_CHECKING
 
-import salt.utils.files
 from salt.exceptions import CommandExecutionError
 from salt.exceptions import SaltInvocationError
 
+from saltext.vault.utils.vault.helpers import deserialize_csl
 from saltext.vault.utils.vault.helpers import filter_state_internal_kwargs
+from saltext.vault.utils.vault.helpers import safe_atomic_write
 from saltext.vault.utils.vault.helpers import timestring_map
-from saltext.vault.utils.vault.pki import check_cert_for_changes
 
 try:
-    import salt.utils.x509 as x509util
+    from salt.utils import x509 as x509util
+
+    from saltext.vault.utils.vault.pki import check_cert_for_changes
 
     HAS_CRYPTOGRAPHY = True
-except ImportError:
+except ImportError:  # pragma: no cover
     HAS_CRYPTOGRAPHY = False
 
 
-log = logging.getLogger(__name__)
+if TYPE_CHECKING:
+
+    from saltext.vault.utils._types import SaltContext
+    from saltext.vault.utils._types import SaltFunctions
+    from saltext.vault.utils._types import SaltLogger
+    from saltext.vault.utils._types import SaltLow
+    from saltext.vault.utils._types import SaltOpts
+    from saltext.vault.utils._types import SaltStates
+
+    __opts__: SaltOpts
+    __context__: SaltContext
+    __salt__: SaltFunctions
+    __states__: SaltStates
+    __low__: SaltLow
+
+log: "SaltLogger" = logging.getLogger(__name__)  # type: ignore
 
 __virtualname__ = "vault_pki"
 
 
 def __virtual__():
-    if "x509.encode_certificate" not in __salt__:
+    try:
+        __salt__["x509.encode_certificate"]  # pylint: disable=pointless-statement
+    except KeyError:  # pragma: no cover
         return (
             False,
+            "This state requires the x509_v2 execution module. "
             "x509_v2 needs to be explicitly enabled by setting `x509_v2: true` "
             "in the minion configuration value `features` until Salt 3008 (Argon).",
         )
-    if not HAS_CRYPTOGRAPHY:
+    if not HAS_CRYPTOGRAPHY:  # pragma: no cover
         return (False, "Could not load cryptography")
     return __virtualname__
 
@@ -101,9 +122,14 @@ def certificate_managed(
                 capabilities = ["read"]
             }
 
+            path "{mount}/issuer/{issuer_ref}" {
+                capabilities = ["read"]
+            }
+
             path "{mount}/issuer/{issuer_ref}/sign/{role_name}" {
                 capabilities = ["update"]
             }
+
             # in case of sign_verbatim
             path "{mount}/issuer/{issuer_ref}/sign-verbatim/{role_name}" {
                 capabilities = ["update"]
@@ -160,8 +186,14 @@ def certificate_managed(
         Always reissue the certificate. Defaults to ``false``.
 
     kwargs
-        Any other parameter accepted by ``file_managed`` execution module or Vault PKI
-        :obj:`sign_certificate <saltext.vault.modules.vault_pki.sign_certificate>` execution module.
+        Most parameters for the :py:func:`file.managed <salt.states.file.managed>` state or any of the ones for
+        the Vault PKI :py:func:`sign_certificate <saltext.vault.modules.vault_pki.sign_certificate>` execution module function
+        are passed through.
+
+        .. note::
+
+            ``encoding`` is a valid parameter for both this function and ``file.managed``. If you need to pass
+            it to the latter, specify it as ``file_encoding`` instead.
     """
 
     ret = {
@@ -180,6 +212,12 @@ def certificate_managed(
         if encoding not in ["der", "pem", "pkcs7_der", "pkcs7_pem"]:
             raise SaltInvocationError(
                 f"Invalid value '{encoding}' for encoding. Valid: der, pem, pkcs7_der, pkcs7_pem"
+            )
+
+        if encoding == "der" and append_ca_chain:
+            raise SaltInvocationError(
+                "Cannot append the CA chain to DER-encoded certificates. "
+                "Use pkcs7_der if you need a binary encoding including the chain."
             )
 
         if timestring_map(ttl_remaining, cast=int) >= timestring_map(ttl, cast=int):
@@ -209,7 +247,6 @@ def certificate_managed(
                 changes["replaced"] = True
                 file_exists = False
 
-        replace = False
         if file_exists is None:
             file_exists = __salt__["file.file_exists"](name)
 
@@ -218,9 +255,11 @@ def certificate_managed(
                 "issuer_ref"
             )
             if issuer_ref is None:
-                raise CommandExecutionError(f"role {role_name} does not exist.")
+                raise CommandExecutionError(f"Role {role_name} does not exist.")
 
         issuer_info = __salt__["vault_pki.read_issuer"](issuer_ref, mount=mount)
+        if issuer_info is None:
+            raise CommandExecutionError(f"Issuer '{issuer_ref}' does not exist on mount {mount}")
 
         if append_ca_chain:
             ca_chain = [x509util.load_cert(x) for x in issuer_info["ca_chain"]]
@@ -236,7 +275,6 @@ def certificate_managed(
                 # No need to make any checks, just replace the cert
                 changes["replaced"] = True
             else:
-
                 changes = check_cert_for_changes(
                     current=name,
                     append_chain=ca_chain,
@@ -269,6 +307,7 @@ def certificate_managed(
             _add_sub_state_run(ret, file_managed_test)
             return ret
 
+        cert = None
         if changes:
             if not set(changes) - {
                 "ca_chain",
@@ -295,7 +334,7 @@ def certificate_managed(
                 )
                 cert = __salt__["x509.encode_certificate"](
                     issued_cert["certificate"],
-                    append_certs=ca_chain if encoding in ["pem", "pkcs7_pem"] else [],
+                    append_certs=ca_chain,
                     encoding=encoding,
                 )
 
@@ -308,7 +347,12 @@ def certificate_managed(
                 _add_sub_state_run(ret, file_managed_ret)
                 if not _check_file_ret(file_managed_ret, ret, file_exists):
                     return ret
-                _safe_atomic_write(name, base64.b64decode(cert), file_args.get("backup", ""))
+                safe_atomic_write(
+                    name,
+                    base64.b64decode(cert),
+                    __salt__["config.backup_mode"](file_args.get("backup", "")),
+                    __opts__["cachedir"],
+                )
 
         if not changes or encoding in ["pem", "pkcs7_pem"]:
             replace = bool(encoding in ["pem", "pkcs7_pem"] and changes)
@@ -350,8 +394,8 @@ def role_managed(name, mount="pki", issuer_ref=None, ttl=None, max_ttl=None, **k
         Hour is the largest suffix. If not set, defaults to the system maximum lease TTL.
 
     kwargs
-        Any other parameter accepted by Vault
-        :obj:`write_role <saltext.vault.modules.vault_pki.write_role>` execution module or Vault update role API method.
+        Any other parameter accepted by the Vault :py:func:`write_role <saltext.vault.modules.vault_pki.write_role>`
+        execution module function or Vault update role API method.
     """
 
     ret = {
@@ -384,11 +428,27 @@ def role_managed(name, mount="pki", issuer_ref=None, ttl=None, max_ttl=None, **k
                     }
                 )
         for param, arg in kwargs.items():
-            if param in current and current[param] != arg:
+            if param not in current:
+                continue
+            curr_val = current[param]
+            # Compare normalized values: The API normalizes scalars for
+            # list-type parameters and duration strings into seconds.
+            if isinstance(curr_val, list) and isinstance(arg, str):
+                arg = deserialize_csl(arg)
+            elif (
+                isinstance(curr_val, (int, float))
+                and not isinstance(curr_val, bool)
+                and isinstance(arg, str)
+            ):
+                try:
+                    arg = timestring_map(arg, cast=type(curr_val))
+                except SaltInvocationError:
+                    pass
+            if curr_val != arg:
                 changed.update(
                     {
                         param: {
-                            "old": current.get(param),
+                            "old": curr_val,
                             "new": arg,
                         }
                     }
@@ -464,7 +524,7 @@ def role_absent(name, mount="pki"):
 
         ret["comment"] = f"PKI role `{name}` has been deleted."
 
-    except CommandExecutionError as err:
+    except (CommandExecutionError, SaltInvocationError) as err:
         ret["result"] = False
         ret["comment"] = str(err)
         ret["changes"] = {}
@@ -499,26 +559,12 @@ def _add_sub_state_run(ret, sub):
 
 
 def _file_managed(name, test=None, **kwargs):
-    if test not in [None, True]:
+    if test not in [None, True]:  # pragma: no cover
         raise SaltInvocationError("test param can only be None or True")
     # work around https://github.com/saltstack/salt/issues/62590
     test = test or __opts__["test"]
     res = __salt__["state.single"]("file.managed", name, test=test, **kwargs)
     return res[next(iter(res))]
-
-
-def _safe_atomic_write(dst, data, backup):
-    """
-    Create a temporary file with only user r/w perms and atomically
-    copy it to the destination, honoring ``backup``.
-    """
-    tmp = salt.utils.files.mkstemp(prefix=salt.utils.files.TEMPFILE_PREFIX)
-    with salt.utils.files.fopen(tmp, "wb") as tmp_:
-        tmp_.write(data)
-    salt.utils.files.copyfile(
-        tmp, dst, __salt__["config.backup_mode"](backup), __opts__["cachedir"]
-    )
-    salt.utils.files.safe_rm(tmp)
 
 
 def _check_file_ret(fret, ret, current):

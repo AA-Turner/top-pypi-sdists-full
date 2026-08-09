@@ -1,7 +1,9 @@
 import copy
+import logging
 from unittest.mock import ANY
 from unittest.mock import MagicMock
 from unittest.mock import Mock
+from unittest.mock import call
 from unittest.mock import patch
 
 import pytest
@@ -172,6 +174,7 @@ class TestGetAuthdClient:
         Ensure a valid client is returned directly without clearing cache.
         """
         client = vault.get_authd_client({}, {}, get_config=get_config)
+        config = None
         if get_config:
             client, config = client
         client.token_valid.assert_called_with(10, remote=False)
@@ -192,6 +195,7 @@ class TestGetAuthdClient:
         clearing cache.
         """
         client = vault.get_authd_client({}, {}, get_config=get_config)
+        config = None
         if get_config:
             client, config = client
         client_invalid.token_valid.assert_called_with(10, remote=False)
@@ -221,6 +225,7 @@ class TestGetAuthdClient:
         new credentials are requested.
         """
         client = vault.get_authd_client({}, {}, get_config=get_config)
+        config = None
         if get_config:
             client, config = client
         client.token_valid.assert_called_with(10, remote=False)
@@ -241,8 +246,8 @@ class TestGetAuthdClient:
         warning about the potential tampering
         """
 
-        def raise_unwrap(*args, **kwargs):
-            raise vfactory.VaultUnwrapException("foo", "bar", "vaulturl", "namespace", "verify")
+        def raise_unwrap(*_, **__):
+            raise vfactory.VaultUnwrapException(["foo"], "bar", "vaulturl", "namespace", "verify")
 
         with patch(
             "saltext.vault.utils.vault.factory._get_event",
@@ -257,7 +262,7 @@ class TestGetAuthdClient:
                     vault.get_authd_client({}, {})
             events.assert_called_once_with(
                 data={
-                    "expected": "foo",
+                    "expected": ["foo"],
                     "actual": "bar",
                     "url": "vaulturl",
                     "namespace": "namespace",
@@ -280,7 +285,7 @@ class TestGetAuthdClient:
         Ensure renewable tokens are renewed when necessary.
         """
         client = vault.get_authd_client({}, {}, get_config=False)
-        client.token_renew.assert_called_once_with(increment=60)
+        client.token_renew.assert_called_once_with(increment=60)  # type: ignore
         clear_cache.assert_not_called()
 
     @pytest.mark.usefixtures("build_unrenewable")
@@ -290,7 +295,7 @@ class TestGetAuthdClient:
         even though the current one would still be valid for some time.
         """
         client = vault.get_authd_client({}, {}, get_config=False)
-        client.token_renew.assert_not_called()
+        client.token_renew.assert_not_called()  # type: ignore
         clear_cache.assert_called_once()
 
     @pytest.mark.usefixtures("build_renewable_max_ttl")
@@ -300,7 +305,7 @@ class TestGetAuthdClient:
         new ttl does not satisfy it.
         """
         client = vault.get_authd_client({}, {}, get_config=False)
-        client.token_renew.assert_called_once_with(increment=60)
+        client.token_renew.assert_called_once_with(increment=60)  # type: ignore
         clear_cache.assert_called_once()
 
 
@@ -343,7 +348,7 @@ class TestBuildAuthdClient:
         # mocked when _cache is called
         vauth_cache = vcache.VaultAuthCache
 
-        def _cache(context, cbank, ckey, *args, **kwargs):  # pylint: disable=unused-argument
+        def _cache(_context, _cbank, ckey, *_, **__):  # pylint: disable=unused-argument
             token = Mock(spec=vauth_cache)
             token.get.return_value = None
             approle = Mock(spec=vauth_cache)
@@ -371,7 +376,7 @@ class TestBuildAuthdClient:
         conn_config.return_value = (test_remote_config, None, Mock())
         (
             client,
-            config,  # pylint: disable=unused-variable
+            _config,  # pylint: disable=unused-variable
         ) = vfactory._build_authd_client({}, {})
         assert client.token_valid(remote=False)
         if test_remote_config["auth"]["method"] == "approle":
@@ -511,7 +516,9 @@ class TestGetConnectionConfig:
         ) = vfactory._get_connection_config("vault", {}, {}, update=True)
         assert res == updated_remote_config
         assert embedded_token is None
-        remote.assert_called_once_with("get_config", {}, issue_params=None, config_only=True)
+        remote.assert_called_once_with(
+            "get_config", {}, issue_params=None, config_only=True, unwrap_expected_creation_path=ANY
+        )
         cached.flush.assert_called_once_with(cbank=False)
         cached.store.assert_called_once_with(updated_remote_config)
 
@@ -603,9 +610,171 @@ class TestGetConnectionConfig:
         self._assert_not_updated(remote, cached)
 
     def _assert_not_updated(self, remote, cached):
-        remote.assert_called_once_with("get_config", {}, issue_params=None, config_only=True)
+        remote.assert_called_once_with(
+            "get_config", {}, issue_params=None, config_only=True, unwrap_expected_creation_path=ANY
+        )
         cached.flush.assert_not_called()
         cached.store.assert_not_called()
+
+
+class TestGetConnectionConfigCreationPathVerification:
+    """
+    Ensure the creation path verification works end-to-end during the
+    configuration fetch, with only the peer runner response and the
+    HTTP layer mocked. The unwrapping client and its verification logic
+    are the real implementation.
+    """
+
+    @pytest.fixture(autouse=True)
+    def runner(self):
+        with patch("salt.modules.publish.runner", autospec=True) as runner:
+            with patch("salt.utils.context.func_globals_inject"):
+                yield runner
+
+    @pytest.fixture(autouse=True)
+    def salt_crypt(self):
+        with patch("salt.crypt.sign_message", Mock(return_value="signature")):
+            with patch("base64.b64encode", Mock(return_value="signature")):
+                yield
+
+    @pytest.fixture(autouse=True)
+    def uncached(self):
+        cache = Mock(spec=vcache.VaultConfigCache)
+        cache.get.return_value = None
+        with patch("saltext.vault.utils.vault.cache._get_config_cache", autospec=True) as cfactory:
+            cfactory.return_value = cache
+            yield cache
+
+    @pytest.fixture(autouse=True)
+    def session(self, http_session):
+        """
+        The unwrapping client is instantiated inside _query_master, so ensure
+        it receives a mocked session instead of issuing real requests.
+        """
+        with patch("requests.Session", autospec=True, return_value=http_session):
+            yield http_session
+
+    @pytest.fixture
+    def opts(self):
+        return {
+            "grains": {"id": "test-minion"},
+            "pki_dir": "/var/cache/salt/minion",
+        }
+
+    @pytest.fixture
+    def response(
+        self,
+        config_defaults,
+        server_config,
+        wrapped_token_auth_response,
+        wrapped_role_id_response,
+        runner,
+        request,
+    ):
+        """
+        A realistic ``vault.get_config`` peer runner response containing
+        a nested wrapped credential.
+        """
+        res = {
+            "auth": config_defaults["auth"].copy(),
+            "cache": config_defaults["cache"].copy(),
+            "client": config_defaults["client"].copy(),
+            "server": server_config,
+            "wrap_info_nested": [],
+        }
+        if request.param == "token":
+            res["auth"]["token"] = {"wrap_info": wrapped_token_auth_response["wrap_info"].copy()}
+            res["wrap_info_nested"].append("auth:token")
+        elif request.param == "approle":
+            res["auth"]["method"] = "approle"
+            res["auth"]["approle_mount"] = "approle"
+            res["auth"]["approle_name"] = "test-minion"
+            res["auth"]["secret_id"] = True
+            res["auth"]["role_id"] = {"wrap_info": wrapped_role_id_response["wrap_info"].copy()}
+            res["wrap_info_nested"].append("auth:role_id")
+        else:
+            raise ValueError(f"Unknown response type: {request.param}")
+        runner.return_value = res
+        return res
+
+    def _mock_requests(self, req, creation_path, unwrap_payload):
+        """
+        Answer wrapping token lookups with the parametrized creation path
+        and unwrap requests with the passed payload.
+        """
+        lookup_response = {
+            "request_id": "31e7020e-3ce3-2c63-e453-d5da8a9890f1",
+            "data": {
+                "creation_path": creation_path,
+                "creation_time": "2022-09-10T13:37:12.123456789+00:00",
+                "creation_ttl": 180,
+            },
+        }
+
+        def _request(method, url, **__):
+            if url.endswith("sys/wrapping/lookup"):
+                return _mock_json_response(lookup_response)
+            if url.endswith("sys/wrapping/unwrap"):
+                return _mock_json_response(unwrap_payload)
+            raise AssertionError(f"Unexpected request during config fetch: {method} {url}")
+
+        req.side_effect = _request
+
+    @pytest.mark.parametrize(
+        "response,creation_path,valid",
+        [
+            ("token", "auth/token/create", True),
+            ("token", "auth/token/create/salt-minion", True),
+            ("token", "auth/token/create-orphan", False),
+            ("token", "sys/wrapping/wrap", False),
+            ("approle", "auth/approle/role/test-minion/role-id", True),
+            ("approle", "auth/rogue-mount/role/test-minion/role-id", False),
+            ("approle", "auth/approle/role/other-minion/role-id", False),
+        ],
+        indirect=["response"],
+    )
+    def test_verification_chain(
+        self,
+        opts,
+        response,
+        req,
+        creation_path,
+        valid,
+        token_auth,
+        role_id_response,
+    ):
+        """
+        Ensure wrapped credentials in the initial configuration fetch are
+        unwrapped when their wrapping token was created from the expected
+        path and that unexpected creation paths cause a VaultUnwrapException
+        without spending the wrapping token.
+        """
+        token = "auth:token" in response["wrap_info_nested"]
+        unwrap_payload = token_auth if token else role_id_response
+        self._mock_requests(req, creation_path, unwrap_payload)
+
+        if valid:
+            config, embedded_token, unwrap_client = vfactory._get_connection_config(
+                "vault", opts, {}
+            )
+            assert unwrap_client is not None
+            if token:
+                assert embedded_token == token_auth["auth"]
+            else:
+                assert config["auth"]["role_id"] == role_id_response["data"]
+            assert any(
+                call_args.args[1].endswith("sys/wrapping/unwrap")
+                for call_args in req.call_args_list
+            )
+        else:
+            with pytest.raises(vfactory.VaultUnwrapException):
+                vfactory._get_connection_config("vault", opts, {})
+            # The single-use wrapping token must not have been spent on
+            # unwrapping a response that failed verification.
+            assert not any(
+                call_args.args[1].endswith("sys/wrapping/unwrap")
+                for call_args in req.call_args_list
+            )
 
 
 @pytest.mark.usefixtures("time_stopped")
@@ -1218,6 +1387,7 @@ class TestQueryMaster:
         publish_runner.return_value = saltutil_runner.return_value = {
             "server": {
                 "url": "http://127.0.0.1:8200",
+                "url_alts": ["http://127.0.0.1:8200"],
                 "verify": None,
                 "namespace": None,
             },
@@ -1225,12 +1395,13 @@ class TestQueryMaster:
         }
         expected_server = {
             "url": "http://127.0.0.1:8200",
+            "url_alts": ["http://127.0.0.1:8200"],
             "verify": "/etc/ssl/certs.pem",
             "namespace": None,
         }
         opts["vault"] = {"server": {"verify": "/etc/ssl/certs.pem"}}
 
-        unauthd_client_mock.get_config.return_value = expected_server
+        unauthd_client_mock.get_config.return_value = expected_server.copy()
         unauthd_client_mock.unwrap.return_value = role_id_response
         ret, _ = vfactory._query_master("func", opts, unwrap_client=unauthd_client_mock)
         assert "Mismatch of cached and reported server data detected" not in caplog.text
@@ -1241,6 +1412,183 @@ class TestQueryMaster:
             "data": role_id_response["data"],
             "server": expected_server,
         }
+
+    def test_query_master_local_url_does_not_interfere_with_expected_server(
+        self,
+        opts,
+        publish_runner,
+        saltutil_runner,
+        wrapped_role_id_response,
+        role_id_response,
+        unwrap_client,
+        unauthd_client_mock,
+        caplog,
+    ):
+        """
+        Ensure that a locally configured url parameter is inserted before
+        checking if there is a config mismatch.
+        """
+        publish_runner.return_value = saltutil_runner.return_value = {
+            "server": {
+                "url": "http://127.0.0.1:8200",
+                "url_alts": [
+                    "http://127.0.0.1:8200",
+                    "http://127.0.0.2:8200",
+                    "http://127.0.0.3:8200",
+                ],
+                "verify": None,
+                "namespace": None,
+            },
+            "wrap_info": wrapped_role_id_response["wrap_info"],
+        }
+        expected_server = {
+            "url": "http://127.0.0.2:8200",
+            "url_alts": [
+                "http://127.0.0.1:8200",
+                "http://127.0.0.2:8200",
+                "http://127.0.0.3:8200",
+            ],
+            "verify": None,
+            "namespace": None,
+        }
+        opts["vault"] = {"server": {"url": "http://127.0.0.2:8200"}}
+
+        unauthd_client_mock.get_config.return_value = expected_server.copy()
+        unauthd_client_mock.unwrap.return_value = role_id_response
+        ret, _ = vfactory._query_master("func", opts, unwrap_client=unauthd_client_mock)
+        assert "Mismatch of cached and reported server data detected" not in caplog.text
+        # ensure the client was not replaced
+        unwrap_client.assert_not_called()
+        unauthd_client_mock.unwrap.assert_called_once()
+        assert ret == {
+            "data": role_id_response["data"],
+            "server": expected_server,
+        }
+
+    def test_query_master_verifies_nested_wrapped_creation_paths_per_key(
+        self,
+        opts,
+        publish_runner,
+        saltutil_runner,
+        wrapped_role_id_response,
+        wrapped_token_auth_response,
+        unauthd_client_mock,
+        server_config,
+    ):
+        """
+        Ensure that when ``unwrap_expected_creation_path`` is a callable, it is
+        invoked with the response and the respective nested key and that its
+        return value is passed to the unwrapping client for verification of
+        each nested wrapped response separately.
+        """
+        publish_runner.return_value = saltutil_runner.return_value = {
+            "server": server_config,
+            "wrap_info_nested": ["auth:role_id", "auth:token"],
+            "auth": {
+                "role_id": {"wrap_info": wrapped_role_id_response["wrap_info"]},
+                "token": {"wrap_info": wrapped_token_auth_response["wrap_info"]},
+            },
+        }
+        verifier = Mock(side_effect=lambda result, key: f"path/for/{key}")
+        vfactory._query_master(
+            "get_config",
+            opts,
+            unwrap_client=unauthd_client_mock,
+            unwrap_expected_creation_path=verifier,
+        )
+        assert unauthd_client_mock.unwrap.call_args_list == [
+            call(ANY, expected_creation_path="path/for/auth:role_id"),
+            call(ANY, expected_creation_path="path/for/auth:token"),
+        ]
+
+    def test_query_master_verifies_wrapped_creation_path_string(
+        self,
+        opts,
+        publish_runner,
+        saltutil_runner,
+        wrapped_secret_id_response,
+        unauthd_client_mock,
+        server_config,
+    ):
+        """
+        Ensure that a string ``unwrap_expected_creation_path`` is passed
+        through to the unwrapping client unmodified.
+        """
+        publish_runner.return_value = saltutil_runner.return_value = {
+            "server": server_config,
+            "wrap_info": wrapped_secret_id_response["wrap_info"],
+        }
+        vfactory._query_master(
+            "generate_secret_id",
+            opts,
+            unwrap_client=unauthd_client_mock,
+            unwrap_expected_creation_path=r"auth/approle/role/test\-minion/secret\-id",
+        )
+        unauthd_client_mock.unwrap.assert_called_once_with(
+            ANY, expected_creation_path=r"auth/approle/role/test\-minion/secret\-id"
+        )
+
+    def test_query_master_skips_verification_on_mismatching_server_config(
+        self,
+        opts,
+        publish_runner,
+        saltutil_runner,
+        wrapped_role_id_response,
+        unauthd_client_mock,
+        unwrap_client,
+    ):
+        """
+        Ensure that when the reported server configuration differs from the
+        cached one, wrapped responses are still unwrapped (for security
+        reasons), but without creation path verification since the cached
+        configuration the expected path might be derived from is outdated.
+        """
+        publish_runner.return_value = saltutil_runner.return_value = {
+            "server": {"url": "http://new-url:8200", "verify": None, "namespace": None},
+            "wrap_info": wrapped_role_id_response["wrap_info"],
+        }
+        verifier = Mock(return_value="auth/token/create")
+        with pytest.raises(vault.VaultConfigExpired):
+            vfactory._query_master(
+                "get_config",
+                opts,
+                unwrap_client=unauthd_client_mock,
+                unwrap_expected_creation_path=verifier,
+            )
+        verifier.assert_not_called()
+        # the outdated client is discarded, a new one unwraps
+        unauthd_client_mock.unwrap.assert_not_called()
+        unwrap_client.return_value.unwrap.assert_called_once_with(ANY, expected_creation_path=None)
+
+    def test_query_master_enriches_unwrap_exception(
+        self,
+        opts,
+        publish_runner,
+        saltutil_runner,
+        wrapped_token_auth_response,
+        unauthd_client_mock,
+        server_config,
+    ):
+        """
+        Ensure a failed creation path verification is reraised and the
+        event data is enriched with the peer runner endpoint.
+        """
+        unauthd_client_mock.unwrap.side_effect = vfactory.VaultUnwrapException(
+            ["auth/token/create"], "attacker/path", "http://127.0.0.1:8200", None, None
+        )
+        publish_runner.return_value = saltutil_runner.return_value = {
+            "server": server_config,
+            "wrap_info_nested": ["auth:token"],
+            "auth": {"token": {"wrap_info": wrapped_token_auth_response["wrap_info"]}},
+        }
+        with pytest.raises(vfactory.VaultUnwrapException) as exc:
+            vfactory._query_master(
+                "get_config",
+                opts,
+                unwrap_client=unauthd_client_mock,
+                unwrap_expected_creation_path=lambda result, key: "auth/token/create",
+            )
+        assert exc.value.event_data["func"] == "vault.get_config"
 
     @pytest.mark.parametrize(
         "get_config_response",
@@ -1412,10 +1760,11 @@ class TestBuildRevocationClient:
             res = vfactory._build_revocation_client({}, {})
             query.assert_not_called()
             if token.return_value.get.return_value is not None:
+                assert res is not None
                 assert isinstance(res[0], vclient.AuthenticatedVaultClient)
                 assert res[1] == test_remote_config
             else:
-                assert res == (None, None)
+                assert res is None
 
 
 @pytest.mark.parametrize("ckey", ["token", None])
@@ -1474,24 +1823,27 @@ def test_clear_cache_overridden_cache(cache_factory):
 
 
 @pytest.mark.usefixtures("cache_factory")
+@pytest.mark.parametrize("client", ["valid_token"], indirect=True)
 @pytest.mark.parametrize("ckey", ["token", None])
 @pytest.mark.parametrize("connection", [True, False])
 @pytest.mark.parametrize("session", [True, False])
-def test_clear_cache_clears_client_from_context(ckey, connection, session):
+def test_clear_cache_clears_client_from_context(ckey, connection, session, client):
     """
-    Ensure the cached client is removed when the connection cache is altered only
+    Ensure the cached client is removed when any cache is altered that affects it
     """
-    cbank = "vault/connection"
-    context = {cbank: {vfactory.CLIENT_CKEY: "foo"}}
+    cbank = "vault/connection/session"
+    context = {cbank: {vfactory.CLIENT_CKEY: (client, {"config": True})}}
     with patch(
         "saltext.vault.utils.vault.factory._build_revocation_client", autospec=True
     ) as revoc:
         revoc.return_value = (None, None)
         vault.clear_cache({}, context, ckey=ckey, connection=connection, session=session)
-    if session or (not connection and ckey):
+    if session and ckey:
         assert vfactory.CLIENT_CKEY in context.get(cbank, {})
+        client.session.close.assert_not_called()
     else:
         assert vfactory.CLIENT_CKEY not in context.get(cbank, {})
+        client.session.close.assert_called_once()
 
 
 @pytest.mark.parametrize(
@@ -1533,6 +1885,7 @@ def test_clear_cache_clears_client_from_context(ckey, connection, session):
                 },
                 "server": {
                     "url": "http://127.0.0.1:8200",
+                    "url_alts": ["http://127.0.0.1:8200"],
                     "namespace": None,
                     "verify": None,
                 },
@@ -1576,6 +1929,7 @@ def test_clear_cache_clears_client_from_context(ckey, connection, session):
                 },
                 "server": {
                     "url": "http://127.0.0.1:8200",
+                    "url_alts": ["http://127.0.0.1:8200"],
                     "namespace": None,
                     "verify": None,
                 },
@@ -1633,6 +1987,47 @@ def test_parse_config_respects_local_verify(opts):
     testval = "/etc/ssl/certs/ca-certificates.crt"
     ret = vfactory.parse_config({"server": {"verify": "default"}}, validate=False, opts=opts)
     assert ret["server"]["verify"] == testval
+
+
+@pytest.mark.parametrize(
+    "opts,is_allowed",
+    [
+        ({"vault": {"server": {"url": "https://vault-alt.company.external"}}}, False),
+        ({"vault": {"server": {"url": "https://vault-alt.company.external"}}}, True),
+        ({"vault": {"url": "https://vault-alt.company.external"}}, False),
+        ({"vault": {"url": "https://vault-alt.company.external"}}, True),
+        (
+            {
+                "vault": {
+                    "server": {
+                        "url": "https://vault-alt.company.external",
+                        "url_alts": ["https://vault-alt.company.external"],
+                    }
+                }
+            },
+            False,
+        ),
+    ],
+)
+def test_parse_config_respects_local_url_when_appropriate(opts, is_allowed, caplog):
+    """
+    Ensure locally configured url values are respected, if they are in server:url_alts.
+    """
+    oldval = "https://vault.company.internal"
+    newval = "https://vault-alt.company.external"
+    reported = {
+        "server": {
+            "url": oldval,
+            "url_alts": [newval, oldval] if is_allowed else [oldval],
+        }
+    }
+    with caplog.at_level(logging.WARN):
+        ret = vfactory.parse_config(reported, validate=False, opts=opts)
+    if is_allowed:
+        assert ret["server"]["url"] == newval
+    else:
+        assert ret["server"]["url"] == oldval
+    assert ("Locally configured Vault server URL" in caplog.text) is not is_allowed
 
 
 def test_parse_config_respects_local_client():

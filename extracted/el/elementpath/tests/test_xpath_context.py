@@ -311,6 +311,43 @@ class XPathContextTest(unittest.TestCase):
             )
 
     @unittest.skipIf(lxml_etree is None, 'lxml library is not installed')
+    def test_inner_focus_context_position(self):
+        xml_source = '<a attr="A"><b/><b/><b attr="B"><c attr="C">text</c></b></a>'
+        root = lxml_etree.XML(xml_source)
+
+        expressions = [
+            '/a/b[3]/*[position()=1]',
+            '/a/b[3]/*[position()=2]'
+        ]
+        for expr in expressions:
+            lxml_result = root.xpath(expr)
+            result = select(root, expr)
+            self.assertEqual(lxml_result, result, msg=expr)
+
+    @unittest.skipIf(lxml_etree is None, 'lxml library is not installed')
+    def test_position_with_reverse_axis__issue_105(self):
+        xml_source = '<a attr="A"><b/><b/><b attr="B"><c attr="C">text</c></b></a>'
+        root = lxml_etree.XML(xml_source)
+
+        expressions = [
+            "ancestor-or-self::*[@attr]",
+            "ancestor-or-self::*[@attr][1]",
+            "(ancestor-or-self::*[@attr])[1]",
+            "ancestor-or-self::*[@attr][last()]",
+            "(ancestor-or-self::*[@attr])[last()]",
+            "ancestor-or-self::*",
+            "ancestor-or-self::*[1]",
+            "(ancestor-or-self::*)[1]",
+            "ancestor-or-self::*[last()]",
+            "(ancestor-or-self::*)[last()]",
+        ]
+
+        for expr in expressions:
+            lxml_result = root.xpath(expr)
+            result = select(root, expr)
+            self.assertEqual(lxml_result, result, msg=expr)
+
+    @unittest.skipIf(lxml_etree is None, 'lxml library is not installed')
     def test_iter_siblings__issue_44(self):
         root = lxml_etree.XML('<root>text 1<!-- comment -->text 2<!-- comment --> text 3</root>')
         result = select(root, 'node()[1]/following-sibling::node()')

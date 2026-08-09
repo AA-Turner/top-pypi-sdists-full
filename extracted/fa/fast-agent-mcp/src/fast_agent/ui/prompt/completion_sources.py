@@ -1004,16 +1004,22 @@ def _plugins_update_completions(
     argument: str,
     results: list[Completion],
 ) -> list[Completion]:
+    tokens = set(argument.split())
+    scope = "global" if "--global" in tokens else "project" if "--project" in tokens else None
+    partial = _current_argument_token(argument)
     return _extend_managed_update_completions(
         results,
-        argument,
+        partial,
         command_name="plugins",
         all_meta="update all managed plugins",
         name_completions=(
             completer._complete_local_plugin_names(
-                argument,
+                partial,
                 managed_only=True,
-                include_indices=False,
+                include_indices=True,
+                all_scopes=True,
+                unambiguous_names_only=True,
+                scope=scope,
             )
         ),
     )
@@ -1382,8 +1388,11 @@ def _tools_command_completions(
     text: str,
     text_lower: str,
 ) -> list[Completion] | None:
-    prefix = "/tools "
-    if not text_lower.startswith(prefix):
+    prefix = next(
+        (candidate for candidate in ("/tools ", "/tool ") if text_lower.startswith(candidate)),
+        None,
+    )
+    if prefix is None:
         return None
 
     partial = text[len(prefix) :].lstrip()
@@ -1391,7 +1400,7 @@ def _tools_command_completions(
         return []
 
     entries = completer._run_async_completion(completer._list_tool_completion_entries) or []
-    candidates = [("summary", "List available tools"), *entries]
+    candidates = entries if prefix == "/tool " else [("summary", "List available tools"), *entries]
     return [
         Completion(
             name,

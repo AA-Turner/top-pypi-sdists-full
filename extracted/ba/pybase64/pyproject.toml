@@ -1,15 +1,117 @@
 [build-system]
-requires = ["setuptools"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
+[project]
+name = "pybase64"
+authors = [
+    {name = "Matthieu Darbois"},  # , email = "mayeut@users.noreply.github.com"
+]
+description = "Fast Base64 encoding/decoding"
+readme = "README.rst"
+requires-python = ">=3.9"
+keywords = ["base64"]
+license = "BSD-2-Clause"
+license-files = ["LICENSE", "base64/LICENSE"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    # Indicate who your project is intended for
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Utilities",
+    # Specify the Python versions you support here.
+    "Programming Language :: C",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
+]
+dynamic = ["version"]
+
+[project.scripts]
+pybase64 = "pybase64.__main__:main"
+
+[project.urls]
+Homepage = "https://github.com/mayeut/pybase64"
+Documentation = "https://pybase64.readthedocs.io/en/stable"
+Source = "https://github.com/mayeut/pybase64"
+Issues = "https://github.com/mayeut/pybase64/issues"
+
+[tool.setuptools.dynamic]
+version = {attr = "pybase64._version._version"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools]
+include-package-data = false
+
+[tool.setuptools.package-data]
+pybase64 = ["py.typed", "_pybase64.pyi"]
+
+[dependency-groups]
+test = [
+    "packaging==24.2; sys_platform == 'emscripten'",
+    "packaging>=26.0; sys_platform != 'emscripten'",
+    "pytest>=8",
+    "pytest-run-parallel>=0.8.2 ; python_version >= '3.13'",
+    "typing_extensions>=4.6",
+]
+# we don't support benchmark for python<3.12
+benchmark = [
+    {include-group = "test"},
+    "pytest-codspeed>=4",
+]
+coverage = [
+    {include-group = "test"},
+    "coverage[toml]>=7.10",  # >= 7.10, we use tool.coverage.run.patch config
+    "gcovr>=8",
+    "lxml>=7.0.0a3 ; python_version >= '3.15'",
+    "pytest-cov>=7",  # needed for coverage>=7.10
+]
+# we don't support docs for python<3.12
+docs = [
+    "sphinx>=8",
+    "furo>=2025.12.19",
+]
+lint = ["prek"]
+nox = ["nox>=2025.11.12"]
+build-system = ["setuptools>=77"]
+dev = [
+    {include-group = "coverage"},
+    {include-group = "docs"},
+    {include-group = "lint"},
+    {include-group = "nox"},
+    {include-group = "build-system"},
+    {include-group = "test"},
+]
+
 [tool.cibuildwheel]
+build-frontend = { name = "uv", args = ["--build-constraints", "requirements/build-system/requirements-ci.txt", "--require-hashes"] }
 build-verbosity = 1
-enable = ["cpython-freethreading", "graalpy", "pypy", "pypy-eol"]
-test-skip = ["gp3*-win_amd64", "*-android*"]  # https://github.com/oracle/graalpython/issues/490
-test-requires = "-r requirements-test.txt"
+enable = ["graalpy", "pypy", "pypy-eol"]
+repair-wheel-command = ["uv run --script tools/embed_sbom.py {dest_dir} {wheel}"]
+test-skip = ["gp3*-win_amd64"]  # https://github.com/oracle/graalpython/issues/490
+test-requires = ["--no-deps", "--only-binary=:all:", "-r", "requirements/test/requirements-ci.txt"]
 test-sources = ["conftest.py", "pyproject.toml", "tests"]
-test-command = "python -m pytest"
-xbuild-tools = ["cmake"]
+test-command = "python -m pytest --pypi-distribution"
+xbuild-tools = ["cmake", "uv"]
+
+[tool.cibuildwheel.linux]
+repair-wheel-command = [
+    "auditwheel repair -w {dest_dir} {wheel}",
+    "python3.14 tools/embed_sbom.py {dest_dir}",
+]
+
+[tool.cibuildwheel.macos]
+repair-wheel-command = [
+    "delocate-wheel --require-archs {delocate_archs} -w {dest_dir} -v {wheel}",
+    "uv run --script tools/embed_sbom.py {dest_dir}",
+]
 
 [[tool.cibuildwheel.overrides]]
 select = "*-manylinux*"
@@ -19,19 +121,35 @@ environment = { AUDITWHEEL_PLAT="manylinux2014_${AUDITWHEEL_ARCH}" }
 select = "*-manylinux_riscv64"
 environment = { AUDITWHEEL_PLAT="manylinux_2_31_${AUDITWHEEL_ARCH}" }
 
+[[tool.cibuildwheel.overrides]]
+select = "*-musllinux_{ppc64le,riscv64,s390x}"
+build-frontend = { name = "build", args = ["--no-isolation"] }
+before-build = "python -m pip install --no-deps --only-binary=:all: --require-hashes -r requirements/build-system/requirements-ci.txt"
+
+[[tool.cibuildwheel.overrides]]
+select = "*-ios*"
+build-frontend = { name = "build", args = ["--no-isolation"] }
+before-build = "python -m pip install --no-deps --only-binary=:all: --require-hashes -r requirements/build-system/requirements-ci.txt"
+# iOS fails to install from requirements/test/requirements-ci.txt because it falls back to --require-hashes
+# and can't install the wheel in the same install command as it's not hashed
+# Don't use hashed requirements for now
+test-groups = ["test"]
+test-requires = []
+
 [tool.coverage.run]
 branch = true
 patch = ["subprocess"]
 omit = [
+  "src/pybase64/_typing.py",
   "tests/conftest.py",
   "tests/test_benchmark.py",
 ]
 
 [tool.coverage.report]
-exclude_lines = ["pragma: no cover", "class .*\\(Protocol\\):", "if TYPE_CHECKING:"]
+exclude_also = ["class .*\\(Protocol\\):"]
 
 [tool.mypy]
-python_version = "3.8"
+python_version = "3.9"
 files = [
   "src/**/*.py",
   "test/**/*.py",
@@ -62,47 +180,50 @@ enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
 warn_unreachable = true
 
 [[tool.mypy.overrides]]
-module = ["pybase64.__main__", "tests.test_pybase64", "tests.utils"]
+module = ["pybase64.__main__", "tests.test_pybase64", "tests.utils", "embed_sbom"]
 disallow_any_explicit = false
 
 [tool.pytest.ini_options]
 minversion = "7.0"
 addopts = ["-ra", "--showlocals", "--strict-markers", "--strict-config", "-p", "no:legacypath"]
-markers = ["benchmark"]
+markers = ["benchmark", "pypi_distribution"]
 
 [tool.ruff]
-target-version = "py38"
+target-version = "py39"
 line-length = 100
-
-[tool.ruff.lint]
-extend-select = [
-  "B",           # flake8-bugbear
-  "I",           # isort
-  "ARG",         # flake8-unused-arguments
-  "C4",          # flake8-comprehensions
-  "EM",          # flake8-errmsg
-  "ICN",         # flake8-import-conventions
-  "ISC",         # flake8-implicit-str-concat
-  "G",           # flake8-logging-format
-  "PGH",         # pygrep-hooks
-  "PIE",         # flake8-pie
-  "PL",          # pylint
-  "PT",          # flake8-pytest-style
-  "RET",         # flake8-return
-  "RUF",         # Ruff-specific
-  "SIM",         # flake8-simplify
-  "TID251",      # flake8-tidy-imports.banned-api
-  "UP",          # pyupgrade
-  "YTT",         # flake8-2020
-  "EXE",         # flake8-executable
-  "PYI",         # flake8-pyi
-]
-ignore = [
+lint.select = ["ALL"]
+lint.ignore = [
+  "CPY001",
+  "D104",  # TODO add doc
+  "FBT001",
+  "FBT002",
   "PLR",    # Design related pylint codes
 ]
-typing-modules = ["pybase64._typing"]
+lint.typing-modules = ["pybase64._typing"]
+lint.flake8-tidy-imports.ban-relative-imports = "all"
+
+[tool.ruff.lint.per-file-ignores]
+"src/pybase64/__main__.py" = ["C901", "D", "T201"]
+"!src/**.py" = ["D"]
+"setup.py" = ["TRY400"]  # TODO
+"docs/**.py" = ["ANN", "DTZ011", "ERA001", "INP001", "PTH"]
+"tests/**.py" = ["ANN401", "PERF", "S101", "SLF001", "TID252"]
+"noxfile.py" = ["FIX002", "S101", "TD"]
+"tools/**.py" = ["C901", "S607", "T201"]
+
+[tool.ruff.per-file-target-version]
+"tools/**.py" = "py314"
 
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
 "typing.Callable".msg = "Use collections.abc.Callable instead."
 "typing.Iterator".msg = "Use collections.abc.Iterator instead."
 "typing.Sequence".msg = "Use collections.abc.Sequence instead."
+"typing.TYPE_CHECKING".msg = "Use TYPE_CHECKING=False instead."
+
+[tool.uv]
+required-version = ">=0.7.14"
+
+[tool.uv.dependency-groups]
+benchmark = { requires-python = ">=3.12" }
+coverage = { requires-python = ">=3.10" }
+docs = { requires-python = ">=3.12" }

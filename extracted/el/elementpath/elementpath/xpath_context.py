@@ -9,6 +9,7 @@
 #
 import datetime
 import importlib
+import warnings
 from collections.abc import Iterator, Sequence, Callable
 from functools import cached_property
 from types import ModuleType
@@ -38,51 +39,52 @@ class XPathContext:
     The other optional arguments are needed only if a specific position on the context is
     required, but have to be used with the knowledge of what is their meaning.
 
-    :param root: the root of the XML document, usually an ElementTree instance or an \
-    Element. A schema or a schema element can also be provided, or an already built \
-    node tree. For default is `None`, in which case no XML root is set, and you have \
-    to provide an *item* argument.
-    :param namespaces: a dictionary with mapping from namespace prefixes into URIs, \
+    :param root: The root of the XML document, usually an ElementTree instance or an \
+    Element. A schema or a schema element can also be provided, or a built node tree. \
+    For default is `None`, in which case no XML root is set, and you have to provide \
+    an *item* argument.
+    :param namespaces: A dictionary with mapping from namespace prefixes into URIs, \
     used when namespace information is not available within document and element nodes. \
     This can be useful when the dynamic context has additional namespaces and root \
     is an Element or an ElementTree instance of the standard library.
-    :param uri: an optional URI associated with the root element or the document.
-    :param fragment: if `True` is provided the root is considered a fragment. In this \
+    :param uri: An optional URI associated with the root element or the document.
+    :param fragment: If `True` is provided the root is considered a fragment. In this \
     case if `root` is an ElementTree instance skips it and use the root Element. If \
     `False` is provided creates a dummy document when the root is an Element instance. \
-    In this case the dummy document value is not included in results. For default the \
+    In this case the dummy document value is not included in the results. For default the \
     root node kind is preserved.
-    :param item: the context item. A `None` value means that the context is positioned on \
+    :param item: The context item. A `None` value means that the context is positioned on \
     the document node.
-    :param position: the current position of the node within the input sequence.
-    :param size: the number of items in the input sequence.
-    :param axis: the active axis. Used to choose when apply the default axis ('child' axis).
-    :param schema: an optional schema proxy instance to be applied on XDM root or item.
-    :param variables: dictionary of context variables that maps a QName to a value.
-    :param current_dt: current dateTime of the implementation, including explicit timezone.
-    :param timezone: implicit timezone to be used when a date, time, or dateTime value does \
+    :param position: The current position of the node within the input sequence.
+    :param size: The number of items in the input sequence.
+    :param axis: The active axis. Used to choose when apply the default axis ('child' axis).
+    :param schema: An optional schema proxy instance to be applied on XDM root or item.
+    :param variables: Dictionary of context variables that maps a QName to a value.
+    :param current_dt: Current dateTime of the implementation, including explicit timezone.
+    :param timezone: Implicit timezone to be used when a date, time, or dateTime value does \
     not have a timezone.
-    :param documents: available documents. This is a mapping of absolute URI \
+    :param documents: Available documents. This is a mapping of absolute URI \
     strings into document nodes. Used by the function fn:doc.
-    :param collections: available collections. This is a mapping of absolute URI \
+    :param collections: Available collections. This is a mapping of absolute URI \
     strings onto sequences of nodes. Used by the XPath 2.0+ function fn:collection.
-    :param default_collection: this is the sequence of nodes used when fn:collection \
+    :param default_collection: This is the sequence of nodes used when fn:collection \
     is called with no arguments.
-    :param text_resources: available text resources. This is a mapping of absolute URI strings \
+    :param text_resources: Available text resources. This is a mapping of absolute URI strings \
     onto text resources. Used by XPath 3.0+ function fn:unparsed-text/fn:unparsed-text-lines.
-    :param resource_collections: available URI collections. This is a mapping of absolute \
-    URI strings to sequence of URIs. Used by the XPath 3.0+ function fn:uri-collection.
-    :param default_resource_collection: this is the sequence of URIs used when \
+    :param resource_collections: Available URI collections. This is a mapping of absolute \
+    URI strings to a sequence of URIs. Used by the XPath 3.0+ function fn:uri-collection.
+    :param default_resource_collection: This is the sequence of URIs used when \
     fn:uri-collection is called with no arguments.
-    :param allow_environment: defines if the access to system environment is allowed, \
-    for default is `False`. Used by the XPath 3.0+ functions fn:environment-variable \
-    and fn:available-environment-variables.
+    :param allow_environment: defines if the access to system environment variables is \
+    allowed, for default is `False`. Deprecated here, it has been extended and moved \
+    to XPath30Parser/XPath31Parser init.
     """
     _etree: Optional[ModuleType] = None
     _schema: Optional[ta.SchemaProxyType] = None
     root: Optional[ta.RootNodeType]
     document: DocumentNode | None
     item: ta.ItemType
+    size: int | None
 
     documents: dict[str, DocumentNode] | None = None
     collections: dict[str, list[XPathNode]] | None = None
@@ -177,10 +179,16 @@ class XPathContext:
         self.text_resources = text_resources if text_resources is not None else {}
         self.resource_collections = resource_collections
         self.default_resource_collection = default_resource_collection
-        self.allow_environment = allow_environment
         self.default_language = None if default_language is None else Language(default_language)
         self.default_calendar = default_calendar
         self.default_place = default_place
+
+        self.allow_environment = allow_environment
+        if allow_environment:
+            msg = ("Argument 'allow_environment' has been extended and moved to XPath "
+                   "3.0+ parser so that option here is deprecated and will be removed "
+                   "in the next major release.")
+            warnings.warn(DeprecationWarning(msg))
 
     def __repr__(self) -> str:
         if self.root is not None:

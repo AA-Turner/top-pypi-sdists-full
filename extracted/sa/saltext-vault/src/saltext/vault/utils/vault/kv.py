@@ -3,14 +3,37 @@ Class wrappers for the Key/Value backend
 """
 
 import logging
+import typing
 
+from saltext.vault.utils.vault import cache as vcache
+from saltext.vault.utils.vault import client as vclient
 from saltext.vault.utils.vault.exceptions import VaultException
 from saltext.vault.utils.vault.exceptions import VaultInvocationError
 from saltext.vault.utils.vault.exceptions import VaultNotFoundError
 from saltext.vault.utils.vault.exceptions import VaultPermissionDeniedError
 from saltext.vault.utils.vault.exceptions import VaultUnsupportedOperationError
 
-log = logging.getLogger(__name__)
+if typing.TYPE_CHECKING:
+    from saltext.vault.utils._types import SaltLogger
+
+
+log: "SaltLogger" = logging.getLogger(__name__)  # type: ignore
+
+
+def apply_json_merge_patch(data: typing.Any, patch: typing.Any) -> typing.Any:
+    # https://datatracker.ietf.org/doc/html/rfc7396
+    if not isinstance(patch, dict):
+        return patch
+    if not isinstance(data, dict):
+        data = {}
+    for key, value in patch.items():
+        if value is None:
+            data.pop(key, None)
+        elif isinstance(value, dict):
+            data[key] = apply_json_merge_patch(data.get(key), value)
+        else:
+            data[key] = value
+    return data
 
 
 class VaultKV:
@@ -18,11 +41,13 @@ class VaultKV:
     Interface to Vault secret paths
     """
 
-    def __init__(self, client, metadata_cache):
+    def __init__(self, client: vclient.AuthenticatedVaultClient, metadata_cache: vcache.VaultCache):
         self.client = client
         self.metadata_cache = metadata_cache
 
-    def read(self, path, include_metadata=False, version=None):
+    def read(
+        self, path: str, include_metadata: bool = False, version: int | str | None = None
+    ) -> dict[str, typing.Any]:
         """
         Read secret data at path.
 
@@ -37,15 +62,16 @@ class VaultKV:
             if version != 0:
                 raise VaultInvocationError("Cannot request secret versions on KV v1")
             version = None
+        payload = None
         if version is not None:
-            path += f"?version={version}"
-        res = self.client.get(path)
+            payload = {"version": self._parse_versions(version)[0]}
+        res = self.client.get(path, payload=payload)
         ret = res["data"]
         if v2_info["v2"] and not include_metadata:
             return ret["data"]
         return ret
 
-    def read_meta(self, path):
+    def read_meta(self, path: str) -> dict[str, typing.Any]:
         """
         Read secret metadata for all versions at path. This is different from
         the metadata returned by read, which pertains only to the most recent
@@ -58,7 +84,7 @@ class VaultKV:
             raise VaultInvocationError("The backend is not KV v2")
         return self.client.get(v2_info["metadata"])["data"]
 
-    def write(self, path, data, cas=None):
+    def write(self, path: str, data: dict[str, typing.Any], cas: int | str | None = None):
         """
         Write secret data to path.
         """
@@ -72,7 +98,7 @@ class VaultKV:
         # on KVv2 (writing the same data twice increases the current version twice).
         return self.client.put(path, payload=data)
 
-    def patch(self, path, data):
+    def patch(self, path: str, data: dict[str, typing.Any]):
         """
         Patch existing data.
         Tries to use a PATCH request, otherwise falls back to updating in memory
@@ -81,21 +107,6 @@ class VaultKV:
         Since this uses the `JSON Merge Patch format <https://datatracker.ietf.org/doc/html/draft-ietf-appsawg-json-merge-patch-07>`_,
         values set to ``null`` (``None``) are dropped.
         """
-
-        def apply_json_merge_patch(data, patch):
-            if not patch:
-                return data
-            if not isinstance(data, dict) or not isinstance(patch, dict):
-                raise ValueError("Data and patch must be dictionaries.")
-
-            for key, value in patch.items():
-                if value is None:
-                    data.pop(key, None)
-                elif isinstance(value, dict):
-                    data[key] = apply_json_merge_patch(data.get(key, {}), value)
-                else:
-                    data[key] = value
-            return data
 
         v2_info = self.is_v2(path)
 
@@ -119,7 +130,12 @@ class VaultKV:
             pass
         return patch_in_memory(path, data)
 
-    def delete(self, path, versions=None, all_versions=False):
+    def delete(
+        self,
+        path: str,
+        versions: int | str | list[int | str] | None = None,
+        all_versions: bool = False,
+    ):
         """
         Delete secret path data. For KV v1, this is permanent.
         For KV v2, this only soft-deletes the data.
@@ -152,23 +168,28 @@ class VaultKV:
             if not versions:
                 # No version left to delete
                 return True
-        versions = self._parse_versions(versions)
+        parsed_versions = self._parse_versions(versions)
 
         if v2_info["v2"]:
-            if versions is not None:
+            if parsed_versions is not None:
                 method = "POST"
                 path = v2_info["delete_versions"]
-                payload = {"versions": versions}
+                payload = {"versions": parsed_versions}
                 safe_to_retry = True
             else:
                 # data and delete operations only differ by HTTP verb
                 path = v2_info["data"]
-        elif versions is not None:
+        elif parsed_versions is not None:
             raise VaultInvocationError("Versioning support requires KV v2.")
 
         return self.client.request(method, path, payload=payload, safe_to_retry=safe_to_retry)
 
-    def restore(self, path, versions=None, all_versions=False):
+    def restore(
+        self,
+        path: str,
+        versions: int | str | list[int | str] | None = None,
+        all_versions: bool = False,
+    ):
         """
         .. versionadded:: 1.2.0
 
@@ -201,18 +222,29 @@ class VaultKV:
                 # No version left to destroy
                 raise VaultInvocationError("No secret version to restore.")
 
-        versions = self._parse_versions(versions)
+        parsed_versions = self._parse_versions(versions)
         path = v2_info["undelete"]
-        payload = {"versions": versions}
+        payload = {"versions": parsed_versions}
         return self.client.post(path, payload=payload)
 
-    def destroy(self, path, versions=None, all_versions=False):
+    def destroy(
+        self,
+        path: str,
+        versions: int | str | list[int | str] | None = None,
+        all_versions: bool = False,
+    ):
         """
-        Permanently remove version data. Requires KV v2.
+        Permanently remove version data.
+
+        On KV v1, there is no functional difference to ``delete`` since the backend
+        does not support versioning. Specifying ``versions`` fails there.
+
+        .. versionchanged:: 1.8.0
+            KV v1 secrets are now deleted instead of failing.
 
         versions
             Specifies versions to destroy. Needs to be castable
-            to a list of integers.
+            to a list of integers. Requires KV v2.
 
             .. versionchanged:: 1.2.0
                 If unspecified, destroys the most recent version.
@@ -224,7 +256,11 @@ class VaultKV:
         """
         v2_info = self.is_v2(path)
         if not v2_info["v2"]:
-            raise VaultInvocationError("Destroy operation requires KV v2.")
+            if versions is not None:
+                raise VaultInvocationError("Versioning support requires KV v2.")
+            # KV v1 does not support versioning, the only
+            # possible operation is permanent deletion.
+            return self.client.delete(path)
         if all_versions or not versions:
             versions = []
             try:
@@ -244,34 +280,42 @@ class VaultKV:
                 # No version left to destroy
                 return True
 
-        versions = self._parse_versions(versions)
+        parsed_versions = self._parse_versions(versions)
         path = v2_info["destroy"]
-        payload = {"versions": versions}
+        payload = {"versions": parsed_versions}
         return self.client.post(path, payload=payload)
 
-    def _parse_versions(self, versions):
+    @typing.overload
+    def _parse_versions(self, versions: None) -> None: ...
+    @typing.overload
+    def _parse_versions(self, versions: int | str | list[int | str]) -> list[int]: ...
+    def _parse_versions(self, versions: int | str | list[int | str] | None) -> list[int] | None:
         if versions is None:
             return versions
         if not isinstance(versions, list):
             versions = [versions]
         try:
-            versions = [int(x) for x in versions]
+            new_versions = [int(x) for x in versions]
         except ValueError as err:
             raise VaultInvocationError("Versions have to be specified as integers.") from err
-        return versions
+        return new_versions
 
-    def nuke(self, path):
+    def nuke(self, path: str):
         """
         Delete path metadata and version data, including all version history.
-        Requires KV v2.
+
+        On KV v1, there is no functional difference to ``delete`` since the backend
+        does not support versioning.
+
+        .. versionchanged:: 1.8.0
+            KV v1 secrets are now deleted instead of failing.
         """
         v2_info = self.is_v2(path)
-        if not v2_info["v2"]:
-            raise VaultInvocationError("Wipe operation requires KV v2.")
-        path = v2_info["metadata"]
+        if v2_info["v2"]:
+            path = v2_info["metadata"]
         return self.client.delete(path)
 
-    def list(self, path):
+    def list(self, path: str) -> list[str]:
         """
         List keys at path.
         """
@@ -281,7 +325,7 @@ class VaultKV:
 
         return self.client.list(path)["data"]["keys"]
 
-    def is_v2(self, path):
+    def is_v2(self, path: str) -> dict[str, typing.Any]:
         """
         Determines if a given secret path is KV v1 or v2.
         """
@@ -313,7 +357,7 @@ class VaultKV:
             ret["undelete"] = self._v2_the_path(path, path_metadata.get("path", path), "undelete")
         return ret
 
-    def _v2_the_path(self, path, pfilter, ptype="data"):
+    def _v2_the_path(self, path: str, pfilter: str, ptype: str = "data") -> str:
         """
         Given a path, a filter, and a path type, properly inject
         'data' or 'metadata' into the path.
@@ -330,37 +374,39 @@ class VaultKV:
 
         otype = possible_types[0] if possible_types[0] != ptype else possible_types[1]
         other = pfilter + "/" + otype
-        if path.startswith(other):
+        if path == other or path.startswith(other + "/"):
             path = path.replace(other, together, 1)
             msg = f'Path is a "{otype}" type but "{ptype}" type requested - Flipping: {path}'
-        elif not path.startswith(together):
+        elif path != together and not path.startswith(together + "/"):
             old_path = path
             path = path.replace(pfilter, together, 1)
             msg = f"Converting path to v2 {old_path} => {path}"
         log.debug(msg)
         return path
 
-    def _get_secret_path_metadata(self, path):
+    def _get_secret_path_metadata(self, path: str) -> dict[str, typing.Any] | None:
         """
         Given a path, query vault to determine mount point, type, and version.
         """
         cache_content = self.metadata_cache.get() or {}
 
-        ret = None
-        if path.startswith(tuple(cache_content.keys())):
+        try:
+            ret = next(v for k, v in cache_content.items() if path.startswith(k + "/") or path == k)
             log.debug("Found cached metadata for %s", path)
-            ret = next(v for k, v in cache_content.items() if path.startswith(k))
-        else:
-            log.debug("Fetching metadata for %s", path)
-            try:
-                endpoint = f"sys/internal/ui/mounts/{path}"
-                res = self.client.get(endpoint)
-                if "data" in res:
-                    log.debug("Got metadata for %s", path)
-                    cache_content[path] = ret = res["data"]
-                    self.metadata_cache.store(cache_content)
-                else:
-                    raise VaultException("Unexpected response to metadata query.")
-            except Exception as err:  # pylint: disable=broad-except
-                log.error("Failed to get secret metadata %s: %s", type(err).__name__, err)
+            return ret
+        except StopIteration:
+            pass
+        log.debug("Fetching metadata for %s", path)
+        ret = None
+        try:
+            endpoint = f"sys/internal/ui/mounts/{path}"
+            res = self.client.get(endpoint)
+            if "data" in res:
+                log.debug("Got metadata for %s", path)
+                cache_content[path] = ret = res["data"]
+                self.metadata_cache.store(cache_content)
+            else:
+                raise VaultException("Unexpected response to metadata query.")
+        except Exception as err:  # pylint: disable=broad-except
+            log.error("Failed to get secret metadata %s: %s", type(err).__name__, err)
         return ret

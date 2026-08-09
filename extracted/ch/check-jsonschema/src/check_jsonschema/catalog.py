@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import typing as t
+import urllib.parse
 
 
 def _bitbucket_pipelines_url() -> str:
@@ -11,10 +12,28 @@ def _githubusercontent_url(owner: str, repo: str, ref: str, path: str) -> str:
     return f"https://raw.githubusercontent.com/{owner}/{repo}/{ref}/{path}"
 
 
-# this lists custom schemas which are *not* part of the catalog
-CUSTOM_SCHEMA_NAMES = [
-    "github-workflows-require-timeout",
-]
+def _gitlab_raw_url(repo: str, file_path: str, ref: str) -> str:
+    return (
+        "https://gitlab.com/api/v4"
+        f"/projects/{urllib.parse.quote(repo, safe='')}/repository/files"
+        f"/{urllib.parse.quote(file_path, safe='')}/raw?ref={ref}"
+    )
+
+
+# this lists custom schemas which are *not* part of the vendored schema catalog
+CUSTOM_SCHEMA_CATALOG: dict[str, dict[str, t.Any]] = {
+    "github-workflows-require-timeout": {
+        "hook_config": {
+            "name": "Require timeout-minutes in GitHub Workflows",
+            "description": (
+                "Validate that all GitHub Workflow jobs set timeout-minutes"
+            ),
+            "files": r"^\.github/workflows/[^/]+$",
+            "types": "yaml",
+        },
+    },
+}
+CUSTOM_SCHEMA_NAMES = list(CUSTOM_SCHEMA_CATALOG)
 
 # Known configs. The SchemaCatalog lists known schema URLs with their names.
 # kept in alphabetical order by name
@@ -214,9 +233,10 @@ SCHEMA_CATALOG: dict[str, dict[str, t.Any]] = {
         },
     },
     "gitlab-ci": {
-        "url": (
-            "https://gitlab.com/gitlab-org/gitlab/-/raw/master/app/assets/javascripts"
-            "/editor/schema/ci.json"
+        "url": _gitlab_raw_url(
+            "gitlab-org/gitlab",
+            "app/assets/javascripts/editor/schema/ci.json",
+            "master",
         ),
         "hook_config": {
             "name": "Validate GitLab CI config",

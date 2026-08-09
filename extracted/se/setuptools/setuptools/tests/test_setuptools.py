@@ -51,7 +51,7 @@ class TestDepends:
             return
 
         def f1():
-            global x, y, z
+            global x, y, z  # noqa: PLW0602 # global kept to exercise extract_constant
             x = "test"
             y = z  # pyright: ignore[reportUnboundVariable] # Explicitly testing for this runtime issue
 
@@ -269,7 +269,6 @@ def test_findall_missing_symlink(tmpdir):
         assert found == []
 
 
-@pytest.mark.xfail(reason="unable to exclude tests; #4475 #3260")
 def test_its_own_wheel_does_not_contain_tests(setuptools_wheel):
     with ZipFile(setuptools_wheel) as zipfile:
         contents = [f.replace(os.sep, '/') for f in zipfile.namelist()]

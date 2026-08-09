@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: trame-server
-Version: 3.13.2
+Version: 3.14.0
 Summary: Internal server side implementation of trame
 Author: Kitware Inc.
 License: Apache License 2.0

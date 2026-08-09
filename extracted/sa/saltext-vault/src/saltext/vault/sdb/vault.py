@@ -30,6 +30,11 @@ The above URI is analogous to running the following vault command:
 
     $ vault read -field=mypassword secret/passwords
 
+.. note::
+
+    If ``secret/passwords`` does not contain a key ``mypassword``, this module also
+    checks if ``secret/passwords/mypassword`` represents an existing Vault KV secret path.
+    If so, it returns the whole secret.
 
 Further configuration
 ---------------------
@@ -46,25 +51,32 @@ The following options can be set in the profile:
 """
 
 import logging
+from typing import TYPE_CHECKING
 
 import salt.exceptions
 
 from saltext.vault.utils import vault
 from saltext.vault.utils.versions import warn_until
 
-log = logging.getLogger(__name__)
+if TYPE_CHECKING:
+    from saltext.vault.utils._types import SaltContext
+    from saltext.vault.utils._types import SaltLogger
+    from saltext.vault.utils._types import SaltOpts
+
+    __opts__: SaltOpts
+    __context__: SaltContext
+
+
+log: "SaltLogger" = logging.getLogger(__name__)  # type: ignore
 
 __func_alias__ = {"set_": "set"}
 
 
-def set_(key, value, profile=None):  # pylint: disable=unused-argument
+def set_(key, value, profile=None):
     """
     Set a key/value pair in the vault service
     """
-    if "?" in key:
-        path, key = key.rsplit("?", 1)
-    else:
-        path, key = key.rsplit("/", 1)
+    _, path, key = _split_key(key)
     data = {key: value}
     curr_data = {}
     profile = profile or {}
@@ -82,7 +94,7 @@ def set_(key, value, profile=None):  # pylint: disable=unused-argument
                 ),
             )
             patch = False
-        except RuntimeError:
+        except RuntimeError:  # pragma: no cover
             patch = True
 
     if patch:
@@ -91,11 +103,24 @@ def set_(key, value, profile=None):  # pylint: disable=unused-argument
             # Save the current data if patching is enabled
             # to write it back later, if any errors happen in patch_kv.
             # This also checks that the path exists, otherwise patching fails as well.
-            curr_data = vault.read_kv(path, __opts__, __context__)
             vault.patch_kv(path, data, __opts__, __context__)
-            return True
-        except (vault.VaultNotFoundError, vault.VaultPermissionDeniedError):
+        except vault.VaultNotFoundError:
             pass
+        except Exception:  # pylint: disable=broad-except
+            # Intentionally broad, maybe it works with simulated patching.
+            # Major targets are VaultPermissionDeniedError and VaultAuthExpired.
+            # We're catching VaultAuthExpired in case num_uses of the token is 1 and we cannot PATCH in a single request.
+            try:
+                curr_data = vault.read_kv(path, __opts__, __context__)
+            except vault.VaultNotFoundError:  # pragma: no cover
+                pass  # This fallback should not trigger (only races) since read_kv has an internal fallback.
+            except Exception as err:  # pylint: disable=broad-except
+                log.error(
+                    "Failed to read secret for simulating patching! %s: %s", type(err).__name__, err
+                )
+                raise salt.exceptions.CommandExecutionError(err) from err
+        else:
+            return True
 
     curr_data.update(data)
     try:
@@ -110,11 +135,7 @@ def get(key, profile=None):  # pylint: disable=unused-argument
     """
     Get a value from the vault service
     """
-    full_path = key
-    if "?" in key:
-        path, key = key.rsplit("?", 1)
-    else:
-        path, key = key.rsplit("/", 1)
+    full_path, path, key = _split_key(key)
 
     try:
         try:
@@ -129,3 +150,16 @@ def get(key, profile=None):  # pylint: disable=unused-argument
     except Exception as err:  # pylint: disable=broad-except
         log.error("Failed to read secret! %s: %s", type(err).__name__, err)
         raise salt.exceptions.CommandExecutionError(err) from err
+
+
+def _split_key(key: str) -> tuple[str, str, str]:
+    if "?" in key:
+        path, new_key = key.rsplit("?", 1)
+    else:
+        try:
+            path, new_key = key.rsplit("/", 1)
+        except ValueError as err:
+            raise salt.exceptions.SaltInvocationError(
+                f"Invalid key '{key}', must contain at least one path separator"
+            ) from err
+    return key, path, new_key

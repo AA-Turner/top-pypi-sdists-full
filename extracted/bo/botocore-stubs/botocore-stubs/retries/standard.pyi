@@ -4,9 +4,9 @@ Type annotations for botocore.retries.standard module.
 Copyright 2025 Vlad Emelianov
 """
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from logging import Logger
-from typing import Any, Callable
+from typing import Any
 
 from botocore.client import BaseClient
 from botocore.exceptions import BotoCoreError
@@ -26,6 +26,10 @@ logger: Logger = ...
 DEFAULT_MAX_ATTEMPTS: int = ...
 
 def register_retry_handler(client: BaseClient, max_attempts: int | None = ...) -> RetryHandler: ...
+
+class MaxAttemptsSeeder:
+    def __init__(self, max_attempts: int) -> None: ...
+    def seed_max_attempts(self, request: Any, **kwargs: Any) -> None: ...
 
 class RetryHandler:
     def __init__(

@@ -14,7 +14,8 @@ from calendar import isleap, leapdays
 from collections.abc import Mapping
 from decimal import Decimal
 from typing import Any, Generic, Optional, SupportsFloat, SupportsIndex, TypeVar, Union
-from urllib.parse import urlsplit
+from os.path import normpath
+from urllib.parse import urlsplit, urlunsplit
 
 ###
 # Common sets constants
@@ -24,6 +25,9 @@ NUMERIC_INF_OR_NAN = frozenset(('INF', '-INF', '+INF', 'NaN'))
 INVALID_NUMERIC = frozenset(
     ('inf', '+inf', '-inf', 'nan', 'infinity', '+infinity', '-infinity')
 )
+
+UNSAFE_PATHS = ('/etc/', '/proc/', '/run/', '/boot/', '/sbin/', '/root/', '/usr/')
+BASE_URI_PREFIXES = ('file:///', 'http://', 'https://', 'ftp://', 'ftps://', 'urn:')
 
 MathArgType = Union[SupportsFloat, SupportsIndex]
 FloatArgType = Union[SupportsFloat, SupportsIndex, str]
@@ -64,7 +68,7 @@ class Property(Generic[T]):
 class LazyPattern:
     """
     A descriptor for creating lazy regexp patterns. The compiled pattern is built
-    only when the descriptor attribute is accessed (e.g. a hasattr() call).
+    only when the descriptor attribute is accessed (e.g., a hasattr() call).
     """
     _compiled: re.Pattern[str]
 
@@ -225,10 +229,10 @@ def months2days(year: int, month: int, months_delta: int) -> int:
     Converts a delta of months to a delta of days, counting from the 1st day of the month,
     relative to the year and the month passed as arguments.
 
-    :param year: the reference start year, a negative or zero value means a BCE year \
+    :param year: The reference start year, a negative or zero value means a BCE year \
     (0 is 1 BCE, -1 is 2 BCE, -2 is 3 BCE, etc.).
-    :param month: the starting month (1-12).
-    :param months_delta: the number of months, if negative count backwards.
+    :param month: The starting month (1-12).
+    :param months_delta: The number of months, if negative, counts backwards.
     """
     if not months_delta:
         return 0
@@ -405,3 +409,44 @@ def is_absolute_uri(uri: str) -> bool:
         return parts.scheme == 'urn' or \
             parts.scheme != '' and parts.netloc != '' or \
             parts.path.startswith('/')
+
+
+def is_allowed_uri(uri: str, allow_external_resources: bool | list[str] = False) -> bool:
+    if not uri.startswith(BASE_URI_PREFIXES):
+        return False
+    elif allow_external_resources is True:
+        return True
+    elif not isinstance(allow_external_resources, list):
+        return False
+
+    try:
+        parts = urlsplit(uri.strip())
+    except ValueError:
+        return False
+
+    for base_uri in allow_external_resources:
+        if not base_uri.startswith(parts.scheme) or not base_uri.startswith(BASE_URI_PREFIXES):
+            continue
+        elif parts.scheme == 'urn':
+            if uri.startswith(base_uri):
+                return True
+        else:
+            path = normpath(parts.path).replace('\\', '/')
+            if parts.scheme == 'file' and (path.count('/') < 2 or path.startswith(UNSAFE_PATHS)):
+                return False
+            url = urlunsplit((parts.scheme, parts.netloc, path, parts.fragment, parts.query))
+            if url.startswith(base_uri):
+                return True
+    else:
+        return False
+
+
+def is_allowed_variable(name: str, allow_environment: bool | list[str] = False) -> bool:
+    if allow_environment is True:
+        return True
+    elif isinstance(allow_environment, list) and \
+            all(isinstance(x, str) for x in allow_environment):
+        return name in allow_environment or \
+            any(name.startswith(x[:-1]) for x in allow_environment if x.endswith('*'))
+    else:
+        return False

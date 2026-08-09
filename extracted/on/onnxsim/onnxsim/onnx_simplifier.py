@@ -1,31 +1,42 @@
 import argparse
-
 import copy
 import os
-import sys
 import re
+import shutil
+import sys
 import tempfile
-from typing import List, Literal, Dict, Union, Optional, Tuple, Sequence
-from rich.text import Text
-from rich import print
-import numpy as np
-from google.protobuf.message import EncodeError
+from typing import Callable, Dict, List, Literal, Optional, Sequence, Tuple, Union
 
+import numpy as np
 import onnx  # type: ignore
 import onnx.checker  # type: ignore
 import onnx.helper  # type: ignore
-import onnx.shape_inference  # type: ignore
 import onnx.numpy_helper  # type: ignore
-import onnxsim.onnxsim_cpp2py_export as C
-from . import backend
-from . import model_info
-from . import model_checking
-from . import version
+import onnx.shape_inference  # type: ignore
+from google.protobuf.message import EncodeError
+from rich import print
+from rich.text import Text
 
+import onnxsim.onnxsim_cpp2py_export as C
+
+from . import backend, model_checking, model_info, profile_merge, version
 
 TensorShape = List[int]
 TensorShapes = Dict[str, TensorShape]
 TensorShapesWithOptionalKey = Dict[Optional[str], TensorShape]
+# A user-supplied graph rewriter: takes a model and returns a rewritten model,
+# or mutates it in place and returns ``None``. Passed to ``simplify`` via
+# ``custom_rewriter`` and run inside the simplification fixed point. Returning
+# ``False`` reports that nothing was rewritten, which lets onnxsim skip copying
+# an unchanged model back through the C++ core (see ``_GraphRewriterAdapter``).
+ModelRewriter = Callable[[onnx.ModelProto], Union[onnx.ModelProto, bool, None]]
+# A data-driven rewrite rule: a ``(pattern, replacement)`` pair of
+# ``onnx.FunctionProto``. The pattern's inputs are wildcards binding to graph
+# values, its body is the subgraph to match, and its outputs are the values
+# rewired to the replacement's outputs. Unlike ``ModelRewriter`` (a Python
+# callable), a rule is pure data, so the same rules work from the C and Rust
+# bindings too. Build one with ``onnx.parser.parse_function`` (see the README).
+FunctionRewriteRule = Tuple[onnx.FunctionProto, onnx.FunctionProto]
 Unit = Literal["B", "KB", "MB", "GB", "TB"]
 
 UNIT_MAP: dict[Unit, int] = {
@@ -35,6 +46,7 @@ UNIT_MAP: dict[Unit, int] = {
     "GB": 1 << 30,
     "TB": 1 << 40,
 }
+
 
 def get_output_names(model: onnx.ModelProto) -> List[str]:
     output_names = [opt.name for opt in model.graph.output]
@@ -57,15 +69,59 @@ def remove_unused_output(
     return model
 
 
+def _default_domain_opset(model: onnx.ModelProto) -> int:
+    """Opset version imported for the default (ai.onnx) domain, or 0 if none."""
+    for imp in model.opset_import:
+        if imp.domain in ("", "ai.onnx"):
+            return imp.version
+    return 0
+
+
+# Value-baking fusions such as ``fuse_bn_into_conv`` materialise helper nodes --
+# notably ``Cast`` -- using the modern operator encoding, where ``Cast``'s ``to``
+# attribute is an INT (a ``TensorProto`` data-type enum). That encoding only
+# became valid in opset 6; before that ``to`` was a STRING type name. Enabling
+# those fusions on an older-opset graph therefore emits nodes the graph's own
+# opset rejects, and onnx / onnxruntime abort with e.g. "Mismatched attribute
+# type in 'Cast_0 : to'. Expected: 'STRING', actual: 'INT'" (the onnx-caffe2
+# opset-3 ``resnet50-caffe2-v1-3`` hit exactly this). Below this opset we leave
+# IR<4 models untouched so onnxoptimizer keeps treating their initializers as
+# runtime inputs and skips the value-baking fusions -- the graph passes through
+# unchanged rather than crashing.
+_MIN_OPSET_FOR_INITIALIZER_FOLD = 6
+
+
 def remove_initializer_from_input(model: onnx.ModelProto) -> onnx.ModelProto:
+    # IR version 4 (ONNX 1.4) is the first that allows an initializer to *not*
+    # also be a graph input. Older IR (v3 and below) required every initializer
+    # to appear in ``graph.input``, and leaving it there makes onnxoptimizer
+    # treat it as a runtime input rather than a constant
+    # (``is_constant_initializer`` returns false), which silently blocks
+    # value-baking fusions such as ``fuse_bn_into_conv`` -- e.g. the plain
+    # Conv+BN chains of the opset-8 ``resnet101-v1-7`` were left completely
+    # unsimplified. Bump such models to IR 4 so the removal below is legal and
+    # the freed initializers fold like any other constant -- but only when the
+    # opset is new enough for the ops those fusions insert; on an ancient-opset
+    # graph the bump would let a fusion emit a node the opset rejects (see
+    # ``_MIN_OPSET_FOR_INITIALIZER_FOLD``), so leave such models alone.
+    if model.ir_version < 4 and (
+        _default_domain_opset(model) < _MIN_OPSET_FOR_INITIALIZER_FOLD
+    ):
+        return model
     initializer_names = [x.name for x in model.graph.initializer]
+    removed_any = False
     for graph_input in copy.deepcopy(model.graph.input):
         if graph_input.name in initializer_names:
             model.graph.input.remove(graph_input)
+            removed_any = True
+    if removed_any and model.ir_version < 4:
+        model.ir_version = 4
     return model
 
 
-def check_and_update_input_shapes(model: onnx.ModelProto, input_shapes: Optional[TensorShapesWithOptionalKey]) -> Optional[TensorShapes]:
+def check_and_update_input_shapes(
+    model: onnx.ModelProto, input_shapes: Optional[TensorShapesWithOptionalKey]
+) -> Optional[TensorShapes]:
     if input_shapes is None:
         return None
 
@@ -84,17 +140,17 @@ def check_and_update_input_shapes(model: onnx.ModelProto, input_shapes: Optional
             del input_shapes[None]
         else:
             raise RuntimeError(
-                'The model has more than 1 inputs, please use the format "input_name:dim0,dim1,...,dimN" in --input-shape')
+                'The model has more than 1 inputs, please use the format "input_name:dim0,dim1,...,dimN" in --input-shape'
+            )
     for x in input_shapes:
         if x not in input_names:
-            raise RuntimeError(
-                'The model doesn\'t have input named "{}"'.format(x))
+            raise RuntimeError('The model doesn\'t have input named "{}"'.format(x))
 
     return input_shapes  # type: ignore
 
 
 # A very very large threshold
-DEFAULT_TENSOR_SIZE_THRESHOLDHOLD = '1.5GB'
+DEFAULT_TENSOR_SIZE_THRESHOLDHOLD = "1.5GB"
 
 
 # ONNX ``TensorProto`` element types that onnxoptimizer's tensor-value hashing
@@ -103,25 +159,27 @@ DEFAULT_TENSOR_SIZE_THRESHOLDHOLD = '1.5GB'
 # types (rather than the unsupported ones) so that element types added to ONNX
 # in the future are treated as unhashable by default instead of silently
 # crashing the optimizer.
-_CSE_HASHABLE_ELEM_TYPES = frozenset({
-    onnx.TensorProto.UNDEFINED,
-    onnx.TensorProto.BOOL,
-    onnx.TensorProto.INT8,
-    onnx.TensorProto.INT16,
-    onnx.TensorProto.INT32,
-    onnx.TensorProto.INT64,
-    onnx.TensorProto.UINT8,
-    onnx.TensorProto.UINT16,
-    onnx.TensorProto.UINT32,
-    onnx.TensorProto.UINT64,
-    onnx.TensorProto.FLOAT,
-    onnx.TensorProto.DOUBLE,
-    onnx.TensorProto.FLOAT16,
-    onnx.TensorProto.BFLOAT16,
-    onnx.TensorProto.COMPLEX64,
-    onnx.TensorProto.COMPLEX128,
-    onnx.TensorProto.STRING,
-})
+_CSE_HASHABLE_ELEM_TYPES = frozenset(
+    {
+        onnx.TensorProto.UNDEFINED,
+        onnx.TensorProto.BOOL,
+        onnx.TensorProto.INT8,
+        onnx.TensorProto.INT16,
+        onnx.TensorProto.INT32,
+        onnx.TensorProto.INT64,
+        onnx.TensorProto.UINT8,
+        onnx.TensorProto.UINT16,
+        onnx.TensorProto.UINT32,
+        onnx.TensorProto.UINT64,
+        onnx.TensorProto.FLOAT,
+        onnx.TensorProto.DOUBLE,
+        onnx.TensorProto.FLOAT16,
+        onnx.TensorProto.BFLOAT16,
+        onnx.TensorProto.COMPLEX64,
+        onnx.TensorProto.COMPLEX128,
+        onnx.TensorProto.STRING,
+    }
+)
 
 # onnxoptimizer passes that hash tensor *values* via ``cse_util.h``. They crash
 # on tensors whose element type they cannot hash -- for example the
@@ -188,7 +246,13 @@ def _register_schema_in_onnxsim(schema) -> None:
         if default_value is None:
             default_value = onnx.AttributeProto()
         attributes.append(
-            (attr.name, attr.description, int(attr.type), bool(attr.required), default_value)
+            (
+                attr.name,
+                attr.description,
+                int(attr.type),
+                bool(attr.required),
+                default_value,
+            )
         )
 
     type_constraints = [
@@ -310,8 +374,20 @@ def simplify(
     tensor_size_threshold: str = DEFAULT_TENSOR_SIZE_THRESHOLDHOLD,
     mutable_initializer: bool = False,
     *,
+    initializers_as_constants: bool = True,
+    inline_functions: bool = False,
     import_custom_schemas: bool = True,
     input_shapes=None,
+    target_opset_version: Optional[int] = None,
+    custom_rewriter: Optional[ModelRewriter] = None,
+    function_rewrite_rules: Optional[Sequence[FunctionRewriteRule]] = None,
+    check_rtol: float = 1e-4,
+    check_atol: float = 1e-5,
+    input_fill: str = "random",
+    providers: Optional[Sequence[backend.Provider]] = None,
+    profile: Optional[str] = None,
+    ort_profile: Optional[str] = None,
+    merge_ort_profile: bool = False,
 ) -> Tuple[onnx.ModelProto, bool]:
     """
     :param model: onnx ModelProto object or file path
@@ -330,13 +406,108 @@ def simplify(
     :param custom_lib: onnxruntime custom ops's shared library
     :param include_subgraph: Simplify subgraph (e.g. true graph and false graph of "If" operator) instead of only the main graph
     :param unused_output: name of unused outputs that will be eliminated from the model
+    :param initializers_as_constants: Whether initializers are treated as constant tensors
+            (the default, ``True``). When set to ``False``, initializers are treated as
+            non-constant: constant folding leaves nodes that depend only on initializers in the
+            graph, and the onnx optimizer's value-baking passes (e.g. ``fuse_bn_into_conv``) are
+            told to leave initializer-backed weights alone, so the weights survive simplification
+            as tunable tensors. ``Constant`` nodes are still folded either way. This is orthogonal
+            to ``mutable_initializer`` (which controls whether initializers also remain graph
+            inputs).
+    :param inline_functions: When True, inline the model's local (model-defined) functions into
+            the main graph before simplifying (using onnx's inliner), flattening function calls
+            into plain ops so the optimizer, shape inference and constant folding can see through
+            them. Schema-defined (built-in) functions are left alone. Defaults to False, which
+            leaves the model's functions untouched.
     :param import_custom_schemas: Import operator schemas registered in the Python `onnx` module
             (e.g. via `onnx.defs.register_schema`) into onnxsim's own registry so models using
             custom operators pass validation. Set to False to disable this and leave onnxsim's
             registry untouched.
     :param input_shapes: Deprecated. Please use `overwrite_input_shapes` and/or `test_input_shapes` instead.
+    :param target_opset_version: Convert the model to this opset version (of the default ONNX domain)
+            before simplifying, using onnx's version converter (run inside the C++ core so every
+            binding shares the behavior). This can be used to upgrade (or downgrade) the model's
+            opset during simplification. When None (the default), the opset version is left unchanged.
+    :param custom_rewriter: An optional callable ``ModelProto -> Optional[ModelProto]`` run as an extra
+            stage inside onnxsim's simplification fixed point, interleaved with the built-in optimizer,
+            shape inference and constant folding so a rewrite can unlock further simplification and vice
+            versa. Use it to plug in a custom graph rewriter, e.g. an ``onnxscript.rewriter`` rule set:
+            ``custom_rewriter=lambda m: onnxscript.rewriter.rewrite(m, pattern_rewrite_rules=my_rules)``.
+            The callable may return a new ``ModelProto``, mutate and return ``None``, or return ``False``
+            to report that it rewrote nothing. Returning ``False`` when no rewrite happened (for example
+            when an ``onnxscript.rewriter`` pass reports ``PassResult.modified`` is ``False``) lets onnxsim
+            skip copying an unchanged model back through the C++ core on that fixed-point round.
+    :param function_rewrite_rules: An optional sequence of ``(pattern, replacement)`` pairs of
+            ``onnx.FunctionProto`` describing data-driven rewrite rules matched and applied natively by
+            onnxsim's C++ core (no onnxscript dependency), so the *same* rules also work from the C and
+            Rust bindings. The pattern's inputs are wildcards binding to graph values, its body is the
+            subgraph to match, and its outputs are rewired to the replacement's outputs; a node attribute
+            written ``@name`` (a ``ref_attr_name``) is an attribute wildcard bound and substituted into the
+            replacement. Build the FunctionProtos with ``onnx.parser.parse_function``. Runs inside the same
+            fixed point as ``custom_rewriter`` and is mutually exclusive with it (passing both raises
+            ``ValueError``).
+    :param check_rtol: Relative tolerance used by the ``check_n`` verification when comparing the
+            original and simplified outputs (``numpy.allclose``). The default (1e-4) is strict; raise
+            it for very deep models where correct constant-folding/fusion reorders floating-point ops
+            enough to accumulate a larger-but-benign difference (e.g. RF-DETR's XLarge segmentation
+            variants -- see ``scripts/rfdetr/FAILURE_ANALYSIS.md``). Ignored when ``check_n == 0``.
+    :param check_atol: Absolute tolerance counterpart of ``check_rtol``.
+    :param input_fill: How to fill the random inputs generated for the ``check_n``
+            verification when ``input_data`` is not supplied. One of ``"random"``
+            (uniform ``[0, 1)``, the default), ``"ones"``, ``"zeros"`` or ``"arange"``
+            (``0, 1, 2, ...`` in row-major order). Ignored when ``check_n == 0`` or
+            when ``input_data`` is given.
+    :param providers: onnxruntime execution providers used to run the model
+            during constant folding, in priority order, for example
+            ``["CUDAExecutionProvider", "CPUExecutionProvider"]`` to fold on an
+            NVIDIA GPU (falling back to CPU for ops CUDA cannot run). An entry may
+            also be a ``(name, options)`` tuple as accepted by
+            ``onnxruntime.InferenceSession``. ``None`` (the default) folds on the
+            CPU. Non-CPU providers require onnxruntime to be installed (the CUDA
+            provider specifically needs the ``onnxruntime-gpu`` build); a
+            requested provider that the installed onnxruntime does not offer
+            raises ``ValueError`` instead of silently falling back.
+    :param profile: When set, profile every simplification fixed-point function
+            (shape inference, the onnx-optimizer passes, constant folding and any
+            custom rewriter) -- recording each one's wall-clock and CPU duration
+            and the peak resident memory reached while it runs -- and write a
+            Chrome Trace Event Format JSON to this path (an empty string uses
+            ``onnxsim_profile.json``). Open the file in ``chrome://tracing`` or
+            https://ui.perfetto.dev to see the flame graph; a per-function summary
+            is also printed to stdout. Implemented in the C++ core via the
+            ``ONNXSIM_PROFILE`` environment variable, so it works from every
+            binding; setting this argument simply sets that variable for the call.
+    :param ort_profile: When set, turn on onnxruntime's own built-in session
+            profiler for the onnxruntime sessions onnxsim runs while simplifying
+            (the constant-folding sessions, plus the correctness-check runs when
+            ``check_n`` > 0). This is separate from and complementary to
+            ``profile``: where ``profile`` times onnxsim's fixed-point functions,
+            ``ort_profile`` records onnxruntime's detailed per-operator execution
+            within each session. The value is a file *prefix* (an empty string uses
+            ``onnxsim_ort_profile``); onnxruntime writes one
+            ``<prefix>_<timestamp>.json`` Chrome trace per session, so a run that
+            folds in several batches produces several files. Implemented via the
+            ``ONNXSIM_ORT_PROFILE`` environment variable, so it works from every
+            binding; setting this argument simply sets that variable for the call.
+    :param merge_ort_profile: Merge onnxruntime's own per-operator session
+            profiles *into* onnxsim's ``profile`` trace, so the operator-level
+            events show up directly under each ``OrtSession`` span in one unified
+            flame graph -- rather than as the separate files ``ort_profile``
+            writes. Implies profiling: if ``profile`` is not set it defaults to
+            ``onnxsim_profile.json``. onnxruntime's traces are captured to a
+            temporary directory and removed after merging, so no stray files are
+            left behind. Takes precedence over ``ort_profile`` (which requests
+            standalone files). Works for every executor, including the Python
+            ``PyModelExecutor`` used by ``simplify()``.
     :return: A tuple (simplified model, success(True) or failed(False))
     """
+    # Validate the requested execution providers up front. onnxsim's constant
+    # folding catches per-op executor failures and leaves the op unfolded, so an
+    # unavailable provider raised mid-fold would be swallowed and silently
+    # degrade to no folding. Checking here turns a misconfigured provider (e.g.
+    # CUDA requested without the onnxruntime-gpu build) into an immediate error.
+    backend.validate_providers(providers)
+
     if dynamic_input_shape:
         print(
             Text(
@@ -362,6 +533,25 @@ def simplify(
     if import_custom_schemas:
         import_onnx_schemas()
 
+    # Wrap the user-supplied rewriter (if any) so the C++ simplifier can call it
+    # between optimization rounds. ``None`` leaves the pipeline unchanged.
+    # ``custom_rewriter`` (a Python callable) and ``function_rewrite_rules`` (data
+    # matched natively in C++) both drive the single rewriter slot, so at most one
+    # may be given.
+    if custom_rewriter is not None and function_rewrite_rules:
+        raise ValueError(
+            "custom_rewriter and function_rewrite_rules are mutually exclusive; "
+            "pass only one."
+        )
+    if function_rewrite_rules:
+        rewriter = C.make_function_proto_rewriter(
+            [(pattern, replacement) for pattern, replacement in function_rewrite_rules]
+        )
+    elif custom_rewriter is not None:
+        rewriter = _GraphRewriterAdapter(custom_rewriter)
+    else:
+        rewriter = None
+
     if not perform_optimization:
         # None means skip all optimizers
         skipped_optimizers = None
@@ -375,7 +565,7 @@ def simplify(
     # function and may be mutated freely (e.g. saved as external data without a
     # defensive copy). When the caller passes their own ``ModelProto`` we must
     # not mutate it.
-    model_owned = isinstance(model, str)
+    #
     # When the caller passes a file path, defer loading the (potentially
     # multi-GB) external tensor data until it is actually needed -- right before
     # the model is serialized for the C++ simplifier. Every graph transformation
@@ -386,15 +576,18 @@ def simplify(
     # and avoids loading them at all when an earlier phase raises. The directory
     # is remembered so the external data can be resolved later.
     external_data_dir: Optional[str] = None
-    if model_owned:
+    if isinstance(model, str):
+        model_owned = True
         external_data_dir = os.path.dirname(os.path.abspath(model))
         model = onnx.load(model, load_external_data=False)
+    else:
+        model_owned = False
     if overwrite_input_shapes is None:
         overwrite_input_shapes = {}
     overwrite_input_shapes = check_and_update_input_shapes(
-        model, overwrite_input_shapes)
-    test_input_shapes = check_and_update_input_shapes(
-        model, test_input_shapes)
+        model, overwrite_input_shapes
+    )
+    test_input_shapes = check_and_update_input_shapes(model, test_input_shapes)
 
     for name, input_shape in overwrite_input_shapes.items():
         for ipt in model.graph.input:
@@ -408,7 +601,12 @@ def simplify(
                         dim.dim_value = input_shape[i]
     if unused_output is not None:
         model = remove_unused_output(model, unused_output)
-    if not mutable_initializer and model.ir_version >= 4:
+    if not mutable_initializer:
+        # ``remove_initializer_from_input`` bumps IR<4 models to IR 4 so the
+        # freed initializers become foldable constants (previously gated on
+        # ``ir_version >= 4``, which left opset-8 graphs such as resnet101-v1-7
+        # completely unsimplified) -- except for opsets too old to encode the
+        # nodes those fusions insert, which it leaves untouched.
         model = remove_initializer_from_input(model)
 
     # onnxoptimizer's common-subexpression / duplicate-initializer passes hash
@@ -420,7 +618,8 @@ def simplify(
     # means "skip every optimizer", so there is nothing to add in that case.
     if skipped_optimizers is not None and _has_cse_unhashable_tensor(model):
         added = [
-            opt for opt in _TENSOR_VALUE_HASHING_OPTIMIZERS
+            opt
+            for opt in _TENSOR_VALUE_HASHING_OPTIMIZERS
             if opt not in skipped_optimizers
         ]
         if added:
@@ -449,8 +648,8 @@ def simplify(
         unit: Unit = m.group(2).upper()  # type: ignore
         return int(number * UNIT_MAP[unit])
 
-    tensor_size_threshold = parse_size(tensor_size_threshold)
-    if tensor_size_threshold > 2**31 - 9999:
+    tensor_size_threshold_bytes = parse_size(tensor_size_threshold)
+    if tensor_size_threshold_bytes > 2**31 - 9999:
         raise ValueError("tensor_size_threshold should be less than 2GB")
 
     # Materialize the external tensor data now that the metadata-only phases are
@@ -460,18 +659,58 @@ def simplify(
     if external_data_dir is not None:
         onnx.load_external_data_for_model(model, external_data_dir)
 
+    # Merging onnxruntime's profile into onnxsim's trace requires an onnxsim
+    # trace to merge into, so it implies profiling.
+    if merge_ort_profile and profile is None:
+        profile = "onnxsim_profile.json"
+
+    # Enable the C++ core's fixed-point profiler for the duration of this call by
+    # setting ``ONNXSIM_PROFILE`` (read inside ``Simplify``), restoring any prior
+    # value afterwards so profiling does not leak into later calls in the same
+    # process. An empty string falls back to the default trace filename.
+    _prev_profile_env = None
+    _profile_active = profile is not None
+    _profile_path = profile or "onnxsim_profile.json"
+    if _profile_active:
+        _prev_profile_env = os.environ.get("ONNXSIM_PROFILE")
+        os.environ["ONNXSIM_PROFILE"] = _profile_path
+
+    # Turn on onnxruntime's own session profiler by setting ``ONNXSIM_ORT_PROFILE``
+    # (read by the executor). It has two modes: ``ort_profile`` writes standalone
+    # trace files at the given prefix, while ``merge_ort_profile`` captures them to
+    # a temporary directory to be merged into the onnxsim trace below (and takes
+    # precedence). Either way, restore any prior value afterwards.
+    _ort_merge_dir = (
+        tempfile.mkdtemp(prefix="onnxsim_ort_ops_") if merge_ort_profile else None
+    )
+    if _ort_merge_dir is not None:
+        _ort_env_prefix: Optional[str] = os.path.join(_ort_merge_dir, "session")
+    elif ort_profile is not None:
+        _ort_env_prefix = ort_profile or "onnxsim_ort_profile"
+    else:
+        _ort_env_prefix = None
+    _prev_ort_profile_env = None
+    _ort_profile_active = _ort_env_prefix is not None
+    if _ort_env_prefix is not None:
+        _prev_ort_profile_env = os.environ.get("ONNXSIM_ORT_PROFILE")
+        os.environ["ONNXSIM_ORT_PROFILE"] = _ort_env_prefix
+
     try:
         model_bytes = model.SerializeToString()
         if len(model_bytes) >= 2 * 1024 * 1024 * 1024:
             model_bytes = None
             raise EncodeError("Message larger than 2GiB")
         model_opt_bytes = C.simplify(
-            _get_model_executor(),
+            _get_model_executor(providers),
             model_bytes,
             skipped_optimizers,
             not skip_constant_folding,
             not skip_shape_inference,
-            tensor_size_threshold,
+            tensor_size_threshold_bytes,
+            target_opset_version,
+            rewriter,
+            initializers_as_constants,
+            inline_functions,
         )
         # The serialized original (~1x model) is not needed once the C++
         # simplifier has consumed it -- the large-model fallback below
@@ -494,7 +733,15 @@ def simplify(
             model = None
         model_opt = onnx.load_from_string(model_opt_bytes)
         check_ok = model_checking.compare(
-            model_opt, model, check_n, test_input_shapes, input_data, custom_lib
+            model_opt,
+            model,
+            check_n,
+            test_input_shapes,
+            input_data,
+            custom_lib,
+            rtol=check_rtol,
+            atol=check_atol,
+            input_fill=input_fill,
         )
     except (EncodeError, ValueError, onnx.onnx_cpp2py_export.checker.ValidationError):
         if model is None:
@@ -505,7 +752,9 @@ def simplify(
             # is freed), so surface the exception directly instead of crashing
             # on a ``None`` model.
             raise
-        print("[bold magenta]Simplified model larger than 2GB. Trying to save as external data...[/bold magenta]")
+        print(
+            "[bold magenta]Simplified model larger than 2GB. Trying to save as external data...[/bold magenta]"
+        )
         # large models try to convert through a temporary file
         with tempfile.TemporaryDirectory() as tmpdirname:
             # ``save_as_external_data=True`` mutates the model in place, moving
@@ -517,29 +766,68 @@ def simplify(
             model_to_save = model if model_owned else copy.deepcopy(model)
             onnx.save(
                 model_to_save,
-                os.path.join(tmpdirname, 'model.onnx'),
+                os.path.join(tmpdirname, "model.onnx"),
                 save_as_external_data=True,
             )
             check_ok = C.simplify_path(
-                _get_model_executor(),
-                os.path.join(tmpdirname, 'model.onnx'),
-                os.path.join(tmpdirname, 'opt.onnx'),
+                _get_model_executor(providers),
+                os.path.join(tmpdirname, "model.onnx"),
+                os.path.join(tmpdirname, "opt.onnx"),
                 skipped_optimizers,
                 not skip_constant_folding,
                 not skip_shape_inference,
-                tensor_size_threshold,
+                tensor_size_threshold_bytes,
+                target_opset_version,
+                rewriter,
+                initializers_as_constants,
+                inline_functions,
             )
             check_ok = model_checking.compare(
-                os.path.join(tmpdirname, 'opt.onnx'),
-                os.path.join(tmpdirname, 'model.onnx'),
-                check_n, test_input_shapes, input_data, custom_lib
+                os.path.join(tmpdirname, "opt.onnx"),
+                os.path.join(tmpdirname, "model.onnx"),
+                check_n,
+                test_input_shapes,
+                input_data,
+                custom_lib,
+                rtol=check_rtol,
+                atol=check_atol,
+                input_fill=input_fill,
             )
-            model_opt = onnx.load(os.path.join(tmpdirname, 'opt.onnx'))
+            model_opt = onnx.load(os.path.join(tmpdirname, "opt.onnx"))
+    finally:
+        if _profile_active:
+            if _prev_profile_env is None:
+                os.environ.pop("ONNXSIM_PROFILE", None)
+            else:
+                os.environ["ONNXSIM_PROFILE"] = _prev_profile_env
+        if _ort_profile_active:
+            if _prev_ort_profile_env is None:
+                os.environ.pop("ONNXSIM_ORT_PROFILE", None)
+            else:
+                os.environ["ONNXSIM_ORT_PROFILE"] = _prev_ort_profile_env
+        # Fold onnxruntime's captured per-operator traces into the onnxsim trace,
+        # then drop the temporary files. Best-effort: a merge failure must not
+        # sink an otherwise-successful simplification.
+        if _ort_merge_dir is not None:
+            try:
+                profile_merge.merge_ort_traces_into_profile(
+                    _profile_path, _ort_merge_dir
+                )
+            except Exception:  # noqa: BLE001 - profiling is best-effort
+                pass
+            finally:
+                shutil.rmtree(_ort_merge_dir, ignore_errors=True)
     _restore_doc_strings(model_opt, doc_strings)
     return model_opt, check_ok
 
 
 class PyModelExecutor(C.ModelExecutor):
+    def __init__(self, providers: Optional[Sequence[backend.Provider]] = None):
+        super().__init__()
+        # onnxruntime execution providers used to run the throwaway sub-models
+        # the C++ core builds during constant folding. ``None`` means CPU only.
+        self.providers = providers
+
     def Run(self, model_str: str, inputs_str: List[str]):
         model = onnx.ModelProto()
         model.ParseFromString(model_str)
@@ -553,30 +841,78 @@ class PyModelExecutor(C.ModelExecutor):
         input_arrs = map(onnx.numpy_helper.to_array, input_tps)
         input_names = [x.name for x in model.graph.input]
         inputs = dict(zip(input_names, input_arrs))
-        outputs = backend.run_model(model, inputs)
+        outputs = backend.run_model(model, inputs, providers=self.providers)
         # The inference backend may return a non-ndarray for an output (for
         # example onnxruntime yields an empty Python list for an empty sequence
         # output). onnx.numpy_helper.from_array only accepts numpy arrays, so
         # coerce any such value into an empty array instead of crashing with
         # "'list' object has no attribute 'shape'" (GitHub PR #249).
         return [
-            onnx.numpy_helper.from_array(x).SerializeToString() if isinstance(x, np.ndarray) else x
+            onnx.numpy_helper.from_array(x).SerializeToString()
+            if isinstance(x, np.ndarray)
+            else x
             for x in outputs.values()
         ]
+
+
+class _GraphRewriterAdapter(C.GraphRewriter):
+    """Adapts a Python ``ModelProto -> ModelProto`` callable to the C++
+    ``GraphRewriter`` interface.
+
+    The C++ simplifier hands the model to ``Run`` as serialized protobuf bytes
+    and expects the rewritten model back as bytes; this adapter deserializes,
+    calls the user function, and re-serializes. A function that returns ``None``
+    (i.e. mutates the model in place) is supported by falling back to the
+    passed-in model.
+
+    A function may instead return ``False`` to report that it rewrote nothing
+    -- e.g. an ``onnxscript.rewriter`` pass whose ``PassResult.modified`` is
+    ``False`` because no pattern matched. In that case this adapter returns
+    empty bytes, the "model unchanged" sentinel, so the C++ core keeps the model
+    it already has instead of re-serializing here and parsing an identical copy
+    back. Because an onnxscript IR round-trip can reorder bytes even when no rule
+    fires, the ``modified`` flag -- not a byte comparison -- is the reliable
+    signal that nothing changed.
+    """
+
+    def __init__(self, fn: ModelRewriter):
+        super().__init__()
+        self._fn = fn
+
+    def Run(self, model_str: bytes) -> bytes:
+        model = onnx.ModelProto()
+        model.ParseFromString(model_str)
+        rewritten = self._fn(model)
+        if rewritten is False:
+            # Nothing was rewritten: return the empty "unchanged" sentinel and
+            # skip re-serializing an identical model.
+            return b""
+        if rewritten is None:
+            rewritten = model
+        # ``rewritten`` is now a ModelProto: the ``False`` (unchanged) and
+        # ``None`` (mutated in place) sentinels were handled above, and the
+        # rewriter contract permits no other non-model return.
+        assert not isinstance(rewritten, bool)
+        return rewritten.SerializeToString()
 
 
 _model_executor: Optional[PyModelExecutor] = None
 
 
-def _get_model_executor() -> PyModelExecutor:
+def _get_model_executor(
+    providers: Optional[Sequence[backend.Provider]] = None,
+) -> PyModelExecutor:
     """Return the process-wide Python model executor, creating it on demand.
 
     The executor is passed explicitly to the C++ ``simplify``/``simplify_path``
-    entry points instead of being registered as a global instance.
+    entry points instead of being registered as a global instance. The cached
+    executor is reused only when it was built for the same ``providers`` request,
+    so a later call asking for a different provider set gets a fresh executor
+    rather than silently keeping the previous one.
     """
     global _model_executor
-    if _model_executor is None:
-        _model_executor = PyModelExecutor()
+    if _model_executor is None or _model_executor.providers != providers:
+        _model_executor = PyModelExecutor(providers)
     return _model_executor
 
 
@@ -616,7 +952,23 @@ def main():
         type=str,
         nargs="*",
     )
-    parser.add_argument("--skip-constant-folding", help="Skip constant folding", action="store_true")
+    parser.add_argument(
+        "--skip-constant-folding", help="Skip constant folding", action="store_true"
+    )
+    parser.add_argument(
+        "--check-rtol",
+        help="Relative tolerance for the check_n output comparison (default 1e-4). "
+        "Raise it for very deep models whose correct op reordering accumulates a larger "
+        "floating-point difference (e.g. RF-DETR XLarge).",
+        type=float,
+        default=1e-4,
+    )
+    parser.add_argument(
+        "--check-atol",
+        help="Absolute tolerance for the check_n output comparison (default 1e-5).",
+        type=float,
+        default=1e-5,
+    )
     parser.add_argument(
         "--input-shape",
         help="This argument has been renamed to --overwrite-input-shape, please refer to it",
@@ -661,6 +1013,15 @@ def main():
         nargs="+",
     )
     parser.add_argument(
+        "--input-fill",
+        help="How to fill the random inputs generated for checking (check_n). "
+        "'random' (uniform [0, 1), the default), 'ones', 'zeros' or 'arange' "
+        "(0, 1, 2, ... in row-major order). Ignored when --input-data-path is given.",
+        type=str,
+        choices=model_checking.INPUT_FILL_CHOICES,
+        default="random",
+    )
+    parser.add_argument(
         "--custom-lib", help="Deprecated. Not needed any more.", type=str
     )
     parser.add_argument(
@@ -678,7 +1039,7 @@ def main():
         "--no-large-tensor",
         help="Some ops like Tile and ConstantOfShape can produce large tensor and make the model size much larger. Specifying this flag to skip folding these ops, with loss of some optimization chances. It can be followed with a threshold, for example, --no-large-tensor 1M or --no-large-tensor 100KB. A simple '--no-large-tensor' means '--no-large-tensor 1KB'.",
         type=str,
-        const='1KB',
+        const="1KB",
         default=DEFAULT_TENSOR_SIZE_THRESHOLDHOLD,
         nargs="?",
         dest="tensor_size_threshold",
@@ -687,18 +1048,92 @@ def main():
         "--mutable-initializer",
         help="By ONNX specification, initializers can also serve as inputs. This allows users to overwrite their values during runtime, but some useful optimizations like fuse-conv-and-bn will not be applicable anymore. In almost all cases, having an initializer that is also an input is unintended (usually caused by a out-dated PyTorch). So onnxsim treats all initializers immutable to enabling all optimizations. If it is not wanted, you can specify '--mutable-initializer' to disable this behavior.",
         action="store_true",
-        )
+    )
+    parser.add_argument(
+        "--initializers-as-non-constants",
+        help="Treat initializers as non-constant tensors. By default onnxsim treats "
+        "initializers as constants, so it constant-folds nodes that depend only on them "
+        "and lets value-baking optimizers (e.g. fuse_bn_into_conv) fold their weights. "
+        "Specify this flag to keep such weights untouched as tunable tensors; Constant "
+        "nodes are still folded. This is independent of --mutable-initializer.",
+        action="store_true",
+    )
     parser.add_argument(
         "--save-as-external-data",
         help="Save parameters as external data. This will make the .onnx file much smaller, but the .onnx file will depend on the external data file (.data).",
         action="store_true",
-        )
+    )
     parser.add_argument(
         "--skip-schema-import",
         help="By default onnxsim imports operator schemas registered in the Python 'onnx' module (e.g. via onnx.defs.register_schema) into its own registry so models with custom operators pass validation. Specify this flag to disable that import.",
         action="store_true",
-        )
-    parser.add_argument('-v', '--version', action='version', version='onnxsim ' + version.version)
+    )
+    parser.add_argument(
+        "--target-opset",
+        help="Convert the model to this opset version (of the default ONNX domain) before simplifying, for example '--target-opset 18'. Can be used to upgrade (or downgrade) the model's opset during simplification.",
+        type=int,
+        default=None,
+    )
+    parser.add_argument(
+        "--inline-functions",
+        help="Inline the model's local (model-defined) functions into the main graph before "
+        "simplifying, so the optimizer, shape inference and constant folding can see through "
+        "function calls into a flat op graph. Schema-defined (built-in) functions are left alone.",
+        action="store_true",
+    )
+    parser.add_argument(
+        "--providers",
+        help="onnxruntime execution providers used to run the model during "
+        "constant folding, in priority order, for example '--providers "
+        "CUDAExecutionProvider CPUExecutionProvider' to fold on an NVIDIA GPU "
+        "(falling back to CPU for ops CUDA cannot run). Defaults to CPU only. "
+        "The CUDA provider requires the 'onnxruntime-gpu' build.",
+        type=str,
+        nargs="+",
+        default=None,
+    )
+    parser.add_argument(
+        "--cuda",
+        help="Shortcut for '--providers CUDAExecutionProvider "
+        "CPUExecutionProvider'. Requires the 'onnxruntime-gpu' build.",
+        action="store_true",
+    )
+    parser.add_argument(
+        "--profile",
+        help="Profile each simplification fixed-point function (shape inference, "
+        "the onnx-optimizer passes, constant folding and any rewriter): record its "
+        "wall-clock and CPU duration and the peak resident memory reached while it "
+        "runs, print a per-function summary, and write a Chrome trace to the given "
+        "path (defaults to 'onnxsim_profile.json'). Open the trace in "
+        "chrome://tracing or https://ui.perfetto.dev to view the flame graph.",
+        type=str,
+        nargs="?",
+        const="onnxsim_profile.json",
+        default=None,
+    )
+    parser.add_argument(
+        "--ort-profile",
+        help="Turn on onnxruntime's own per-operator session profiler for the "
+        "onnxruntime sessions onnxsim runs while simplifying (complementary to "
+        "--profile). The value is a file prefix (defaults to "
+        "'onnxsim_ort_profile'); onnxruntime writes one '<prefix>_<timestamp>.json' "
+        "Chrome trace per session.",
+        type=str,
+        nargs="?",
+        const="onnxsim_ort_profile",
+        default=None,
+    )
+    parser.add_argument(
+        "--merge-ort-profile",
+        help="Merge onnxruntime's per-operator session profiles into onnxsim's "
+        "--profile trace, so the operator-level events appear under each OrtSession "
+        "span in one unified flame graph. Implies --profile (defaults to "
+        "'onnxsim_profile.json').",
+        action="store_true",
+    )
+    parser.add_argument(
+        "-v", "--version", action="version", version="onnxsim " + version.version
+    )
 
     class ListOptimizers(argparse.Action):
         def __call__(self, parser, ns, v, option_string=None):
@@ -706,7 +1141,12 @@ def main():
                 print(p)
             parser.exit()
 
-    parser.add_argument("--list-default-optimizers", help="List default optimizer pass names", nargs=0, action=ListOptimizers)
+    parser.add_argument(
+        "--list-default-optimizers",
+        help="List default optimizer pass names",
+        nargs=0,
+        action=ListOptimizers,
+    )
 
     args = parser.parse_args()
 
@@ -761,17 +1201,32 @@ def main():
 
     perform_optimization = False if args.skip_optimization is None else True
 
+    # Resolve the execution providers for constant folding. ``--cuda`` is a
+    # shortcut for the common GPU-then-CPU order; it and an explicit
+    # ``--providers`` cannot both be given.
+    if args.cuda and args.providers is not None:
+        raise RuntimeError(
+            "--cuda and --providers are mutually exclusive; --cuda is a shortcut "
+            "for '--providers CUDAExecutionProvider CPUExecutionProvider'."
+        )
+    if args.cuda:
+        providers = ["CUDAExecutionProvider", "CPUExecutionProvider"]
+    else:
+        providers = args.providers
+
     def parse_shapes(shapes_arg):
         shapes = {}
         if shapes_arg is not None:
             for x in shapes_arg:
-                if ':' not in x:
-                    shapes[None] = list(map(int, x.split(',')))
+                if ":" not in x:
+                    shapes[None] = list(map(int, x.split(",")))
                 else:
-                    pieces = x.split(':')
+                    pieces = x.split(":")
                     # for the input name like input:0
-                    name, shape = ':'.join(
-                        pieces[:-1]), list(map(int, pieces[-1].split(',')))
+                    name, shape = (
+                        ":".join(pieces[:-1]),
+                        list(map(int, pieces[-1].split(","))),
+                    )
                     shapes.update({name: shape})
         return shapes
 
@@ -789,10 +1244,14 @@ def main():
         tmp_file = tempfile.NamedTemporaryFile()
         sess_options = rt.SessionOptions()
         # Set graph optimization level
-        sess_options.graph_optimization_level = rt.GraphOptimizationLevel.ORT_ENABLE_BASIC
+        sess_options.graph_optimization_level = (
+            rt.GraphOptimizationLevel.ORT_ENABLE_BASIC
+        )
         # To enable model serialization after graph optimization
         sess_options.optimized_model_filepath = tmp_file.name
-        _ = rt.InferenceSession(args.input_model, sess_options, providers=["CPUExecutionProvider"])
+        _ = rt.InferenceSession(
+            args.input_model, sess_options, providers=["CPUExecutionProvider"]
+        )
 
         # ``tmp_file`` stays referenced (and thus on disk) until ``main`` returns,
         # so ``simplify`` can load it below.
@@ -835,8 +1294,8 @@ def main():
     if args.input_data_path is not None:
         input_tensors = {}
         for x in args.input_data_path:
-            pieces = x.split(':')
-            name, data = ':'.join(pieces[:-1]), pieces[-1]
+            pieces = x.split(":")
+            name, data = ":".join(pieces[:-1]), pieces[-1]
             input_tensors.update({name: np.load(data)})
 
     print("Simplifying...")
@@ -858,7 +1317,17 @@ def main():
         args.unused_output,
         args.tensor_size_threshold,
         args.mutable_initializer,
+        initializers_as_constants=not args.initializers_as_non_constants,
+        inline_functions=args.inline_functions,
         import_custom_schemas=not args.skip_schema_import,
+        target_opset_version=args.target_opset,
+        check_rtol=args.check_rtol,
+        check_atol=args.check_atol,
+        input_fill=args.input_fill,
+        providers=providers,
+        profile=args.profile,
+        ort_profile=args.ort_profile,
+        merge_ort_profile=args.merge_ort_profile,
     )
 
     try:
@@ -869,7 +1338,7 @@ def main():
     except ValueError:
         # large models (>2GB) which onnx.save doesn't support,
         # or explicitly specified --save-as-external-data
-        external_data_path = os.path.basename(args.output_model) + '.data'
+        external_data_path = os.path.basename(args.output_model) + ".data"
         if os.path.exists(external_data_path):
             os.remove(external_data_path)
         onnx.save(

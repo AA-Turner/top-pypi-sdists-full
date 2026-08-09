@@ -268,7 +268,7 @@ def _otlp_service_name_to_agent_type(service_name):
     return slug or "custom"
 
 
-__version__ = "0.12.661"
+__version__ = "0.12.666"
 
 # Extensions (Phase 2): import the plugin host now, but defer the actual
 # load_plugins() call until after the Flask app is created below so we can
@@ -12098,6 +12098,58 @@ def detect_config(args=None):
             "env_optout": bool(os.environ.get("CLAWMETRY_NO_CLOUD", "").strip()),
         })
 
+    # E2E encryption key — Settings surface for the secret that decrypts
+    # cloud-synced snapshots client-side in the browser. Deliberately a bare
+    # @app.route in this OSS-only section (like /api/cloud-status above),
+    # NOT a Blueprint: the hosted cloud app never calls this route-registration
+    # code path (it imports only bp_sessions/bp_overview/bp_health + specific
+    # helpers from this module via importlib — see clawmetry-cloud/CLAUDE.md),
+    # so this endpoint architecturally does not exist on app.clawmetry.com.
+    # Belt-and-braces: cloud's own container also has no ~/.clawmetry/config.json
+    # for a user's node in the first place, since the key never leaves this
+    # machine except E2E-encrypted. Auth follows the normal /api/* rule in
+    # _check_auth() (loopback trusted; remote needs the gateway token).
+    @app.route("/api/local/e2e-key", endpoint="e2e_key_get")
+    def _e2e_key_get():
+        from flask import jsonify as _jsonify
+        cfg_path = os.path.expanduser("~/.clawmetry/config.json")
+        try:
+            with open(cfg_path) as _f:
+                cfg = json.load(_f) or {}
+        except Exception:
+            cfg = {}
+        key = cfg.get("encryption_key", "") or ""
+        return _jsonify({
+            "configured": bool(key),
+            "key": key or None,
+            "node_id": cfg.get("node_id", ""),
+        })
+
+    @app.route("/api/local/e2e-key/regenerate", methods=["POST"], endpoint="e2e_key_regenerate")
+    def _e2e_key_regenerate():
+        from flask import jsonify as _jsonify
+        from clawmetry.sync import generate_encryption_key, save_config
+        cfg_path = os.path.expanduser("~/.clawmetry/config.json")
+        try:
+            with open(cfg_path) as _f:
+                cfg = json.load(_f) or {}
+        except Exception:
+            cfg = {}
+        if not cfg.get("api_key"):
+            return _jsonify({
+                "error": "Cloud sync isn't set up on this node yet. Run "
+                         "\"clawmetry connect\" first.",
+            }), 400
+        new_key = generate_encryption_key()
+        cfg["encryption_key"] = new_key
+        save_config(cfg)
+        # Restart so the daemon encrypts everything from now on with the new
+        # key. Anything already synced under the old key stays readable by
+        # anyone who has that old key — regenerating protects data going
+        # forward, it does not retroactively re-encrypt history.
+        _restart_sync_daemon()
+        return _jsonify({"key": new_key})
+
     # ────────────────────────────────────────────────────────────────────────
 
 
@@ -12311,6 +12363,16 @@ DASHBOARD_HTML = r"""
     <select id="cm-global-runtime" onchange="_cmOnGlobalRuntimeChange(this)" title="Scope session views to a single agent runtime" style="font-size:12px;font-weight:600;padding:7px 10px;border:1px solid var(--border-color,rgba(255,255,255,0.22));border-radius:8px;background:var(--button-bg,transparent);color:var(--text-tertiary,#cbd5e1);cursor:pointer;"></select>
   </div>
   <div class="theme-toggle" id="alerts-bell-btn" onclick="switchTab('alerts')" data-i18n-title="topbar.active_alerts" title="Active alerts" style="cursor:pointer;position:relative;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg><span id="alerts-bell-badge" style="display:none;position:absolute;top:-4px;right:-4px;background:#ef4444;color:#fff;border-radius:10px;padding:0 4px;font-size:9px;font-weight:700;min-width:14px;line-height:14px;text-align:center;">0</span></div>
+
+  <!-- Cloud sync toggle chip. Included in every ClawMetry plan (Self-Hosted
+       through Enterprise), so it's a one-click UX toggle here rather than a
+       plan-tier decision. Hidden until the initial /api/cloud-cta/status
+       poll resolves so it doesn't flash the wrong state on first paint.
+       Refresh cadence: on load, on click, and after any focus event. -->
+  <div class="theme-toggle" id="sync-toggle-btn" onclick="clawmetryToggleSync()" title="Cloud sync" style="display:none;cursor:pointer;padding:6px 10px;gap:6px;align-items:center;">
+    <svg id="sync-toggle-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.5 19H9a7 7 0 1 1 6.71-9"/><polyline points="17 5 21 5 21 9"/></svg>
+    <span id="sync-toggle-label" style="font-size:11px;font-weight:600;letter-spacing:0.2px;">Sync</span>
+  </div>
 
   <div class="theme-toggle" id="logout-btn" onclick="clawmetryLogout()" data-i18n-title="topbar.logout" title="Logout" style="display:none;cursor:pointer;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></div>
   <div class="i18n-switcher" id="i18n-switcher" style="position:relative;">
@@ -12639,6 +12701,7 @@ DASHBOARD_HTML = r"""
    card below the fold (users saw only the blur backdrop, issue: blank
    blurred dashboard on first run). #}
 {% include 'partials/cloud-modal.html' %}
+{% include 'partials/e2e-key-modal.html' %}
 {% include 'partials/onboarding-modal.html' %}
 {% include 'partials/selfhost-modal.html' %}
 {% include 'partials/budget-modal.html' %}
@@ -17780,6 +17843,20 @@ def _full_connect_with_key(api_key):
     # (Re)start the sync daemon so it re-reads the new key AND re-evaluates
     # cloud mode. If it is already running in local-only mode, merely "starting
     # if absent" would leave it local-only forever, so we restart unconditionally.
+    _restart_sync_daemon()
+
+    return node_id, enc_key
+
+
+def _restart_sync_daemon():
+    """Restart the sync daemon so it re-reads ~/.clawmetry/config.json.
+
+    Cross-platform: launchctl kickstart on macOS, systemctl restart on
+    Linux, kill+relaunch elsewhere. Best-effort, never raises — callers
+    (cloud connect, E2E key regenerate) proceed either way since the config
+    file write already succeeded and a stale in-memory daemon just means
+    the next natural restart picks up the change.
+    """
     try:
         if _is_macos():
             if os.path.exists(SYNC_LAUNCHD_PLIST):
@@ -17797,8 +17874,6 @@ def _full_connect_with_key(api_key):
             _start_daemon_background()
     except Exception:
         pass
-
-    return node_id, enc_key
 
 
 def _selfhost_signin_with_key(api_key):

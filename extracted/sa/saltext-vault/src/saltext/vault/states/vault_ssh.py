@@ -1,7 +1,7 @@
 """
-.. versionadded:: 1.2.0
-
 Manage the Vault (or OpenBao) SSH secret engine.
+
+.. versionadded:: 1.2.0
 
 .. versionadded:: 1.6.0
     If you want to manage Vault-issued SSH certificates statefully, you need the
@@ -15,6 +15,7 @@ Manage the Vault (or OpenBao) SSH secret engine.
 """
 
 import logging
+from typing import TYPE_CHECKING
 
 import salt.utils.dictdiffer
 from salt.exceptions import CommandExecutionError
@@ -23,7 +24,20 @@ from salt.exceptions import SaltInvocationError
 from saltext.vault.utils.vault.helpers import deserialize_csl
 from saltext.vault.utils.vault.helpers import timestring_map
 
-log = logging.getLogger(__name__)
+if TYPE_CHECKING:
+
+    from saltext.vault.utils._types import SaltContext
+    from saltext.vault.utils._types import SaltFunctions
+    from saltext.vault.utils._types import SaltLogger
+    from saltext.vault.utils._types import SaltOpts
+    from saltext.vault.utils._types import SaltStates
+
+    __opts__: SaltOpts
+    __context__: SaltContext
+    __salt__: SaltFunctions
+    __states__: SaltStates
+
+log: "SaltLogger" = logging.getLogger(__name__)  # type: ignore
 
 LIST_ROLE_PARAMS = (
     "allowed_users",
@@ -35,6 +49,7 @@ LIST_ROLE_PARAMS = (
 )
 MAP_ROLE_PARAMS = ("default_critical_options", "default_extensions", "allowed_user_key_lengths")
 TIME_ROLE_PARAMS = ("ttl", "max_ttl", "not_before_duration")
+OPENBAO_ROLE_PARAMS = ("allow_commas_in_identity_templates",)
 
 
 def ca_present(
@@ -62,12 +77,12 @@ def ca_present(
     public_key
         Public key part of the SSH CA key pair. Can be a file
         local to the minion or a PEM-encoded string.
-        If this or ``public_key`` is unspecified, generates a pair
+        If this or ``private_key`` is unspecified, generates a pair
         on the Vault server.
 
     key_type
         Desired key type for the generated SSH CA key when generating
-        on the Vault server. Valid: ``ssh-rsa`` (default), ``sha2-nistp256``,
+        on the Vault server. Valid: ``ssh-rsa`` (default), ``ecdsa-sha2-nistp256``,
         ``ecdsa-sha2-nistp384``, ``ecdsa-sha2-nistp521``, or ``ssh-ed25519``.
         Can also specify an algorithm: ``rsa``, ``ec``, or ``ed25519``.
 
@@ -195,7 +210,7 @@ def role_present_otp(
         Name of the SSH role.
 
     default_user
-        Default username for which a credential is generated.
+        Default username(s) for which a credential should be generated.
         Required.
 
     cidr_list
@@ -245,6 +260,8 @@ def role_present_otp(
 def _diff_role_params(curr, wanted):
     diff = {}
     for param, val in wanted.items():
+        if param in OPENBAO_ROLE_PARAMS and param not in curr:
+            continue  # not an issue to pass a value anyways, Vault ignores extra args
         if param in LIST_ROLE_PARAMS:
             curr_param = set(deserialize_csl(curr.get(param, [])))
             wanted_param = set(deserialize_csl(val or []))
@@ -260,7 +277,7 @@ def _diff_role_params(curr, wanted):
                     if isinstance(allowed, int):
                         val[algo] = [allowed]
                     else:
-                        val[algo] = deserialize_csl(allowed)
+                        val[algo] = [int(klen) for klen in deserialize_csl(allowed)]
             map_diff = salt.utils.dictdiffer.recursive_diff(
                 curr.get(param, {}), val, ignore_missing_keys=False
             )
@@ -361,6 +378,7 @@ def role_present_ca(
     allowed_user_key_lengths=None,
     algorithm_signer="default",
     not_before_duration=30,
+    allow_commas_in_identity_templates=False,
     mount="ssh",
 ):
     """
@@ -370,13 +388,13 @@ def role_present_ca(
         Name of the SSH role.
 
     default_user
-        Default username for which a credential is generated.
+        Default username(s) for which a credential should be generated.
         When ``default_user_template`` is true, this can contain an identity
         template with any prefix or suffix, like ``ssh-{{identity.entity.id}}-user``.
         If you wish this to be a valid principal, it must also be in ``allowed_users``.
 
     default_user_template
-        Allow ``default_users`` to be specified using identity template values.
+        Allow ``default_user`` to be specified using identity template values.
         A non-templated user is also permitted. Defaults to false.
 
     allowed_users
@@ -474,6 +492,15 @@ def role_present_ca(
         Specifies the duration by which to backdate the ``ValidAfter`` property.
         Defaults to ``30s``.
 
+    allow_commas_in_identity_templates
+        .. versionadded:: 1.8.0
+
+        (OpenBao only, Vault always allows this behavior)
+        If set and templating is enabled, the values substituted in for
+        ``allowed_users`` and ``allowed_domains`` template expressions are allowed to contain a comma.
+        As these values are comma separated lists, this can enable injection attacks.
+        Only use this if the data used by the templates is trusted. Defaults to false.
+
     mount
         Name of the mount point the SSH secret backend is mounted at.
         Defaults to ``ssh``.
@@ -513,6 +540,7 @@ def role_present_ca(
         "allowed_user_key_lengths": allowed_user_key_lengths,
         "algorithm_signer": algorithm_signer,
         "not_before_duration": not_before_duration,
+        "allow_commas_in_identity_templates": allow_commas_in_identity_templates,
     }
     return _role_present(name, "ca", ret, mount=mount, **payload)
 
@@ -563,7 +591,7 @@ def role_absent(name, mount="ssh"):
             "There were no errors during role deletion, but it is still reported as present."
         )
 
-    except CommandExecutionError as err:
+    except (CommandExecutionError, SaltInvocationError) as err:
         ret["result"] = False
         ret["comment"] = str(err)
         ret["changes"] = {}

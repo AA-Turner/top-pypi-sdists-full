@@ -706,7 +706,7 @@ class DataPointSummary(BaseModel):
     )
     control: str | None = Field(
         None,
-        description="CCU paramset descriptor's CONTROL attribute of the form\nWIDGET_FAMILY.SLOT (e.g. \"HEATING_CONTROL_HMIP.SETPOINT\").\nDrives the SPA's CONTROL-aware widget resolver. See\ndocs/ui/control-widget-concept.md. Empty when the\ndescriptor carries no CONTROL.\n",
+        description="CCU paramset descriptor's CONTROL attribute of the form\nWIDGET_FAMILY.SLOT (e.g. \"HEATING_CONTROL_HMIP.SETPOINT\").\nDrives the SPA's CONTROL-aware widget resolver. Empty when the\ndescriptor carries no CONTROL.\n",
     )
     type: str | None = Field(
         None,
@@ -729,7 +729,7 @@ class DataPointSummary(BaseModel):
     default: Any | None = None
     ui_hint: UiHint | None = Field(
         None,
-        description="Daemon-computed UI classification envelope. The SPA's\nAutoTile composer reads the fields verbatim — no JS-side\nclassification runs. See docs/ui/auto-tile-concept.md.\nResolution order in the backend: parameter substring →\nENUM-shape rules → unit table → type fallback. Never\nempty.\n",
+        description="Daemon-computed UI classification envelope. The SPA's\nAutoTile composer reads the fields verbatim — no JS-side\nclassification runs.\nResolution order in the backend: parameter substring →\nENUM-shape rules → unit table → type fallback. Never\nempty.\n",
     )
     unique_id: str = Field(
         ...,
@@ -1575,7 +1575,7 @@ class DataPointValueChangedPayload(BaseModel):
     )
     previous: Any | None = Field(
         None,
-        description='Prior value. Omitted when no prior value was tracked (initial\npush). Future revisions may surface a `kind: "initial"|"change"|"refresh"`\ndiscriminator on the envelope; see docs/external-clients/asks.md (B2).\n',
+        description='Prior value. Omitted when no prior value was tracked (initial\npush). Future revisions may surface a `kind: "initial"|"change"|"refresh"`\ndiscriminator on the envelope.\n',
     )
     available: bool = Field(
         ...,
@@ -2227,6 +2227,118 @@ class SchemaResponse(BaseModel):
         description='Top-level config section names (e.g. ["logging", "north", "centrals"]).',
     )
     fields: list[SchemaField]
+
+
+class Group1(StrEnum):
+    overview = "overview"
+    automation = "automation"
+    diagnose = "diagnose"
+    bridges = "bridges"
+    system = "system"
+    settings = "settings"
+    device = "device"
+
+
+class Floor(StrEnum):
+    always = "always"
+    standalone = "standalone"
+
+
+class Gate(StrEnum):
+    matter = "matter"
+    history = "history"
+
+
+class Warn(StrEnum):
+    alarm_armed = "alarm_armed"
+    security_faults = "security_faults"
+    last_ccu_editor = "last_ccu_editor"
+
+
+class SurfaceInfo(BaseModel):
+    id: str = Field(
+        ...,
+        description="Stable identifier. The prefix names the kind: `nav.` for a\nnavigation item, `settings.` for a settings tab, `device.`\nfor a device-detail tab.\n",
+        examples=["nav.alarm"],
+    )
+    group: Group1 = Field(
+        ..., description="Editor bucket, mirroring the navigation clusters."
+    )
+    defaults: dict[str, bool] = Field(
+        ...,
+        description="Shipped visibility per profile name.",
+        examples=[{"standalone": True, "embedded": False}],
+    )
+    floor: Floor | None = Field(
+        None,
+        description="Where the surface can never be hidden. Absent when the\noperator may hide it anywhere.\n",
+    )
+    gate: Gate | None = Field(
+        None, description="Runtime capability the surface additionally needs."
+    )
+    warn: Warn | None = Field(
+        None,
+        description="Condition under which hiding asks for confirmation. The\nclient evaluates the condition; the daemon only declares it.\n",
+    )
+    warn_profile: str | None = Field(
+        None, description="Limits `warn` to a single profile when set."
+    )
+    parent: str | None = Field(
+        None,
+        description="Surface this one lives inside. A child is never more visible\nthan its parent.\n",
+    )
+    role_admin: bool | None = Field(
+        None, description="Only ever shown to admins, independent of the profile."
+    )
+    write_gated: bool | None = Field(
+        None,
+        description="In the embedded profile this surface's entry also decides\nwhether the Home Assistant Ingress passthrough identity may\nwrite to it.\n",
+    )
+    multi_central_visible: bool | None = Field(
+        None,
+        description="The embedded default of this surface flips back to visible\nwhen the daemon serves more than one CCU. A Home Assistant\nconfig entry addresses one CCU, so on a multi-CCU daemon HA\ncannot own the config surface of the CCUs it has no entry\nfor — hiding these would leave their devices without an\neditor anywhere. The `defaults` above already reflect the\ncurrent fleet; this flag only explains why.\n",
+    )
+    ha_owns: bool | None = Field(
+        None, description="Home Assistant provides this surface itself."
+    )
+
+
+class Profile(StrEnum):
+    standalone = "standalone"
+    embedded = "embedded"
+
+
+class Profiles(StrEnum):
+    visible = "visible"
+    hidden = "hidden"
+
+
+class SurfacesResponse(BaseModel):
+    embedded: bool = Field(
+        ...,
+        description="The master toggle — whether Home Assistant owns this daemon's config surface.",
+    )
+    profile: Profile = Field(..., description="The live profile.")
+    profiles: dict[str, dict[str, Profiles]] = Field(
+        ..., description="Stored, sparse overrides per profile name."
+    )
+    effective: dict[str, bool] = Field(
+        ...,
+        description="Resolved visibility of the live profile, per surface id.\nCapability and role gates are not folded in.\n",
+    )
+    centrals: int = Field(
+        ...,
+        description="How many CCUs this daemon serves. Above one it moves the\nshipped default of every surface marked\n`multi_central_visible`, so the editor needs it to explain\nwhy a default reads differently here than in the docs.\n",
+    )
+    surfaces: list[SurfaceInfo]
+
+
+class SurfacesRequest(BaseModel):
+    embedded: bool | None = Field(None, description="Flip the master toggle.")
+    profiles: dict[str, dict[str, Profiles]] | None = Field(
+        None,
+        description="Full desired override set per profile. The daemon reduces it\nto the sparse form before persisting.\n",
+    )
 
 
 class Sources(StrEnum):
@@ -2969,9 +3081,7 @@ class Countdown(BaseModel):
 class AlarmZoneStatus(BaseModel):
     id: str
     name: str
-    state: State2 = Field(
-        ..., description="Arm-state-machine state (docs/alarm-concept.md §5)."
-    )
+    state: State2 = Field(..., description="Arm-state-machine state.")
     mode: Mode2 | None = Field(
         None, description="Currently active (or, while arming, target) protection mode."
     )

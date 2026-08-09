@@ -1,0 +1,1 @@
+import{Ii as e,Mr as t,Ni as n,Or as r,Zr as i,ei as a}from"./lucide-8iZEKnpY.js";import{S as o}from"./index-qk-_wvcv.js";var s=t({__name:`CardTitle`,props:{class:{type:[Boolean,null,String,Object,Array]}},setup(t){let s=t;return(t,c)=>(i(),r(`h3`,{"data-slot":`card-title`,class:e(n(o)(`leading-none font-semibold`,s.class))},[a(t.$slots,`default`)],2))}});export{s as t};

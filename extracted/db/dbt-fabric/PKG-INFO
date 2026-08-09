@@ -1,32 +1,31 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: dbt-fabric
-Version: 1.10.0
+Version: 1.11.0
 Summary: A Microsoft Fabric Synapse Data Warehouse adapter plugin for dbt
-Home-page: https://github.com/microsoft/dbt-fabric
-Author: Pradeep Srikakolapu
-License: MIT
 Project-URL: Setup & configuration, https://docs.getdbt.com/reference/warehouse-profiles/fabric-profile
 Project-URL: Documentation & usage, https://docs.getdbt.com/reference/resource-configs/fabric-configs
-Project-URL: Changelog, https://github.com/microsoft/dbt-fabric/blob/master/CHANGELOG.md
+Project-URL: Changelog, https://github.com/microsoft/dbt-fabric/blob/main/CHANGELOG.md
 Project-URL: Issue Tracker, https://github.com/microsoft/dbt-fabric/issues
+Project-URL: Repository, https://github.com/microsoft/dbt-fabric
+Author: Pradeep Srikakolapu
+License-Expression: MIT
+License-File: LICENSE
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: License :: OSI Approved :: MIT License
-Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: MacOS :: MacOS X
+Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX :: Linux
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Description-Content-Type: text/markdown
-License-File: LICENSE
-Requires-Dist: pyodbc>=5.2.0
-Requires-Dist: azure-identity>=1.14.0
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: <3.14,>=3.12
 Requires-Dist: azure-core>=1.26.0
+Requires-Dist: azure-identity>=1.14.0
+Requires-Dist: dbt-adapters<2.0,>=1.15.5
 Requires-Dist: dbt-common<2.0,>=1.0.4
-Requires-Dist: dbt-core>=1.10.0
-Requires-Dist: dbt-adapters<2.0,>=1.10.0
+Requires-Dist: dbt-core>=1.11.0
+Requires-Dist: mssql-python>=1.4.0
+Requires-Dist: requests>=2.33.0
+Description-Content-Type: text/markdown
 
 # dbt-fabric
 
@@ -43,55 +42,7 @@ We've bundled all documentation on the dbt docs site
 
 ## Installation
 
-This adapter requires the Microsoft ODBC driver to be installed:
-[Windows](https://docs.microsoft.com/nl-be/sql/connect/odbc/download-odbc-driver-for-sql-server?view=sql-server-ver16#download-for-windows) |
-[macOS](https://docs.microsoft.com/nl-be/sql/connect/odbc/linux-mac/install-microsoft-odbc-driver-sql-server-macos?view=sql-server-ver16) |
-[Linux](https://docs.microsoft.com/nl-be/sql/connect/odbc/linux-mac/installing-the-microsoft-odbc-driver-for-sql-server?view=sql-server-ver16)
-
-<details><summary>Debian/Ubuntu</summary>
-<p>
-
-Make sure to install the ODBC headers as well as the driver linked above:
-
-```shell
-sudo apt-get install -y unixodbc-dev
-```
-
-</p>
-</details>
-
-<details><summary>macOS (Apple Silicon)</summary>
-<p>
-
-Install unixODBC and the ODBC driver via Homebrew:
-
-```shell
-brew install unixodbc msodbcsql18
-```
-
-Modern Homebrew (post-Sonoma) ships `libodbc.3.dylib`, but `pyodbc` wheels are often compiled against `libodbc.2.dylib`. This mismatch causes the following error at runtime:
-
-```
-Library not loaded: /opt/homebrew/opt/unixodbc/lib/libodbc.2.dylib
-```
-
-**Fix — recompile `pyodbc` against the installed unixODBC:**
-
-```shell
-export LDFLAGS="-L/opt/homebrew/opt/unixodbc/lib"
-export CPPFLAGS="-I/opt/homebrew/opt/unixodbc/include"
-pip install --force-reinstall --no-binary :all: pyodbc
-```
-
-**Alternative — create a compatibility symlink:**
-
-```shell
-ln -s /opt/homebrew/opt/unixodbc/lib/libodbc.3.dylib \
-      /opt/homebrew/opt/unixodbc/lib/libodbc.2.dylib
-```
-
-</p>
-</details>
+This adapter uses [`mssql-python`](https://github.com/microsoft/mssql-python) to connect to Fabric, which bundles its own driver.
 
 Latest version: ![PyPI](https://img.shields.io/pypi/v/dbt-fabric?label=latest&logo=pypi)
 

@@ -4,8 +4,10 @@ High-level utility functions for Vault (or OpenBao) interaction
 
 import logging
 import re
+import typing
 from collections.abc import Mapping
 
+from saltext.vault.utils.vault import client as vclient
 from saltext.vault.utils.vault.auth import InvalidVaultSecretId
 from saltext.vault.utils.vault.auth import InvalidVaultToken
 from saltext.vault.utils.vault.auth import LocalVaultSecretId
@@ -35,23 +37,26 @@ from saltext.vault.utils.vault.leases import VaultSecretId
 from saltext.vault.utils.vault.leases import VaultToken
 from saltext.vault.utils.vault.leases import VaultWrappedResponse
 
-log = logging.getLogger(__name__)
+if typing.TYPE_CHECKING:
+    from saltext.vault.utils._types import SaltLogger
+
+log: "SaltLogger" = logging.getLogger(__name__)  # type: ignore
 logging.getLogger("requests").setLevel(logging.WARNING)
 
 ACL_TEMPLATING_REGEX = re.compile(r"{{(.+?)}}")
 
 
 def query(
-    method,
-    endpoint,
-    opts,
-    context,
-    payload=None,
+    method: str,
+    endpoint: str,
+    opts: dict[str, typing.Any],
+    context: dict[typing.Any, typing.Any],
+    payload: dict[typing.Any, typing.Any] | None = None,
     *,
-    wrap=False,
-    raise_error=True,
-    safe_to_retry=None,
-    is_unauthd=False,
+    wrap: str | typing.Literal[False] = False,
+    raise_error: bool = True,
+    safe_to_retry: bool | None = None,
+    is_unauthd: bool = False,
     **kwargs,
 ):
     """
@@ -125,16 +130,16 @@ def query(
 
 
 def query_raw(
-    method,
-    endpoint,
-    opts,
-    context,
-    payload=None,
+    method: str,
+    endpoint: str,
+    opts: dict[str, typing.Any],
+    context: dict[typing.Any, typing.Any],
+    payload: dict[typing.Any, typing.Any] | None = None,
     *,
-    wrap=False,
-    retry=True,
-    is_unauthd=False,
-    safe_to_retry=None,
+    wrap: str | typing.Literal[False] = False,
+    retry: bool = True,
+    is_unauthd: bool = False,
+    safe_to_retry: bool | None = None,
     **kwargs,
 ):
     """
@@ -214,7 +219,7 @@ def query_raw(
     return res
 
 
-def is_v2(path, opts, context):
+def is_v2(path: str, opts: dict[str, typing.Any], context: dict[typing.Any, typing.Any]):
     """
     Determines if a given secret path is KV v1 or v2.
     """
@@ -222,7 +227,13 @@ def is_v2(path, opts, context):
     return kv.is_v2(path)
 
 
-def read_kv(path, opts, context, include_metadata=False, version=None):
+def read_kv(
+    path: str,
+    opts: dict[str, typing.Any],
+    context: dict[typing.Any, typing.Any],
+    include_metadata: bool = False,
+    version: int | str | None = None,
+):
     """
     Read secret at <path>.
     """
@@ -239,7 +250,7 @@ def read_kv(path, opts, context, include_metadata=False, version=None):
     return kv.read(path, include_metadata=include_metadata, version=version)
 
 
-def read_kv_meta(path, opts, context):
+def read_kv_meta(path: str, opts: dict[str, typing.Any], context: dict[typing.Any, typing.Any]):
     """
     Read secret metadata and version info at <path>.
     Requires KV v2.
@@ -259,7 +270,12 @@ def read_kv_meta(path, opts, context):
     return kv.read_meta(path)
 
 
-def write_kv(path, data, opts, context):
+def write_kv(
+    path: str,
+    data: dict[str, typing.Any],
+    opts: dict[str, typing.Any],
+    context: dict[typing.Any, typing.Any],
+):
     """
     Write secret <data> to <path>.
     """
@@ -276,7 +292,12 @@ def write_kv(path, data, opts, context):
     return kv.write(path, data)
 
 
-def patch_kv(path, data, opts, context):
+def patch_kv(
+    path: str,
+    data: dict[str, typing.Any],
+    opts: dict[str, typing.Any],
+    context: dict[typing.Any, typing.Any],
+):
     """
     Patch secret <data> at <path>.
     """
@@ -298,7 +319,13 @@ def patch_kv(path, data, opts, context):
     return kv.patch(path, data)
 
 
-def delete_kv(path, opts, context, versions=None, all_versions=False):
+def delete_kv(
+    path: str,
+    opts: dict[str, typing.Any],
+    context: dict[typing.Any, typing.Any],
+    versions: int | str | list[int | str] | None = None,
+    all_versions: bool = False,
+):
     """
     Delete secret at <path>. For KV v2, versions can be specified,
     which is soft-deleted.
@@ -316,7 +343,13 @@ def delete_kv(path, opts, context, versions=None, all_versions=False):
     return kv.delete(path, versions=versions, all_versions=all_versions)
 
 
-def restore_kv(path, opts, context, versions=None, all_versions=False):
+def restore_kv(
+    path: str,
+    opts: dict[str, typing.Any],
+    context: dict[typing.Any, typing.Any],
+    versions: int | str | list[int | str] | None = None,
+    all_versions: bool = False,
+):
     """
     Restore secret versions at <path>. Requires KV v2.
     """
@@ -333,7 +366,13 @@ def restore_kv(path, opts, context, versions=None, all_versions=False):
     return kv.restore(path, versions=versions, all_versions=all_versions)
 
 
-def destroy_kv(path, versions, opts, context, all_versions=False):
+def destroy_kv(
+    path: str,
+    versions: int | str | list[int | str] | None,
+    opts: dict[str, typing.Any],
+    context: dict[typing.Any, typing.Any],
+    all_versions: bool = False,
+):
     """
     Destroy secret <versions> at <path>. Requires KV v2.
     """
@@ -350,7 +389,7 @@ def destroy_kv(path, versions, opts, context, all_versions=False):
     return kv.destroy(path, versions, all_versions=all_versions)
 
 
-def wipe_kv(path, opts, context):
+def wipe_kv(path: str, opts: dict[str, typing.Any], context: dict[typing.Any, typing.Any]):
     """
     Completely remove all version history and data at <path>.
     Requires KV v2.
@@ -370,7 +409,7 @@ def wipe_kv(path, opts, context):
     return kv.nuke(path)
 
 
-def list_kv(path, opts, context):
+def list_kv(path: str, opts: dict[str, typing.Any], context: dict[typing.Any, typing.Any]):
     """
     List secrets at <path>.
     """
@@ -387,16 +426,16 @@ def list_kv(path, opts, context):
     return kv.list(path)
 
 
-class LazyIdentityContext(Mapping):
+class LazyIdentityContext(Mapping[str, str]):
     """
     Simulates an identity metadata dictionary. Requests data from Vault
     once an item is accessed.
     """
 
-    def __init__(self, client):
+    def __init__(self, client: vclient.AuthenticatedVaultClient):
         self.client = client
-        self._entity = None
-        self._group_ids = None
+        self._entity: dict[str, typing.Any] | None = None
+        self._group_ids: list[str] | None = None
         self._groups = {"ids": {}, "names": {}}
 
     def _init_entity(self):
@@ -419,8 +458,19 @@ class LazyIdentityContext(Mapping):
         }
         self._group_ids = entity["group_ids"] or []
 
-    def _init_group(self, gid=None, name=None):
-        group = self.client.token_entity_group(name=name, gid=gid)
+    @typing.overload
+    def _init_group(self, *, gid: str) -> dict[str, typing.Any] | None: ...
+    @typing.overload
+    def _init_group(self, *, name: str) -> dict[str, typing.Any] | None: ...
+    def _init_group(
+        self, *, gid: str | None = None, name: str | None = None
+    ) -> dict[str, typing.Any] | None:
+        if name:
+            group = self.client.token_entity_group(name=name)
+        elif gid:
+            group = self.client.token_entity_group(gid=gid)
+        else:
+            raise TypeError("Need name or gid")
         if not group:
             raise RuntimeError(
                 f"Current token has no associated entity or is not part of group {gid or name}"
@@ -438,11 +488,11 @@ class LazyIdentityContext(Mapping):
         if self._group_ids is None:
             self._init_entity()
 
-        for gid in self._group_ids:
+        for gid in self._group_ids or []:
             if gid not in self._groups["ids"]:
                 self._init_group(gid=gid)
 
-    def _lookup(self, steps, ptr, key):
+    def _lookup(self, steps: list[str], ptr: typing.Any, key: str) -> str:
         while steps:
             try:
                 ptr = ptr[steps.pop(0)]
@@ -452,12 +502,12 @@ class LazyIdentityContext(Mapping):
             raise KeyError(key)
         return ptr
 
-    def _lookup_entity(self, parts, key):
+    def _lookup_entity(self, parts: list[str], key: str) -> str:
         if self._entity is None:
             self._init_entity()
         return self._lookup(parts[2:], self._entity, key)
 
-    def _lookup_groups(self, parts, key):
+    def _lookup_groups(self, parts: list[str], key: str) -> str:
         if parts[2] == "ids":
             if parts[3] not in self._groups["ids"]:
                 self._init_group(gid=parts[3])
@@ -470,7 +520,7 @@ class LazyIdentityContext(Mapping):
             raise KeyError(key)
         return self._lookup(parts[4:], group, key)
 
-    def __getitem__(self, key):
+    def __getitem__(self, key: str) -> str:
         try:
             parts = key.split(".")
         except AttributeError as err:
@@ -483,7 +533,7 @@ class LazyIdentityContext(Mapping):
             return self._lookup_groups(parts, key)
         raise KeyError(key)
 
-    def __iter__(self):
+    def __iter__(self) -> typing.Iterator[str]:
         def _it(ptr, prefix=None):
             prefix = prefix or []
             for k, v in ptr.items():
@@ -498,11 +548,13 @@ class LazyIdentityContext(Mapping):
         self._init_all_groups()
         yield from _it(self._groups, ["identity", "groups"])
 
-    def __len__(self):
-        return len(dict(self))
+    def __len__(self) -> int:
+        return sum(1 for _ in self)
 
 
-def render_identity_template(tpl, opts, context):
+def render_identity_template(
+    tpl: str, opts: dict[str, typing.Any], context: dict[typing.Any, typing.Any]
+) -> str | None:
     """
     Render an identity template based on the currently active token.
     Example: ``foo/{{identity.entity.metadata.bar}}``.
@@ -533,14 +585,14 @@ def render_identity_template(tpl, opts, context):
         return None
 
 
-def _has_identity_template(tpl):
+def _has_identity_template(tpl: str) -> bool:
     """
     Check whether a string contains an identity template.
     """
     return bool(ACL_TEMPLATING_REGEX.search(tpl))
 
 
-def _check_clear(config, client):
+def _check_clear(config: dict[str, typing.Any], client: vclient.AuthenticatedVaultClient) -> bool:
     """
     Called when encountering a VaultPermissionDeniedError.
     Decides whether caches should be cleared to retry with

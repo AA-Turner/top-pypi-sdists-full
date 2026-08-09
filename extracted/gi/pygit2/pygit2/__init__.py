@@ -1,4 +1,4 @@
-# Copyright 2010-2025 The pygit2 contributors
+# Copyright 2010-2026 The pygit2 contributors
 #
 # This file is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License, version 2,
@@ -31,7 +31,7 @@ import os
 import typing
 
 # High level API
-from . import enums
+from . import enums, utils
 from ._build import __version__
 
 # Low level API
@@ -310,7 +310,6 @@ from .errors import Passthrough, check_error
 from .ffi import C, ffi
 from .filter import Filter
 from .index import Index, IndexEntry
-from .legacyenums import *
 from .options import (
     GIT_OPT_ADD_SSL_X509_CERT,
     GIT_OPT_DISABLE_PACK_KEEP_FILE_CHECKS,
@@ -361,12 +360,12 @@ from .options import (
     option,
 )
 from .packbuilder import PackBuilder
+from .rebase import Rebase, RebaseOperation
 from .remotes import Remote
 from .repository import Repository
 from .settings import Settings
 from .submodules import Submodule
 from .transaction import ReferenceTransaction
-from .utils import to_bytes, to_str
 
 # Features
 features = enums.Feature(C.git_libgit2_features())
@@ -431,32 +430,32 @@ def init_repository(
     options.mode = mode
 
     if workdir_path:
-        workdir_path_ref = ffi.new('char []', to_bytes(workdir_path))
+        workdir_path_ref = ffi.new('char []', utils.encode_fs_path(workdir_path))
         options.workdir_path = workdir_path_ref
 
     if description:
-        description_ref = ffi.new('char []', to_bytes(description))
+        description_ref = ffi.new('char []', utils.encode_string(description))
         options.description = description_ref
 
     if template_path:
-        template_path_ref = ffi.new('char []', to_bytes(template_path))
+        template_path_ref = ffi.new('char []', utils.encode_fs_path(template_path))
         options.template_path = template_path_ref
 
     if initial_head:
-        initial_head_ref = ffi.new('char []', to_bytes(initial_head))
+        initial_head_ref = ffi.new('char []', utils.encode_string(initial_head))
         options.initial_head = initial_head_ref
 
     if origin_url:
-        origin_url_ref = ffi.new('char []', to_bytes(origin_url))
+        origin_url_ref = ffi.new('char []', utils.encode_string(origin_url))
         options.origin_url = origin_url_ref
 
     # Call
     crepository = ffi.new('git_repository **')
-    err = C.git_repository_init_ext(crepository, to_bytes(path), options)
+    err = C.git_repository_init_ext(crepository, utils.encode_fs_path(path), options)
     check_error(err)
 
     # Ok
-    return Repository(to_str(path))
+    return Repository(utils.path_to_str(path))
 
 
 def clone_repository(
@@ -531,13 +530,17 @@ def clone_repository(
         opts.fetch_opts.depth = depth
 
         if checkout_branch:
-            checkout_branch_ref = ffi.new('char []', to_bytes(checkout_branch))
+            checkout_branch_ref = ffi.new(
+                'char []', utils.encode_string(checkout_branch)
+            )
             opts.checkout_branch = checkout_branch_ref
 
         with git_fetch_options(payload, opts=opts.fetch_opts):
             with git_proxy_options(payload, opts.fetch_opts.proxy_opts, proxy):
                 crepo = ffi.new('git_repository **')
-                err = C.git_clone(crepo, to_bytes(url), to_bytes(path), opts)
+                err = C.git_clone(
+                    crepo, utils.encode_string(url), utils.encode_fs_path(path), opts
+                )
                 payload.check_error(err)
 
     # Ok
@@ -560,7 +563,7 @@ def filter_unregister(name: str) -> None:
     if FilterList._is_filter_in_use(name):
         raise RuntimeError(f"filter still in use: '{name}'")
 
-    c_name = to_bytes(name)
+    c_name = utils.encode_string(name)
     err = C.git_filter_unregister(c_name)
     check_error(err)
 
@@ -915,71 +918,11 @@ __all__ = (
     'index',
     'Index',
     'IndexEntry',
-    'legacyenums',
-    'GIT_FEATURE_THREADS',
-    'GIT_FEATURE_HTTPS',
-    'GIT_FEATURE_SSH',
-    'GIT_FEATURE_NSEC',
-    'GIT_REPOSITORY_INIT_BARE',
-    'GIT_REPOSITORY_INIT_NO_REINIT',
-    'GIT_REPOSITORY_INIT_NO_DOTGIT_DIR',
-    'GIT_REPOSITORY_INIT_MKDIR',
-    'GIT_REPOSITORY_INIT_MKPATH',
-    'GIT_REPOSITORY_INIT_EXTERNAL_TEMPLATE',
-    'GIT_REPOSITORY_INIT_RELATIVE_GITLINK',
-    'GIT_REPOSITORY_INIT_SHARED_UMASK',
-    'GIT_REPOSITORY_INIT_SHARED_GROUP',
-    'GIT_REPOSITORY_INIT_SHARED_ALL',
-    'GIT_REPOSITORY_OPEN_NO_SEARCH',
-    'GIT_REPOSITORY_OPEN_CROSS_FS',
-    'GIT_REPOSITORY_OPEN_BARE',
-    'GIT_REPOSITORY_OPEN_NO_DOTGIT',
-    'GIT_REPOSITORY_OPEN_FROM_ENV',
-    'GIT_REPOSITORY_STATE_NONE',
-    'GIT_REPOSITORY_STATE_MERGE',
-    'GIT_REPOSITORY_STATE_REVERT',
-    'GIT_REPOSITORY_STATE_REVERT_SEQUENCE',
-    'GIT_REPOSITORY_STATE_CHERRYPICK',
-    'GIT_REPOSITORY_STATE_CHERRYPICK_SEQUENCE',
-    'GIT_REPOSITORY_STATE_BISECT',
-    'GIT_REPOSITORY_STATE_REBASE',
-    'GIT_REPOSITORY_STATE_REBASE_INTERACTIVE',
-    'GIT_REPOSITORY_STATE_REBASE_MERGE',
-    'GIT_REPOSITORY_STATE_APPLY_MAILBOX',
-    'GIT_REPOSITORY_STATE_APPLY_MAILBOX_OR_REBASE',
-    'GIT_ATTR_CHECK_FILE_THEN_INDEX',
-    'GIT_ATTR_CHECK_INDEX_THEN_FILE',
-    'GIT_ATTR_CHECK_INDEX_ONLY',
-    'GIT_ATTR_CHECK_NO_SYSTEM',
-    'GIT_ATTR_CHECK_INCLUDE_HEAD',
-    'GIT_ATTR_CHECK_INCLUDE_COMMIT',
-    'GIT_FETCH_PRUNE_UNSPECIFIED',
-    'GIT_FETCH_PRUNE',
-    'GIT_FETCH_NO_PRUNE',
-    'GIT_CHECKOUT_NOTIFY_NONE',
-    'GIT_CHECKOUT_NOTIFY_CONFLICT',
-    'GIT_CHECKOUT_NOTIFY_DIRTY',
-    'GIT_CHECKOUT_NOTIFY_UPDATED',
-    'GIT_CHECKOUT_NOTIFY_UNTRACKED',
-    'GIT_CHECKOUT_NOTIFY_IGNORED',
-    'GIT_CHECKOUT_NOTIFY_ALL',
-    'GIT_STASH_APPLY_PROGRESS_NONE',
-    'GIT_STASH_APPLY_PROGRESS_LOADING_STASH',
-    'GIT_STASH_APPLY_PROGRESS_ANALYZE_INDEX',
-    'GIT_STASH_APPLY_PROGRESS_ANALYZE_MODIFIED',
-    'GIT_STASH_APPLY_PROGRESS_ANALYZE_UNTRACKED',
-    'GIT_STASH_APPLY_PROGRESS_CHECKOUT_UNTRACKED',
-    'GIT_STASH_APPLY_PROGRESS_CHECKOUT_MODIFIED',
-    'GIT_STASH_APPLY_PROGRESS_DONE',
-    'GIT_CREDENTIAL_USERPASS_PLAINTEXT',
-    'GIT_CREDENTIAL_SSH_KEY',
-    'GIT_CREDENTIAL_SSH_CUSTOM',
-    'GIT_CREDENTIAL_DEFAULT',
-    'GIT_CREDENTIAL_SSH_INTERACTIVE',
-    'GIT_CREDENTIAL_USERNAME',
-    'GIT_CREDENTIAL_SSH_MEMORY',
     'packbuilder',
     'PackBuilder',
+    'rebase',
+    'Rebase',
+    'RebaseOperation',
     'refspec',
     'remotes',
     'Remote',
@@ -994,8 +937,6 @@ __all__ = (
     'transaction',
     'ReferenceTransaction',
     'utils',
-    'to_bytes',
-    'to_str',
     # __init__ module defined symbols
     'features',
     'LIBGIT2_VER',

@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2025 The pygit2 contributors
+ * Copyright 2010-2026 The pygit2 contributors
  *
  * This file is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License, version 2,
@@ -36,6 +36,7 @@
 #include "wildmatch.h"
 #include <git2/refdb.h>
 #include <git2/sys/refdb_backend.h>
+#include <git2/sys/refs.h>
 #include <git2/sys/errors.h>
 
 extern PyTypeObject ReferenceType;
@@ -66,21 +67,82 @@ struct pygit2_refdb_backend
 struct pygit2_refdb_iterator {
     struct git_reference_iterator base;
     PyObject *iterator;
+    PyObject *current; /* keeps the last Reference yielded by next_name alive */
     char *glob;
 };
 
+// Copy a reference that does not belong to a refdb yet. git_reference_dup()
+// cannot be used here because it requires the db field to be set, which
+// libgit2 only does after the backend callback returns. The copy does not
+// preserve the cached peel of direct references, which is only a hint.
+static git_reference *
+copy_reference(const git_reference *ref)
+{
+    if (git_reference_type(ref) == GIT_REF_SYMBOLIC) {
+        return git_reference__alloc_symbolic(git_reference_name(ref),
+                                             git_reference_symbolic_target(ref));
+    }
+    return git_reference__alloc(git_reference_name(ref),
+                                git_reference_target(ref), NULL);
+}
+
+// Transfer the reference returned by a backend callback to libgit2, which
+// takes ownership and sets its db field itself once the callback returns.
+// If the callback returned a fresh object (refcount 1), detach the pointer
+// from the Python object before releasing it; if it returned a shared
+// object (e.g. one the backend caches and returns on every call), leave it
+// intact and give libgit2 a copy instead.
+// Consumes the reference to result; returns 0 or a libgit2 error code.
+static int
+transfer_reference(git_reference **out, Reference *result)
+{
+    if (result->reference == NULL) {
+        PyErr_SetString(PyExc_ValueError, "Reference object is no longer valid");
+        Py_DECREF(result);
+        return GIT_EUSER;
+    }
+
+    if (Py_REFCNT((PyObject *)result) == 1) {
+        *out = result->reference;
+        result->reference = NULL;
+        Py_DECREF(result);
+        return 0;
+    }
+
+    *out = copy_reference(result->reference);
+    Py_DECREF(result);
+    if (*out == NULL) {
+        git_error_set(GIT_ERROR_NOMEMORY, "out of memory");
+        return GIT_ERROR;
+    }
+    return 0;
+}
+
+// Returns the next valid Reference from the Python iterator, or NULL when
+// the iterator is exhausted or an error occurred; check PyErr_Occurred()
+// to tell the two cases apart.
 static Reference *
 iterator_get_next(struct pygit2_refdb_iterator *iter)
 {
     Reference *ref;
     while ((ref = (Reference *)PyIter_Next(iter->iterator)) != NULL) {
-        if (!iter->glob) {
+        if (!PyObject_IsInstance((PyObject *)ref, (PyObject *)&ReferenceType)) {
+            PyErr_SetString(PyExc_TypeError,
+                            "RefdbBackend iterator must yield References");
+            Py_DECREF(ref);
+            return NULL;
+        }
+        if (ref->reference == NULL) {
+            PyErr_SetString(PyExc_ValueError,
+                            "Reference object is no longer valid");
+            Py_DECREF(ref);
+            return NULL;
+        }
+        if (!iter->glob ||
+            wildmatch(iter->glob, git_reference_name(ref->reference), 0) != WM_NOMATCH) {
             return ref;
         }
-        const char *name = git_reference_name(ref->reference);
-        if (wildmatch(iter->glob, name, 0) != WM_NOMATCH) {
-            return ref;
-        }
+        Py_DECREF(ref);
     }
     return NULL;
 }
@@ -91,16 +153,12 @@ pygit2_refdb_iterator_next(git_reference **out, git_reference_iterator *_iter)
     struct pygit2_refdb_iterator *iter = (struct pygit2_refdb_iterator *)_iter;
     Reference *ref = iterator_get_next(iter);
     if (ref == NULL) {
+        if (PyErr_Occurred())
+            return GIT_EUSER;
         *out = NULL;
         return GIT_ITEROVER;
     }
-    if (!PyObject_IsInstance((PyObject *)ref, (PyObject *)&ReferenceType)) {
-        PyErr_SetString(PyExc_TypeError,
-                        "RefdbBackend iterator must yield References");
-        return GIT_EUSER;
-    }
-    *out = ref->reference;
-    return 0;
+    return transfer_reference(out, ref);
 }
 
 static int
@@ -109,14 +167,15 @@ pygit2_refdb_iterator_next_name(const char **ref_name, git_reference_iterator *_
     struct pygit2_refdb_iterator *iter = (struct pygit2_refdb_iterator *)_iter;
     Reference *ref = iterator_get_next(iter);
     if (ref == NULL) {
+        if (PyErr_Occurred())
+            return GIT_EUSER;
         *ref_name = NULL;
         return GIT_ITEROVER;
     }
-    if (!PyObject_IsInstance((PyObject *)ref, (PyObject *)&ReferenceType)) {
-        PyErr_SetString(PyExc_TypeError,
-                        "RefdbBackend iterator must yield References");
-        return GIT_EUSER;
-    }
+    // The name is borrowed from the Reference; keep the object alive until
+    // the next call or until the iterator is freed.
+    Py_XDECREF(iter->current);
+    iter->current = (PyObject *)ref;
     *ref_name = git_reference_name(ref->reference);
     return 0;
 }
@@ -125,6 +184,7 @@ static void
 pygit2_refdb_iterator_free(git_reference_iterator *_iter)
 {
     struct pygit2_refdb_iterator *iter = (struct pygit2_refdb_iterator *)_iter;
+    Py_CLEAR(iter->current);
     Py_DECREF(iter->iterator);
     free(iter->glob);
 }
@@ -144,12 +204,17 @@ pygit2_refdb_backend_iterator(git_reference_iterator **iter,
         git_error_set(GIT_ERROR_NOMEMORY, "out of memory");
         return GIT_ERROR;
     }
+    if (glob && (pyiter->glob = strdup(glob)) == NULL) {
+        Py_DECREF(iterator);
+        free(pyiter);
+        git_error_set(GIT_ERROR_NOMEMORY, "out of memory");
+        return GIT_ERROR;
+    }
     *iter = (git_reference_iterator *)pyiter;
     pyiter->iterator = iterator;
     pyiter->base.next = pygit2_refdb_iterator_next;
     pyiter->base.next_name = pygit2_refdb_iterator_next_name;
     pyiter->base.free = pygit2_refdb_iterator_free;
-    pyiter->glob = strdup(glob);
     return 0;
 }
 
@@ -172,8 +237,8 @@ pygit2_refdb_backend_exists(int *exists,
     *exists = PyObject_IsTrue(result);
 
 out:
-    Py_DECREF(result);
-    return 0;
+    Py_XDECREF(result);
+    return err;
 }
 
 static int
@@ -190,18 +255,24 @@ pygit2_refdb_backend_lookup(git_reference **out,
     result = (Reference *)PyObject_CallObject(be->lookup, args);
     Py_DECREF(args);
 
-    if ((err = git_error_for_exc()) != 0)
-        goto out;
+    if ((err = git_error_for_exc()) != 0) {
+        Py_XDECREF(result);
+        return err;
+    }
+
+    // A lookup that finds nothing returns None, per RefdbBackend.lookup()
+    if ((PyObject *)result == Py_None) {
+        Py_DECREF(result);
+        return GIT_ENOTFOUND;
+    }
 
     if (!PyObject_IsInstance((PyObject *)result, (PyObject *)&ReferenceType)) {
         PyErr_SetString(PyExc_TypeError, "Expected object of type pygit2.Reference");
-        err = GIT_EUSER;
-        goto out;
+        Py_DECREF(result);
+        return GIT_EUSER;
     }
 
-    *out = result->reference;
-out:
-    return err;
+    return transfer_reference(out, result);
 }
 
 static int
@@ -210,33 +281,60 @@ pygit2_refdb_backend_write(git_refdb_backend *_be,
         const git_signature *_who, const char *message,
         const git_oid *_old, const char *old_target)
 {
-    int err;
-    PyObject *args = NULL, *ref = NULL, *who = NULL, *old = NULL;
     struct pygit2_refdb_backend *be = (struct pygit2_refdb_backend *)_be;
 
-    // XXX: Drops const
-    if ((ref = wrap_reference((git_reference *)_ref, NULL)) == NULL)
-        goto euser;
-    if ((who = build_signature(NULL, _who, "utf-8")) == NULL)
-        goto euser;
-    if ((old = git_oid_to_python(_old)) == NULL)
-        goto euser;
-    if ((args = Py_BuildValue("(NNNsNs)", ref,
-            force ? Py_True : Py_False,
-            who, message, old, old_target)) == NULL)
-        goto euser;
+    // The Python objects take ownership of the reference and the signature,
+    // so pass them copies; _ref and _who belong to the caller (libgit2).
+    git_reference *reference;
+    int err = git_reference_dup(&reference, (git_reference *)_ref);  // XXX: Drops const
+    if (err != 0) {
+        return err;
+    }
+
+    PyObject *ref = wrap_reference(reference, NULL);
+    if (ref == NULL) {
+        git_reference_free(reference);
+        return GIT_EUSER;
+    }
+
+    git_signature *signature;
+    err = git_signature_dup(&signature, _who);
+    if (err != 0) {
+        Py_DECREF(ref);
+        return err;
+    }
+
+    PyObject *who = build_signature(NULL, signature, "utf-8");
+    if (who == NULL) {
+        Py_DECREF(ref);
+        return GIT_EUSER;
+    }
+
+    PyObject *old;
+    if (_old == NULL) {
+        old = Py_None;
+        Py_INCREF(old);
+    } else {
+        old = git_oid_to_python(_old);
+        if (old == NULL) {
+            Py_DECREF(ref);
+            Py_DECREF(who);
+            return GIT_EUSER;
+        }
+    }
+
+    // Py_BuildValue takes ownership of ref, who and old (N format), even on failure, so
+    // they must not be decref'd past this point.
+    PyObject *args = Py_BuildValue("(NNNsNs)", ref, PyBool_FromLong(force), who, message,
+                                   old, old_target);
+    if (args == NULL) {
+        return GIT_EUSER;
+    }
 
     PyObject_CallObject(be->write, args);
     err = git_error_for_exc();
-out:
-    Py_DECREF(ref);
-    Py_DECREF(who);
-    Py_DECREF(old);
     Py_DECREF(args);
     return err;
-euser:
-    err = GIT_EUSER;
-    goto out;
 }
 
 static int
@@ -244,32 +342,45 @@ pygit2_refdb_backend_rename(git_reference **out, git_refdb_backend *_be,
         const char *old_name, const char *new_name, int force,
         const git_signature *_who, const char *message)
 {
-    int err;
-    PyObject *args, *who;
     struct pygit2_refdb_backend *be = (struct pygit2_refdb_backend *)_be;
 
-    if ((who = build_signature(NULL, _who, "utf-8")) != NULL)
-        return GIT_EUSER;
-    if ((args = Py_BuildValue("(ssNNs)", old_name, new_name,
-            force ? Py_True : Py_False, who, message)) == NULL) {
-        Py_DECREF(who);
+    // The Python object takes ownership of the signature, so pass it a copy;
+    // _who belongs to the caller (libgit2).
+    git_signature *signature;
+    int err = git_signature_dup(&signature, _who);
+    if (err != 0) {
+        return err;
+    }
+
+    PyObject *who = build_signature(NULL, signature, "utf-8");
+    if (who == NULL) {
         return GIT_EUSER;
     }
+
+    // Py_BuildValue takes ownership of who (N format), even on failure, so
+    // it must not be decref'd past this point.
+    PyObject *args = Py_BuildValue("(ssNNs)", old_name, new_name,
+                                   PyBool_FromLong(force), who, message);
+    if (args == NULL) {
+        return GIT_EUSER;
+    }
+
     Reference *ref = (Reference *)PyObject_CallObject(be->rename, args);
-    Py_DECREF(who);
     Py_DECREF(args);
 
-    if ((err = git_error_for_exc()) != 0)
+    err = git_error_for_exc();
+    if (err != 0) {
+        Py_XDECREF(ref);
         return err;
+    }
 
     if (!PyObject_IsInstance((PyObject *)ref, (PyObject *)&ReferenceType)) {
         PyErr_SetString(PyExc_TypeError, "Expected object of type pygit2.Reference");
+        Py_DECREF(ref);
         return GIT_EUSER;
     }
 
-    git_reference_dup(out, ref->reference);
-    Py_DECREF(ref);
-    return 0;
+    return transfer_reference(out, ref);
 }
 
 static int
@@ -312,6 +423,7 @@ pygit2_refdb_backend_has_log(git_refdb_backend *_be, const char *refname)
     Py_DECREF(args);
 
     if ((err = git_error_for_exc()) != 0) {
+        Py_XDECREF(result);
         return err;
     }
 
@@ -338,6 +450,7 @@ pygit2_refdb_backend_ensure_log(git_refdb_backend *_be, const char *refname)
     Py_DECREF(args);
 
     if ((err = git_error_for_exc()) != 0) {
+        Py_XDECREF(result);
         return err;
     }
 
@@ -620,7 +733,7 @@ RefdbBackend_write(RefdbBackend *self, PyObject *args)
 }
 
 PyDoc_STRVAR(RefdbBackend_rename__doc__,
-    "rename(old_name: str, new_name: str, force: bool, who: Signature, message: str) -> Reference\n"
+    "rename(old_name: str, new_name: str, force: bool, who: Signature, message: str | None) -> Reference\n"
     "\n"
     "Renames a reference.");
 
@@ -638,7 +751,7 @@ RefdbBackend_rename(RefdbBackend *self, PyObject *args)
         return Py_NotImplemented;
     }
 
-    if (!PyArg_ParseTuple(args, "sspO!s", &old_name, &new_name,
+    if (!PyArg_ParseTuple(args, "sspO!z", &old_name, &new_name,
                 &force, &SignatureType, &who, &message))
         return NULL;
 

@@ -9,6 +9,7 @@ import logging
 from pathlib import Path
 from typing import Any, Literal
 
+import nbformat
 from jupyter_core.utils import ensure_async
 from jupyter_nbmodel_client import NbModelClient
 from jupyter_server_client import JupyterServerClient, NotFoundError
@@ -79,12 +80,18 @@ class UseNotebookTool(BaseTool):
             else:
                 dir_contents = server_client.contents.list_directory("")
 
+            file_exists = any(file.name == path.name for file in dir_contents)
             if mode == "connect":
-                file_exists = any(file.name == path.name for file in dir_contents)
                 if not file_exists:
                     return (
                         False,
                         f"'{notebook_path}' not found in jupyter server, please check the notebook already exists.",
+                    )
+            elif mode == "create":
+                if file_exists:
+                    return (
+                        False,
+                        f"'{notebook_path}' already exists in jupyter server, please use a different path or use_mode='connect' to open it.",
                     )
 
             return True, None
@@ -112,12 +119,18 @@ class UseNotebookTool(BaseTool):
                 contents_manager.get(parent_path, content=True, type="directory")
             )
 
+            file_exists = any(item["name"] == path.name for item in model.get("content", []))
             if mode == "connect":
-                file_exists = any(item["name"] == path.name for item in model.get("content", []))
                 if not file_exists:
                     return (
                         False,
                         f"'{notebook_path}' not found in jupyter server, please check the notebook already exists.",
+                    )
+            elif mode == "create":
+                if file_exists:
+                    return (
+                        False,
+                        f"'{notebook_path}' already exists in jupyter server, please use a different path or use_mode='connect' to open it.",
                     )
 
             return True, None
@@ -171,13 +184,30 @@ class UseNotebookTool(BaseTool):
             except Exception as e:
                 return f"Failed to connect the Jupyter server: {e}"
 
+        # In split setups, contents operations use the document server and its auth.
+        # When the URLs match, server_client already targets the document server.
+        document_client = server_client
+        document_auth_headers = auth_headers
+        if mode == ServerMode.MCP_SERVER and server_client is not None:
+            from jupyter_mcp_server.config import get_config
+
+            config = get_config()
+            if config.document_url and config.document_url != config.code_sandbox_url:
+                from jupyter_mcp_server.server_context import ServerContext
+
+                context = ServerContext.get_instance()
+                document_client = context.document_client
+                document_auth_headers = context.document_auth_headers
+
         # Check the path exists
         if mode == ServerMode.JUPYTER_SERVER and contents_manager is not None:
             path_ok, error_msg = await self._check_path_local(
                 contents_manager, notebook_path, use_mode
             )
         elif mode == ServerMode.MCP_SERVER and server_client is not None:
-            path_ok, error_msg = await self._check_path_http(server_client, notebook_path, use_mode)
+            path_ok, error_msg = await self._check_path_http(
+                document_client, notebook_path, use_mode
+            )
         else:
             return f"Invalid mode or missing required clients: mode={mode}"
 
@@ -211,20 +241,22 @@ class UseNotebookTool(BaseTool):
             # This runs before the kernel and the Jupyter session below, which are
             # both pointed at notebook_path and so need the file to exist already.
             if use_mode == "create":
-                content = {
-                    "cells": [
-                        {
-                            "cell_type": "markdown",
-                            "metadata": {},
-                            "source": [
-                                "New Notebook Created by Jupyter MCP Server",
-                            ],
-                        }
-                    ],
-                    "metadata": {},
-                    "nbformat": 4,
-                    "nbformat_minor": 4,
-                }
+                # Build the notebook with nbformat's constructors rather than a
+                # raw dict so the format version and the per-cell `id` stay
+                # consistent: nbformat 4.5 requires a unique `id` on every cell,
+                # and new_markdown_cell()/new_notebook() assign the id and stamp
+                # the matching nbformat_minor for us. Hand-writing the dict is how
+                # a cell ended up without an `id` under nbformat_minor 5 (see #338)
+                # and, on main, a downgrade to nbformat_minor 4 that drops cell ids
+                # entirely. This also matches insert_cell, which already uses
+                # nbformat.v4.new_code_cell().
+                content = nbformat.v4.new_notebook(
+                    cells=[
+                        nbformat.v4.new_markdown_cell(
+                            "New Notebook Created by Jupyter MCP Server"
+                        )
+                    ]
+                )
                 if mode == ServerMode.JUPYTER_SERVER and contents_manager is not None:
                     # Use local API to create notebook
                     await ensure_async(
@@ -242,11 +274,13 @@ class UseNotebookTool(BaseTool):
                     # caller just read from the live cookie jar, so a rotated cookie
                     # cannot go stale. Token auth has no _xsrf cookie and satisfies
                     # XSRF via its own header, so nothing happens there.
-                    xsrf_token = (auth_headers or {}).get("X-XSRFToken")
-                    session = getattr(getattr(server_client, "http_client", None), "session", None)
+                    xsrf_token = (document_auth_headers or {}).get("X-XSRFToken")
+                    session = getattr(
+                        getattr(document_client, "http_client", None), "session", None
+                    )
                     if xsrf_token and session is not None:
                         session.headers["X-XSRFToken"] = xsrf_token
-                    server_client.contents.create_notebook(notebook_path, content=content)
+                    document_client.contents.create_notebook(notebook_path, content=content)
 
             # # Create/connect to kernel based on mode
             if mode == ServerMode.MCP_SERVER and server_client is not None:
@@ -312,11 +346,16 @@ class UseNotebookTool(BaseTool):
 
             # Add notebook to notebook_manager
             if mode == ServerMode.MCP_SERVER and code_sandbox_url:
+                from jupyter_mcp_server.config import get_config
+
+                # The notebook and its collaboration session live on the
+                # document server.
+                config = get_config()
                 notebook_manager.add_notebook(
                     notebook_name,
                     kernel,
-                    server_url=code_sandbox_url,
-                    token=code_sandbox_token,
+                    server_url=config.document_url,
+                    token=config.document_token,
                     path=notebook_path,
                 )
             elif mode == ServerMode.JUPYTER_SERVER and kernel_manager is not None:
@@ -384,10 +423,16 @@ class UseNotebookTool(BaseTool):
                     # JUPYTER_SERVER mode: Use ServerApp connection details
                     base_url = context.serverapp.connection_url
                     token = context.serverapp.token
-                elif mode == ServerMode.MCP_SERVER and code_sandbox_url:
-                    # MCP_SERVER mode: Use code_sandbox_url and code_sandbox_token
-                    base_url = code_sandbox_url
-                    token = code_sandbox_token
+                elif mode == ServerMode.MCP_SERVER:
+                    # In split setups, open the file in the document server's
+                    # JupyterLab, where the notebook is stored.
+                    config = get_config()
+                    if config.document_url and config.document_url != config.code_sandbox_url:
+                        base_url = config.document_url
+                        token = config.document_token
+                    elif code_sandbox_url:
+                        base_url = code_sandbox_url
+                        token = code_sandbox_token
 
                 if base_url and token:
                     try:

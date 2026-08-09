@@ -602,21 +602,25 @@ impl<'a> NormalFastWalker<'a> {
 // ================================================================================================
 
 /// Per-object entry with transformed key and tape index for the value.
-struct SlowObjectEntry {
-    key: String,
+/// `key` borrows from the walker's input (`Cow::Borrowed`) whenever the key
+/// passes through unescaping/replacement/lowercasing unchanged -- the common
+/// case for real-world JSON -- and only owns a `String` when one of those
+/// steps actually produced a different value.
+struct SlowObjectEntry<'a> {
+    key: Cow<'a, str>,
     val_start: usize,
 }
 
 /// Lowercase `s`, using full Unicode case-folding (e.g. 'Ñ' -> 'ñ') for correctness.
 /// `str::to_lowercase()` always allocates a new String even when nothing changes, so this
-/// first does a cheap scan for any uppercase character and returns `s` unchanged if none are
-/// found -- the common case for real-world JSON keys, which are typically already lowercase.
-/// Real-world keys are also typically pure ASCII, so the scan itself uses a byte-level
-/// `is_ascii_uppercase` check (cheaper than decoding UTF-8 codepoints) when the whole
-/// string is ASCII, falling back to the full Unicode-aware scan otherwise for correctness
-/// on non-ASCII uppercase (e.g. 'Ñ').
+/// first does a cheap scan for any uppercase character and returns `s` unchanged (still
+/// borrowed, if it started that way) if none are found -- the common case for real-world
+/// JSON keys, which are typically already lowercase. Real-world keys are also typically
+/// pure ASCII, so the scan itself uses a byte-level `is_ascii_uppercase` check (cheaper
+/// than decoding UTF-8 codepoints) when the whole string is ASCII, falling back to the
+/// full Unicode-aware scan otherwise for correctness on non-ASCII uppercase (e.g. 'Ñ').
 #[inline]
-fn lowercase_if_needed(s: String) -> String {
+fn lowercase_if_needed(s: Cow<'_, str>) -> Cow<'_, str> {
     let bytes = s.as_bytes();
     let has_uppercase = if bytes.is_ascii() {
         bytes.iter().any(u8::is_ascii_uppercase)
@@ -624,7 +628,7 @@ fn lowercase_if_needed(s: String) -> String {
         s.chars().any(char::is_uppercase)
     };
     if has_uppercase {
-        s.to_lowercase()
+        Cow::Owned(s.to_lowercase())
     } else {
         s
     }
@@ -683,7 +687,7 @@ impl<'a> NormalSlowWalker<'a> {
         }
 
         // Phase 1: Collect entries with transformed keys
-        let mut entries: SmallVec<[SlowObjectEntry; 16]> = SmallVec::new();
+        let mut entries: SmallVec<[SlowObjectEntry<'a>; 16]> = SmallVec::new();
         let mut cursor = start_idx + 1;
 
         while cursor < end_idx {
@@ -698,15 +702,18 @@ impl<'a> NormalSlowWalker<'a> {
                     Cow::Borrowed(key_str)
                 };
 
-                // Apply key replacement patterns
+                // Apply key replacement patterns. Stays `Cow::Borrowed` (zero-alloc)
+                // whenever nothing actually changed the key -- the common case.
                 let mut transformed_key = if self.config.replacements.has_key_replacements() {
-                    apply_replacement_patterns(
+                    match apply_replacement_patterns(
                         key_unescaped.as_ref(),
                         &self.config.replacements.key_replacements,
-                    )
-                    .unwrap_or_else(|| key_unescaped.into_owned())
+                    ) {
+                        Some(replaced) => Cow::Owned(replaced),
+                        None => key_unescaped,
+                    }
                 } else {
-                    key_unescaped.into_owned()
+                    key_unescaped
                 };
 
                 // Apply lowercase (full Unicode case-folding, e.g. 'Ñ' -> 'ñ')
@@ -778,7 +785,7 @@ impl<'a> NormalSlowWalker<'a> {
     /// Serialize object entries without collisions.
     fn serialize_no_collisions(
         &mut self,
-        entries: &[SlowObjectEntry],
+        entries: &[SlowObjectEntry<'a>],
     ) -> Result<(), JsonToolsError> {
         let mut first = true;
         for entry in entries {
@@ -807,27 +814,31 @@ impl<'a> NormalSlowWalker<'a> {
     /// Serialize object entries with collision merging.
     fn serialize_with_collisions(
         &mut self,
-        entries: &[SlowObjectEntry],
+        entries: &[SlowObjectEntry<'a>],
     ) -> Result<(), JsonToolsError> {
-        // Group by key, preserving order of first occurrence
-        let mut key_order: Vec<&str> = Vec::new();
-        let mut key_indices: FxHashMap<&str, SmallVec<[usize; 2]>> =
+        // Group by key, preserving order of first occurrence. `key_positions` maps
+        // a key to its slot in `ordered` (not its indices directly), so the output
+        // loop below can read a key's indices straight out of `ordered` instead of
+        // doing a second hashmap lookup per unique key for something this loop
+        // already computed -- same pattern as flatten.rs's `resolve_and_write`.
+        let mut key_positions: FxHashMap<&str, usize> =
             FxHashMap::with_capacity_and_hasher(entries.len(), Default::default());
+        let mut ordered: Vec<SmallVec<[usize; 2]>> = Vec::with_capacity(entries.len());
 
         for (i, entry) in entries.iter().enumerate() {
-            key_indices
-                .entry(entry.key.as_str())
-                .and_modify(|v| v.push(i))
-                .or_insert_with(|| {
-                    key_order.push(entry.key.as_str());
-                    SmallVec::from_elem(i, 1)
-                });
+            match key_positions.entry(entry.key.as_ref()) {
+                std::collections::hash_map::Entry::Occupied(e) => {
+                    ordered[*e.get()].push(i);
+                }
+                std::collections::hash_map::Entry::Vacant(e) => {
+                    e.insert(ordered.len());
+                    ordered.push(SmallVec::from_elem(i, 1));
+                }
+            }
         }
 
         let mut first = true;
-        for key in &key_order {
-            let indices = &key_indices[key];
-
+        for indices in &ordered {
             if indices.len() == 1 {
                 // Single entry — no collision
                 let entry = &entries[indices[0]];
@@ -854,7 +865,7 @@ impl<'a> NormalSlowWalker<'a> {
                 }
 
                 self.output.push('"');
-                write_json_escaped_key(&mut self.output, key);
+                write_json_escaped_key(&mut self.output, &entries[indices[0]].key);
                 self.output.push_str("\":[");
 
                 let arr_start = self.output.len();

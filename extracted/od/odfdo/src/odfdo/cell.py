@@ -34,6 +34,7 @@ from decimal import ConversionSyntax, Decimal, InvalidOperation
 from typing import TYPE_CHECKING, Any
 
 from .annotation import AnnotationMixin
+from .const import CellValue
 from .datatype import Boolean, Date, DateTime, Duration
 from .element import Element, register_element_class_list
 from .element_typed import ElementTyped
@@ -55,7 +56,7 @@ class Cell(ListMixin, TocMixin, SectionMixin, AnnotationMixin, ElementTyped):
 
     def __init__(
         self,
-        value: Any = None,
+        value: CellValue | None = None,
         text: str | None = None,
         cell_type: str | None = None,
         currency: str | None = None,
@@ -76,7 +77,8 @@ class Cell(ListMixin, TocMixin, SectionMixin, AnnotationMixin, ElementTyped):
 
         Args:
             value: The Python value to set for the cell. Can be
-                a boolean, int, float, Decimal, date, datetime, str, or timedelta.
+                a boolean, int, float, Decimal, date, datetime, str, timedelta
+                or None.
             text: The textual representation of the cell's
                 content. If not provided, it is generated from the value.
             cell_type: The explicit type of the cell. Valid
@@ -117,9 +119,7 @@ class Cell(ListMixin, TocMixin, SectionMixin, AnnotationMixin, ElementTyped):
         return clone
 
     @property
-    def value(
-        self,
-    ) -> str | _bool | _int | _float | Decimal | _date | _datetime | timedelta | None:
+    def value(self) -> CellValue | None:
         """Get or set the value of the cell.
 
         When getting, the type is inferred from the 'office:value-type'
@@ -145,71 +145,62 @@ class Cell(ListMixin, TocMixin, SectionMixin, AnnotationMixin, ElementTyped):
                 changing the cell type, use the low level property cell.text
 
         Returns:
-            Union[str, bool, int, float, Decimal, date, datetime, timedelta, None]:
-                The value of the cell in its appropriate Python type.
+            Union[str, bool, int, float, Decimal, date, datetime, timedelta,
+                None]: The value of the cell in its appropriate Python type.
         """
         value_type = self.get_attribute_string("office:value-type")
-        if value_type == "boolean":
-            return self.bool
-        if value_type in {"float", "percentage", "currency"}:
-            value_decimal = Decimal(str(self.get_attribute_string("office:value")))
-            # Return 3 instead of 3.0 if possible
-            if int(value_decimal) == value_decimal:
-                return int(value_decimal)
-            return value_decimal
-        if value_type == "date":
-            value_str = str(self.get_attribute_string("office:date-value"))
-            if "T" in value_str:
-                return DateTime.decode(value_str)
-            return Date.decode(value_str)
-        if value_type == "time":
-            return Duration.decode(str(self.get_attribute_string("office:time-value")))
-        if value_type == "string":
-            value = self.get_attribute_string("office:string-value")
-            if value is not None:
-                return value
-            value_list = []
-            for para in self.get_elements("text:p"):
-                value_list.append(para.inner_text)
-            return "\n".join(value_list)
-        return None
+        match value_type:
+            case "boolean":
+                return self.bool
+            case "float" | "percentage" | "currency":
+                value_decimal = Decimal(str(self.get_attribute_string("office:value")))
+                # Return 3 instead of 3.0 if possible
+                if int(value_decimal) == value_decimal:
+                    return int(value_decimal)
+                return value_decimal
+            case "date":
+                value_str = str(self.get_attribute_string("office:date-value"))
+                if "T" in value_str:
+                    return DateTime.decode(value_str)
+                return Date.decode(value_str)
+            case "time":
+                return Duration.decode(
+                    str(self.get_attribute_string("office:time-value"))
+                )
+            case "string":
+                value = self.get_attribute_string("office:string-value")
+                if value is not None:
+                    return value
+                value_list = []
+                for para in self.get_elements("text:p"):
+                    value_list.append(para.inner_text)
+                return "\n".join(value_list)
+            case _:
+                return None
 
     @value.setter
-    def value(
-        self,
-        value: (
-            str
-            | bytes
-            | _bool
-            | _int
-            | _float
-            | Decimal
-            | timedelta
-            | _datetime
-            | _date
-            | None
-        ),
-    ) -> None:
-        if value is None:
-            self.clear()
-        elif isinstance(value, (str, bytes)):
-            self.string = value
-        elif isinstance(value, _bool):
-            self.bool = value
-        elif isinstance(value, _float):
-            self.float = value
-        elif isinstance(value, Decimal):
-            self.decimal = value
-        elif isinstance(value, _int):
-            self.int = value
-        elif isinstance(value, timedelta):
-            self.duration = value
-        elif isinstance(value, _datetime):
-            self.datetime = value
-        elif isinstance(value, _date):
-            self.date = value
-        else:
-            raise TypeError(f"Unknown value type, try with set_value() : {value!r}")
+    def value(self, value: CellValue | None) -> None:
+        match value:
+            case None:
+                self.clear()
+            case str() | bytes():
+                self.string = value
+            case bool():
+                self.bool = value
+            case float():
+                self.float = value
+            case Decimal():
+                self.decimal = value
+            case int():
+                self.int = value
+            case timedelta():
+                self.duration = value
+            case _datetime():
+                self.datetime = value
+            case _date():
+                self.date = value
+            case _:
+                raise TypeError(f"Unknown value type, try with set_value() : {value!r}")
 
     @property
     def _bool_string(self) -> str:
@@ -431,18 +422,7 @@ class Cell(ListMixin, TocMixin, SectionMixin, AnnotationMixin, ElementTyped):
 
     def set_value(
         self,
-        value: (
-            str
-            | bytes
-            | _float
-            | _int
-            | Decimal
-            | _bool
-            | _datetime
-            | _date
-            | timedelta
-            | None
-        ),
+        value: CellValue | None,
         text: str | None = None,
         cell_type: str | None = None,
         currency: str | None = None,

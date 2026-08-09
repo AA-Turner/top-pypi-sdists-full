@@ -189,28 +189,42 @@ EXAMPLES = {
 }
 
 
-if sys.platform != "win32":
-    # ABI3 extensions don't really work on Windows
-    EXAMPLES["abi3extension-dist"] = {
-        "setup.py": cleandoc(
-            """
-            from setuptools import Extension, setup
+def abi3extension_dist():
+    if sys.platform == 'win32':
+        # ABI3 extensions don't really work on Windows.
+        return
 
-            setup(
-                name="extension.dist",
-                version="0.1",
-                description="A testing distribution \N{SNOWMAN}",
-                ext_modules=[
-                    Extension(
-                        name="extension", sources=["extension.c"], py_limited_api=True
-                    )
-                ],
-            )
-            """
-        ),
-        "setup.cfg": "[bdist_wheel]\npy_limited_api=cp32",
-        "extension.c": "#define Py_LIMITED_API 0x03020000\n#include <Python.h>",
-    }
+    if sysconfig.get_config_var('Py_GIL_DISABLED'):
+        # Free-threaded builds also reject Py_LIMITED_API for now.
+        # See https://github.com/python/cpython/issues/146636 (PEP 803 / abi3t).
+        return
+
+    yield (
+        'abi3extension-dist',
+        {
+            "setup.py": cleandoc(
+                """
+                from setuptools import Extension, setup
+
+                setup(
+                    name="extension.dist",
+                    version="0.1",
+                    description="A testing distribution \N{SNOWMAN}",
+                    ext_modules=[
+                        Extension(
+                            name="extension", sources=["extension.c"], py_limited_api=True
+                        )
+                    ],
+                )
+                """
+            ),
+            "setup.cfg": "[bdist_wheel]\npy_limited_api=cp32",
+            "extension.c": "#define Py_LIMITED_API 0x03020000\n#include <Python.h>",
+        },
+    )
+
+
+EXAMPLES.update(abi3extension_dist())
 
 
 def bdist_wheel_cmd(**kwargs):
@@ -355,7 +369,7 @@ def test_licenses_override(dummy_dist, monkeypatch, tmp_path, config_file, confi
     with ZipFile("dist/dummy_dist-1.0-py3-none-any.whl") as wf:
         license_files = {
             "dummy_dist-1.0.dist-info/licenses/" + fname
-            for fname in {"licenses_dir/DUMMYFILE", "LICENSE"}
+            for fname in ("licenses_dir/DUMMYFILE", "LICENSE")
         }
         assert set(wf.namelist()) == DEFAULT_FILES | license_files
         metadata = wf.read("dummy_dist-1.0.dist-info/METADATA").decode("utf8")

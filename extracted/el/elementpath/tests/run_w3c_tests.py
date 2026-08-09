@@ -770,6 +770,8 @@ class TestCase(object):
             if environment.decimal_formats:
                 kwargs['decimal_formats'] = environment.decimal_formats
             kwargs['defuse_xml'] = False
+            kwargs['allow_environment'] = True
+            kwargs['allow_external_resources'] = True
 
         self.parser = xpath_parser(**kwargs)
 

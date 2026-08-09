@@ -83,6 +83,12 @@ class AbstractBinary(AnyAtomicType):
     def decode(self) -> bytes:
         raise NotImplementedError()
 
+    def __str__(self) -> str:
+        return self.value.decode('utf-8')
+
+    def __hash__(self) -> int:
+        return hash(self.value)
+
     def __eq__(self, other: object) -> bool:
         if isinstance(other, AbstractBinary):
             return self.decode() == other.decode()
@@ -152,12 +158,6 @@ class Base64Binary(AbstractBinary):
             match = cls.pattern.match(value)
             if match is None or match.group(0) != value:
                 raise cls._invalid_value(value)
-
-    def __str__(self) -> str:
-        return self.value.decode('utf-8')
-
-    def __hash__(self) -> int:
-        return hash(self.value)
 
     def __len__(self) -> int:
         length = len(self.value)
