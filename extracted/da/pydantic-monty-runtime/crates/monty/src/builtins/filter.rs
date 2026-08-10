@@ -7,8 +7,6 @@
 //! - Type constructors (int, str, float, etc.)
 //! - User-defined functions (via `vm.evaluate_function`)
 
-use monty_types::ResourceTracker;
-
 use crate::{
     args::ArgValues,
     bytecode::VM,
@@ -31,7 +29,7 @@ use crate::{
 /// filter(lambda x: x > 0, [-1, 0, 1, 2])  # [1, 2]
 /// filter(None, [0, 1, False, True, ''])   # [1, True]
 /// ```
-pub fn builtin_filter(vm: &mut VM<'_, impl ResourceTracker>, args: ArgValues) -> RunResult<Value> {
+pub fn builtin_filter(vm: &mut VM<'_>, args: ArgValues) -> RunResult<Value> {
     let (function, iterable) = args.get_two_args("filter", vm.heap)?;
     defer_drop!(function, vm);
 
@@ -48,14 +46,14 @@ pub fn builtin_filter(vm: &mut VM<'_, impl ResourceTracker>, args: ArgValues) ->
         let (item, vm) = item_guard.as_parts_mut();
         let should_include = if let Value::None = function {
             // No predicate - use truthiness of element
-            item.py_bool(vm)
+            item.py_bool(vm)?
         } else {
             // Clone for predicate call - the clone is consumed by evaluate_function
             let item_for_predicate = item.clone_with_heap(vm);
             let result = vm.evaluate_function("filter()", function, ArgValues::One(item_for_predicate))?;
             let is_truthy = result.py_bool(vm);
             result.drop_with(vm);
-            is_truthy
+            is_truthy?
         };
 
         if should_include {
@@ -64,6 +62,6 @@ pub fn builtin_filter(vm: &mut VM<'_, impl ResourceTracker>, args: ArgValues) ->
     }
 
     let (out, vm) = out_guard.into_parts();
-    let heap_id = vm.heap.allocate(HeapData::List(List::new(out)))?;
+    let heap_id = vm.heap.allocate(HeapData::List(List::new(out)));
     Ok(Value::Ref(heap_id))
 }

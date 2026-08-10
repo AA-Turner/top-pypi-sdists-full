@@ -50,7 +50,8 @@ class TestRetrieverExecutionStatistics(unittest.TestCase):
                         metadata = { }, )
                     },
                 total_time_ms = 0.0,
-                credits_used = 0.0
+                credits_used = 0.0,
+                server_service_ms = 0.0
             )
         else:
             return RetrieverExecutionStatistics(

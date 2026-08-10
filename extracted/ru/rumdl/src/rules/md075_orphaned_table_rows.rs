@@ -66,9 +66,9 @@ impl MD075OrphanedTableRows {
     }
 
     /// Check if a line is a potential table row, handling blockquote prefixes
-    fn is_table_row_line(&self, line: &str) -> bool {
+    fn is_table_row_line(&self, line: &str, flavor: crate::config::MarkdownFlavor) -> bool {
         let content = strip_blockquote_prefix(line);
-        TableUtils::is_potential_table_row(content)
+        TableUtils::is_potential_table_row_with_flavor(content, flavor)
     }
 
     /// Check if a line is a delimiter row, handling blockquote prefixes
@@ -284,7 +284,7 @@ impl MD075OrphanedTableRows {
                 if table_line_set.contains(&j) {
                     break;
                 }
-                if self.is_table_row_line(content_lines[j])
+                if self.is_table_row_line(content_lines[j], ctx.flavor)
                     && self.row_matches_table_context(table_block, content_lines, j)
                 {
                     orphan_rows.push(j);
@@ -327,7 +327,7 @@ impl MD075OrphanedTableRows {
                 if self.should_skip_line(ctx, i) || table_line_set.contains(&i) {
                     break;
                 }
-                if self.is_table_row_line(content_lines[i])
+                if self.is_table_row_line(content_lines[i], ctx.flavor)
                     && self.row_matches_table_context(table_block, content_lines, i)
                 {
                     continuation_rows.insert(i);
@@ -369,7 +369,7 @@ impl MD075OrphanedTableRows {
             }
 
             // Look for consecutive pipe rows
-            if self.is_table_row_line(content_lines[i]) {
+            if self.is_table_row_line(content_lines[i], ctx.flavor) {
                 if Self::is_templated_pipe_line(content_lines[i]) {
                     i += 1;
                     continue;
@@ -383,7 +383,7 @@ impl MD075OrphanedTableRows {
                         && !table_line_set.contains(&i)
                         && !orphaned_line_set.contains(&i)
                         && !continuation_line_set.contains(&i)
-                        && self.is_table_row_line(content_lines[i])
+                        && self.is_table_row_line(content_lines[i], ctx.flavor)
                     {
                         i += 1;
                     }
@@ -399,7 +399,7 @@ impl MD075OrphanedTableRows {
                         && !table_line_set.contains(&i)
                         && !orphaned_line_set.contains(&i)
                         && !continuation_line_set.contains(&i)
-                        && self.is_table_row_line(content_lines[i])
+                        && self.is_table_row_line(content_lines[i], ctx.flavor)
                     {
                         i += 1;
                     }
@@ -415,7 +415,7 @@ impl MD075OrphanedTableRows {
                     && !table_line_set.contains(&i)
                     && !orphaned_line_set.contains(&i)
                     && !continuation_line_set.contains(&i)
-                    && self.is_table_row_line(content_lines[i])
+                    && self.is_table_row_line(content_lines[i], ctx.flavor)
                 {
                     if Self::is_templated_pipe_line(content_lines[i]) {
                         break;
@@ -435,10 +435,10 @@ impl MD075OrphanedTableRows {
                     if !has_delimiter {
                         // Verify consistent column count
                         let first_content = strip_blockquote_prefix(content_lines[group_lines[0]]);
-                        let first_count = TableUtils::count_cells(first_content);
+                        let first_count = TableUtils::count_cells_with_flavor(first_content, ctx.flavor);
                         let consistent = group_lines.iter().all(|&idx| {
                             let content = strip_blockquote_prefix(content_lines[idx]);
-                            TableUtils::count_cells(content) == first_count
+                            TableUtils::count_cells_with_flavor(content, ctx.flavor) == first_count
                         });
 
                         if consistent && first_count > 0 {
@@ -493,7 +493,7 @@ impl MD075OrphanedTableRows {
                 continue;
             }
 
-            if self.is_table_row_line(content) {
+            if self.is_table_row_line(content, ctx.flavor) {
                 let cols = TableUtils::count_cells_with_flavor(content, ctx.flavor);
                 // Require 3+ columns to avoid suppressing common 2-column headerless issues.
                 if cols < 3 {
@@ -2044,6 +2044,104 @@ Cell 1     Cell 2
         assert!(
             result_std.is_empty(),
             "MD075 table with caption — caption not a pipe row under Standard: {result_std:?}"
+        );
+    }
+
+    #[test]
+    fn md075_obsidian_wikilink_paragraph_not_orphaned_row() {
+        let rule = MD075OrphanedTableRows::default();
+        // The paragraph's only pipe sits inside a wikilink alias, so it is prose
+        // rather than a row that lost its table
+        let content = "\
+| Character | Note     |
+| --------- | -------- |
+| Alice     | curious  |
+
+She saw [[White Rabbit|the Rabbit]] run past and went down the hole.
+";
+        let ctx = LintContext::new(content, MarkdownFlavor::Obsidian, None);
+        let result = rule.check(&ctx).unwrap();
+        assert!(
+            result.is_empty(),
+            "MD075 should not treat a wikilink paragraph as an orphaned row: {result:?}"
+        );
+
+        // Under Standard the pipe is a delimiter, so the paragraph still reads as a row
+        let ctx_std = LintContext::new(content, MarkdownFlavor::Standard, None);
+        assert!(
+            !rule.check(&ctx_std).unwrap().is_empty(),
+            "MD075 should still flag the row under Standard"
+        );
+    }
+
+    #[test]
+    fn md075_obsidian_genuine_orphaned_row_still_flagged() {
+        let rule = MD075OrphanedTableRows::default();
+        // A real orphaned row is still reported under Obsidian
+        let content = "\
+| Character | Note     |
+| --------- | -------- |
+| Alice     | curious  |
+
+| Hatter    | mad      |
+";
+        let ctx = LintContext::new(content, MarkdownFlavor::Obsidian, None);
+        assert!(
+            !rule.check(&ctx).unwrap().is_empty(),
+            "MD075 should still flag a genuine orphaned row under Obsidian"
+        );
+    }
+
+    /// A headerless group admits its rows flavor-aware, so it has to count their
+    /// columns the same way. Counting flavor-blind made the two answers disagree,
+    /// in both directions.
+    #[test]
+    fn md075_headerless_group_counts_columns_in_the_documents_flavor() {
+        let rule = MD075OrphanedTableRows::default();
+
+        // Two columns under Obsidian, so the group is consistent and orphaned.
+        // Counted as GFM the first row has three cells and the group looks ragged.
+        let consistent_only_in_obsidian = "\
+| Character | Note     |
+| --------- | -------- |
+| Alice     | curious  |
+
+Prose between the table and the rows below it.
+
+| [[White Rabbit|the Rabbit]] | late |
+| Hatter                      | mad  |
+";
+        let ctx = LintContext::new(consistent_only_in_obsidian, MarkdownFlavor::Obsidian, None);
+        assert!(
+            !rule.check(&ctx).unwrap().is_empty(),
+            "A two-column headerless group should be flagged under Obsidian"
+        );
+        let ctx = LintContext::new(consistent_only_in_obsidian, MarkdownFlavor::Standard, None);
+        assert!(
+            rule.check(&ctx).unwrap().is_empty(),
+            "Under Standard the same rows are 3 and 2 cells wide, so they are not a group"
+        );
+
+        // The mirror image: consistent only when the wikilink pipe is a delimiter.
+        let consistent_only_in_gfm = "\
+| Character | Note     |
+| --------- | -------- |
+| Alice     | curious  |
+
+Prose between the table and the rows below it.
+
+| [[White Rabbit|the Rabbit]] | late |
+| Hatter                      | mad  | tea |
+";
+        let ctx = LintContext::new(consistent_only_in_gfm, MarkdownFlavor::Obsidian, None);
+        assert!(
+            rule.check(&ctx).unwrap().is_empty(),
+            "Under Obsidian the rows are 2 and 3 cells wide, so they are not a group"
+        );
+        let ctx = LintContext::new(consistent_only_in_gfm, MarkdownFlavor::Standard, None);
+        assert!(
+            !rule.check(&ctx).unwrap().is_empty(),
+            "A three-column headerless group should be flagged under Standard"
         );
     }
 }

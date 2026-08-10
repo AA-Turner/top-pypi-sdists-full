@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rumdl
-Version: 0.2.52
+Version: 0.2.53
 Classifier: Development Status :: 4 - Beta
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
@@ -123,6 +123,7 @@ With intelligent caching, subsequent runs are even faster - rumdl only re-lints 
   - [GitHub Actions](#github-actions)
     - [Inputs](#inputs)
     - [Examples](#examples)
+  - [MegaLinter](#megalinter)
 - [Rules](#rules)
 - [Flavors](#flavors)
   - [Supported Flavors](#supported-flavors)
@@ -236,7 +237,7 @@ mise ls-remote rumdl
 mise install rumdl
 
 # Use a specific version for the project
-mise use rumdl@0.2.52
+mise use rumdl@0.2.53
 ```
 
 ### Using Nix (macOS/Linux)
@@ -465,7 +466,7 @@ Add the following to your `.pre-commit-config.yaml`:
 ```yaml
 repos:
   - repo: https://github.com/rvben/rumdl-pre-commit
-    rev: v0.2.52
+    rev: v0.2.53
     hooks:
       - id: rumdl      # Lint only; add args [--fix] to auto-fix
       - id: rumdl-fmt  # Pure format, always exits 0
@@ -481,7 +482,7 @@ This mirrors the `ruff` + `ruff-format` split: the linter hook reports by defaul
 ```yaml
 repos:
   - repo: https://github.com/rvben/rumdl-pre-commit
-    rev: v0.2.52
+    rev: v0.2.53
     hooks:
       - id: rumdl
         args: [--fix]  # Auto-fix violations in place
@@ -498,7 +499,7 @@ However, for pre-commit workflows where you want to include all files, even when
 ```yaml
 repos:
   - repo: https://github.com/rvben/rumdl-pre-commit
-    rev: v0.2.52
+    rev: v0.2.53
     hooks:
       - id: rumdl
         args: [--no-exclude]  # Disable all exclude patterns
@@ -552,6 +553,11 @@ The `v0` tag always points to the latest stable release, following GitHub Action
 
 The `annotations` report type displays issues directly in the PR's "Files changed" tab with error/warning severity levels and precise locations.
 The action ref (`rvben/rumdl@v0`) selects the GitHub Action version, while the optional `version` input pins the `rumdl` CLI version installed inside the workflow.
+
+### MegaLinter
+
+rumdl is also embedded out of the box in [MegaLinter](https://megalinter.io/), an open-source linters aggregator for CI. See its
+[rumdl documentation page](https://megalinter.io/latest/descriptors/markdown_rumdl/) for setup details.
 
 ## Rules
 

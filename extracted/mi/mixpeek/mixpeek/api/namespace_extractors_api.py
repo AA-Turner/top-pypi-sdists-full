@@ -314,6 +314,8 @@ class NamespaceExtractorsApi:
 
         # authentication setting
         _auth_settings: List[str] = [
+            'NamespaceHeader', 
+            'BearerAuth'
         ]
 
         return self.api_client.param_serialize(
@@ -626,6 +628,8 @@ class NamespaceExtractorsApi:
 
         # authentication setting
         _auth_settings: List[str] = [
+            'NamespaceHeader', 
+            'BearerAuth'
         ]
 
         return self.api_client.param_serialize(

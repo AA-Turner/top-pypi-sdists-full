@@ -37,13 +37,12 @@ mod zip;
 
 use std::{fmt, fmt::Write, str::FromStr};
 
-use monty_types::ResourceTracker;
-
 use crate::{
     args::ArgValues,
     bytecode::{CallResult, VM},
     exception_private::{ExcType, ExcTypeExt, RunResult},
     types::Type,
+    value::Value,
 };
 
 /// Enumerates every interpreter-native Python builtins
@@ -61,6 +60,16 @@ pub(crate) enum Builtins {
 }
 
 impl Builtins {
+    /// Resolves builtin names that evaluate directly to singleton values.
+    #[must_use]
+    pub fn value_from_name(name: &str) -> Option<Value> {
+        match name {
+            "Ellipsis" => Some(Value::Ellipsis),
+            "NotImplemented" => Some(Value::NotImplemented),
+            _ => name.parse::<Self>().ok().map(Value::Builtin),
+        }
+    }
+
     /// Calls this builtin, allowing builtins that need host involvement to yield.
     ///
     /// Most builtins complete synchronously and produce a [`CallResult::Value`].
@@ -68,7 +77,7 @@ impl Builtins {
     /// time to perform the open-time effect, so it returns a
     /// [`CallResult::OsCall`] for [`OsFunctionCall::Open`](monty_types::OsFunctionCall) (see
     /// [`crate::builtins::open`]).
-    pub fn call(self, vm: &mut VM<'_, impl ResourceTracker>, args: ArgValues) -> RunResult<CallResult> {
+    pub fn call(self, vm: &mut VM<'_>, args: ArgValues) -> RunResult<CallResult> {
         match self {
             Self::Function(b) => b.call(vm, args),
             Self::ExcType(exc) => exc.call(vm, args).map(CallResult::Value),
@@ -116,11 +125,11 @@ impl FromStr for Builtins {
 pub use monty_types::BuiltinsFunctions;
 
 pub(crate) trait BuiltinsFunctionsExt: Sized {
-    fn call(self, vm: &mut VM<'_, impl ResourceTracker>, args: ArgValues) -> RunResult<CallResult>;
+    fn call(self, vm: &mut VM<'_>, args: ArgValues) -> RunResult<CallResult>;
 }
 
 impl BuiltinsFunctionsExt for BuiltinsFunctions {
-    fn call(self, vm: &mut VM<'_, impl ResourceTracker>, args: ArgValues) -> RunResult<CallResult> {
+    fn call(self, vm: &mut VM<'_>, args: ArgValues) -> RunResult<CallResult> {
         let r = match self {
             Self::Abs => abs::builtin_abs(vm, args),
             Self::All => all::builtin_all(vm, args),

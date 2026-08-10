@@ -92,6 +92,18 @@ _CORE_MESSAGES = {
         "ru": "Путь '{path}' не существует.",
         "en": "Path '{path}' does not exist.",
     },
+    "cli.baseline-found": {
+        "ru": "Найден базлайн проекта: {path} (отключить – ключом --no-baseline)",
+        "en": "Project baseline found: {path} (disable it with --no-baseline)",
+    },
+    "cli.baseline-stale-entry": {
+        "ru": "устаревшая запись базлайна: {path} [{rule}] x{count} – {message}",
+        "en": "stale baseline entry: {path} [{rule}] x{count} - {message}",
+    },
+    "cli.baseline-pruned": {
+        "ru": "Базлайн очищен: {path} (удалено записей: {removed})",
+        "en": "Baseline pruned: {path} ({removed} entries removed)",
+    },
     "cli.baseline-summary": {
         "ru": "Погашено базлайном: {suppressed}; устаревших записей базлайна: {unused}",
         "en": "Suppressed by the baseline: {suppressed}; stale baseline entries: {unused}",
@@ -159,6 +171,24 @@ _CORE_MESSAGES = {
         "en": "suppress findings frozen in a baseline file (created by --write-baseline); "
               "new findings are reported as usual",
     },
+    "cli.help.no-baseline": {
+        "ru": "не искать файл базлайна рядом с исходниками (по умолчанию найденный "
+              ".xbsllint-baseline применяется сам)",
+        "en": "do not look for a baseline file next to the sources (by default a discovered "
+              ".xbsllint-baseline is applied on its own)",
+    },
+    "cli.help.stale-baseline": {
+        "ru": "перечислить записи базлайна, которые больше ничего не гасят "
+              "(вместе с --baseline)",
+        "en": "list the baseline entries that no longer suppress anything "
+              "(together with --baseline)",
+    },
+    "cli.help.prune-baseline": {
+        "ru": "перечислить устаревшие записи базлайна и удалить их из файла "
+              "(вместе с --baseline; счётчики живых записей не трогаются)",
+        "en": "list the stale baseline entries and remove them from the file "
+              "(together with --baseline; the counts of live entries are left alone)",
+    },
     "cli.help.write-baseline": {
         "ru": "вместо отчёта записать все текущие находки в файл базлайна "
               "(заморозить долг; пути в файле – относительно его каталога)",
@@ -217,7 +247,7 @@ _CORE_MESSAGES = {
     },
     "cli.help.filename": {
         "ru": "имя проверяемого буфера при --stdin (напр. Форма.xbsl); расширение задаёт вид файла",
-        "en": "name of the buffer checked with --stdin (e.g. Форма.xbsl); the extension sets the file kind",
+        "en": "name of the buffer checked with --stdin (e.g. Form.xbsl); the extension sets the file kind",
     },
     "cli.help.meta.rule-selector": {
         "ru": "ID/ГРУППА/ТИР",
@@ -541,12 +571,12 @@ _CORE_MESSAGES = {
     },
     "cli.help.scaf.new-project": {
         "ru": "создать проект: Проект.yaml + Проект.xbsl + подсистема",
-        "en": "create a project: Проект.yaml + Проект.xbsl + a subsystem",
+        "en": "create a project: Project.yaml + Project.xbsl + a subsystem",
     },
     # -- scaffolding positionals and flags --
     "cli.help.scaf.arg.project-root": {
         "ru": "корень проекта – каталог с Проект.yaml (обычно .)",
-        "en": "the project root – the folder with Проект.yaml (usually .)",
+        "en": "the project root – the folder with Project.yaml (usually .)",
     },
     "cli.help.scaf.arg.form-yaml": {
         "ru": "yaml формы",
@@ -582,11 +612,11 @@ _CORE_MESSAGES = {
     },
     "cli.help.scaf.np-subsystem": {
         "ru": "имя первой подсистемы (по умолчанию Основное)",
-        "en": "the name of the first subsystem (default Основное)",
+        "en": "the name of the first subsystem (default Main)",
     },
     "cli.help.scaf.np-library": {
         "ru": "создать библиотеку (ВидПроекта: Библиотека), а не приложение",
-        "en": "create a library (ВидПроекта: Библиотека) rather than an application",
+        "en": "create a library (ProjectKind: Library) rather than an application",
     },
     "cli.help.scaf.no-directory": {
         "ru": "каталог подсистемы, в котором создать объект",
@@ -595,8 +625,8 @@ _CORE_MESSAGES = {
     "cli.help.scaf.no-kind": {
         "ru": "вид объекта на языке проекта: Справочник, Документ, ВиртуальнаяТаблица, ...; "
               "неизвестный вид перечислит доступные",
-        "en": "the object kind in the project language: Справочник, Документ, "
-              "ВиртуальнаяТаблица, ...; an unknown kind lists what is available",
+        "en": "the object kind in the project language: Catalog, Document, "
+              "VirtualTable, ...; an unknown kind lists what is available",
     },
     "cli.help.scaf.no-name": {
         "ru": "имя объекта",
@@ -604,17 +634,17 @@ _CORE_MESSAGES = {
     },
     "cli.help.scaf.no-scope": {
         "ru": "область видимости; по умолчанию платформенная ВПодсистеме",
-        "en": "the visibility scope; the platform default is ВПодсистеме",
+        "en": "the visibility scope; the platform default is InSubsystem",
     },
     "cli.help.scaf.no-environment": {
         "ru": "окружение – для ОбщийМодуль и Структура",
-        "en": "the environment – for ОбщийМодуль and Структура",
+        "en": "the environment – for CommonModule and Structure",
     },
     "cli.help.scaf.no-access": {
         "ru": "способ доступа: у HttpСервис пишется в Разрешения.Вызов, у объектов данных – "
               "в Разрешения.ПоУмолчанию (отдельные права ставит set-access)",
-        "en": "the access method: for HttpСервис it goes to Разрешения.Вызов, for data "
-              "objects to Разрешения.ПоУмолчанию (individual rights are set by set-access)",
+        "en": "the access method: for HttpService it goes to Разрешения.Call, for data "
+              "objects to Разрешения.Default (individual rights are set by set-access)",
     },
     "cli.help.scaf.af-yaml": {
         "ru": "yaml объекта, в который добавить поле",
@@ -626,11 +656,11 @@ _CORE_MESSAGES = {
     },
     "cli.help.scaf.af-type": {
         "ru": "тип поля (по умолчанию Строка)",
-        "en": "the field type (default Строка)",
+        "en": "the field type (default String)",
     },
     "cli.help.scaf.ar-yaml": {
         "ru": "yaml HttpСервис, в который добавить маршруты",
-        "en": "the yaml of the HttpСервис to add the routes to",
+        "en": "the yaml of the HttpService to add the routes to",
     },
     "cli.help.scaf.ar-routes": {
         "ru": 'маршруты через запятую: "DELETE /{{id}}, GET /health"',
@@ -686,7 +716,7 @@ _CORE_MESSAGES = {
     },
     "cli.help.scaf.new-object-routes": {
         "ru": 'маршруты HttpСервис: "GET /, POST /, GET /{{id}}"',
-        "en": 'HttpСервис routes: "GET /, POST /, GET /{{id}}"',
+        "en": 'HttpService routes: "GET /, POST /, GET /{{id}}"',
     },
     "cli.help.scaf.new-object-report": {
         "ru": "описание отчёта (JSON: source, rows, columns, measures)",
@@ -702,7 +732,7 @@ _CORE_MESSAGES = {
     },
     "cli.help.scaf.add-route": {
         "ru": "добавить маршруты в существующий HttpСервис",
-        "en": "add routes to an existing HttpСервис",
+        "en": "add routes to an existing HttpService",
     },
     "cli.help.scaf.field-prop": {
         "ru": "свойство элемента (можно повторять): ЗначениеПоУмолчанию=https://example.com, "
@@ -755,7 +785,7 @@ _CORE_MESSAGES = {
     },
     "cli.help.scaf.add-method-annotations": {
         "ru": "аннотации через пробел, например 'НаСервере ВПроекте'",
-        "en": "annotations separated by spaces, e.g. 'НаСервере ВПроекте'",
+        "en": "annotations separated by spaces, e.g. 'OnServer InProject'",
     },
     "cli.help.scaf.add-method-after": {
         "ru": "вставить после этого метода",
@@ -771,7 +801,7 @@ _CORE_MESSAGES = {
     },
     "cli.help.scaf.add-form": {
         "ru": "создать формы объекта и зарегистрировать в Интерфейс",
-        "en": "create the object's forms and register them in Интерфейс",
+        "en": "create the object's forms and register them in Interface",
     },
     "cli.help.scaf.yaml-vs-name": {
         "ru": "yaml объекта (вместо --name)",
@@ -789,11 +819,11 @@ _CORE_MESSAGES = {
     },
     "cli.help.scaf.add-form-card-placeholder": {
         "ru": 'выражение картинки-заглушки, напр. "Ресурс{{Аккаунт.svg}}.Ссылка"',
-        "en": 'placeholder image expression, e.g. "Ресурс{{Аккаунт.svg}}.Ссылка"',
+        "en": 'placeholder image expression, e.g. "Resource{{Аккаунт.svg}}.Link"',
     },
     "cli.help.scaf.add-subsystem": {
         "ru": "создать подсистему (папка + Подсистема.yaml)",
-        "en": "create a subsystem (a folder + Подсистема.yaml)",
+        "en": "create a subsystem (a folder + Subsystem.yaml)",
     },
     "cli.help.scaf.add-subsystem-uses": {
         "ru": "имена подсистем через запятую",
@@ -801,7 +831,7 @@ _CORE_MESSAGES = {
     },
     "cli.help.scaf.add-dependency": {
         "ru": "подключить библиотеку к проекту (раздел Библиотеки Проект.yaml)",
-        "en": "attach a library to the project (the Библиотеки section of Проект.yaml)",
+        "en": "attach a library to the project (the Библиотеки section of Project.yaml)",
     },
     "cli.help.scaf.add-dependency-vendor": {
         "ru": "поставщик библиотеки",
@@ -817,7 +847,7 @@ _CORE_MESSAGES = {
     },
     "cli.help.scaf.add-dependency-path": {
         "ru": "Проект.yaml (при нескольких проектах под корнем)",
-        "en": "Проект.yaml (when there are several projects under the root)",
+        "en": "Project.yaml (when there are several projects under the root)",
     },
     "cli.help.scaf.rename-object": {
         "ru": "переименовать объект (файлы, формы) и обновить ссылки по всему проекту",
@@ -825,11 +855,11 @@ _CORE_MESSAGES = {
     },
     "cli.help.scaf.rename-new-presentation": {
         "ru": "новое Представление/Заголовок (по умолчанию – новое имя)",
-        "en": "new Представление/Заголовок (default: the new name)",
+        "en": "new Presentation/Title (default: the new name)",
     },
     "cli.help.scaf.rename-old-presentation": {
         "ru": "старое представление (для замены в Заголовок/Представление)",
-        "en": "the old presentation (to replace in Заголовок/Представление)",
+        "en": "the old presentation (to replace in Title/Presentation)",
     },
     "cli.help.scaf.rename-path": {
         "ru": "yaml объекта (при нескольких объектах с одним именем)",
@@ -848,21 +878,21 @@ _CORE_MESSAGES = {
     },
     "cli.help.scaf.set-access": {
         "ru": "задать КонтрольДоступа.Разрешения объекта",
-        "en": "set the object's КонтрольДоступа.Разрешения",
+        "en": "set the object's AccessControl.Разрешения",
     },
     "cli.help.scaf.set-access-default": {
         "ru": "способ для права ПоУмолчанию",
-        "en": "the method for the ПоУмолчанию right",
+        "en": "the method for the Default right",
     },
     "cli.help.scaf.set-access-permission": {
         "ru": "способ отдельного права (повторяемый), напр. Чтение=РазрешеноВсем",
-        "en": "the method for a single right (repeatable), e.g. Чтение=РазрешеноВсем",
+        "en": "the method for a single right (repeatable), e.g. Чтение=PermitEveryone",
     },
     "cli.help.scaf.set-access-calc-by": {
         "ru": "поля РасчетРазрешенийПо через запятую "
               "(обязательны для РазрешенияВычисляютсяДляКаждогоОбъекта)",
-        "en": "РасчетРазрешенийПо fields, comma-separated "
-              "(required for РазрешенияВычисляютсяДляКаждогоОбъекта)",
+        "en": "ComputePermissionsBy fields, comma-separated "
+              "(required for PermissionsComputedForEachObject)",
     },
     "cli.help.scaf.meta.right-method": {
         "ru": "ПРАВО=СПОСОБ",
@@ -898,15 +928,15 @@ _CORE_MESSAGES = {
     },
     "cli.help.scaf.fe-slot": {
         "ru": "слот детей: Содержимое, Страницы, Колонки, ... (insert/move)",
-        "en": "children slot: Содержимое, Страницы, Колонки, ... (insert/move)",
+        "en": "children slot: Content, Pages, Columns, ... (insert/move)",
     },
     "cli.help.scaf.fe-type": {
         "ru": "Тип нового компонента (insert) или свойства (property-add)",
-        "en": "Тип of the new component (insert) or property (property-add)",
+        "en": "Type of the new component (insert) or property (property-add)",
     },
     "cli.help.scaf.fe-name": {
         "ru": "Имя нового компонента (insert), обёртки (wrap) или свойства секции Свойства (property-*)",
-        "en": "Имя of the new component (insert), the wrapper (wrap) or a Свойства-section property (property-*)",
+        "en": "Name of the new component (insert), the wrapper (wrap) or a Properties-section property (property-*)",
     },
     "cli.help.scaf.fe-node": {
         "ru": "id узла операции (move/remove/wrap/unwrap/duplicate/rename/set-property/reset-property)",
@@ -924,13 +954,13 @@ _CORE_MESSAGES = {
     },
     "cli.help.scaf.fe-container": {
         "ru": "Тип контейнера-обёртки (wrap)",
-        "en": "Тип of the wrapper container (wrap)",
+        "en": "Type of the wrapper container (wrap)",
     },
     "cli.help.scaf.fe-new-name": {
         "ru": "новое Имя узла (rename) или свойства (property-rename); "
               "для rename без флага Имя удаляется",
-        "en": "the node's new Имя (rename) or property's (property-rename); "
-              "for rename without the flag, Имя is removed",
+        "en": "the node's new Name (rename) or property's (property-rename); "
+              "for rename without the flag, Name is removed",
     },
     "cli.help.scaf.fe-before": {
         "ru": "id соседа: вставить/переместить ПЕРЕД ним",
@@ -962,7 +992,7 @@ _CORE_MESSAGES = {
     },
     "cli.help.scaf.fe-new-type": {
         "ru": "новый Тип свойства (property-retype)",
-        "en": "the property's new Тип (property-retype)",
+        "en": "the property's new Type (property-retype)",
     },
     "cli.help.scaf.form-handlers": {
         "ru": "обработчики парного модуля компонента: список методов или заготовка обработчика",
@@ -974,19 +1004,19 @@ _CORE_MESSAGES = {
     },
     "cli.help.scaf.fh-key": {
         "ru": "ключ события узла: ПриНажатии, ПослеСоздания, ...",
-        "en": "node event key: ПриНажатии, ПослеСоздания, ...",
+        "en": "node event key: OnClick, AfterCreate, ...",
     },
     "cli.help.scaf.fh-method": {
         "ru": "имя метода-обработчика (по умолчанию <Имя узла><Ключ>; "
               "существующий метод – только привязка в yaml)",
-        "en": "handler method name (default <Имя узла><Ключ>; "
+        "en": "handler method name (default <Name узла><Key>; "
               "an existing method – only the binding in yaml)",
     },
     "cli.help.scaf.fh-signature": {
         "ru": 'сигнатура события из ui-схемы, напр. '
               '"(Кнопка, СобытиеПриНажатии)->ничто" (без флага ищется в локальных данных)',
         "en": 'event signature from the ui schema, e.g. '
-              '"(Кнопка, СобытиеПриНажатии)->ничто" (without the flag it is looked up in the local data)',
+              '"(Button, OnClickEvent)->ничто" (without the flag it is looked up in the local data)',
     },
     "cli.help.scaf.dry-run": {
         "ru": "показать изменения (с текстами файлов), ничего не записывая",

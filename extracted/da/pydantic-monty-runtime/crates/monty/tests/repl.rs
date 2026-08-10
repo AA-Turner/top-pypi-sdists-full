@@ -4,15 +4,17 @@
 //! only the newly fed snippet each time.
 
 use insta::assert_snapshot;
-use monty::{MontyRepl, ReplContinuationMode, ReplProgress, ReplStartError, detect_repl_continuation_mode};
+use monty::{
+    DUMP_VERSION, Dump, DumpError, MontyRepl, ReplContinuationMode, ReplProgress, ReplStartError, Session, SessionRef,
+    detect_repl_continuation_mode, dump,
+};
 use monty_types::{
-    CompileOptions, ExcType, ExtFunctionResult, MontyException, MontyObject, NoLimitTracker, PrintWriter,
-    ResourceTracker,
+    CompileOptions, ExcType, ExtFunctionResult, MontyException, MontyObject, PrintWriter, ResourceTracker,
 };
 
 #[test]
 fn repl_executes_only_new_code() {
-    let mut repl = MontyRepl::new("repl.py", NoLimitTracker, CompileOptions::default());
+    let mut repl = MontyRepl::new("repl.py", ResourceTracker::default(), CompileOptions::default());
     let init_output = feed_run_print(&mut repl, "counter = 0").unwrap();
     assert_eq!(init_output, MontyObject::None);
 
@@ -25,14 +27,72 @@ fn repl_executes_only_new_code() {
     assert_eq!(output, MontyObject::Int(1));
 }
 
-fn feed_run_print(repl: &mut MontyRepl<impl ResourceTracker>, code: &str) -> Result<MontyObject, MontyException> {
+fn feed_run_print(repl: &mut MontyRepl, code: &str) -> Result<MontyObject, MontyException> {
     repl.feed_run(code, vec![], PrintWriter::Stdout)
 }
 
-fn init_repl(code: &str) -> (MontyRepl<NoLimitTracker>, MontyObject) {
-    let mut repl = MontyRepl::new("repl.py", NoLimitTracker, CompileOptions::default());
+fn init_repl(code: &str) -> (MontyRepl, MontyObject) {
+    let mut repl = MontyRepl::new("repl.py", ResourceTracker::default(), CompileOptions::default());
     let output = feed_run_print(&mut repl, code).unwrap();
     (repl, output)
+}
+
+/// Round-trips an idle session through the dump format, asserting it comes back
+/// on the same [`Session`] arm it went out on.
+fn round_trip_repl(repl: &MontyRepl) -> MontyRepl {
+    let bytes = dump("repl.py", None, SessionRef::Idle(repl)).unwrap();
+    match Dump::load(&bytes).unwrap().state {
+        Session::Idle(repl) => *repl,
+        _ => panic!("dumped an idle session, loaded something else"),
+    }
+}
+
+/// Round-trips a suspended session through the dump format.
+fn round_trip_progress(progress: &ReplProgress) -> ReplProgress {
+    let bytes = dump("repl.py", None, SessionRef::Suspended(progress)).unwrap();
+    match Dump::load(&bytes).unwrap().state {
+        Session::Suspended(progress) => *progress,
+        _ => panic!("dumped a suspended session, loaded something else"),
+    }
+}
+
+/// The header must reject anything this build cannot read, and each rejection
+/// must say which of the three it was — a stale snapshot needs rebuilding, a
+/// corrupt one needs investigating.
+#[test]
+fn dump_header_rejects_incompatible_data() {
+    let repl = MontyRepl::new("repl.py", ResourceTracker::default(), CompileOptions::default());
+    let bytes = dump("repl.py", None, SessionRef::Idle(&repl)).unwrap();
+    // pins the header layout (magic then little-endian version), not the version itself
+    let mut expected_header = b"MONTY\0".to_vec();
+    expected_header.extend_from_slice(&DUMP_VERSION.to_le_bytes());
+    assert_eq!(&bytes[..8], expected_header.as_slice());
+
+    // too short to even hold a header
+    assert_eq!(Dump::load(&bytes[..3]).unwrap_err(), DumpError::NotADump);
+
+    let mut wrong_magic = bytes.clone();
+    wrong_magic[0] = b'X';
+    assert_eq!(Dump::load(&wrong_magic).unwrap_err(), DumpError::NotADump);
+
+    let mut wrong_version = bytes.clone();
+    wrong_version[6] = 1;
+    assert_eq!(
+        Dump::load(&wrong_version).unwrap_err(),
+        DumpError::VersionMismatch {
+            found: 1,
+            expected: DUMP_VERSION
+        }
+    );
+
+    // trailing bytes are rejected rather than ignored, so a padded dump cannot
+    // decode as the shorter valid one it starts with
+    let mut trailing_data = bytes;
+    trailing_data.push(0);
+    assert_eq!(
+        Dump::load(&trailing_data).unwrap_err(),
+        DumpError::Payload(postcard::Error::DeserializeBadEncoding)
+    );
 }
 
 #[test]
@@ -205,8 +265,7 @@ fn repl_dump_load_survives_between_snippets() {
     let (mut repl, _) = init_repl("total = 1");
     feed_run_print(&mut repl, "total = total + 1").unwrap();
 
-    let bytes = repl.dump().unwrap();
-    let mut loaded: MontyRepl<NoLimitTracker> = MontyRepl::load(&bytes).unwrap();
+    let mut loaded = round_trip_repl(&repl);
 
     feed_run_print(&mut loaded, "total = total * 21").unwrap();
     let output = feed_run_print(&mut loaded, "total").unwrap();
@@ -219,8 +278,7 @@ fn repl_dump_load_preserves_heap_aliasing() {
 
     feed_run_print(&mut repl, "a.append(1)").unwrap();
 
-    let bytes = repl.dump().unwrap();
-    let mut loaded: MontyRepl<NoLimitTracker> = MontyRepl::load(&bytes).unwrap();
+    let mut loaded = round_trip_repl(&repl);
 
     feed_run_print(&mut loaded, "b.append(2)").unwrap();
     assert_eq!(
@@ -294,8 +352,7 @@ fn repl_progress_dump_load_roundtrip() {
     // With LoadGlobalCallable, ext_fn goes directly to FunctionCall
     let progress = repl.feed_start("ext_fn(20) + 22", vec![], PrintWriter::Stdout).unwrap();
 
-    let bytes = progress.dump().unwrap();
-    let loaded: ReplProgress<NoLimitTracker> = ReplProgress::load(&bytes).unwrap();
+    let loaded = round_trip_progress(&progress);
 
     let call = loaded.into_function_call().expect("expected function call");
     assert_eq!(call.args, vec![MontyObject::Int(20)]);
@@ -326,8 +383,7 @@ async def main():
     let call_id = call.call_id;
 
     let progress = call.resume_pending(PrintWriter::Stdout).unwrap();
-    let bytes = progress.dump().unwrap();
-    let loaded: ReplProgress<NoLimitTracker> = ReplProgress::load(&bytes).unwrap();
+    let loaded = round_trip_progress(&progress);
     let state = loaded.into_resolve_futures().expect("expected resolve futures");
     assert_eq!(state.pending_call_ids(), &[call_id]);
 
@@ -405,7 +461,7 @@ fn repl_dataclass_method_call_yields_function_call_with_method_flag() {
         frozen: true,
     };
 
-    let repl = MontyRepl::new("repl.py", NoLimitTracker, CompileOptions::default());
+    let repl = MontyRepl::new("repl.py", ResourceTracker::default(), CompileOptions::default());
 
     // Calling point.sum() should yield a FunctionCall with method_call=true.
     // Pass the dataclass as an input to feed_start() so it gets a namespace slot.
@@ -456,8 +512,8 @@ fn repl_start_new_external_function_in_later_block() {
 // ===========================================================================
 
 /// Helper to create a REPL session pre-seeded with code for function calling.
-fn repl_with_code(code: &str) -> MontyRepl<NoLimitTracker> {
-    let mut repl = MontyRepl::new("session_test.py", NoLimitTracker, CompileOptions::default());
+fn repl_with_code(code: &str) -> MontyRepl {
+    let mut repl = MontyRepl::new("session_test.py", ResourceTracker::default(), CompileOptions::default());
     repl.feed_run(code, vec![], PrintWriter::Stdout).unwrap();
     repl
 }
@@ -693,6 +749,39 @@ def bar(): pass
     let mut names = s.function_names();
     names.sort_unstable();
     assert_eq!(names, vec!["bar", "foo"]);
+}
+
+#[test]
+fn function_names_excludes_classes_and_methods() {
+    // The helper is deliberately narrower than `is_callable`: plain functions
+    // and lambdas count, but classes, namedtuple classes, and bound methods —
+    // all callable — must not be surfaced as "functions".
+    // Import via the module so the only function-valued global is `foo`/`lam`
+    // (a bare `from collections import namedtuple` would surface `namedtuple`
+    // itself, which is correctly a function).
+    let s = repl_with_code(
+        "\
+import collections
+def foo(): pass
+lam = lambda: 1
+class Cls:
+    def method(self): pass
+Point = collections.namedtuple('Point', ['a'])
+inst = Cls()
+bound = inst.method
+x = 42
+",
+    );
+    let mut names = s.function_names();
+    names.sort_unstable();
+    assert_eq!(names, vec!["foo", "lam"]);
+    assert!(s.has_function("foo"));
+    assert!(s.has_function("lam"));
+    assert!(!s.has_function("Cls")); // a class is callable but not a function
+    assert!(!s.has_function("Point")); // a namedtuple class likewise
+    assert!(!s.has_function("bound")); // a bound method likewise
+    assert!(!s.has_function("inst"));
+    assert!(!s.has_function("x"));
 }
 
 #[test]

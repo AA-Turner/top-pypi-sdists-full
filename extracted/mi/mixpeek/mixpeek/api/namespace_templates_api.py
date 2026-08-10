@@ -331,6 +331,8 @@ class NamespaceTemplatesApi:
 
         # authentication setting
         _auth_settings: List[str] = [
+            'NamespaceHeader', 
+            'BearerAuth'
         ]
 
         return self.api_client.param_serialize(
@@ -609,6 +611,8 @@ class NamespaceTemplatesApi:
 
         # authentication setting
         _auth_settings: List[str] = [
+            'NamespaceHeader', 
+            'BearerAuth'
         ]
 
         return self.api_client.param_serialize(
@@ -915,6 +919,8 @@ class NamespaceTemplatesApi:
 
         # authentication setting
         _auth_settings: List[str] = [
+            'NamespaceHeader', 
+            'BearerAuth'
         ]
 
         return self.api_client.param_serialize(
@@ -1229,6 +1235,8 @@ class NamespaceTemplatesApi:
 
         # authentication setting
         _auth_settings: List[str] = [
+            'NamespaceHeader', 
+            'BearerAuth'
         ]
 
         return self.api_client.param_serialize(

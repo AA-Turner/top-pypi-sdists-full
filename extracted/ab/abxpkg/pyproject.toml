@@ -1,6 +1,6 @@
 [project]
 name = "abxpkg"
-version = "1.12.47"
+version = "1.12.51"
 description = "System package manager interfaces with Python type hints"
 authors = [{name = "Nick Sweeting"}, {name = "ArchiveBox"}]
 requires-python = ">=3.12,<3.15"
@@ -39,7 +39,6 @@ classifiers = [
 ]
 
 dependencies = [
-    "pip>=26.0.1",
     "typing-extensions>=4.15.0",
     "platformdirs>=4.9.2",
     "pydantic>=2.12.5",

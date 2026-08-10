@@ -6,16 +6,24 @@
 #include <functional>
 #include <numeric>
 
+#if defined(_MSC_VER)
+#define XSS_EXPORT_SYMBOL __declspec(dllexport)
+#define XSS_HIDE_SYMBOL
+#else
 #define XSS_EXPORT_SYMBOL __attribute__((visibility("default")))
 #define XSS_HIDE_SYMBOL __attribute__((visibility("hidden")))
+#endif
 #define UNUSED(x) (void)(x)
 
 namespace x86simdsort {
 
 // quicksort
 template <typename T>
-XSS_EXPORT_SYMBOL void
-qsort(T *arr, size_t arrsize, bool hasnan = false, bool descending = false);
+XSS_EXPORT_SYMBOL void qsort(T *arr,
+                             size_t arrsize,
+                             bool hasnan = false,
+                             bool descending = false,
+                             bool nans_last = true);
 
 // quickselect
 template <typename T>
@@ -23,7 +31,8 @@ XSS_EXPORT_SYMBOL void qselect(T *arr,
                                size_t k,
                                size_t arrsize,
                                bool hasnan = false,
-                               bool descending = false);
+                               bool descending = false,
+                               bool nans_last = true);
 
 // partial sort
 template <typename T>
@@ -31,17 +40,25 @@ XSS_EXPORT_SYMBOL void partial_qsort(T *arr,
                                      size_t k,
                                      size_t arrsize,
                                      bool hasnan = false,
-                                     bool descending = false);
+                                     bool descending = false,
+                                     bool nans_last = true);
 
 // argsort
 template <typename T>
-XSS_EXPORT_SYMBOL std::vector<size_t>
-argsort(T *arr, size_t arrsize, bool hasnan = false, bool descending = false);
+XSS_EXPORT_SYMBOL std::vector<size_t> argsort(const T *arr,
+                                              size_t arrsize,
+                                              bool hasnan = false,
+                                              bool descending = false,
+                                              bool nans_last = true);
 
 // argselect
 template <typename T>
-XSS_EXPORT_SYMBOL std::vector<size_t>
-argselect(T *arr, size_t k, size_t arrsize, bool hasnan = false);
+XSS_EXPORT_SYMBOL std::vector<size_t> argselect(const T *arr,
+                                                size_t k,
+                                                size_t arrsize,
+                                                bool hasnan = false,
+                                                bool descending = false,
+                                                bool nans_last = true);
 
 // keyvalue sort
 template <typename T1, typename T2>

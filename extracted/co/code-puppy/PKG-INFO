@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: code-puppy
-Version: 0.0.684
+Version: 0.0.698
 Summary: Code generation agent
 Project-URL: repository, https://github.com/mpfaffenberger/code_puppy
 Project-URL: HomePage, https://github.com/mpfaffenberger/code_puppy
@@ -25,7 +25,7 @@ Requires-Dist: keyring>=24.0.0
 Requires-Dist: mcp>=1.9.4
 Requires-Dist: openai>=1.99.1
 Requires-Dist: pillow>=10.0.0
-Requires-Dist: playwright>=1.40.0
+Requires-Dist: playwright>=1.40.0; sys_platform != 'android'
 Requires-Dist: prompt-toolkit>=3.0.52
 Requires-Dist: pydantic-ai-slim[anthropic,mcp,openai]==1.56.0
 Requires-Dist: pydantic>=2.4.0
@@ -34,7 +34,7 @@ Requires-Dist: python-dotenv>=1.0.0
 Requires-Dist: rapidfuzz>=3.13.0
 Requires-Dist: requests>=2.28.0
 Requires-Dist: rich>=13.4.2
-Requires-Dist: ripgrep==14.1.0
+Requires-Dist: ripgrep==14.1.0; sys_platform != 'android'
 Requires-Dist: termflow-md>=0.1.11
 Requires-Dist: typer>=0.12.0
 Provides-Extra: bedrock
@@ -123,6 +123,44 @@ powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | ie
 
 uvx code-puppy
 ```
+
+#### Android (Termux)
+
+Android support uses Termux's native build toolchain because many Python packages
+do not publish Android wheels. Install the required system packages first:
+
+```bash
+pkg update
+pkg install python rust ripgrep libjpeg-turbo git
+python -m pip install pipx
+pipx ensurepath
+export PATH="$HOME/.local/bin:$PATH"  # Makes pipx apps available immediately
+```
+
+`ripgrep` provides the native `rg` executable used for file discovery.
+`libjpeg-turbo` provides the headers Pillow needs when pip builds it from source.
+The first run may spend 10–20 minutes compiling packages such as
+`pydantic-core` and `cryptography`; later runs reuse pipx's cached environment for
+up to 14 days.
+
+Run the released package:
+
+```bash
+pipx run code-puppy
+```
+
+To run a source checkout instead, use an editable persistent installation:
+
+```bash
+git clone https://github.com/mpfaffenberger/code_puppy.git
+cd code_puppy
+pipx install --editable .
+code-puppy
+```
+
+After a `git pull`, Python source changes are available immediately. Run
+`pipx reinstall code-puppy` only when project dependencies change.
+Playwright-backed browser tools are not installed on Android.
 
 #### Optional: DBOS durable execution
 

@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: pykeepass
-Version: 4.1.1.post1
+Version: 4.2.0
 Summary: Python library to interact with keepass databases (supports KDBX3 and KDBX4)
 Author-email: Philipp Schmitt <philipp@schmitt.co>, Evan Widloski <evan_gh@widloski.com>
 License: GPL-3.0
@@ -21,7 +21,7 @@ Requires-Python: >=3.7
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: pyotp>=2.9.0
-Requires-Dist: setuptools; python_version < "3.8"
+Requires-Dist: importlib-metadata
 Requires-Dist: construct>=2.10.53
 Requires-Dist: argon2_cffi>=18.1.0
 Requires-Dist: pycryptodomex>=3.6.2
@@ -29,6 +29,7 @@ Requires-Dist: lxml
 Provides-Extra: test
 Requires-Dist: pyotp; extra == "test"
 Requires-Dist: pdoc; extra == "test"
+Dynamic: license-file
 
 # pykeepass
 

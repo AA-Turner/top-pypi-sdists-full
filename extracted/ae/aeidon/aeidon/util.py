@@ -13,14 +13,13 @@
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with this program. If not, see <http://www.gnu.org/licenses/>.
+# along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 """Miscellaneous functions."""
 
 import aeidon
 import collections
 import contextlib
-import inspect
 import locale
 import mimetypes
 import os
@@ -30,8 +29,9 @@ import shutil
 import stat
 import subprocess
 import sys
-import traceback
 import urllib.parse
+
+from pathlib import Path
 
 VIDEO_FILE_EXTENSIONS = [
     ".avi",
@@ -46,11 +46,10 @@ VIDEO_FILE_EXTENSIONS = [
     ".webm",
 ]
 
-
 def affirm(value):
     """Raise :exc:`aeidon.AffirmationError` if value evaluates to ``False``."""
     if not value:
-        raise aeidon.AffirmationError("Not True: {!r}".format(value))
+        raise aeidon.AffirmationError(f"Not True: {value!r}")
 
 @contextlib.contextmanager
 def atomic_open(path, mode="w", *args, **kwargs):
@@ -62,54 +61,43 @@ def atomic_open(path, mode="w", *args, **kwargs):
     (probably) be atomic on any Unix system. On Windows, it should (probably)
     be atomic if using Python 3.3 or greater.
     """
-    path = os.path.realpath(path)
+    path = Path(path).resolve()
     chars = list("abcdefghijklmnopqrstuvwxyz0123456789")
-    directory = os.path.dirname(path)
-    basename = os.path.basename(path)
     while True:
         # Let's use a hidden temporary file to avoid a file
         # flickering in a possibly open file browser window.
         suffix = "".join(random.sample(chars, 8))
-        temp_basename = ".{}.tmp{}".format(basename, suffix)
-        temp_path = os.path.join(directory, temp_basename)
-        if not os.path.isfile(temp_path): break
+        temp_path = path.parent / f".{path.name}.tmp{suffix}"
+        if not temp_path.is_file(): break
     try:
-        if os.path.isfile(path):
+        if path.is_file():
             # If the file exists, use the same permissions.
             # Note that all other file metadata, including
             # owner and group, is not preserved.
-            with open(temp_path, "w") as f: pass
-            st = os.stat(path)
-            os.chmod(temp_path, stat.S_IMODE(st.st_mode))
+            temp_path.touch()
+            st = path.stat()
+            temp_path.chmod(stat.S_IMODE(st.st_mode))
         with open(temp_path, mode, *args, **kwargs) as f:
             yield f
             f.flush()
             os.fsync(f.fileno())
         try:
-            if hasattr(os, "replace"):
-                # os.replace was added in Python 3.3.
-                # This should be atomic on Windows too.
-                os.replace(temp_path, path)
-            else:
-                # os.rename is atomic on Unix, but fails
-                # on Windows if the file exists.
-                os.rename(temp_path, path)
-            # os.rename and os.replace will fail if path
-            # and temp_path are not on the same device,
-            # for instance they can be on two separate
-            # branches of a union mount. Atomicity is not
-            # possible in this case.
+            # This should be atomic on Windows too.
+            # Path.replace will fail if path and temp_path
+            # are not on the same device, for instance they
+            # can be on two separate branches of a union
+            # mount. Atomicity is not possible in this case.
+            temp_path.replace(path)
         except OSError:
             # Fall back to a non-atomic operation using
             # shutil.move. On Windows this requires that
             # the destination file does not exist.
             if sys.platform == "win32":
-                if os.path.isfile(path):
-                    os.remove(path)
+                path.unlink(missing_ok=True)
             shutil.move(temp_path, path)
     finally:
-        with silent(Exception):
-            os.remove(temp_path)
+        with contextlib.suppress(Exception):
+            temp_path.unlink()
 
 @aeidon.deco.once
 def chardet_available():
@@ -142,7 +130,7 @@ def connect(observer, observable, signal, *args):
     method_name = signal.replace("-", "_").replace("::", "_")
     if observer is not observable:
         method_name = "_".join((observable, method_name))
-    method_name = "_on_{}".format(method_name).replace("__", "_")
+    method_name = f"_on_{method_name}".replace("__", "_")
     if not hasattr(observer, method_name):
         method_name = method_name[1:]
     method = getattr(observer, method_name)
@@ -165,8 +153,7 @@ def detect_format(path, encoding):
             for format, re_id in re_ids:
                 if re_id.search(line) is not None:
                     return format
-    raise aeidon.FormatError("Failed to detect format of file {!r}"
-                             .format(path))
+    raise aeidon.FormatError(f"Failed to detect format of file {path!r}")
 
 def detect_newlines(path):
     """Detect and return the newline type of file at `path` or ``None``."""
@@ -191,6 +178,7 @@ def detect_newlines(path):
         return aeidon.newlines.WINDOWS
     return None
 
+@aeidon.deco.listify
 def flatten(lst):
     """
     Return a shallow version of `lst`.
@@ -198,13 +186,11 @@ def flatten(lst):
     >>> aeidon.util.flatten([1, 2, 3, [4, 5, [6]]])
     [1, 2, 3, 4, 5, 6]
     """
-    flat_lst = []
     for item in lst:
         if isinstance(item, list):
-            flat_lst.extend(flatten(item))
+            yield from flatten(item)
         else: # Non-list item.
-            flat_lst.append(item)
-    return flat_lst
+            yield item
 
 def get_chardet_version():
     """Return :mod:`charset_normalizer` version number as string or ``None``."""
@@ -232,7 +218,7 @@ def get_default_newline():
 def get_encoding_alias(encoding):
     """Return proper Python alias for `encoding`."""
     from encodings.aliases import aliases
-    with silent(LookupError):
+    with contextlib.suppress(LookupError):
         return aliases[encoding]
     return encoding
 
@@ -260,13 +246,11 @@ def get_template_header(format):
     Raise :exc:`IOError` if reading global header file fails.
     Raise :exc:`UnicodeError` if decoding global header file fails.
     """
-    directory = os.path.join(aeidon.DATA_HOME_DIR, "headers")
-    path = os.path.join(directory, format.name.lower())
-    with silent(Exception):
+    path = aeidon.DATA_HOME_DIR / "headers" / format.name.lower()
+    with contextlib.suppress(Exception):
         header = read(path, encoding=None, quiet=True).rstrip()
         return normalize_newlines(header)
-    directory = os.path.join(aeidon.DATA_DIR, "headers")
-    path = os.path.join(directory, format.name.lower())
+    path = aeidon.DATA_DIR / "headers" / format.name.lower()
     header = read(path, "ascii").rstrip()
     return normalize_newlines(header)
 
@@ -277,25 +261,16 @@ def get_unique(lst, keep_last=False):
     # https://stackoverflow.com/a/7961425
     return list(collections.OrderedDict.fromkeys(lst))
 
-def install_module(name, obj):
-    """
-    Install `obj`'s module into the :mod:`aeidon` namespace.
-
-    Typical call is of form::
-
-        aeidon.util.install_module("foo", lambda: None)
-    """
-    aeidon.__dict__[name] = inspect.getmodule(obj)
-
 def is_video_file(path):
     """Return ``True`` if `path` is a video file."""
-    if not os.path.isfile(path):
+    path = Path(path)
+    if not path.is_file():
         return False
     # The mimetypes module doesn't work well on Windows,
     # fall back on a custom list of video file extensions.
     type, encoding = mimetypes.guess_type(path)
     return ((type and type.startswith("video/")) or
-            path.lower().endswith(tuple(VIDEO_FILE_EXTENSIONS)))
+            path.suffix.lower() in VIDEO_FILE_EXTENSIONS)
 
 def last(iterator):
     """Return the last value from `iterator` or ``None``."""
@@ -309,14 +284,13 @@ def makedirs(directory):
 
     Raise :exc:`OSError` if unsuccessful.
     """
-    directory = os.path.abspath(directory)
-    if os.path.isdir(directory):
+    directory = Path(directory).resolve()
+    if directory.is_dir():
         return directory
     try:
-        os.makedirs(directory)
+        directory.mkdir(parents=True)
     except OSError as error:
-        print("Failed to create directory {!r}: {!s}"
-              .format(directory, error),
+        print(f"Failed to create directory {directory!r}: {error!s}",
               file=sys.stderr)
         raise # OSError
     return directory
@@ -328,34 +302,34 @@ def normalize_newlines(text):
 
 def path_to_uri(path):
     """Convert local filepath to URI."""
+    path = str(path)
     if sys.platform == "win32":
-        path = "/{}".format(path.replace("\\", "/"))
-    return "file://{}".format(urllib.parse.quote(path))
+        path = "/" + path.replace("\\", "/")
+    path = urllib.parse.quote(path)
+    return f"file://{path}"
 
 def print_read_io(exc_info, path):
     """Print :exc:`IOError` message to standard error."""
-    print("Failed to read file '{}': {}"
-          .format(path, exc_info[1].args[1]),
+    message = exc_info[1].args[1]
+    print(f"Failed to read file '{path}': {message}",
           file=sys.stderr)
 
 def print_read_unicode(exc_info, path, encoding):
     """Print :exc:`UnicodeError` message to standard error."""
     encoding = encoding or get_default_encoding()
-    print("Failed to decode file '{}' with codec '{}'"
-          .format(path, encoding),
+    print(f"Failed to decode file '{path}' with codec '{encoding}'",
           file=sys.stderr)
 
 def print_write_io(exc_info, path):
     """Print :exc:`IOError` message to standard error."""
-    print("Failed to write file '{}': {}"
-          .format(path, exc_info[1].args[1]),
+    message = exc_info[1].args[1]
+    print(f"Failed to write file '{path}': {message}",
           file=sys.stderr)
 
 def print_write_unicode(exc_info, path, encoding):
     """Print :exc:`UnicodeError` message to standard error."""
     encoding = encoding or get_default_encoding()
-    print("Failed to encode file '{}' with codec '{}'"
-          .format(path, encoding),
+    print(f"Failed to encode file '{path}' with codec '{encoding}'",
           file=sys.stderr)
 
 def read(path, encoding=None, fallback="utf_8", quiet=False):
@@ -368,8 +342,7 @@ def read(path, encoding=None, fallback="utf_8", quiet=False):
     """
     encoding = encoding or get_default_encoding()
     try:
-        with open(path, "r", encoding=encoding) as f:
-            return f.read().strip()
+        return Path(path).read_text(encoding=encoding).strip()
     except IOError:
         if not quiet:
             print_read_io(sys.exc_info(), path)
@@ -395,27 +368,21 @@ def readlines(path, encoding=None, fallback="utf_8", quiet=False):
 
 def replace_extension(path, format):
     """Replace possible extension in `path` with that of `format`."""
+    path = Path(path)
     extensions = [x.extension for x in aeidon.formats]
-    if path.endswith(tuple(extensions)):
-        path = path[:path.rfind(".")]
-    return "".join((path, format.extension))
+    if path.suffix in extensions:
+        path = path.with_suffix("")
+    return path.with_name(path.name + format.extension)
 
 def shell_quote(path):
     """Quote and escape `path` for shell use."""
+    path = str(path)
     if sys.platform != "win32":
         # Windows filenames can contain backslashes only as
         # directory separators and cannot contain double quotes.
         path = path.replace("\\", "\\\\")
         path = path.replace('"', '\\"')
-    return '"{}"'.format(path)
-
-@contextlib.contextmanager
-def silent(*exceptions, tb=False):
-    """Try to execute body, ignoring `exceptions`."""
-    try:
-        yield
-    except exceptions:
-        if tb: traceback.print_exc()
+    return f'"{path}"'
 
 def start_process(command, **kwargs):
     """
@@ -453,10 +420,8 @@ def uri_to_path(uri):
     uri = urllib.parse.unquote(uri)
     if sys.platform == "win32":
         path = urllib.parse.urlsplit(uri)[2]
-        while path.startswith("/"):
-            path = path[1:]
-        return path.replace("/", "\\")
-    return urllib.parse.urlsplit(uri)[2]
+        return Path(path.lstrip("/").replace("/", "\\"))
+    return Path(urllib.parse.urlsplit(uri)[2])
 
 def write(path, text, encoding=None, fallback="utf_8", quiet=False):
     """
@@ -466,12 +431,10 @@ def write(path, text, encoding=None, fallback="utf_8", quiet=False):
     Raise :exc:`IOError` if writing fails.
     Raise :exc:`UnicodeError` if encoding fails.
     """
-    if not os.path.isdir(os.path.dirname(path)):
-        makedirs(os.path.dirname(path))
+    makedirs(Path(path).parent)
     encoding = encoding or get_default_encoding()
     try:
-        with open(path, "w", encoding=encoding) as f:
-            return f.write(text)
+        return Path(path).write_text(text, encoding=encoding)
     except IOError:
         if not quiet:
             print_write_io(sys.exc_info(), path)

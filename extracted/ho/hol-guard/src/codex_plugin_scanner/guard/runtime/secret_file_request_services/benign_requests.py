@@ -5,6 +5,8 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
+import shlex
 from pathlib import Path
 
 from ...models import GuardArtifact
@@ -13,6 +15,7 @@ from ..command_evaluation import evaluate_command
 from ..direct_vitest import direct_local_typescript_execution_context, direct_local_vitest_execution_context
 from ..extension_control_contract import ExtensionControlLayer
 from ..github_actions_read_workflow import is_nonexecuting_github_actions_read_workflow
+from ..read_only_git_audit import is_read_only_git_ancestry_audit
 from ..routine_setup_commands import is_safe_codex_memory_registry_search, is_safe_git_worktree_add
 from ..shell_command_wrappers import normalize_transparent_shell_command
 from .constants_core import _SHELL_TOOL_NAMES
@@ -74,6 +77,9 @@ def is_explicitly_benign_tool_action_request(
             ).normalized_command
         stripped_command = command_text.strip()
         if not stripped_command:
+            continue
+        if home_dir is not None and _is_guard_safety_doc_read(stripped_command, home_dir=home_dir):
+            found_benign_candidate = True
             continue
         parts = _split_shell_parts(stripped_command)
         if not parts:
@@ -156,11 +162,37 @@ def is_explicitly_benign_tool_action_request(
         ):
             found_benign_candidate = True
             continue
+        if home_dir is not None and is_read_only_git_ancestry_audit(
+            stripped_command,
+            cwd=cwd,
+            home_dir=home_dir,
+        ):
+            found_benign_candidate = True
+            continue
         if _looks_like_safe_kubernetes_inventory_command(stripped_command, parts, cwd=cwd):
             found_benign_candidate = True
             continue
         return False
     return found_benign_candidate
+
+
+def _is_guard_safety_doc_read(command_text: str, *, home_dir: Path) -> bool:
+    try:
+        parts = shlex.split(command_text)
+    except ValueError:
+        return False
+    if len(parts) != 4 or parts[:2] != ["sed", "-n"]:
+        return False
+    match = re.fullmatch(r"([1-9][0-9]{0,3}),([1-9][0-9]{0,3})p", parts[2])
+    if match is None or int(match.group(2)) - int(match.group(1)) > 500:
+        return False
+    target = parts[3]
+    expected = home_dir / ".hol-support" / "SAFETY.md"
+    candidate = home_dir / target[2:] if target.startswith("~/") else Path(target)
+    try:
+        return candidate.absolute() == expected.absolute() and expected.is_file() and not expected.is_symlink()
+    except OSError:
+        return False
 
 
 def _skip_shell_wrapper_options(segment: list[_ShellTokenWithQuoteContext], index: int) -> int:

@@ -1938,8 +1938,21 @@ fn flatten_collecting_parallel<'a>(
 
     // rayon's global pool is already sized to available_parallelism() and persists across
     // calls -- reuse it directly unless the caller explicitly overrode the thread count.
+    //
+    // When this document is one item of a batch already dispatched inside a
+    // `num_threads`-sized pool (builder.rs::process_batch's `Some(n)` branch), this
+    // function runs on one of *that* pool's worker threads -- `current_num_threads()`
+    // reports its size. Building yet another `n`-thread pool here would be pure
+    // overhead (a fresh OS thread spawn/join per qualifying document in the batch,
+    // up to O(batch_size) pool constructions instead of the one the caller intended)
+    // without changing anything: the ambient pool already has exactly the requested
+    // thread count, so nested rayon calls (`par_chunks` above) already run on it
+    // without needing another `install()`. Only build+install a dedicated pool when
+    // the ambient one doesn't already match -- e.g. a single large document processed
+    // outside any batch-level pool, where the ambient pool is rayon's global default.
     let merged = match config.num_threads {
         None => process_chunks(),
+        Some(n) if rayon::current_num_threads() == n => process_chunks(),
         Some(n) => {
             let pool = rayon::ThreadPoolBuilder::new()
                 .num_threads(n)

@@ -13,7 +13,7 @@
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with this program. If not, see <http://www.gnu.org/licenses/>.
+# along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 """
 Codes, names and descriptions of character encodings.
@@ -27,7 +27,6 @@ import locale
 import re
 
 from aeidon.i18n import _
-
 
 # Tuples of code, name and description for each supported character encoding.
 # Codes are the official names used by Python. Names are mostly taken from
@@ -140,14 +139,12 @@ CODE, NAME, DESC = range(3)
 # Illegal characters in encoding codes.
 _re_illegal = re.compile(r"[^a-z0-9_]")
 
-
 def code_to_description(code):
     """Convert encoding `code` to localized description."""
     for item in _encodings:
         if item[CODE] == code:
             return item[DESC]
-    raise ValueError("Code {!r} not found"
-                     .format(code))
+    raise ValueError(f"Code {code!r} not found")
 
 def code_to_long_name(code):
     """Convert encoding `code` to localized long name."""
@@ -157,16 +154,14 @@ def code_to_long_name(code):
                     .format(name=item[NAME],
                             description=item[DESC]))
 
-    raise ValueError("Code {!r} not found"
-                     .format(code))
+    raise ValueError(f"Code {code!r} not found")
 
 def code_to_name(code):
     """Convert encoding `code` to name."""
     for item in _encodings:
         if item[CODE] == code:
             return item[NAME]
-    raise ValueError("Code {!r} not found"
-                     .format(code))
+    raise ValueError(f"Code {code!r} not found")
 
 def detect(path):
     """
@@ -221,13 +216,12 @@ def get_locale_long_name():
     return _("Current locale ({})").format(name)
 
 @aeidon.deco.once
+@aeidon.deco.listify
 def get_valid():
     """Return a list of code, name, description of valid encodings."""
-    valid_encodings = []
-    for i, item in enumerate(_encodings):
+    for item in _encodings:
         if is_valid_code(item[CODE]):
-            valid_encodings.append(item)
-    return valid_encodings
+            yield item
 
 def is_valid_code(code):
     """Return ``True`` if encoding `code` is valid."""
@@ -242,8 +236,7 @@ def name_to_code(name):
     for item in _encodings:
         if item[NAME] == name:
             return item[CODE]
-    raise ValueError("Name {!r} not found"
-                     .format(name))
+    raise ValueError(f"Name {name!r} not found")
 
 def translate_code(code):
     """Return normalized encoding `code`."""
@@ -252,5 +245,4 @@ def translate_code(code):
     for item in _encodings:
         if item[CODE] == code:
             return item[CODE]
-    raise ValueError("Code {!r} not found"
-                     .format(code))
+    raise ValueError(f"Code {code!r} not found")

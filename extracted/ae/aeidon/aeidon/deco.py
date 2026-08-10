@@ -13,15 +13,15 @@
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with this program. If not, see <http://www.gnu.org/licenses/>.
+# along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 """Miscellaneous decorators for functions and methods."""
 
 import aeidon
 import collections
+import contextlib
 import functools
 import pickle
-import traceback
 
 # Python decorators normally do not preserve the signature of the original
 # function. We, however, absolutely need those function signatures kept to able
@@ -34,7 +34,6 @@ import traceback
 #
 # [1] https://pypi.python.org/pypi/decorator/
 # [2] https://decorator.readthedocs.io/en/latest/tests.documentation.html#dealing-with-third-party-decorators
-
 
 def decorator_apply(dec, fun):
     """Rewrap `dec` to preserve function signature."""
@@ -75,6 +74,19 @@ def _is_method(function, args):
     except (IndexError, AttributeError):
         return False
 
+def listify(function):
+    """Decorator for generator functions to return a list."""
+    @functools.wraps(function)
+    def wrapper(*args, **kwargs):
+        return list(function(*args, **kwargs))
+    return wrapper
+
+if aeidon.RUNNING_SPHINX:
+    _listify = listify
+    def listify(function):
+        return decorator_apply(_listify, function)
+    listify.__doc__ = _listify.__doc__
+
 def memoize(limit=100):
     """
     Decorator for functions that cache their return values.
@@ -94,7 +106,7 @@ def memoize(limit=100):
                           args[1:], kwargs)
 
             key = pickle.dumps(params)
-            with aeidon.util.silent(KeyError):
+            with contextlib.suppress(KeyError):
                 return cache[key]
             cache[key] = function(*args, **kwargs)
             if limit is not None:
@@ -131,7 +143,7 @@ def once(function):
     cache = []
     @functools.wraps(function)
     def wrapper(*args, **kwargs):
-        with aeidon.util.silent(IndexError):
+        with contextlib.suppress(IndexError):
             return cache[0]
         cache.append(function(*args, **kwargs))
         return cache[0]
@@ -202,7 +214,7 @@ if aeidon.RUNNING_SPHINX:
         return decorator_apply(_revertable, function)
     revertable.__doc__ = _revertable.__doc__
 
-def silent(*exceptions, tb=False):
+def silent(*exceptions):
     """
     Decorator for ignoring `exceptions` raised  by function.
 
@@ -217,8 +229,6 @@ def silent(*exceptions, tb=False):
             try:
                 return function(*args, **kwargs)
             except exceptions:
-                if tb:
-                    traceback.print_exc()
                 return None
         return inner_wrapper
     if aeidon.RUNNING_SPHINX:

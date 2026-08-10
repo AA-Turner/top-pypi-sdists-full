@@ -63,6 +63,22 @@ def _env_auto_update_disabled():
     return ci not in ("", "0", "false")
 
 
+def _running_from_source_checkout():
+    """True when this code runs from a git checkout instead of an installed
+    wheel. Auto-update must never fire there: pip installs into
+    site-packages but the process keeps executing the checkout, so the
+    version can NEVER converge — on Windows the respawn plan then loops
+    forever (exit → pip → relaunch → still stale → repeat), flashing a
+    console window every cycle. Live-hit on the founder's box 2026-08-08:
+    a dev `python dashboard.py` run respawn-looped every ~70s, popping cmd
+    windows during an enterprise call."""
+    try:
+        from pathlib import Path
+        return (Path(__file__).resolve().parents[1] / ".git").exists()
+    except Exception:
+        return False
+
+
 def _daemon_supervised():
     """Best-effort: is the sync daemon under a supervisor that respawns it
     (launchd KeepAlive / systemd Restart=always)? When it is not, exiting to
@@ -175,7 +191,12 @@ def _schedule_windows_respawn(delay_secs: float = 5.0) -> None:
     def _respawn():
         try:
             import subprocess
-            flags = 0x00000008 | 0x00000200  # DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP
+            # CREATE_NO_WINDOW | CREATE_NEW_PROCESS_GROUP — a hidden console
+            # the helper's own children inherit, NOT DETACHED_PROCESS (no
+            # console): console-subsystem children of a console-less parent
+            # each allocate a fresh VISIBLE console (persistent Windows
+            # Terminal tab on Win11 — founder report 2026-08-09).
+            flags = 0x08000000 | 0x00000200
             cmd = _respawn_cmdline()
             log_dir = os.path.expanduser("~/.clawmetry")
             try:
@@ -197,6 +218,15 @@ def _schedule_windows_respawn(delay_secs: float = 5.0) -> None:
         except Exception as exc:
             global _auto_update_in_progress
             _auto_update_in_progress = False
+            # The lock was riding the handoff for the HELPER to release; the
+            # helper never launched, so release it here or every check cycle
+            # silently skips ("another process is updating") until the 900s
+            # staleness window breaks it — a 15-minute invisible update
+            # stall (observed as a 12+ minute lag on the Windows lab box).
+            _release_update_lock()
+            _record_update_attempt(
+                _pending_update_target.get("version", "?"), "failed",
+                f"windows respawn handoff failed: {exc}")
             log.warning("auto-update: windows respawn failed (%s); new version "
                         "applies on next manual start", exc)
     t = threading.Timer(2.0, _respawn)
@@ -721,6 +751,10 @@ def _maybe_auto_update(current, target, latest=None):
     if _env_auto_update_disabled():
         log.info("auto-update: disabled (CLAWMETRY_AUTO_UPDATE=0 or CI env)")
         return
+    if _running_from_source_checkout():
+        log.info("auto-update: skipped (running from a source checkout — "
+                 "pip cannot update the code this process executes)")
+        return
     cfg = _get_update_check_config()
     if not cfg.get("auto_update"):
         return
@@ -847,6 +881,21 @@ def _update_check_worker(stop_event):
     auto-update is off (CLAWMETRY_AUTO_UPDATE=0 or stored config), the
     dashboard keeps the gentle banner-only cadence.
     """
+    # Boot-time hygiene: prune stale clawmetry-*.dist-info dirs a partially
+    # failed in-place pip upgrade left behind (Windows: pip runs while a
+    # sibling process holds .pyd/.exe files open, so the OLD version's
+    # uninstall half-fails). Stale dist-infos make importlib.metadata — and
+    # pip itself — resolve the OLDEST version (alphabetical listdir order),
+    # which lies to every metadata probe (five stale dist-infos observed
+    # live on a Windows lab box, 2026-08-10). dist-info entries are plain
+    # metadata files, never held open, so this succeeds even while code
+    # files stay locked.
+    try:
+        from clawmetry.distinfo_cleanup import cleanup_stale_dist_info
+        cleanup_stale_dist_info()
+    except Exception as exc:
+        log.debug("stale dist-info cleanup failed: %s", exc)
+
     # Initial check on startup (after a boot-settle delay; interruptible).
     if stop_event.wait(60):
         return

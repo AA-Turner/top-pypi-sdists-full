@@ -73,13 +73,12 @@ impl PyVTTLCache {
 
                 let getsizeof = wrapped.shared().getsizeof().clone_ref(py);
 
-                let result = wrapped.extend(
+                wrapped.extend(
                     // iterable object
                     iterable,
                     // transform function
                     |key, value| vttlpolicy::ExpiringHandle::new(py, &getsizeof, ttl, key, value),
-                );
-                result
+                )
             } else {
                 Ok(())
             }
@@ -143,13 +142,13 @@ impl PyVTTLCache {
 
     #[inline]
     fn __sizeof__(&self) -> usize {
-        const FIXED_SIZE: usize = std::mem::size_of::<Wrapped<vttlpolicy::VTTLPolicy>>();
+        const FIXED_SIZE: usize = size_of::<Wrapped<vttlpolicy::VTTLPolicy>>();
 
         let inner = self.0.get();
         let policy = inner.policy();
 
         let table_cap = policy.table().capacity() * 8;
-        let list_cap = policy.heap().len() * std::mem::size_of::<vttlpolicy::ExpiringHandle>();
+        let list_cap = policy.heap().len() * size_of::<vttlpolicy::ExpiringHandle>();
 
         FIXED_SIZE + table_cap + list_cap
     }
@@ -367,13 +366,23 @@ impl PyVTTLCache {
 
         let inner = self.0.get();
         let shared = inner.shared();
+
+        {
+            let mut policy = inner.policy();
+
+            if let Some(x) = policy.get(py, &key)? {
+                return Ok(x.value().clone_ref(py));
+            }
+        }
+
+        // `factory` is Python code: a GC pass inside it would deadlock on `__traverse__`
+        let default_object = factory.call0(py)?;
+
         let mut policy = inner.policy();
 
         if let Some(x) = policy.get(py, &key)? {
             return Ok(x.value().clone_ref(py));
         }
-
-        let default_object = factory.call0(py)?;
 
         let handle = vttlpolicy::ExpiringHandle::with_precomputed_hash_key(
             py,
@@ -516,54 +525,57 @@ impl PyVTTLCache {
             .map(|x| !x)
     }
 
-    fn items(&self) -> pyo3::PyResult<pyo3::Py<PyVTTLCacheItems>> {
-        let inner = self.0.get();
+    fn items(slf: pyo3::Bound<'_, Self>) -> pyo3::PyResult<pyo3::Py<PyVTTLCacheItems>> {
+        let inner = slf.get().0.get();
         let mut policy = inner.policy();
 
         let gv = inner.shared().generation_version();
         let iter = policy.iter(gv);
 
         let result = PyVTTLCacheItems {
+            cache: slf.as_any().clone().unbind(),
             iter: parking_lot::Mutex::new(iter),
             gv: gv.clone(),
             initial_gv: gv.get(),
         };
-        pyo3::Python::attach(|py| pyo3::Py::new(py, result))
+        pyo3::Py::new(slf.py(), result)
     }
 
-    fn values(&self) -> pyo3::PyResult<pyo3::Py<PyVTTLCacheValues>> {
-        let inner = self.0.get();
+    fn values(slf: pyo3::Bound<'_, Self>) -> pyo3::PyResult<pyo3::Py<PyVTTLCacheValues>> {
+        let inner = slf.get().0.get();
         let mut policy = inner.policy();
 
         let gv = inner.shared().generation_version();
         let iter = policy.iter(gv);
 
         let result = PyVTTLCacheValues {
+            cache: slf.as_any().clone().unbind(),
             iter: parking_lot::Mutex::new(iter),
             gv: gv.clone(),
             initial_gv: gv.get(),
         };
-        pyo3::Python::attach(|py| pyo3::Py::new(py, result))
+        pyo3::Py::new(slf.py(), result)
     }
 
-    fn keys(&self) -> pyo3::PyResult<pyo3::Py<PyVTTLCacheKeys>> {
-        let inner = self.0.get();
+    fn keys(slf: pyo3::Bound<'_, Self>) -> pyo3::PyResult<pyo3::Py<PyVTTLCacheKeys>> {
+        let inner = slf.get().0.get();
         let mut policy = inner.policy();
 
         let gv = inner.shared().generation_version();
         let iter = policy.iter(gv);
 
         let result = PyVTTLCacheKeys {
+            cache: slf.as_any().clone().unbind(),
             iter: parking_lot::Mutex::new(iter),
             gv: gv.clone(),
             initial_gv: gv.get(),
         };
-        pyo3::Python::attach(|py| pyo3::Py::new(py, result))
+        pyo3::Py::new(slf.py(), result)
     }
 
     #[inline]
-    fn __iter__(&self) -> pyo3::PyResult<pyo3::Py<PyVTTLCacheKeys>> {
-        self.keys()
+    fn __iter__(slf: pyo3::Bound<'_, Self>) -> pyo3::PyResult<pyo3::Py<PyVTTLCacheKeys>> {
+        Self::keys(slf)
     }
 
     fn copy(&self, py: pyo3::Python) -> pyo3::PyResult<pyo3::Py<Self>> {
@@ -740,19 +752,22 @@ impl PyVTTLCache {
         Ok((key.into(), val, dur))
     }
 
-    fn items_with_expire(&self) -> pyo3::PyResult<pyo3::Py<PyVTTLCacheItemsWithExpire>> {
-        let inner = self.0.get();
+    fn items_with_expire(
+        slf: pyo3::Bound<'_, Self>,
+    ) -> pyo3::PyResult<pyo3::Py<PyVTTLCacheItemsWithExpire>> {
+        let inner = slf.get().0.get();
         let mut policy = inner.policy();
 
         let gv = inner.shared().generation_version();
         let iter = policy.iter(gv);
 
         let result = PyVTTLCacheItemsWithExpire {
+            cache: slf.as_any().clone().unbind(),
             iter: parking_lot::Mutex::new(iter),
             gv: gv.clone(),
             initial_gv: gv.get(),
         };
-        pyo3::Python::attach(|py| pyo3::Py::new(py, result))
+        pyo3::Py::new(slf.py(), result)
     }
 
     fn __traverse__(&self, visit: pyo3::PyVisit<'_>) -> Result<(), pyo3::PyTraverseError> {
@@ -794,6 +809,7 @@ macro_rules! implement_iterator {
         $(
             implement_pyclass! {
                 [generic, frozen] $name as $pyname {
+                    cache: pyo3::Py<pyo3::PyAny>,
                     initial_gv: u32,
                     gv: utils::GenerationVersion,
                     iter: parking_lot::Mutex<lazyheap::RawIter<vttlpolicy::ExpiringHandle>>,
@@ -805,6 +821,10 @@ macro_rules! implement_iterator {
                 #[inline]
                 fn __iter__(slf: pyo3::PyRef<'_, Self>) -> pyo3::PyRef<'_, Self> {
                     slf
+                }
+
+                fn __traverse__(&self, visit: pyo3::PyVisit<'_>) -> Result<(), pyo3::PyTraverseError> {
+                    visit.call(&self.cache)
                 }
 
                 fn __next__(slf: pyo3::PyRef<'_, Self>) -> pyo3::PyResult<$rt_type> {

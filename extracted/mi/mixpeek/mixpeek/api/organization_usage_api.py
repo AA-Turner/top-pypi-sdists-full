@@ -331,6 +331,7 @@ class OrganizationUsageApi:
 
         # authentication setting
         _auth_settings: List[str] = [
+            'BearerAuth'
         ]
 
         return self.api_client.param_serialize(
@@ -643,6 +644,7 @@ class OrganizationUsageApi:
 
         # authentication setting
         _auth_settings: List[str] = [
+            'BearerAuth'
         ]
 
         return self.api_client.param_serialize(
@@ -940,6 +942,7 @@ class OrganizationUsageApi:
 
         # authentication setting
         _auth_settings: List[str] = [
+            'BearerAuth'
         ]
 
         return self.api_client.param_serialize(

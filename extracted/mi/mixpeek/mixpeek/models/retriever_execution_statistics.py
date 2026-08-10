@@ -32,7 +32,8 @@ class RetrieverExecutionStatistics(BaseModel):
     stages: Optional[Dict[str, StageStatistics]] = Field(default=None, description="Per-stage statistics keyed by stage instance name (REQUIRED).")
     total_time_ms: Optional[Union[Annotated[float, Field(strict=True, ge=0.0)], Annotated[int, Field(strict=True, ge=0)]]] = Field(default=0.0, description="Total retriever execution time in milliseconds (REQUIRED).")
     credits_used: Optional[Union[Annotated[float, Field(strict=True, ge=0.0)], Annotated[int, Field(strict=True, ge=0)]]] = Field(default=0.0, description="Total credits consumed across all stages (OPTIONAL in MVP).")
-    __properties: ClassVar[List[str]] = ["stages", "total_time_ms", "credits_used"]
+    server_service_ms: Optional[Union[Annotated[float, Field(strict=True, ge=0.0)], Annotated[int, Field(strict=True, ge=0)]]] = Field(default=None, description="Controller-measured service span in ms (TG-3105): the wall time of the service.execute_retriever call, stamped by the API controller after execution. Partitions request latency beyond the stages: middleware total minus this = pre-body (DI/auth/tenant resolution); this minus the stage sum = service-outside-stages (cache lookup, plan build, serialization). None on cache-hit replays, whose statistics belong to a different execution.")
+    __properties: ClassVar[List[str]] = ["stages", "total_time_ms", "credits_used", "server_service_ms"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -99,7 +100,8 @@ class RetrieverExecutionStatistics(BaseModel):
             if obj.get("stages") is not None
             else None,
             "total_time_ms": obj.get("total_time_ms") if obj.get("total_time_ms") is not None else 0.0,
-            "credits_used": obj.get("credits_used") if obj.get("credits_used") is not None else 0.0
+            "credits_used": obj.get("credits_used") if obj.get("credits_used") is not None else 0.0,
+            "server_service_ms": obj.get("server_service_ms")
         })
         return _obj
 

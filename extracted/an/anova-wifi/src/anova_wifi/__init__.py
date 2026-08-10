@@ -1,7 +1,9 @@
 from .exceptions import (
     AnovaException,
     AnovaOffline,
+    CommandFailure,
     InvalidLogin,
+    NoActiveCookError,
     NoDevicesFound,
     WebsocketFailure,
 )
@@ -15,6 +17,7 @@ from .web_socket_containers import (
     APCUpdateBinary,
     APCUpdateSensor,
     APCWifiDevice,
+    Capability,
     WifiCookerStateBody,
     WifiJob,
     WifiJobStatus,
@@ -24,10 +27,11 @@ from .web_socket_containers import (
     WifiSystemInfoNxp,
     WifiTemperatureInfo,
     build_wifi_cooker_state_body,
+    get_supported_capabilities,
 )
 from .websocket_handler import AnovaWebsocketHandler
 
-__version__ = "1.1.0"
+__version__ = "2.0.0"
 
 __all__ = [
     "AnovaApi",
@@ -36,6 +40,8 @@ __all__ = [
     "InvalidLogin",
     "NoDevicesFound",
     "WebsocketFailure",
+    "CommandFailure",
+    "NoActiveCookError",
     "APCUpdate",
     "APCUpdateSensor",
     "APCUpdateBinary",
@@ -54,4 +60,6 @@ __all__ = [
     "build_wifi_cooker_state_body",
     "AnovaWebsocketHandler",
     "AnovaA3State",
+    "Capability",
+    "get_supported_capabilities",
 ]

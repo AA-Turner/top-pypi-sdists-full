@@ -42,12 +42,34 @@ impl Default for IndexState {
 pub enum IndexUpdate {
     /// A file was changed (content included for debouncing)
     FileChanged { path: PathBuf, content: String },
-    /// A file was deleted
-    FileDeleted { path: PathBuf },
+    /// A path stopped being one the index covers, because the file was deleted
+    /// or because an ignore or exclude rule began matching it.
+    ///
+    /// An ignore rule never reaches here for a document an editor holds, which
+    /// is answered from its buffer instead. A deletion does: an entry says the
+    /// file exists with these anchors, and a link to a file that is gone is a
+    /// link to nothing however long the editor keeps showing it.
+    FileRemoved { path: PathBuf },
     /// Request a full workspace rescan
     FullRescan,
     /// Shutdown the worker
     Shutdown,
+}
+
+/// A request from the background index worker asking the server to publish a
+/// document's diagnostics again.
+///
+/// Cross-file diagnostics are computed from the workspace index, so their
+/// answers can change with no editor event to recompute them: the file that
+/// changed is a different one, or the change is the initial scan finishing
+/// after a document was already opened and linted without it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RelintRequest {
+    /// Re-lint this file, if the editor has it open.
+    File(PathBuf),
+    /// Re-lint every open document, for a change to the index as a whole that
+    /// no per-file request describes.
+    AllOpen,
 }
 
 /// Controls the order in which configuration sources are merged

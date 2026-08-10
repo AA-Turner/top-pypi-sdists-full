@@ -26,6 +26,19 @@ def _isolate_user_git_config(  # pyright: ignore[reportUnusedFunction]
     config.mkdir(parents=True)
     monkeypatch.setenv("HOME", str(home))
     monkeypatch.setenv("XDG_CONFIG_HOME", str(config))
+    for variable in (
+        "GIT_CONFIG",
+        "GIT_CONFIG_COUNT",
+        "GIT_CONFIG_GLOBAL",
+        "GIT_CONFIG_NOSYSTEM",
+        "GIT_CONFIG_PARAMETERS",
+        "GIT_CONFIG_SYSTEM",
+        "GIT_COMMON_DIR",
+        "GIT_DIR",
+        "GIT_NAMESPACE",
+        "GIT_WORK_TREE",
+    ):
+        monkeypatch.delenv(variable, raising=False)
 
 
 def _repository(tmp_path: Path) -> tuple[Path, Path]:
@@ -78,6 +91,55 @@ def test_standalone_origin_ref_refresh_and_resolution_are_explicitly_benign(tmp_
             )
             is None
         )
+
+
+def test_standalone_verified_origin_reads_are_explicitly_benign(tmp_path: Path) -> None:
+    home, repository = _repository(tmp_path)
+
+    assert _is_benign("git ls-remote --heads origin main release/3.0", home=home, repository=repository)
+    assert _is_benign(
+        "git branch -r --list origin/main origin/release/3.0",
+        home=home,
+        repository=repository,
+    )
+    command = " && ".join(
+        (
+            "git status --short --branch",
+            "git worktree list --porcelain",
+            "git branch -r --list origin/main origin/release/3.0",
+        )
+    )
+    assert _is_benign(command, home=home, repository=repository)
+
+
+@pytest.mark.parametrize(
+    "command",
+    (
+        "git ls-remote origin main",
+        "git ls-remote --heads https://github.com/example/project.git main",
+        "git ls-remote --upload-pack=payload origin main",
+        "git ls-remote --heads origin 'refs/heads/*'",
+        "git ls-remote --heads origin main | cat",
+        "git branch -a --list origin/main",
+        "git branch -r --contains origin/main",
+    ),
+)
+def test_standalone_verified_origin_reads_reject_widening_syntax(tmp_path: Path, command: str) -> None:
+    home, repository = _repository(tmp_path)
+
+    assert not _is_benign(command, home=home, repository=repository)
+
+
+def test_remote_branch_listing_rejects_executable_pager(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    home, repository = _repository(tmp_path)
+    monkeypatch.delenv("GIT_PAGER", raising=False)
+    monkeypatch.delenv("PAGER", raising=False)
+    _ = subprocess.run(["git", "-C", str(repository), "config", "pager.branch", "!payload"], check=True)
+
+    assert not _is_benign("git branch -r --list origin/main", home=home, repository=repository)
 
 
 def test_standalone_git_routine_requires_explicit_execution_directory(tmp_path: Path) -> None:

@@ -53,6 +53,106 @@ struct jls_rd_s {
 } while (0)
 
 
+/**
+ * @brief Recover a file truncated by a writer crash.
+ *
+ * @param core The core instance, opened read-only at a file whose final
+ *      chunk is not JLS_TAG_END.
+ * @param path The file path, reopened for write then read.
+ * @param pos The offset of the last valid chunk.
+ * @return 0 or error code.  JLS_ERROR_TRUNCATED when the file cannot be
+ *      reopened for write (e.g. read-only).  Interior damage propagates
+ *      as JLS_ERROR_MESSAGE_INTEGRITY; the caller maps all other
+ *      failures to JLS_ERROR_TRUNCATED.
+ *
+ * Handles only the tail-truncation damage class in O(crash tail).
+ * All other corruption requires the offline jls_repair() operation.
+ */
+static int32_t rd_open_recover(struct jls_core_s * core, const char * path, int64_t pos) {
+    int32_t rc;
+    ROE(jls_raw_close(core->raw));
+    core->raw = NULL;
+    rc = jls_raw_open(&core->raw, path, "a");
+    if (rc && (rc != JLS_ERROR_TRUNCATED)) {
+        return JLS_ERROR_TRUNCATED;  // read-only or locked: cannot repair in place
+    }
+
+    struct jls_core_chunk_s tail;
+    ROE(jls_core_truncate_tail(core, pos, &tail));
+
+    ROE(jls_raw_chunk_seek(core->raw, sizeof(struct jls_file_header_s)));
+    ROE(jls_core_scan_initial(core));
+    ROE(jls_core_scan_sources(core));
+    ROE(jls_core_scan_signals(core));
+
+    if ((0 == tail.hdr.item_prev) && (tail.hdr.tag & JLS_TRACK_TAG_FLAG)) {
+        // first chunk of its chain: the lost update is the track head offset
+        uint8_t chunk_type = jls_core_tag_parse_track_chunk(tail.hdr.tag);
+        uint16_t sig = tail.hdr.chunk_meta & SIGNAL_MASK;
+        uint8_t level = (uint8_t) (tail.hdr.chunk_meta >> 12);
+        if ((sig < JLS_SIGNAL_COUNT)
+                && ((JLS_TRACK_CHUNK_DATA == chunk_type) || (JLS_TRACK_CHUNK_INDEX == chunk_type))) {
+            uint8_t track_type = jls_core_tag_parse_track_type(tail.hdr.tag);
+            struct jls_core_track_s * t = &core->signal_info[sig].tracks[track_type];
+            if ((NULL != t->parent) && (0 == t->head_offsets[level])) {
+                JLS_LOGI("restore lost head offset: signal %d track %d level %d @ %" PRIi64,
+                         (int) sig, (int) track_type, (int) level, tail.offset);
+                t->head_offsets[level] = tail.offset;  // persisted by jls_track_repair_pointers
+            }
+        }
+    }
+
+    for (uint16_t signal_idx = 0; signal_idx < JLS_SIGNAL_COUNT; ++signal_idx) {
+        struct jls_core_signal_s * signal_info = &core->signal_info[signal_idx];
+        if (signal_info->signal_def.signal_id != signal_idx) {
+            continue;
+        }
+        JLS_LOGI("repair signal %d", (int) signal_info->signal_def.signal_id);
+        for (int track_idx = 0; track_idx < JLS_TRACK_TYPE_COUNT; ++track_idx) {
+            if (!jls_core_track_applicable(signal_info->signal_def.signal_type, (uint8_t) track_idx)) {
+                continue;
+            }
+            if (NULL == signal_info->tracks[track_idx].parent) {
+                continue;  // truncated before the track head was written: no data exists
+            }
+            ROE(jls_track_repair_pointers(&signal_info->tracks[track_idx]));
+        }
+    }
+
+    if (core->user_data_head.offset) {
+        if (JLS_ERROR_NOT_FOUND ==
+                jls_core_repair_chain(core, core->user_data_head.offset, JLS_TAG_USER_DATA, -1)) {
+            JLS_LOGW("user data head unreadable");
+        } else if ((0 == jls_raw_chunk_seek(core->raw, core->user_data_head.offset))
+                   && (0 == jls_core_rd_chunk(core))) {
+            core->user_data_head.hdr = core->chunk_cur.hdr;  // refresh: clamp may have rewritten it
+        }
+    }
+
+    ROE(jls_core_scan_fsr_sample_id(core));
+
+    for (uint16_t signal_idx = 0; signal_idx < JLS_SIGNAL_COUNT; ++signal_idx) {
+        struct jls_core_signal_s * signal_info = &core->signal_info[signal_idx];
+        if (signal_info->signal_def.signal_id != signal_idx) {
+            continue;
+        }
+        if (signal_info->signal_def.signal_type == JLS_SIGNAL_TYPE_FSR) {
+            ROE(jls_core_repair_fsr(core, signal_idx));
+            // todo repair annotation
+            // todo repair UTC
+        } else {
+            // todo repair VSR
+            // todo repair annotation
+        }
+    }
+
+    ROE(jls_raw_seek_end(core->raw));  // END must append, never overwrite
+    ROE(jls_core_wr_end(core));
+    ROE(jls_raw_close(core->raw));
+    core->raw = NULL;
+    return jls_raw_open(&core->raw, path, "r");
+}
+
 int32_t jls_rd_open(struct jls_rd_s ** instance, const char * path) {
     int32_t rc = 0;
     if (!instance) {
@@ -87,72 +187,32 @@ int32_t jls_rd_open(struct jls_rd_s ** instance, const char * path) {
         goto exit;
     }
 
-    GOE(jls_core_scan_initial(core));
-    GOE(jls_core_scan_sources(core));
-    GOE(jls_core_scan_signals(core));
-
     if (jls_core_rd_chunk_end(core)) {
-        return JLS_ERROR_EMPTY;  // no chunk found!
+        GOE(JLS_ERROR_EMPTY);  // no valid chunk found
     }
     int64_t pos = jls_raw_chunk_tell(core->raw);
 
-    if (self->core.chunk_cur.hdr.tag != JLS_TAG_END) {
+    if (self->core.chunk_cur.hdr.tag == JLS_TAG_END) {
+        // properly closed: strict scans, any damage requires offline jls_repair
+        GOE(jls_raw_chunk_seek(core->raw, sizeof(struct jls_file_header_s)));
+        GOE(jls_core_scan_initial(core));
+        GOE(jls_core_scan_sources(core));
+        GOE(jls_core_scan_signals(core));
+    } else {
         JLS_LOGW("not properly closed");  // indices & summaries may be incomplete
-        GOE(jls_raw_close(core->raw));
-        rc = jls_raw_open(&core->raw, path, "a");
-        if (rc && (rc != JLS_ERROR_TRUNCATED)) {
-            goto exit;
+        core->recovery_active = true;
+        rc = rd_open_recover(core, path, pos);
+        core->recovery_active = false;
+        if (rc && (JLS_ERROR_MESSAGE_INTEGRITY != rc) && (JLS_ERROR_NOT_ENOUGH_MEMORY != rc)) {
+            rc = JLS_ERROR_TRUNCATED;  // truncation recovery failed
         }
-
-        // find last full chunk and truncate remainder
-        GOE(jls_raw_chunk_seek(core->raw, pos));
-        GOE(jls_core_rd_chunk(core));
-        GOE(jls_bk_truncate(jls_raw_backend(core->raw)));
-
-        // rewrite last full chunk to update payload_prev_length
-        GOE(jls_raw_chunk_seek(core->raw, pos));
-        GOE(jls_raw_wr(core->raw, &core->chunk_cur.hdr, core->buf->cur));
-
-        for (uint16_t signal_idx = 0; signal_idx < JLS_SIGNAL_COUNT; ++signal_idx) {
-            struct jls_core_signal_s * signal_info = &core->signal_info[signal_idx];
-            if (signal_info->signal_def.signal_id != signal_idx) {
-                continue;
-            }
-            JLS_LOGI("repair signal %d", (int) signal_info->signal_def.signal_id);
-            for (int track_idx = 0; track_idx < JLS_TRACK_TYPE_COUNT; ++track_idx) {
-                if (NULL != signal_info->tracks[track_idx].parent) {
-                    jls_track_repair_pointers(&signal_info->tracks[track_idx]);
-                }
-            }
-        }
-
-        GOE(jls_core_scan_fsr_sample_id(core));
-
-        for (uint16_t signal_idx = 0; signal_idx < JLS_SIGNAL_COUNT; ++signal_idx) {
-            struct jls_core_signal_s * signal_info = &core->signal_info[signal_idx];
-            if (signal_info->signal_def.signal_id != signal_idx) {
-                continue;
-            }
-
-            if (signal_info->signal_def.signal_type == JLS_SIGNAL_TYPE_FSR) {
-                GOE(jls_core_repair_fsr(core, signal_idx));
-                // todo repair annotation
-                // todo repair UTC
-            } else {
-                // todo repair VSR
-                // todo repair annotation
-            }
-        }
-
-        GOE(jls_core_wr_end(core));
-        GOE(jls_raw_close(core->raw));
-        GOE(jls_raw_open(&core->raw, path, "r"));
+        GOE(rc);
     }
 
     for (uint16_t i = 0; i < JLS_SIGNAL_COUNT; ++i) {
         struct jls_core_signal_s * signal_info = &core->signal_info[i];
         if ((signal_info->signal_def.signal_id == i) && (JLS_SIGNAL_TYPE_FSR == signal_info->signal_def.signal_type)) {
-            ROE(jls_fsr_open(&signal_info->track_fsr, signal_info));
+            GOE(jls_fsr_open(&signal_info->track_fsr, signal_info));
         }
     }
 
@@ -245,15 +305,15 @@ static inline void f64_to_stats(struct jls_statistics_s * stats, const double * 
 }
 
 static int32_t rd_stats_chunk(struct jls_core_s * self, uint16_t signal_id, uint8_t level) {
-    ROE(jls_core_rd_chunk(self));
-    if (JLS_TAG_TRACK_FSR_SUMMARY != self->chunk_cur.hdr.tag) {
-        JLS_LOGW("unexpected chunk tag %d at %" PRIi64, (int) self->chunk_cur.hdr.tag, self->chunk_cur.offset);
-        return JLS_ERROR_IO;
-    }
     uint16_t metadata = (signal_id & SIGNAL_MASK) | (((uint16_t) level) << 12);
-    if (metadata != self->chunk_cur.hdr.chunk_meta) {
-        JLS_LOGW("unexpected chunk meta 0x%04x", (unsigned int) self->chunk_cur.hdr.chunk_meta);
-        return JLS_ERROR_IO;
+    ROE(jls_core_rd_chunk_validate(self, JLS_TAG_TRACK_FSR_SUMMARY, metadata));
+    struct jls_fsr_f32_summary_s * s = (struct jls_fsr_f32_summary_s *) self->buf->start;
+    uint64_t sz_bytes = ((uint64_t) s->header.entry_count * s->header.entry_size_bits + 7) / 8;
+    if ((0 == s->header.entry_count)
+            || ((sizeof(struct jls_payload_header_s) + sz_bytes) > self->buf->length)) {
+        JLS_LOGW("invalid summary chunk at %" PRIi64 ": entry_count=%" PRIu32,
+                 self->chunk_cur.offset, s->header.entry_count);
+        return JLS_ERROR_MESSAGE_INTEGRITY;
     }
 
     /*
@@ -330,6 +390,11 @@ static int32_t fsr_statistics(struct jls_core_s * self, uint16_t signal_id,
     while (data_length) {
         if (src_offset >= src_end) {
             if (self->chunk_cur.hdr.item_next) {
+                if ((int64_t) self->chunk_cur.hdr.item_next <= self->chunk_cur.offset) {
+                    // chains always point forward; reject corrupt backward/cyclic links
+                    JLS_LOGW("invalid item_next at %" PRIi64, self->chunk_cur.offset);
+                    return JLS_ERROR_MESSAGE_INTEGRITY;
+                }
                 ROE(jls_raw_chunk_seek(self->raw, self->chunk_cur.hdr.item_next));
                 ROE(rd_stats_chunk(self, signal_id, level));
                 f32_summary = (struct jls_fsr_f32_summary_s *) self->buf->start;
@@ -478,6 +543,11 @@ int32_t jls_core_fsr_statistics(struct jls_core_s * self, uint16_t signal_id,
         if (src >= src_end) {
             ROE(jls_core_rd_fsr_data0(self, signal_id, start_sample_id));
             s = (struct jls_fsr_data_s *) self->buf->start;
+            if (0 == s->header.entry_count) {
+                JLS_LOGW("empty data chunk: signal_id=%d, sample_id=%" PRIi64,
+                         (int) signal_id, start_sample_id);
+                return JLS_ERROR_MESSAGE_INTEGRITY;
+            }
             chunk_sample_id = s->header.timestamp;
             jls_dt_buffer_to_f64(&s->data[0], signal_def->data_type, self->f64_sample_buf->start, signal_def->samples_per_data);
             src = &self->f64_sample_buf->start[0];
@@ -545,7 +615,14 @@ int32_t jls_core_annotations(struct jls_core_s * self, uint16_t signal_id, int64
 
     // iterate
     int64_t pos = jls_raw_chunk_tell(self->raw);
+    int64_t pos_prev = 0;
     while (pos) {
+        if (pos <= pos_prev) {
+            // chains always point forward; reject corrupt backward/cyclic links
+            JLS_LOGW("invalid item_next at %" PRIi64, pos_prev);
+            return JLS_ERROR_MESSAGE_INTEGRITY;
+        }
+        pos_prev = pos;
         ROE(jls_raw_chunk_seek(self->raw, pos));
         ROE(jls_core_rd_chunk(self));
         if (self->chunk_cur.hdr.tag != JLS_TAG_TRACK_ANNOTATION_DATA) {
@@ -572,8 +649,15 @@ int32_t jls_core_user_data(struct jls_core_s * self, jls_rd_user_data_cbk_fn cbk
         return JLS_ERROR_PARAMETER_INVALID;
     }
     int64_t pos = self->user_data_head.hdr.item_next;
+    int64_t pos_prev = 0;
     uint16_t chunk_meta;
     while (pos) {
+        if (pos <= pos_prev) {
+            // chains always point forward; reject corrupt backward/cyclic links
+            JLS_LOGW("invalid item_next at %" PRIi64, pos_prev);
+            return JLS_ERROR_MESSAGE_INTEGRITY;
+        }
+        pos_prev = pos;
         ROE(jls_raw_chunk_seek(self->raw, pos));
         ROE(jls_core_rd_chunk(self));
         if (self->chunk_cur.hdr.tag != JLS_TAG_USER_DATA) {
@@ -623,9 +707,17 @@ int32_t jls_core_utc(struct jls_core_s * self, uint16_t signal_id, int64_t sampl
     // iterate
     struct jls_chunk_header_s hdr;
     hdr.item_next = jls_raw_chunk_tell(self->raw);
+    int64_t pos_prev = 0;
 
     while (hdr.item_next) {
-        ROE(jls_raw_chunk_seek(self->raw, hdr.item_next));
+        int64_t pos = (int64_t) hdr.item_next;
+        if (pos <= pos_prev) {
+            // chains always point forward; reject corrupt backward/cyclic links
+            JLS_LOGW("invalid item_next at %" PRIi64, pos_prev);
+            return JLS_ERROR_MESSAGE_INTEGRITY;
+        }
+        pos_prev = pos;
+        ROE(jls_raw_chunk_seek(self->raw, pos));
         ROE(jls_raw_rd_header(self->raw, &hdr));
         if (hdr.tag == JLS_TAG_TRACK_UTC_DATA) {
             ROE(jls_core_rd_chunk(self));
@@ -639,12 +731,28 @@ int32_t jls_core_utc(struct jls_core_s * self, uint16_t signal_id, int64_t sampl
             }
             continue;
         } else if (hdr.tag == JLS_TAG_TRACK_UTC_INDEX) {
-            ROE(jls_raw_chunk_next(self->raw));
-            ROE(jls_core_rd_chunk(self));
+            ROE(jls_core_rd_chunk(self));  // index payload
+            struct jls_index_s * index = (struct jls_index_s *) self->buf->start;
+            uint8_t * p_end = (uint8_t *) &index->entries[index->header.entry_count];
+            if ((size_t) (p_end - self->buf->start) > self->buf->length) {
+                JLS_LOGE("invalid index payload length");
+                return JLS_ERROR_MESSAGE_INTEGRITY;
+            }
+            int64_t tail_offset = 0;
+            if ((0 == hdr.item_next) && (index->header.entry_count > 0)) {
+                // final index: entries not yet summarized follow the last summarized data chunk
+                tail_offset = (int64_t) index->entries[index->header.entry_count - 1].offset;
+            }
+            ROE(jls_core_rd_chunk(self));  // summary
             if (self->chunk_cur.hdr.tag != JLS_TAG_TRACK_UTC_SUMMARY) {
                 return JLS_ERROR_NOT_FOUND;
             }
             utc = (struct jls_utc_summary_s *) self->buf->start;
+            p_end = (uint8_t *) &utc->entries[utc->header.entry_count];
+            if ((size_t) (p_end - self->buf->start) > self->buf->length) {
+                JLS_LOGE("invalid summary payload length");
+                return JLS_ERROR_MESSAGE_INTEGRITY;
+            }
             uint32_t idx = 0;
             for (; (idx < utc->header.entry_count) && (sample_id > utc->entries[idx].sample_id); ++idx) {
                 // iterate
@@ -657,6 +765,15 @@ int32_t jls_core_utc(struct jls_core_s * self, uint16_t signal_id, int64_t sampl
                 if (cbk_fn(cbk_user_data, utc->entries + idx, size)) {
                     return 0;
                 }
+            }
+            if (tail_offset) {
+                // continue with the unsummarized tail data chunks (crash-recovered files)
+                if (jls_raw_chunk_seek(self->raw, tail_offset)
+                        || jls_raw_rd_header(self->raw, &hdr)
+                        || (hdr.tag != JLS_TAG_TRACK_UTC_DATA)) {
+                    return 0;  // tail not locatable; the summarized entries were reported
+                }
+                pos_prev = tail_offset;
             }
         } else {
             return JLS_ERROR_NOT_FOUND;

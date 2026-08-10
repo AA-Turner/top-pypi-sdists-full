@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyjls
-Version: 0.17.0
+Version: 0.18.0
 Summary: Joulescope™ file format
 Home-page: https://joulescope.readthedocs.io
 Author: Jetperch LLC
@@ -21,7 +21,6 @@ Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
@@ -31,7 +30,7 @@ Classifier: Topic :: Software Development :: Embedded Systems
 Classifier: Topic :: Software Development :: Testing
 Classifier: Topic :: System :: Hardware :: Hardware Drivers
 Classifier: Topic :: Utilities
-Requires-Python: ~=3.11
+Requires-Python: ~=3.12
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: numpy<3,>=2.1.0

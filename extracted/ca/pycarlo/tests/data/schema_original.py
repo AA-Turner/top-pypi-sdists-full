@@ -503,8 +503,8 @@ class AgentHealthPriority(sgqlc.types.Enum):
 
 
 class AgentHealthSeverity(sgqlc.types.Enum):
-    """Severity vocabulary shared by issues, evidence, and the parent
-    `health` rollup.
+    """Severity vocabulary shared by issues, evidence, and the report
+    `health` grade.
 
     Enumeration Choices:
 
@@ -34480,6 +34480,20 @@ class DeleteRecipientName(sgqlc.types.Type):
     success = sgqlc.types.Field(Boolean, graphql_name="success")
 
 
+class DeleteReinforcementLoopIssuesByAgent(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("deleted_count",)
+    deleted_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="deletedCount")
+    """Number of issues actually deleted."""
+
+
+class DeleteReinforcementLoopIssuesByIssueId(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("deleted_count",)
+    deleted_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="deletedCount")
+    """Number of issues actually deleted."""
+
+
 class DeleteSamlIdentityProvider(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("account", "job")
@@ -45021,6 +45035,8 @@ class Mutation(sgqlc.types.Type):
         "create_jira_ticket_for_agent_health_issue",
         "create_service_now_ticket_for_agent_health_issue",
         "trigger_reinforcement_loop_dispatch",
+        "delete_reinforcement_loop_issues_by_issue_id",
+        "delete_reinforcement_loop_issues_by_agent",
         "delete_agent_trace_table",
         "create_or_update_platform_agent",
         "install_genie_collector",
@@ -46806,6 +46822,68 @@ class Mutation(sgqlc.types.Type):
     """(experimental) Manually queue the reinforcement-loop (agent
     health) fan-out for the calling account, instead of waiting for
     the daily schedule. Monte Carlo operators only.
+    """
+
+    delete_reinforcement_loop_issues_by_issue_id = sgqlc.types.Field(
+        DeleteReinforcementLoopIssuesByIssueId,
+        graphql_name="deleteReinforcementLoopIssuesByIssueId",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "issue_uuids",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(UUID))),
+                        graphql_name="issueUuids",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Delete reinforcement-loop issues by uuid. A deleted
+    issue never resurfaces; if the agent reports the same problem
+    again it starts over as a brand-new issue.
+
+    Arguments:
+
+    * `issue_uuids` (`[UUID!]!`): UUIDs of the issues to delete — each
+      the `issueUuid` of a getReinforcementLoopIssues node
+      (equivalently its `issue.findingUuid`). Unknown and already-
+      deleted uuids are skipped.
+    """
+
+    delete_reinforcement_loop_issues_by_agent = sgqlc.types.Field(
+        DeleteReinforcementLoopIssuesByAgent,
+        graphql_name="deleteReinforcementLoopIssuesByAgent",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "agent_name",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="agentName", default=None
+                    ),
+                ),
+                (
+                    "trace_table_mcon",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="traceTableMcon", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Delete every reinforcement-loop issue of one agent,
+    across all its workflows. A deleted issue never resurfaces; if the
+    agent reports the same problem again it starts over as a brand-new
+    issue.
+
+    Arguments:
+
+    * `agent_name` (`String!`): Name of the agent whose issues to
+      delete.
+    * `trace_table_mcon` (`String!`): The agent's trace table MCON —
+      the same agentName/traceTableMcon pair
+      getReinforcementLoopIssues takes.
     """
 
     delete_agent_trace_table = sgqlc.types.Field(
@@ -74069,7 +74147,7 @@ class Query(sgqlc.types.Type):
     )
     """(experimental) The newest reinforcement-loop report per workflow
     scope of an (agentName, traceTableMcon) combo — run-level metadata
-    only: health rollup, issue/coverage counts, and the analysis
+    only: health grade, issue/coverage counts, and the analysis
     window. One entry per workflow scope with at least one report (the
     no-workflow scope first, then workflow names ascending); scopes
     with no report yet are absent. Issue bodies live on
@@ -98120,8 +98198,8 @@ class ReinforcementLoopIssuePageInfo(sgqlc.types.Type):
 class ReinforcementLoopReport(sgqlc.types.Type):
     """Run-level metadata of one workflow scope's newest reinforcement-
     loop report.  The run-scoped half of the RL read surface: health
-    rollup, coverage counts, and the analysis window. Issue bodies
-    live on getReinforcementLoopIssues — keep the nodes whose runUuid
+    grade, coverage counts, and the analysis window. Issue bodies live
+    on getReinforcementLoopIssues — keep the nodes whose runUuid
     matches to read exactly this report's issues.
     """
 
@@ -98156,9 +98234,8 @@ class ReinforcementLoopReport(sgqlc.types.Type):
     """
 
     health = sgqlc.types.Field(AgentHealthSeverity, graphql_name="health")
-    """Worst-severity rollup: the report's own health grade when present,
-    otherwise the max severity across its issues. Null only when
-    neither is known.
+    """The report's health grade, stored verbatim as reported by the
+    agent. Null on early runs reported before agents sent a grade.
     """
 
     issue_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="issueCount")

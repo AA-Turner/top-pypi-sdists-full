@@ -88,6 +88,8 @@ from typing import (
 
 from . import activity as activity_mod
 from . import aot_flatten
+from . import aot_identity
+from . import artifact_meta
 from . import host_isa
 from .cell_adopt import AdoptOutcome
 from . import shape_growth
@@ -115,6 +117,11 @@ ARTIFACT_KIND = "aot-inductor"
 #: was indistinguishable from one that was not. Coalesced: once per
 #: (entry, input, reason).
 REALIGN_EVENT = "aot_input_realigned"
+#: pgw#1074: a rank-0 input arrived in an INTEGER dtype where the graph is
+#: specialized on float32/float64, and this ingress recast it. Same shape and
+#: same doctrine as :data:`REALIGN_EVENT` — the ingress normalizes the feed to
+#: the artifact's contract and SAYS so, once per (entry, input, dtype pair).
+RECAST_EVENT = "aot_input_recast"
 #: AOTInductor generates its aligned-input fast path at 16 bytes
 #: (``torch._inductor.codegen.aoti_runtime``'s ALIGNMENT). An input whose
 #: ``data_ptr()`` is not a multiple of this — diffusers hands the denoiser
@@ -204,13 +211,6 @@ def torch_version() -> str:
         return ""
 
 
-def torch_maj_min(version: str) -> str:
-    parts = str(version or "").split(".")
-    if len(parts) < 2 or not parts[0]:
-        return ""
-    return f"{parts[0]}.{parts[1]}"
-
-
 def runtime_key() -> Dict[str, str]:
     """Consumer-side half of the artifact key, probed from this process.
 
@@ -231,22 +231,20 @@ def runtime_key() -> Dict[str, str]:
     return key
 
 
-def flavor_label(sku: str, version: str, precision: str) -> str:
-    """``aot-l4-torch2.13-w8a8``. The FULL torch version lives in metadata;
-    the label carries maj.min for humans and selection."""
-    mm = torch_maj_min(version)
-    if not sku or not mm or not precision:
-        return ""
-    return f"aot-{sku}-torch{mm}-{precision}"
-
-
 # Stamped cell keys this process LEARNED name aot-inductor artifacts
 # (pgw#722 F1 discovery). Published AOT cells ride the same key space as
 # their store flavor — indistinguishable from a dynamo cell's flavor by
-# string shape alone — so discovery registers each learned key here and
-# :func:`is_aot_ref` consults the set. Without this the executor's kind
-# dispatch (#734/#735) would score an armed ``.pt2`` by FX cache hits and
-# disprove every honest adoption.
+# string shape alone — so every reader of a stamped envelope registers the
+# key it learned here and :func:`is_aot_ref` consults the set. Without this
+# the executor's kind dispatch (#734/#735) would score an armed ``.pt2`` by
+# FX cache hits and disprove every honest adoption.
+#
+# THE RULE (pgw#1033): whoever reads a ``cell_key`` off an ``aot-inductor``
+# envelope registers it. There are two such readers on the serving path —
+# ``aot_cells.discover`` (a delivered cell) and
+# ``fleet_cells.adopt_delegated_mint`` (this pod's OWN mint). Only the first
+# registered, so a self-minted cell — the one artifact this process is
+# certain is exported — was the one ref ``is_aot_ref`` did not recognize.
 _KNOWN_AOT_KEYS: set[str] = set()
 _KNOWN_AOT_KEYS_LOCK = threading.Lock()
 
@@ -263,14 +261,16 @@ def note_aot_key(cell_key: str) -> None:
 def is_aot_ref(ref: str, family: str = "") -> bool:
     """True when ``ref`` names an AOTI cell (optionally of one family).
 
-    Recognizes both the label form (``#aot-<sku>-...``) and any stamped
-    cell key this process learned via :func:`note_aot_key`.
+    ONE recognizer: the stamped cell keys this process learned via
+    :func:`note_aot_key`. pgw#1035 deleted the second, a
+    ``flavor.startswith("aot-")`` label sniff — the only producer of that label
+    form was ``aot_serve.flavor_label``, which had no caller and is gone. A cell
+    ref carries a stamped KEY, so a label branch could only ever have matched a
+    string this codebase no longer writes.
     """
     fam, flavor = parse_cell_ref(ref)
     if not fam or (family and fam != family):
         return False
-    if flavor.startswith("aot-"):
-        return True
     with _KNOWN_AOT_KEYS_LOCK:
         return flavor in _KNOWN_AOT_KEYS
 
@@ -730,7 +730,11 @@ def verify_declared(meta: Dict[str, Any], *, family: str = "") -> str:
     return ""
 
 
-def verify_contract(meta: Dict[str, Any]) -> str:
+def verify_contract(
+    meta: Dict[str, Any],
+    *,
+    entries: Optional[Mapping[str, Mapping[str, Any]]] = None,
+) -> str:
     """'' when the artifact's ``entries`` contract is self-consistent, else
     the reason.
 
@@ -739,11 +743,17 @@ def verify_contract(meta: Dict[str, Any]) -> str:
     off ``metadata.json``, which is where ``aot_serve`` has always served it
     from. It is verified HERE, on the staged bytes, and never against a
     control-plane declare that is not required to carry it (pgw#988).
+
+    ``entries`` is the already-validated map from :func:`_unpack` when the arm
+    path has one (pgw#1040 — same pure parse, threaded rather than repeated);
+    ``None`` parses it here, which is what a caller holding only a metadata
+    dict does.
     """
-    try:
-        entries = entries_from_meta(meta)
-    except ValueError as exc:
-        return f"malformed declared contract: {exc}"
+    if entries is None:
+        try:
+            entries = entries_from_meta(meta)
+        except ValueError as exc:
+            return f"malformed declared contract: {exc}"
     strict = bool(meta.get("strict_export", True))
     bucket = int(meta.get("lora_bucket") or 0)
     hashes: List[str] = []
@@ -764,14 +774,23 @@ def verify_contract(meta: Dict[str, Any]) -> str:
     return ""
 
 
-def verify(meta: Dict[str, Any], *, family: str = "") -> str:
+def verify(
+    meta: Dict[str, Any],
+    *,
+    family: str = "",
+    entries: Optional[Mapping[str, Mapping[str, Any]]] = None,
+) -> str:
     """'' when a cell's FULL metadata matches this runtime, else the reason.
 
     Both halves, for callers holding an artifact's own ``metadata.json``
     (:func:`stage_artifact`). Discovery, which holds only a declare, calls
     :func:`verify_declared` and reaches this one after the fetch.
+
+    ``entries`` threads the already-validated map through to
+    :func:`verify_contract` (pgw#1040).
     """
-    return verify_declared(meta, family=family) or verify_contract(meta)
+    return (verify_declared(meta, family=family)
+            or verify_contract(meta, entries=entries))
 
 
 #: :func:`host_isa_reason`'s refusal for a cell that stamped no requirement.
@@ -894,6 +913,21 @@ def pack(content_dir: Path, out_path: Path, metadata: Dict[str, Any]) -> Path:
 
 def unpack(artifact: Path, dest_root: Path) -> Dict[str, Any]:
     """Extract the fixed member set into ``dest_root``; returns metadata."""
+    return _unpack(artifact, dest_root)[0]
+
+
+def _unpack(
+    artifact: Path, dest_root: Path,
+) -> Tuple[Dict[str, Any], Dict[str, Dict[str, Any]]]:
+    """:func:`unpack`, also handing back the ``entries`` map it had to parse.
+
+    pgw#1040: one arm used to run :func:`entries_from_meta` three times over
+    the same bytes — here for the literal-payload check, again in
+    :func:`verify_contract`, and a third time in :func:`load_and_wrap` — and
+    each pass re-parses every entry's full contract and constant table. The
+    parse is the same pure function of the same dict every time, so the arm
+    path threads ONE result from here instead.
+    """
     dest_root = Path(dest_root)
     dest_root.mkdir(parents=True, exist_ok=True)
     meta: Dict[str, Any] = {}
@@ -921,17 +955,34 @@ def unpack(artifact: Path, dest_root: Path) -> Dict[str, Any]:
         raise ValueError(f"{ARTIFACT_KIND} artifact {artifact} has no {METADATA_NAME}")
     # A literal-sourced constant with no payload member would only be
     # discovered at bind time, mid-arm. Name it (and its entry) here.
+    entries = entries_from_meta(meta)
     literals = [
         f"{name}{LITERAL_SEP}{s.fqn}"
-        for name, block in entries_from_meta(meta).items()
+        for name, block in entries.items()
         for s in constants_from_meta(block) if s.source == SOURCE_LITERAL]
     if literals and LITERALS_NAME not in seen:
         raise ValueError(
             f"{ARTIFACT_KIND} artifact {artifact} declares literal constants "
             f"{sorted(literals)[:4]!r} but carries no {LITERALS_NAME}")
-    return meta
+    return meta, entries
 
 
+#: Read the packed envelope without unpacking the cell.
+#:
+#: pgw#1035: no serving-path caller since ``is_aot_artifact`` (its only one)
+#: was deleted, and DELIBERATELY KEPT — this is the AOT lane's own reader of its
+#: own envelope, and the pgw#699 double-mint byte-compare proof drives it over
+#: real minted tarballs. ``trt_engine.unpack_metadata`` is byte-identical; that
+#: dedup belongs to the TRT-engine ratification, not here, because whichever
+#: module survives owns the shared one.
+#:
+#: pgw#1040 collapsed the OTHER seven envelope readers into
+#: :func:`artifact_meta.read_metadata` and left this one alone ON PURPOSE.
+#: Delegating it makes it a one-line alias, which the pgw#849 ratchet then
+#: reports as a STALE baseline entry — an edit to
+#: ``scripts/unreached_surface_baseline.txt``, which a live sibling lane is
+#: rewriting. It costs nothing to wait: this function and its baseline line die
+#: together in whichever cut settles the TRT ratification.
 def unpack_metadata(artifact: Path) -> Dict[str, Any]:
     """Read ONLY metadata.json from an artifact (kind sniffing — cheap)."""
     with tarfile.open(artifact, mode="r:*") as tar:
@@ -943,19 +994,12 @@ def unpack_metadata(artifact: Path) -> Dict[str, Any]:
     raise ValueError(f"artifact {artifact} has no {METADATA_NAME}")
 
 
-def is_aot_artifact(artifact: Path) -> bool:
-    """Kind sniff for the ``provision.enable_compiled`` dispatch. Never
-    raises: an unreadable/foreign artifact is simply not ours."""
-    try:
-        meta = unpack_metadata(Path(artifact))
-    except Exception:
-        return False
-    return str(meta.get("kind") or "") == ARTIFACT_KIND
-
-
 @dataclass
 class _StagedAotArtifact:
     metadata: Dict[str, Any]
+    #: The validated ``entries`` map of :attr:`metadata`, parsed ONCE while
+    #: staging (pgw#1040) and threaded to every consumer in the arm.
+    entries: Dict[str, Dict[str, Any]]
     root: Path
     temporary: "tempfile.TemporaryDirectory[str]"
 
@@ -965,27 +1009,44 @@ class _StagedAotArtifact:
 
 def stage_artifact(
     artifact: Path, family: str, cache_dir: Optional[Path] = None,
+    *, expected: "Optional[aot_identity.ExpectedIdentity]" = None,
 ) -> _StagedAotArtifact:
     """Extract and runtime-verify a complete artifact in an isolated tree.
 
     The live/shared cache and pipeline remain untouched on every rejection.
     Concurrent attempts use distinct trees; a process crash can leave only
     an unreferenced staging directory, never a partially published ``.pt2``.
+
+    ``expected`` (pgw#903) is the identity the current ``ExecutionSpec`` named.
+    When supplied, this artifact must BE that one — a declared-identity
+    comparison, never a byte comparison (§4.25/§4.26: two mints of one key
+    legitimately differ, pgw#1006 measured it). ``None`` is the pre-cutover
+    RunJob path, where no immutable spec exists to compare against; it leaves
+    behaviour byte-identical rather than inventing an expectation.
     """
     base = Path(cache_dir) if cache_dir else Path.home() / ".cache" / "gen-worker"
     base.mkdir(parents=True, exist_ok=True)
     temporary = tempfile.TemporaryDirectory(prefix="aot-stage-", dir=base)
     root = Path(temporary.name)
     try:
-        meta = unpack(Path(artifact), root)
+        meta, entries = _unpack(Path(artifact), root)
         # pgw#754: rule on host-CPU executability FIRST and by name — the
         # one failure mode that must never reach dlopen.
         isa_reason = host_isa_reason(meta)
         if isa_reason:
             raise AdoptError("host_isa_unsupported", isa_reason)
-        reason = verify(meta, family=family)
+        reason = verify(meta, family=family, entries=entries)
         if reason:
             raise AdoptError("key_mismatch", reason)
+        # pgw#903: "can this runtime execute it" is answered above; this
+        # answers "is it the artifact the spec named", which nothing asked
+        # before there was an immutable spec to ask against. Its own reason
+        # class: a runnable cell that is the WRONG cell is a different bug,
+        # a different owner and a different fix from an unrunnable one.
+        if expected is not None:
+            mismatch = aot_identity.verify_declared_identity(meta, expected)
+            if mismatch:
+                raise AdoptError("expected_identity_mismatch", mismatch)
         # pgw#765: the GPU-architecture axis as the BYTES declare it, ruled
         # on by name before dlopen — the tier that keeps cross-SKU adoption
         # honest now that ``sku`` no longer stands in for the arch. Runs
@@ -993,21 +1054,13 @@ def stage_artifact(
         sm_reason = verify_package_compute_capability(root / PACKAGE_NAME)
         if sm_reason:
             raise AdoptError("sm_mismatch", sm_reason)
-        return _StagedAotArtifact(meta, root, temporary)
+        return _StagedAotArtifact(meta, entries, root, temporary)
     except AdoptError:
         temporary.cleanup()
         raise
     except Exception as exc:
         temporary.cleanup()
         raise AdoptError("artifact_invalid", str(exc)) from exc
-
-
-def find_artifact(root: Path) -> Optional[Path]:
-    """The artifact tarball inside a downloaded snapshot dir (or the file)."""
-    root = Path(root)
-    if root.is_file():
-        return root
-    return next(iter(sorted(root.rglob("*.tar.gz"))), None)
 
 
 # ---------------------------------------------------------------------------
@@ -1152,6 +1205,56 @@ def excluded_inputs_present(
     return tuple(found)
 
 
+#: pgw#1074: the ONLY dtype normalization this ingress performs. Integer ->
+#: float32/float64 on a rank-0 input, and nothing else.
+#:
+#: float32 represents every integer up to 2**24 exactly, so the recast is
+#: value-preserving over any diffusion timestep domain, and it is EXACTLY the
+#: op the traced graph's own first node performs on this input (diffusers
+#: ``get_timestep_embedding``: ``timesteps[:, None].float()``) — so a recast
+#: feed produces bit-identical output to the eager call that presented the
+#: integer. bfloat16 and float16 are deliberately NOT targets: bf16 has 8
+#: mantissa bits and would round timestep 999 to 1000, which is a numeric
+#: change, not a normalization.
+RECAST_TARGETS = ("float32", "float64")
+_INTEGER_DTYPES = ("int8", "int16", "int32", "int64", "uint8")
+
+
+def recast_gap(spec: InputContract, value: Any) -> str:
+    """The named dtype normalization this feed needs, or ``''`` (pgw#1074).
+
+    ``''`` means either "already in contract" or "must be REFUSED" — this
+    function never widens the contract, it only names the one normalization
+    the ingress is allowed to perform, and :func:`ingress_report` refuses
+    every other dtype disagreement exactly as before.
+
+    **Why this exists.** The dtype a diffusers denoiser is handed for its
+    scalar timestep is a per-request SAMPLER fact, not a family fact. Measured
+    over ``gen_worker.view.SAMPLERS`` on the fleet's own diffusers (pgw#1074):
+    ``euler``/``euler_a``/``euler_trailing``/``heun``/``flow_euler`` present
+    **float32**; ``ddim``/``ddim_trailing``/``ddpm``/``deis``/``dpmpp_2m*``/
+    ``lcm``/``unipc`` present **int64** (``set_timesteps`` ends in
+    ``.to(dtype=torch.int64)``). sdxl's cell was minted float32 (ie#627, and
+    correct — it is what the graph is specialized on), so its turbo arm
+    (``euler_trailing``) served from the cell and its base arm, on an int64
+    sampler, was refused ``no_entry_admits`` by an entry that covered it in
+    every other respect. No single declared dtype can be right for a family
+    whose sampler is per-request VIEW state, and the sampler is deliberately
+    not a compile axis — so the normalization belongs at the boundary that
+    knows the contract, once, named and counted.
+    """
+    if spec.shape:  # rank-0 only: the timestep class, not a tensor of values
+        return ""
+    if spec.dtype not in RECAST_TARGETS:
+        return ""
+    got = _dtype_name(value)
+    if got not in _INTEGER_DTYPES:
+        return ""
+    if getattr(value, "shape", None) is None or tuple(value.shape):
+        return ""
+    return f"{got}_to_{spec.dtype}"
+
+
 def alignment_gap(value: Any) -> str:
     """'' when a feed satisfies the artifact's aligned-input contract, else
     the named reason (pgw#791).
@@ -1198,16 +1301,23 @@ class FeedAligner:
     def __init__(self) -> None:
         self._buffers: Dict[str, Any] = {}
 
-    def staged(self, name: str, value: Any) -> Any:
-        """A 16-byte-aligned contiguous copy of ``value`` in an owned buffer."""
+    def staged(self, name: str, value: Any, dtype: str = "") -> Any:
+        """A 16-byte-aligned contiguous copy of ``value`` in an owned buffer.
+
+        ``dtype`` (pgw#1074) stages into the artifact's DECLARED dtype instead
+        of the feed's own. The conversion is ``Tensor.copy_``'s — one device
+        kernel into the buffer this ingress already had to write, so the
+        recast costs nothing beyond the staging copy and never synchronises.
+        """
         import torch
 
+        want = getattr(torch, dtype) if dtype else value.dtype
         buf = self._buffers.get(name)
-        if (buf is None or buf.dtype is not value.dtype
+        if (buf is None or buf.dtype is not want
                 or buf.device != value.device
                 or tuple(buf.shape) != tuple(value.shape)):
             buf = torch.empty(
-                tuple(value.shape), dtype=value.dtype, device=value.device)
+                tuple(value.shape), dtype=want, device=value.device)
             if int(buf.data_ptr()) % AOTI_ALIGNMENT:
                 # torch's caching allocator hands out 512-byte-aligned blocks
                 # (CPU: 64). If that ever stops being true, realigning by
@@ -1232,9 +1342,14 @@ def aligned_feeds(
     contract: ArtifactContract,
     feeds: Sequence[Any],
     aligner: FeedAligner,
-    report: Optional[Callable[[str, str], None]] = None,
+    report: Optional[Callable[[str, str, str], None]] = None,
 ) -> List[Any]:
-    """``feeds`` with every out-of-contract input realigned in place (pgw#791).
+    """``feeds`` normalized to the artifact's contract (pgw#791 + pgw#1074).
+
+    Two normalizations, one staging buffer: the declared dtype
+    (:func:`recast_gap`) and the declared 16-byte alignment
+    (:func:`alignment_gap`). A recast implies a staged copy, so it subsumes
+    the alignment pass rather than running after it.
 
     ``feeds`` is :func:`marshal_positional`'s output, so it is one value per
     declared input in ``position`` order — the same order this walks, which is
@@ -1249,13 +1364,170 @@ def aligned_feeds(
             f"would realign the wrong slot")
     out = list(feeds)
     for idx, (spec, value) in enumerate(zip(specs, feeds)):
-        reason = alignment_gap(value)
+        recast = recast_gap(spec, value)
+        reason = recast or alignment_gap(value)
         if not reason:
             continue
-        out[idx] = aligner.staged(spec.name, value)
+        out[idx] = aligner.staged(spec.name, value, spec.dtype if recast else "")
         if report is not None:
-            report(spec.name, reason)
+            report(spec.name, reason, RECAST_EVENT if recast else REALIGN_EVENT)
     return out
+
+
+#: pgw#1074: how far each refusal reason puts an entry from the call. Dims
+#: LAST, so an entry that matches every declared dimension sorts to the front
+#: of a refusal listing whatever its remaining complaint is. The rungs are
+#: ordinal only — nothing reads their absolute values.
+MISS_RUNGS: Mapping[str, int] = {
+    # The call fits this graph's shape and disagrees about one scalar fact.
+    "dtype_mismatch": 1,
+    "input_not_tensor": 2,
+    # A branch/adapter routing disagreement: same shape family, wrong class.
+    "input_excluded": 3,
+    # Shape disagreements — the call does not fit this graph at all.
+    "static_dim_mismatch": 4,
+    "range_violation": 4,
+    "symbol_inconsistent": 4,
+    "rank_mismatch": 5,
+    # The call does not even carry the input; nothing else was measurable.
+    "input_missing": 6,
+}
+_MISS_RUNG_DEFAULT = 9
+#: How many non-closest entries a refusal names individually before it
+#: switches to a per-reason count. The closest entry is ALWAYS named in full
+#: and always first: this detail is truncated by the hub at ~573 chars, and
+#: pgw#1074 is what happens when the one informative entry falls past that.
+_MISS_SAMPLE = 3
+
+
+@dataclass(frozen=True)
+class IngressMiss:
+    """ONE reason one entry refuses one call (pgw#1074).
+
+    :attr:`rung` is how FAR that reason puts the entry from the call, and it
+    exists because a refusal listing has to be ORDERED by something. The
+    ordering is dims-first: an entry the call matches in every declared
+    dimension and misses only on dtype is the entry a reader is looking for,
+    and listing entries in iteration order buried exactly that one (36 tried,
+    6 listed, the dims-matching one not among them — the pgw#1074 filing).
+    """
+
+    reason: str
+    detail: str
+    input: str = ""
+    rung: int = _MISS_RUNG_DEFAULT
+
+
+def _rung(reason: str) -> int:
+    return MISS_RUNGS.get(reason, _MISS_RUNG_DEFAULT)
+
+
+def miss_distance(misses: Sequence[IngressMiss]) -> Tuple[int, ...]:
+    """Sort key over one entry's misses — lower is CLOSER to the call.
+
+    The sorted rung tuple, so that (a) an entry whose only complaint is a
+    shallow one beats an entry with a deep one, and (b) among entries with
+    the same shallowest complaint, the one with FEWER complaints wins (a
+    prefix sorts before its extension). Deterministic and total.
+    """
+    return tuple(sorted(_rung(m.reason) for m in misses))
+
+
+def ingress_report(
+    contract: ArtifactContract,
+    args: Sequence[Any],
+    kwargs: Mapping[str, Any],
+    *,
+    first_only: bool = False,
+) -> Tuple[Tuple[IngressMiss, ...], Dict[str, int]]:
+    """EVERY way this call misses this contract, plus the symbol bindings.
+
+    The one implementation of the pgw#704 B2 check. :func:`assert_ingress`
+    raises this function's FIRST miss and :meth:`EntryDispatch.select` ranks
+    whole entries by all of them, so an admission decision and the sentence
+    that explains it can never be computed by two different rules.
+
+    ``first_only`` returns as soon as one miss is found. It is an early EXIT
+    from this same walk, never a second rule — every ADMISSION decision takes
+    it (an admitted call has no misses, so the two are identical there), and
+    the exhaustive walk is paid only on the refusal path, which is already
+    falling back to eager. A 36-entry cell is asked this per denoise step.
+
+    Misses are collected in declaration order, per input in
+    dtype -> rank -> dims order, which is the order the raising check used
+    before this became a collecting one.
+    """
+    present = excluded_inputs_present(contract, kwargs)
+    if present:
+        return ((IngressMiss(
+            "input_excluded",
+            f"this graph class REFUSES input(s) {list(present)!r}: the call "
+            f"carries them, so it must be served by the class that declares "
+            f"them (pgw#790 — a branchless class fed an adapter would return "
+            f"the base model and look correct)",
+            str(present[0])),), {})
+    try:
+        bound = bind_call_inputs(contract, args, kwargs)
+    except IngressContractError as exc:
+        # An input the call does not carry at all: nothing further about this
+        # entry can be measured, so it is one miss and the deepest rung.
+        return ((IngressMiss(exc.reason, str(exc)),), {})
+    misses: List[IngressMiss] = []
+    symbols: Dict[str, int] = {}
+    owner: Dict[str, str] = {}
+    for spec in contract.inputs:
+        if first_only and misses:
+            break
+        if spec.name not in bound:
+            continue
+        value = bound[spec.name]
+        shape = getattr(value, "shape", None)
+        if shape is None:
+            misses.append(IngressMiss(
+                "input_not_tensor",
+                f"declared input {spec.name!r} is a "
+                f"{type(value).__name__} with no shape", spec.name))
+            continue
+        got_dtype = _dtype_name(value)
+        if got_dtype != spec.dtype and not recast_gap(spec, value):
+            misses.append(IngressMiss(
+                "dtype_mismatch",
+                f"input {spec.name!r} dtype {got_dtype or '<unknown>'} != "
+                f"declared {spec.dtype}", spec.name))
+        actual = tuple(int(d) for d in shape)
+        if len(actual) != len(spec.shape):
+            misses.append(IngressMiss(
+                "rank_mismatch",
+                f"input {spec.name!r} rank {len(actual)} != declared "
+                f"{len(spec.shape)} (declared shape {list(spec.shape)!r})",
+                spec.name))
+            continue
+        for pos, (declared, got) in enumerate(zip(spec.shape, actual)):
+            if isinstance(declared, int):
+                if got != declared:
+                    misses.append(IngressMiss(
+                        "static_dim_mismatch",
+                        f"input {spec.name!r} dim {pos} = {got} != "
+                        f"statically specialized {declared}", spec.name))
+                continue
+            lo, hi = contract.symbols[declared]
+            if not (lo <= got <= hi):
+                misses.append(IngressMiss(
+                    "range_violation",
+                    f"input {spec.name!r} dim {pos} (symbol {declared!r}) = "
+                    f"{got} outside declared range [{lo}, {hi}]", spec.name))
+                continue
+            prior = symbols.get(declared)
+            if prior is not None and prior != got:
+                misses.append(IngressMiss(
+                    "symbol_inconsistent",
+                    f"symbol {declared!r} = {got} on input {spec.name!r} dim "
+                    f"{pos} but {prior} on input {owner[declared]!r}",
+                    spec.name))
+                continue
+            symbols[declared] = got
+            owner.setdefault(declared, spec.name)
+    return (tuple(misses[:1]) if first_only else tuple(misses)), symbols
 
 
 def assert_ingress(
@@ -1267,10 +1539,12 @@ def assert_ingress(
 
     Returns the resolved symbol bindings on success; raises
     :class:`IngressContractError`, naming the input, the dim, the symbol,
-    the value and the bound, on any violation. Checks, per input:
+    the value and the bound, on the FIRST violation :func:`ingress_report`
+    finds. Checks, per input:
 
     * present (unless declared optional);
-    * dtype EXACT — an exported graph is specialized on dtype;
+    * dtype EXACT — an exported graph is specialized on dtype — except for
+      the one named normalization :func:`recast_gap` performs;
     * rank EXACT;
     * static dims EXACT — a specialized dim is not a range;
     * symbolic dims inside the declared inclusive range;
@@ -1279,61 +1553,9 @@ def assert_ingress(
       graph requires it, so a mismatch is out-of-contract even when both
       values are individually in range.
     """
-    present = excluded_inputs_present(contract, kwargs)
-    if present:
-        raise IngressContractError(
-            "input_excluded",
-            f"this graph class REFUSES input(s) {list(present)!r}: the call "
-            f"carries them, so it must be served by the class that declares "
-            f"them (pgw#790 — a branchless class fed an adapter would return "
-            f"the base model and look correct)")
-    bound = bind_call_inputs(contract, args, kwargs)
-    symbols: Dict[str, int] = {}
-    owner: Dict[str, str] = {}
-    for spec in contract.inputs:
-        if spec.name not in bound:
-            continue
-        value = bound[spec.name]
-        shape = getattr(value, "shape", None)
-        if shape is None:
-            raise IngressContractError(
-                "input_not_tensor",
-                f"declared input {spec.name!r} is a "
-                f"{type(value).__name__} with no shape")
-        got_dtype = _dtype_name(value)
-        if got_dtype != spec.dtype:
-            raise IngressContractError(
-                "dtype_mismatch",
-                f"input {spec.name!r} dtype {got_dtype or '<unknown>'} != "
-                f"declared {spec.dtype}")
-        actual = tuple(int(d) for d in shape)
-        if len(actual) != len(spec.shape):
-            raise IngressContractError(
-                "rank_mismatch",
-                f"input {spec.name!r} rank {len(actual)} != declared "
-                f"{len(spec.shape)} (declared shape {list(spec.shape)!r})")
-        for pos, (declared, got) in enumerate(zip(spec.shape, actual)):
-            if isinstance(declared, int):
-                if got != declared:
-                    raise IngressContractError(
-                        "static_dim_mismatch",
-                        f"input {spec.name!r} dim {pos} = {got} != "
-                        f"statically specialized {declared}")
-                continue
-            lo, hi = contract.symbols[declared]
-            if not (lo <= got <= hi):
-                raise IngressContractError(
-                    "range_violation",
-                    f"input {spec.name!r} dim {pos} (symbol {declared!r}) = "
-                    f"{got} outside declared range [{lo}, {hi}]")
-            prior = symbols.get(declared)
-            if prior is not None and prior != got:
-                raise IngressContractError(
-                    "symbol_inconsistent",
-                    f"symbol {declared!r} = {got} on input {spec.name!r} dim "
-                    f"{pos} but {prior} on input {owner[declared]!r}")
-            symbols[declared] = got
-            owner.setdefault(declared, spec.name)
+    misses, symbols = ingress_report(contract, args, kwargs, first_only=True)
+    if misses:
+        raise IngressContractError(misses[0].reason, misses[0].detail)
     return symbols
 
 
@@ -1446,6 +1668,67 @@ def resolve_constants(
     return out
 
 
+def _tensor_bytes(values: Iterable[Any]) -> int:
+    total = 0
+    for v in values:
+        try:
+            total += int(v.numel()) * int(v.element_size())
+        except Exception:  # noqa: BLE001 — sizing is context, never a gate
+            continue
+    return total
+
+
+def _device_memory_line() -> str:
+    """One human line of live device memory for a typed refusal."""
+    try:
+        import torch
+
+        if not torch.cuda.is_available():
+            return "device=cpu"
+        free, total = torch.cuda.mem_get_info()
+        return (f"device free {free / (1 << 20):.0f} MiB of "
+                f"{total / (1 << 20):.0f} MiB")
+    except Exception:  # noqa: BLE001 — context, never a gate
+        return "device=unknown"
+
+
+def target_constant_pool(
+    entry_constants: Iterable[Sequence[ConstantSpec]],
+    state_dict: Mapping[str, Any],
+) -> Dict[str, Any]:
+    """ONE owned device copy of a target's state_dict-sourced constants,
+    shared by every entry that binds against it (pgw#1042).
+
+    pgw#812 D3 priced the whole-graph copying bind at "one duplicate of the
+    weights" — true per RUNNER, and pgw#758's multi-graph cells silently made
+    it one duplicate per ENTRY: `load_and_wrap` binds every entry before any
+    wrap, so an N-entry cell demanded N x the target's constants in device
+    memory at arm time. On sdxl w8a8-lora64 (36 entries, ~GBs per UNet entry)
+    that is more VRAM than the card has, and the failing cudaMalloc surfaced
+    as the anonymous `model_container_runner.cpp:289` API failure that killed
+    the pgw#868 A1 publish twice.
+
+    The pool restores D3's stated cost: entries bind BY REFERENCE
+    (``user_managed=True``) against clones owned by the arm marker, so the
+    artifact still never aliases resident weights (a post-arm resident
+    mutation cannot silently change an armed cell) and the whole cell costs
+    ONE duplicate per target, whatever its entry count.
+    """
+    out: Dict[str, Any] = {}
+    for specs in entry_constants:
+        for spec in specs:
+            if spec.source != SOURCE_STATE_DICT or spec.fqn in out:
+                continue
+            value = state_dict.get(spec.fqn)
+            if value is None:
+                continue  # resolve_constants names the miss, typed, per entry
+            try:
+                out[spec.fqn] = value.detach().clone()
+            except Exception:  # noqa: BLE001 — duck-typed rigs hand non-tensors
+                out[spec.fqn] = value
+    return out
+
+
 def assert_bindable(
     specs: Sequence[ConstantSpec], runner_fqns: Iterable[str],
 ) -> None:
@@ -1492,8 +1775,10 @@ class ArtifactRunner:
     bound_fqns: Tuple[str, ...] = ()
     calls: int = 0
     refusals: Dict[str, int] = field(default_factory=dict)
-    #: pgw#791. ``"<input>/<reason>" -> count``; the typed event fires on the
-    #: first of each, the count keeps the whole tax countable afterwards.
+    #: pgw#791 + pgw#1074. ``"<input>/<reason>" -> count`` over every ingress
+    #: NORMALIZATION — realignment (``unaligned_16b``) and dtype recast
+    #: (``int64_to_float32``) alike; the typed event fires on the first of
+    #: each, the count keeps the whole tax countable afterwards.
     realigned: Dict[str, int] = field(default_factory=dict)
     aligner: FeedAligner = field(default_factory=FeedAligner)
     #: Set by :func:`load_and_wrap` so the typed realignment event can name
@@ -1520,15 +1805,14 @@ class ArtifactRunner:
 
         ``user_managed=True`` binds BY REFERENCE (pgw#812 D3): the artifact
         keeps pointers to the caller's tensors instead of copying them into
-        its own constant buffer. The default False is right for a whole-graph
-        cell — one duplicate of the weights, and the artifact owns its own
-        lifetime. It is FATAL for a regional cell: N block instances each
-        load their own runner, so a copying bind means N copies of that
-        block's weights in VRAM (flux2: a second whole model). The caller
-        that passes True is asserting that the tensors outlive this runner —
-        which for a regional arm holds by construction, because the values
-        come from the resident pipeline's own ``state_dict`` and the shim
-        that calls the runner is installed ON that module.
+        its own constant buffer. A copying bind is one duplicate of the
+        weights PER RUNNER — and pgw#758's multi-graph cells bind every
+        entry up front, so an N-entry cell paid N duplicates and OOM'd the
+        sdxl arm (pgw#1042). The whole-graph arm therefore binds by
+        reference against ONE marker-owned pool per target
+        (:func:`target_constant_pool`). The caller that passes True is
+        asserting that the tensors outlive this runner — the pool rides the
+        arm marker for exactly that reason.
         """
         try:
             table = self.package.get_constant_fqns()
@@ -1564,26 +1848,46 @@ class ArtifactRunner:
         # and binding (they are derived), not to loosen this gate.
         #
         # pgw#817/D3: `user_managed` is passed only when asked for, so the
-        # whole-graph path's call shape is byte-identical to what pgw#721/#723
+        # copying path's call shape is byte-identical to what pgw#721/#723
         # measured on a pod. A torch whose `load_constants` has no such
-        # parameter is a NAMED refusal rather than a silent copy — a regional
-        # arm that silently copied would OOM the card N blocks later, which is
-        # a far worse way to learn the same fact.
-        if user_managed:
-            try:
-                self.package.load_constants(
-                    values, check_full_update=True, user_managed=True)
-            except TypeError as exc:
-                if "user_managed" not in str(exc):
-                    raise
-                raise ConstantsUnboundError(
-                    "user_managed_unsupported",
-                    f"this torch's load_constants has no user_managed "
-                    f"parameter, so every constant would be COPIED — for a "
-                    f"regional cell that is one copy of the block weights per "
-                    f"instance ({type(exc).__name__}: {exc})") from exc
-        else:
-            self.package.load_constants(values, check_full_update=True)
+        # parameter is a NAMED refusal rather than a silent copy — a caller
+        # that asked for by-reference and silently copied would OOM the card
+        # N binds later, which is a far worse way to learn the same fact.
+        #
+        # pgw#1042: the residual C++ failure is CLASSIFIED. The pod's 36/36
+        # sdxl mint died at publish as an anonymous `RuntimeError:
+        # update_constant_buffer_func_(...) API call failed at
+        # model_container_runner.cpp:289` — the real message (a cudaMalloc
+        # OOM from per-entry constant copies) went to a stderr no pod
+        # exposes. Every failure inside the AOTI update is now a typed
+        # ConstantsUnboundError carrying the entry, the constants' size and
+        # the card's live free/total, so the hub row names the failure class.
+        try:
+            if user_managed:
+                try:
+                    self.package.load_constants(
+                        values, check_full_update=True, user_managed=True)
+                except TypeError as exc:
+                    if "user_managed" not in str(exc):
+                        raise
+                    raise ConstantsUnboundError(
+                        "user_managed_unsupported",
+                        f"this torch's load_constants has no user_managed "
+                        f"parameter, so every constant would be COPIED — one "
+                        f"copy of the target weights per bound entry "
+                        f"({type(exc).__name__}: {exc})") from exc
+            else:
+                self.package.load_constants(values, check_full_update=True)
+        except (ConstantsUnboundError, TypeError):
+            raise
+        except RuntimeError as exc:
+            raise ConstantsUnboundError(
+                "injection_failed",
+                f"entry {self.entry or self.module_name or 'unknown'}: the "
+                f"artifact refused the constant update inside AOTI "
+                f"({type(exc).__name__}: {exc}); {len(values)} constants, "
+                f"{_tensor_bytes(values.values()) / (1 << 20):.0f} MiB, "
+                f"{_device_memory_line()}") from exc
         self.user_managed = bool(user_managed)
         self.bound_fqns = tuple(sorted(values))
         self.bound = True
@@ -1599,9 +1903,9 @@ class ArtifactRunner:
                 f"{len(self.constants)} unbound constant(s): calling before "
                 f"load_constants segfaults the worker process")
 
-    def _report_realigned(self, name: str, reason: str) -> None:
+    def _report_normalized(self, name: str, reason: str, event: str) -> None:
         """First occurrence of an (input, reason) is a typed hub-visible
-        event; every occurrence is counted (pgw#791).
+        event; every occurrence is counted (pgw#791, pgw#1074).
 
         Coalesced deliberately: the defect fires 28+ times per request, and a
         per-call event would be the stderr spam it replaces, on a wire that
@@ -1612,19 +1916,31 @@ class ArtifactRunner:
         self.realigned[key] = seen + 1
         if seen:
             return
-        logger.warning(
-            "aot-serve: input %r arrived %s for entry %r; realigning into an "
-            "owned aligned buffer at ingress (the artifact would otherwise "
-            "copy it on every call and report only on stderr)",
-            name, reason, self.entry or self.module_name)
-        activity_mod.emit_event(
-            REALIGN_EVENT,
-            f"family={self.family} entry={self.entry or self.module_name} "
-            f"target={self.module_name} input={name}: {reason} — realigned at "
-            f"ingress into an owned {AOTI_ALIGNMENT}-byte aligned buffer "
-            f"(AOTInductor would otherwise copy it on every call)",
-            phase=reason,
-        )
+        entry = self.entry or self.module_name
+        if event == RECAST_EVENT:
+            logger.warning(
+                "aot-serve: input %r arrived %s for entry %r; recasting to "
+                "the declared dtype at ingress (the sampler, not the family, "
+                "decides this dtype)", name, reason, entry)
+            detail = (
+                f"family={self.family} entry={entry} "
+                f"target={self.module_name} input={name}: {reason} — recast "
+                f"at ingress to the dtype this graph is specialized on "
+                f"(pgw#1074: a scalar timestep's dtype is a per-request "
+                f"SAMPLER fact, not a family one)")
+        else:
+            logger.warning(
+                "aot-serve: input %r arrived %s for entry %r; realigning into "
+                "an owned aligned buffer at ingress (the artifact would "
+                "otherwise copy it on every call and report only on stderr)",
+                name, reason, entry)
+            detail = (
+                f"family={self.family} entry={entry} "
+                f"target={self.module_name} input={name}: {reason} — "
+                f"realigned at ingress into an owned {AOTI_ALIGNMENT}-byte "
+                f"aligned buffer (AOTInductor would otherwise copy it on "
+                f"every call)")
+        activity_mod.emit_event(event, detail, phase=reason)
 
     def __call__(self, *args: Any, **kwargs: Any) -> Any:
         self.assert_ready()
@@ -1634,13 +1950,61 @@ class ArtifactRunner:
             # pgw#791: satisfy the artifact's ALIGNED-input contract here,
             # once, instead of letting the runner discover it per call.
             feeds = aligned_feeds(
-                self.contract, feeds, self.aligner, self._report_realigned)
+                self.contract, feeds, self.aligner, self._report_normalized)
         except IngressContractError as exc:
             self.refusals[exc.reason] = self.refusals.get(exc.reason, 0) + 1
             raise
         out = self.package(*feeds)
         self.calls += 1
         return out
+
+
+def no_entry_detail(
+    tried: int,
+    missed: Sequence[Tuple[Tuple[int, ...], str, Tuple[IngressMiss, ...]]],
+) -> str:
+    """The ``no_entry_admits`` sentence, CLOSEST ENTRY FIRST (pgw#1074).
+
+    The refusal this replaces said "36 tried" and then listed six in iteration
+    order — and the one entry whose dims matched the call was not among them,
+    so diagnosing a live refusal meant pulling the published cell apart off-pod
+    to find out what the covering entry actually objected to. A refusal that
+    hides the one relevant miss is the pgw#1058 lesson repeating one layer up,
+    in the diagnostics.
+
+    So: rank by :func:`miss_distance`, name the closest entry and its FULL
+    reason first (it survives any downstream truncation), then account for
+    every other entry by reason COUNT rather than by naming an arbitrary few.
+    Nothing is silently dropped — ``tried`` and the counts always add up.
+    """
+    if not missed:
+        return f"no packaged entry admits this call ({tried} tried)"
+    ranked = sorted(missed, key=lambda row: (row[0], row[1]))
+    _distance, closest, misses = ranked[0]
+    dims_ok = all(_rung(m.reason) < MISS_RUNGS["static_dim_mismatch"]
+                  for m in misses)
+    head = (
+        f"no packaged entry admits this call ({tried} tried); CLOSEST entry "
+        f"{closest!r}"
+        f"{' — every declared dim MATCHES' if dims_ok else ''}: "
+        + "; ".join(f"{m.reason} ({m.detail})" for m in misses[:2]))
+    rest = ranked[1:]
+    if not rest:
+        return head
+    # ONE count per entry, under its own closest reason, so the counts sum to
+    # exactly the number of entries tried and "36 tried" can be checked
+    # against the sentence that follows it.
+    tally: Dict[str, int] = {}
+    for _d, _name, other in rest:
+        primary = min(other, key=lambda m: _rung(m.reason)).reason
+        tally[primary] = tally.get(primary, 0) + 1
+    named = "; ".join(
+        f"{name}: {min(misses_, key=lambda m: _rung(m.reason)).reason}"
+        for _d, name, misses_ in rest[:_MISS_SAMPLE])
+    counted = ", ".join(
+        f"{reason} x{count}" for reason, count in
+        sorted(tally.items(), key=lambda kv: (-kv[1], kv[0])))
+    return f"{head}. Other {len(rest)} entries [{counted}] — next: {named}"
 
 
 @dataclass
@@ -1705,19 +2069,24 @@ class EntryDispatch:
         self, args: Sequence[Any], kwargs: Mapping[str, Any],
     ) -> Tuple[str, ArtifactRunner]:
         admitted: List[Tuple[str, ArtifactRunner]] = []
-        reasons: List[str] = []
+        missed: List[Tuple[str, ArtifactRunner]] = []
         for name, runner in self.runners:
-            try:
-                assert_ingress(runner.contract, args, kwargs)
-            except IngressContractError as exc:
-                reasons.append(f"{name}: {exc.reason}")
+            misses, _symbols = ingress_report(
+                runner.contract, args, kwargs, first_only=True)
+            if misses:
+                missed.append((name, runner))
                 continue
             admitted.append((name, runner))
         if not admitted:
+            # Only now is the exhaustive walk worth its cost: the call is
+            # already headed for the eager fallback, and the sentence it
+            # leaves behind is the whole diagnosis anyone will ever get.
+            ranked = [
+                (miss_distance(rep), name, rep) for name, rep in (
+                    (name, ingress_report(runner.contract, args, kwargs)[0])
+                    for name, runner in missed)]
             raise IngressContractError(
-                "no_entry_admits",
-                f"no packaged entry admits this call "
-                f"({len(self.runners)} tried): {'; '.join(reasons[:6])}")
+                "no_entry_admits", no_entry_detail(len(self.runners), ranked))
         if len(admitted) > 1:
             names = sorted(name for name, _ in admitted)
             raise IngressContractError(
@@ -2118,8 +2487,32 @@ def _target_owner(pipeline: Any, target: str) -> Tuple[Any, str]:
     return module, attr
 
 
+def _entry_admission_drift(
+    package_path: Path, entry: str, inputs_rows: Sequence[Mapping[str, Any]],
+) -> None:
+    """The pgw#1058 arm-side identity check: one entry's declared manifest
+    rows verified against the artifact's OWN generated input guards, through
+    the SAME ``aot_package.admission_drift`` the mint's package gate ran.
+
+    A module attribute (like :func:`_load_package`) so unit rigs serving
+    fake package bytes can substitute it; the import is function-local
+    because ``aot_package`` imports this module's SOURCE_* vocabulary at
+    its top."""
+    from . import aot_package
+
+    try:
+        drift = aot_package.admission_drift(
+            Path(package_path), entry, inputs_rows)
+    except aot_package.PackageIntrospectionError as exc:
+        raise AdoptError("admission_drift", f"entry {entry!r}: {exc}") from exc
+    if drift:
+        raise AdoptError(
+            "admission_drift", f"entry {entry!r}: " + "; ".join(drift[:6]))
+
+
 def load_and_wrap(
     pipeline: Any, cfg: Any, artifact: Path, cache_dir: Optional[Path] = None,
+    *, expected: "Optional[aot_identity.ExpectedIdentity]" = None,
 ) -> Dict[str, Any]:
     """Stage + verify + load EVERY named entry + BIND all constants, then
     perform the live wraps (pgw#758: one resident artifact serves every
@@ -2130,15 +2523,18 @@ def load_and_wrap(
     bind before ANY wrap: a cell that cannot arm one of its graph classes
     arms none of them — a partially served contract would be a silent
     subset of what the cell key advertises.
+
+    ``expected`` (pgw#903) is checked inside :func:`stage_artifact`, i.e.
+    strictly before the first ``_load_package`` — the identity question must be
+    settled while the artifact is still inert bytes.
     """
     family = str(getattr(cfg, "family", "") or "")
-    staged = stage_artifact(Path(artifact), family, cache_dir=cache_dir)
+    staged = stage_artifact(
+        Path(artifact), family, cache_dir=cache_dir, expected=expected)
     try:
         meta = staged.metadata
-        try:
-            entries = entries_from_meta(meta)
-        except ValueError as exc:
-            raise AdoptError("contract_invalid", str(exc)) from exc
+        # pgw#1040: parsed and validated once, while staging.
+        entries = staged.entries
 
         # Group the entries by target and resolve every owner module first —
         # an unresolvable target must refuse before any package is dlopen'd.
@@ -2180,12 +2576,20 @@ def load_and_wrap(
                 raise AdoptError("contract_invalid", str(exc)) from exc
 
         # Load + bind EVERY entry before the first live mutation.
+        #
+        # pgw#1042: entries bind BY REFERENCE against ONE owned pool per
+        # target (see target_constant_pool) — the per-entry copying bind
+        # multiplied the target's constants by its entry count and OOM'd the
+        # sdxl w8a8-lora64 arm on a 48 GB card. The pools (and the literal
+        # tensors) are stored on the marker below: user_managed containers
+        # hold raw pointers, so the bound values must outlive the runners.
         dispatches: Dict[str, EntryDispatch] = {}
+        pools: Dict[str, Dict[str, Any]] = {}
         total_constants = 0
         for target, rows in groups.items():
             module, _attr = owners[target]
             state_dict = resident_constants(module)
-            runners: List[Tuple[str, ArtifactRunner]] = []
+            parsed: List[Tuple[str, Any, Tuple[ConstantSpec, ...]]] = []
             for name, block in rows:
                 try:
                     contract = contract_from_meta(block)
@@ -2196,12 +2600,28 @@ def load_and_wrap(
                 except ValueError as exc:
                     raise AdoptError(
                         "contract_invalid", f"entry {name!r}: {exc}") from exc
+                # pgw#1058: the admission contract this dispatch will enforce
+                # must BE the one the artifact's own generated guards enforce
+                # — the same derivation the mint's package gate ran, re-run
+                # where the bytes arrive, so a label that drifted (or was
+                # corrupted) between publish and adopt is a named refusal
+                # here and never an opaque per-call admission miss.
+                _entry_admission_drift(
+                    staged.root / PACKAGE_NAME, name,
+                    list(block.get("inputs") or []))
+                parsed.append((name, contract, constants))
+            pool = target_constant_pool(
+                (constants for _n, _c, constants in parsed), state_dict)
+            pools[target] = pool
+            runners: List[Tuple[str, ArtifactRunner]] = []
+            for name, contract, constants in parsed:
                 package = _load_package(staged.root / PACKAGE_NAME, name)
                 runner = ArtifactRunner(
                     package=package, contract=contract, constants=constants,
                     module_name=target, entry=name, family=family)
                 try:
-                    runner.bind(state_dict, literals_by_entry.get(name, {}))
+                    runner.bind(pool, literals_by_entry.get(name, {}),
+                                user_managed=True)
                 except ConstantsUnboundError as exc:
                     raise AdoptError(
                         f"constants_{exc.reason}",
@@ -2225,7 +2645,15 @@ def load_and_wrap(
                 "attr": attr,
                 "state": module_marker.get("state", {}),
             }
-        setattr(pipeline, _MARKER_ATTR, {"meta": meta, "targets": target_rows})
+        # `bound_constants` is LIFETIME, not bookkeeping (pgw#1042): every
+        # runner bound user_managed, so the containers hold raw pointers into
+        # these pools and literal tensors. They live exactly as long as the
+        # arm — unwrap drops the marker and the device memory with it.
+        setattr(pipeline, _MARKER_ATTR, {
+            "meta": meta, "targets": target_rows,
+            "bound_constants": {
+                "pools": pools, "literals": literals_by_entry},
+        })
         logger.info(
             "aot-serve: loaded+bound %d entr%s across %d target(s) in %.1fs "
             "(%d declared constants, combined_graph_hash=%s)",
@@ -2241,18 +2669,10 @@ def _adopt_identity(artifact: Path) -> str:
     """Best-effort ``family=… key=…`` from the artifact's own metadata for
     the typed adopt event — a refusal must name the candidate cell even when
     the refusal itself is a metadata problem."""
-    try:
-        with tarfile.open(artifact, mode="r:*") as tar:
-            for member in tar:
-                if member.name == METADATA_NAME and member.isfile():
-                    src = tar.extractfile(member)
-                    assert src is not None
-                    meta = json.loads(src.read().decode())
-                    return (f"family={meta.get('family')} "
-                            f"key={meta.get('cell_key')}")
-    except Exception:  # noqa: BLE001 — identity is best-effort by contract
-        pass
-    return f"artifact={artifact.name}"
+    meta = artifact_meta.try_read_metadata(artifact)
+    if meta is None:
+        return f"artifact={artifact.name}"
+    return f"family={meta.get('family')} key={meta.get('cell_key')}"
 
 
 def enable(
@@ -2336,6 +2756,14 @@ def realigned_inputs(pipeline: Any) -> Dict[str, int]:
     Zero is the contract holding. Non-zero is the tax MEASURED rather than
     inferred from a stderr line nobody can read — and it is paid at ingress
     into an owned buffer, not by the runner per call.
+
+    pgw#1035 audited this for deletion and KEPT it. It has no fleet reader —
+    but neither do its two siblings :func:`ingress_refusals` and
+    :func:`served_entry_calls` (the mint rig drives the latter), and deleting
+    one of three sibling measurements would make the #791 tax unobservable
+    while leaving the machinery that computes it. This is the built-but-UNWIRED
+    class, whose fix is a caller — a JobMetrics or activity field carrying all
+    three — not a diff that hides the gap.
     """
     out: Dict[str, int] = {}
     for state in _marker_states(pipeline):
@@ -2495,13 +2923,10 @@ __all__ = [
     "entries_from_meta",
     "execution_count",
     "proven_since",
-    "find_artifact",
-    "flavor_label",
     "host_isa_reason",
     "NO_HOST_ISA_STAMP",
     "ingress_class_name",
     "ingress_refusals",
-    "is_aot_artifact",
     "is_aot_ref",
     "is_armed",
     "lifted_call_kwargs",
@@ -2517,7 +2942,7 @@ __all__ = [
     "set_ingress_refusal_callback",
     "report_ingress_refusal",
     "split_literals",
-    "torch_maj_min",
+    "target_constant_pool",
     "torch_version",
     "unpack",
     "unpack_metadata",

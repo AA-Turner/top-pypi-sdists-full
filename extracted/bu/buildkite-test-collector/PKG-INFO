@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: buildkite-test-collector
-Version: 1.7.0
+Version: 1.8.0
 Summary: Buildkite Test Engine collector
 Project-URL: Homepage, https://github.com/buildkite/test-collector-python
 Author-email: Buildkite <support@buildkite.com>
@@ -8,24 +8,25 @@ License-Expression: MIT
 License-File: LICENSE.txt
 Classifier: Framework :: Pytest
 Classifier: License :: OSI Approved :: MIT License
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Requires-Dist: filelock>=3
 Requires-Dist: pytest>=7
-Requires-Dist: requests>=2
+Requires-Dist: requests>=2.31
+Requires-Dist: urllib3>=2.7.0
 Provides-Extra: dev
 Requires-Dist: check-manifest; extra == 'dev'
 Requires-Dist: mock>=4; extra == 'dev'
 Requires-Dist: pylint; extra == 'dev'
 Requires-Dist: pytest-forked; (sys_platform != 'win32') and extra == 'dev'
 Requires-Dist: responses; extra == 'dev'
-Requires-Dist: twine; (python_full_version >= '3.9.1') and extra == 'dev'
+Requires-Dist: twine; extra == 'dev'
 Description-Content-Type: text/markdown
 
 # Buildkite Test Collector for Python
 
 The official Python adapter for [Buildkite Test Engine](https://buildkite.com/platform/test-engine/) which collects information about your tests.
 
-**Supported python versions:** >=3.9
+**Supported Python versions:** >=3.10
 
 ⚒ **Supported test frameworks:** pytest.
 

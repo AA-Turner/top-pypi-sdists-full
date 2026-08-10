@@ -13,17 +13,18 @@
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with this program. If not, see <http://www.gnu.org/licenses/>.
+# along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 """Creating and removing temporary files and directories."""
 
-import aeidon
 import atexit
+import contextlib
 import os
 import tempfile
 
-_paths = []
+from pathlib import Path
 
+_paths = []
 
 def create(suffix=""):
     """Create a new temporary file and return its path."""
@@ -32,25 +33,27 @@ def create(suffix=""):
     # the handle and returning only the path which will
     # be opened and closed separately.
     os.close(handle)
+    path = Path(path)
     _paths.append(path)
     return path
 
 def create_directory(suffix=""):
     """Create a new temporary directory and return its path."""
-    path = tempfile.mkdtemp(suffix, "gaupol-")
+    path = Path(tempfile.mkdtemp(suffix, "gaupol-"))
     _paths.append(path)
     return path
 
 def remove(path):
     """Remove temporary file or directory at `path`."""
-    if os.path.isfile(path):
-        with aeidon.util.silent(OSError):
-            os.remove(path)
-    if os.path.isdir(path):
-        for name in os.listdir(path):
-            remove(os.path.join(path, name))
-        with aeidon.util.silent(OSError):
-            os.rmdir(path)
+    path = Path(path)
+    if path.is_file():
+        with contextlib.suppress(OSError):
+            path.unlink()
+    if path.is_dir():
+        for child in path.iterdir():
+            remove(child)
+        with contextlib.suppress(OSError):
+            path.rmdir()
 
 def remove_all():
     """Remove all temporary files and directories."""

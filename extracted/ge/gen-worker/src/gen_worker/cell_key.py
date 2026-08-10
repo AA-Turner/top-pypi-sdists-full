@@ -6,7 +6,7 @@ and every consumer of cell identity uses the same code:
 
 * the fleet executor advertises the key it wants (pull-by-key: the hub
   serves bytes by key or records demand for the forge; it never matches);
-* the production mint (``compile_cache.build``) stamps the key it actually
+* the production mint (``aot_mint.mint``) stamps the key it actually
   produced, derived from the artifact's own recorded axes;
 * cozy-local's self-mint (gw#555) looks up / saves its store by the same
   key.
@@ -170,12 +170,7 @@ def from_axes(axes: Mapping[str, str]) -> CellKey:
 def _canonical_execution_lane(weight_lane: str, lora_bucket: int = 0) -> str:
     from . import compile_cache as cc  # cycle: compile_cache imports cell_key
 
-    base, observed = cc.execution_lane_bucket(str(weight_lane or ""))
-    bucket = observed or int(lora_bucket or 0)
-    token = cc.execution_lane_token(base)
-    if bucket:
-        return f"{token}-lora{bucket}" if token else f"lora{bucket}"
-    return token
+    return cc.execution_lane_label(weight_lane, lora_bucket)
 
 
 def facts_digest(facts: Mapping[str, Any]) -> str:

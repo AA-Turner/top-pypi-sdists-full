@@ -13,7 +13,7 @@
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with this program. If not, see <http://www.gnu.org/licenses/>.
+# along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 """Miscellanous enumerations."""
 
@@ -23,18 +23,7 @@ import shutil
 import sys
 
 from aeidon.i18n import __
-
-__all__ = [
-    "align_methods",
-    "documents",
-    "formats",
-    "framerates",
-    "modes",
-    "newlines",
-    "players",
-    "registers",
-]
-
+from pathlib import Path
 
 class AlignMethodNumber(aeidon.EnumerationItem):
     label = __("Subtitle number")
@@ -46,14 +35,12 @@ align_methods = aeidon.Enumeration()
 align_methods.NUMBER = AlignMethodNumber()
 align_methods.POSITION = AlignMethodPosition()
 
-
 class DocumentMain(aeidon.EnumerationItem): pass
 class DocumentTranslation(aeidon.EnumerationItem): pass
 
 documents = aeidon.Enumeration()
 documents.MAIN = DocumentMain()
 documents.TRAN = DocumentTranslation()
-
 
 class Framerate23976(aeidon.EnumerationItem):
     label = __("23.976 fps")
@@ -97,7 +84,6 @@ framerates.FPS_50_000 = Framerate50000()
 framerates.FPS_59_940 = Framerate59940()
 framerates.FPS_60_000 = Framerate60000()
 
-
 class ModeTime(aeidon.EnumerationItem): pass
 class ModeFrame(aeidon.EnumerationItem): pass
 class ModeSeconds(aeidon.EnumerationItem): pass
@@ -106,7 +92,6 @@ modes = aeidon.Enumeration()
 modes.TIME = ModeTime()
 modes.FRAME = ModeFrame()
 modes.SECONDS = ModeSeconds()
-
 
 class NewlinesMac(aeidon.EnumerationItem):
     label = __("Mac (classic)")
@@ -125,25 +110,24 @@ newlines.MAC = NewlinesMac()
 newlines.UNIX = NewlinesUnix()
 newlines.WINDOWS = NewlinesWindows()
 
-
 def _get_mplayer_executable():
     if sys.platform == "win32":
         directory = os.environ.get("PROGRAMFILES", "C:\\Program Files")
-        path = os.path.join(directory, "MPlayer", "mplayer.exe")
+        path = Path(directory) / "MPlayer" / "mplayer.exe"
         return aeidon.util.shell_quote(path)
     return "mplayer"
 
 def _get_mpv_executable():
     if sys.platform == "win32":
         directory = os.environ.get("PROGRAMFILES", "C:\\Program Files")
-        path = os.path.join(directory, "MPV", "mpv.exe")
+        path = Path(directory) / "MPV" / "mpv.exe"
         return aeidon.util.shell_quote(path)
     return "mpv"
 
 def _get_vlc_executable():
     if sys.platform == "win32":
         directory = os.environ.get("PROGRAMFILES", "C:\\Program Files")
-        path = os.path.join(directory, "VideoLAN", "VLC", "vlc.exe")
+        path = Path(directory) / "VideoLAN" / "VLC" / "vlc.exe"
         return aeidon.util.shell_quote(path)
     return "vlc"
 
@@ -153,7 +137,6 @@ class PlayerMPlayer(aeidon.EnumerationItem):
                         "-identify",
                         "-osdlevel 2",
                         "-ss $SECONDS",
-                        "-slang",
                         "-noautosub",
                         "-sub $SUBFILE",
                         "$VIDEOFILE",))
@@ -162,13 +145,12 @@ class PlayerMPlayer(aeidon.EnumerationItem):
         # Required for mplayer to work if gaupol was started
         # as a background process (&) from a terminal window.
         # http://www.mplayerhq.hu/DOCS/HTML/en/faq.html#idm5930
-        command = "{} < /dev/null".format(command)
+        command = f"{command} < /dev/null"
 
     command_utf_8 = " ".join((_get_mplayer_executable(),
                               "-quiet",
                               "-osdlevel 2",
                               "-ss $SECONDS",
-                              "-slang",
                               "-noautosub",
                               "-sub $SUBFILE",
                               "-utf8",
@@ -178,7 +160,7 @@ class PlayerMPlayer(aeidon.EnumerationItem):
         # Required for mplayer to work if gaupol was started
         # as a background process (&) from a terminal window.
         # http://www.mplayerhq.hu/DOCS/HTML/en/faq.html#idm5930
-        command_utf_8 = "{} < /dev/null".format(command_utf_8)
+        command_utf_8 = f"{command_utf_8} < /dev/null"
 
     executable = _get_mplayer_executable()
     found = shutil.which(_get_mplayer_executable()) is not None
@@ -227,7 +209,6 @@ players.MPLAYER = PlayerMPlayer()
 players.MPV = PlayerMPV()
 players.VLC = PlayerVLC()
 
-
 class RegisterDo(aeidon.EnumerationItem):
     shift = 1
     signal = "action-done"
@@ -244,7 +225,6 @@ registers = aeidon.Enumeration()
 registers.DO = RegisterDo()
 registers.UNDO = RegisterUndo()
 registers.REDO = RegisterRedo()
-
 
 class FormatAdvSubStationAlpha(aeidon.EnumerationItem):
     container = "ssa"

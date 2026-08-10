@@ -10,7 +10,6 @@ import urllib.error
 import urllib.request
 from collections.abc import Callable
 from dataclasses import dataclass
-from functools import cached_property
 from html import escape
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional, Self
@@ -208,7 +207,7 @@ class SerenaDashboardAPI:
         self._tool_names = tool_names
         self._agent = agent
         self._host = host
-        self._app = Flask(__name__)
+        self._app = Flask(self.__class__.__name__)
         if trusted_hosts:
             self._app.config["TRUSTED_HOSTS"] = trusted_hosts
         self._tool_usage_stats = tool_usage_stats
@@ -216,38 +215,38 @@ class SerenaDashboardAPI:
         self._news_ready = threading.Event()
         self._setup_routes()
         self._read_news = ReadNews.load()
+        self._newer_serena_version: str | None = None
 
         # register callback for config changes
         self._current_config_overview: dict[str, Any] | None = None
         self._agent.register_config_changed_callback(self._on_agent_config_changed)
 
-        # fetch remote news in background on startup (non-blocking)
+        # start threads for background computations
+        # * fetch remote news in background on startup (non-blocking)
         threading.Thread(target=self._fetch_news, daemon=True).start()
+        # * determine if a newer Serena version is available
+        threading.Thread(target=self._determine_newer_serena_version, daemon=True).start()
 
     @property
     def memory_log_handler(self) -> MemoryLogHandler:
         return self._memory_log_handler
 
-    @cached_property
-    def _newer_serena_version(self) -> str | None:
-        """The version of a newer serena-agent package release on PyPI, if any.
-
-        The result is computed only once (on first access) and cached thereafter.
-
-        :return: the latest version available on PyPI if it is newer than the running version, else None
+    def _determine_newer_serena_version(self) -> str | None:
+        """
+        Checks for availability of a newer Serena version on PyPI and stores it in self._newer_serena_version if found.
         """
         try:
             # query PyPI for the latest released version
-            latest_serena_version = PyPIPackageInfo("serena-agent").get_latest_version(timeout_secs=3)
+            latest_serena_version = PyPIPackageInfo("serena-agent").get_latest_version(timeout_secs=5)
 
             # compare against the running version
             latest_version = Version(latest_serena_version)
             current_version = Version(self._agent.version)
+            log.debug("Latest available Serena version on PyPI: %s, current version: %s", latest_version, current_version)
             if not current_version.is_at_least(*latest_version.components):
-                return latest_serena_version
+                self._newer_serena_version = latest_serena_version
         except Exception as e:
-            log.warning("Failed to check for newer Serena version on PyPI: %s", e)
-        return None
+            log.info("Failed to check for newer Serena version on PyPI: %s", e)
 
     def _setup_routes(self) -> None:
         @self._app.route("/")
@@ -514,7 +513,7 @@ class SerenaDashboardAPI:
         active_project_name = project.project_name if project else None
         project_info = {
             "name": active_project_name,
-            "language": ", ".join([l.value for l in project.project_config.languages]) if project else None,
+            "language": ", ".join([l.value for l in project.project_config.language_servers]) if project else None,
             "path": str(project.project_root) if project else None,
         }
 
@@ -608,7 +607,7 @@ class SerenaDashboardAPI:
         # Get list of languages for the active project
         languages = []
         if project is not None:
-            languages = [lang.value for lang in project.project_config.languages]
+            languages = [lang.value for lang in project.project_config.language_servers]
 
         # Get file encoding for the active project
         encoding = None
@@ -638,15 +637,15 @@ class SerenaDashboardAPI:
         self._current_config_overview = self._compute_config_overview().model_dump()
 
     def _get_available_languages(self) -> ResponseAvailableLanguages:
-        from solidlsp.ls_config import Language
+        from solidlsp.ls_config import LanguageServerId
 
         def run() -> ResponseAvailableLanguages:
-            all_languages = [lang.value for lang in Language.iter_all(include_experimental=True)]
+            all_languages = [lang.value for lang in LanguageServerId.iter_all(include_experimental=True)]
 
             # Filter out already added languages for the active project
             project = self._agent.get_active_project()
             if project:
-                current_languages = [lang.value for lang in project.project_config.languages]
+                current_languages = [lang.value for lang in project.project_config.language_servers]
                 available_languages = [lang for lang in all_languages if lang not in current_languages]
             else:
                 available_languages = all_languages
@@ -776,24 +775,24 @@ class SerenaDashboardAPI:
         return {}
 
     def _add_language(self, request_add_language: RequestAddLanguage) -> None:
-        from solidlsp.ls_config import Language
+        from solidlsp.ls_config import LanguageServerId
 
         try:
-            language = Language(request_add_language.language)
+            language = LanguageServerId(request_add_language.language)
         except ValueError:
-            raise ValueError(f"Invalid language: {request_add_language.language}")
+            raise ValueError(f"Invalid language server identifier: {request_add_language.language}")
         # add_language is already thread-safe
-        self._agent.add_language(language)
+        self._agent.add_language_server(language)
 
     def _remove_language(self, request_remove_language: RequestRemoveLanguage) -> None:
-        from solidlsp.ls_config import Language
+        from solidlsp.ls_config import LanguageServerId
 
         try:
-            language = Language(request_remove_language.language)
+            language = LanguageServerId(request_remove_language.language)
         except ValueError:
-            raise ValueError(f"Invalid language: {request_remove_language.language}")
+            raise ValueError(f"Invalid language server identifier: {request_remove_language.language}")
         # remove_language is already thread-safe
-        self._agent.remove_language(language)
+        self._agent.remove_language_server(language)
 
     @staticmethod
     def _find_first_free_port(start_port: int, host: str) -> int:
@@ -967,6 +966,8 @@ class SerenaDashboardTrayManager:
     HOST = "127.0.0.1"
     """listen address (local only)"""
 
+    TRUSTED_HOSTS = ["localhost", "127.0.0.1"]
+
     ALIVE_CHECK_INTERVAL_SECONDS = 3
     """interval in seconds between alive checks of registered instances"""
 
@@ -985,7 +986,8 @@ class SerenaDashboardTrayManager:
         self._lock = threading.Lock()
         self._tray_icon: Optional["pystray.Icon"] = None
         self._alive_check_use_pid = alive_check_use_pid
-        self._app = Flask(__name__)
+        self._app = Flask(self.__class__.__name__)
+        self._app.config["TRUSTED_HOSTS"] = self.TRUSTED_HOSTS
         self._setup_routes()
         self._use_pywebview = use_pywebview
 
@@ -1153,6 +1155,7 @@ class SerenaDashboardTrayManager:
                         for port in dead_ports:
                             self._instances.pop(port, None)
                             log.info("Removed unreachable instance on port %d", port)
+                    self._update_menu()
 
                 # terminate if no instances remain
                 with self._lock:
@@ -1196,9 +1199,12 @@ class SerenaDashboardTrayManager:
         # set up tray icon with a dynamic menu (callable returns items on each open)
         kwargs: dict[str, Any] = {}
         if sys.platform == "darwin":
-            from AppKit import NSApplication
+            from AppKit import NSApplication, NSApplicationActivationPolicyAccessory
 
-            kwargs["darwin_nsapplication"] = NSApplication.sharedApplication()
+            nsapp = NSApplication.sharedApplication()
+            # run as an accessory app so that only the menu bar icon is shown (no Dock icon)
+            nsapp.setActivationPolicy_(NSApplicationActivationPolicyAccessory)
+            kwargs["darwin_nsapplication"] = nsapp
 
         self._tray_icon = pystray.Icon(
             "serena_tray_manager",

@@ -26,14 +26,14 @@ __all__ = ['UNSET', 'spark_chars', 'walk_join', 'walk', 'exttypes', 'globtastic'
            'ssh', 'rsync_multi', 'run', 'open_file', 'save_pickle', 'load_pickle', 'parse_env', 'expand_wildcards',
            'atomic_save', 'load_mod', 'import_no_init', 'save_config_file', 'read_config_file', 'find_file_parents',
            'Config', 'Unset', 'dict2obj', 'obj2dict', 'repr_dict', 'is_listy', 'mapped', 'take_lines', 'IterLen',
-           'ReindexCollection', 'SaveReturn', 'trim_wraps', 'save_iter', 'asave_iter', 'frontmatter',
+           'ReindexCollection', 'SaveReturn', 'trim_wraps', 'save_iter', 'asave_iter', 'strloader', 'frontmatter',
            'clean_cli_output', 'unqid', 'rtoken_hex', 'friendly_name', 'n_friendly_names', 'exec_eval',
            'get_source_link', 'sparkline', 'modify_exception', 'round_multiple', 'set_num_threads', 'join_path_file',
-           'autostart', 'EventTimer', 'stringfmt_names', 'PartialFormatter', 'partial_format', 'truncstr', 'fenced',
-           'fenced_blocks', 'str_diff', 'utc2local', 'local2utc', 'trace', 'modified_env', 'ContextManagers',
-           'shufflish', 'console_help', 'hl_md', 'type2str', 'dataclass_src', 'nullable_dc', 'make_nullable',
-           'flexiclass', 'asdict', 'vars_pub', 'is_typeddict', 'is_namedtuple', 'CachedIter', 'flexicache',
-           'time_policy', 'mtime_policy', 'timed_cache']
+           'autostart', 'EventTimer', 'stringfmt_names', 'PartialFormatter', 'partial_format', 'truncstr', 'trunc_ctr',
+           'TruncatedString', 'fenced', 'fenced_blocks', 'str_diff', 'utc2local', 'local2utc', 'trace', 'modified_env',
+           'ContextManagers', 'shufflish', 'console_help', 'hl_md', 'type2str', 'dataclass_src', 'nullable_dc',
+           'make_nullable', 'flexiclass', 'asdict', 'vars_pub', 'is_typeddict', 'is_namedtuple', 'CachedIter',
+           'flexicache', 'time_policy', 'mtime_policy', 'timed_cache']
 
 # %% ../nbs/03_xtras.ipynb #3401d507
 from .imports import *
@@ -736,6 +736,16 @@ def asave_iter(g):
     return _
 
 # %% ../nbs/03_xtras.ipynb #d2757e2a
+def strloader():
+    "`yaml.BaseLoader` extended to resolve `true`/`True`/`false`/`False`, and nothing else, to `bool`"
+    import yaml
+    if not hasattr(strloader, 'ldr'):
+        class StrLoader(yaml.BaseLoader): pass
+        StrLoader.add_constructor('tag:yaml.org,2002:bool', lambda l,n: n.value.lower()=='true')
+        StrLoader.add_implicit_resolver('tag:yaml.org,2002:bool', re.compile(r'^(?:[Tt]rue|[Ff]alse)$'), list('tTfF'))
+        strloader.ldr = StrLoader
+    return strloader.ldr
+
 def frontmatter(txt:str, strvals:bool=False)->tuple:
     "Tuple of (dict, body) from frontmatter in `txt`; missing frontmatter returns ({}, txt), malformed YAML raises"
     import yaml
@@ -744,7 +754,7 @@ def frontmatter(txt:str, strvals:bool=False)->tuple:
     if end < 0:
         if not txt.endswith(('\n---','\n...')): return {},txt
         end = len(txt) - 4
-    res = yaml.load(txt[4:end], Loader=yaml.BaseLoader if strvals else yaml.SafeLoader)
+    res = yaml.load(txt[4:end], Loader=strloader() if strvals else yaml.SafeLoader)
     return (res,txt[end+5:]) if isinstance(res,dict) else ({},txt)
 
 # %% ../nbs/03_xtras.ipynb #45eb5141
@@ -972,6 +982,22 @@ def truncstr(s:str, maxlen:int, suf:str='…', space='', sizevar:str=None)->str:
     "Truncate `s` to length `maxlen`, adding suffix `suf` if truncated"
     if sizevar: suf = suf.format_map({sizevar: len(s)})
     return s[:maxlen-len(suf)]+suf if len(s)+len(space)>maxlen else s+space
+
+# %% ../nbs/03_xtras.ipynb #a67b3fca
+def trunc_ctr(s:str, mx:int=1000)->str:
+    "Truncate the middle of `s` so ~`mx` chars remain, marking the elision with its `humanize`d size"
+    if mx is None or len(s)<=mx: return s
+    h = mx//2
+    return f'{s[:h]}…[{humanize(len(s)-mx)} chars]…{s[len(s)-(mx-h):]}'
+
+# %% ../nbs/03_xtras.ipynb #8d120ca6
+class TruncatedString(str):
+    "A `str` whose repr shows contents verbatim, middle-truncated to ~`mx` chars"
+    def __new__(cls, s='', mx:int=1000):
+        res = super().__new__(cls, s)
+        res.mx = mx
+        return res
+    def __repr__(self): return trunc_ctr(self, self.mx)
 
 # %% ../nbs/03_xtras.ipynb #2f5e6b12
 def fenced(text:str, info:str='', ch:str='`')->str:

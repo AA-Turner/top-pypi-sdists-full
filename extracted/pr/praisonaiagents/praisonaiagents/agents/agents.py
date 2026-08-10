@@ -489,26 +489,59 @@ def _process_task_result(agents_instance, context, agent_output):
             except Exception as e:
                 logger.warning(f"Warning: Could not clean output of task {task_id}: {e}")
 
+        json_parse_error = None
+        pydantic_parse_error = None
+
         if task.output_json:
             try:
                 parsed = json.loads(cleaned)
                 task_output.json_dict = parsed
                 task_output.output_format = "JSON"
-            except Exception:
-                logger.warning(f"Warning: Could not parse output of task {task_id} as JSON")
+            except Exception as e:
+                json_parse_error = e
+                logger.warning(f"Warning: Could not parse output of task {task_id} as JSON: {e}")
                 logger.debug(f"Output that failed JSON parsing: {agent_output}")
 
         if task.output_pydantic:
             try:
                 parsed = json.loads(cleaned)
-                pyd_obj = task.output_pydantic(**parsed)
+                if hasattr(task.output_pydantic, "model_validate"):
+                    pyd_obj = task.output_pydantic.model_validate(parsed)
+                else:
+                    pyd_obj = task.output_pydantic(**parsed)
                 task_output.pydantic = pyd_obj
                 task_output.output_format = "Pydantic"
-            except Exception:
-                logger.warning(f"Warning: Could not parse output of task {task_id} as Pydantic Model")
+            except Exception as e:
+                pydantic_parse_error = e
+                schema_name = getattr(task.output_pydantic, "__name__", str(task.output_pydantic))
+                logger.warning(
+                    f"Warning: Could not parse output of task {task_id} as Pydantic Model "
+                    f"({schema_name}): {e}"
+                )
                 logger.debug(f"Output that failed Pydantic parsing: {agent_output}")
 
         task.result = task_output
+
+        # Fail-closed: when structured output was requested but not produced,
+        # the task did not fulfil its contract. Surface it as a failed result so
+        # callers relying on TaskResult.success (and the retry loop, which uses
+        # completion_checker) do not treat freeform prose as a success.
+        if task.output_pydantic and task_output.pydantic is None:
+            schema_name = getattr(task.output_pydantic, "__name__", str(task.output_pydantic))
+            detail = f" ({pydantic_parse_error})" if pydantic_parse_error is not None else ""
+            return TaskResult(
+                task_output=task_output,
+                success=False,
+                error=f"Structured output validation failed for {schema_name}: could not parse agent output as the requested Pydantic model.{detail}",
+            )
+        if task.output_json and task_output.json_dict is None:
+            detail = f" ({json_parse_error})" if json_parse_error is not None else ""
+            return TaskResult(
+                task_output=task_output,
+                success=False,
+                error=f"Structured output validation failed: could not parse agent output as JSON.{detail}",
+            )
+
         return TaskResult(task_output=task_output, success=True)
     else:
         task.status = "failed"
@@ -839,6 +872,9 @@ class AgentTeam(SpawnAnnounceProtocol):
             _max_retries = 3
         self.completion_checker = _completion_checker if _completion_checker else self.default_completion_checker
         self.task_id_counter = 0
+        # Last user-supplied task id, tracked for hierarchical runs so the
+        # return path never surfaces the synthetic manager_task's output.
+        self._last_real_task_id = None
         self._task_id_lock = threading.Lock()  # Thread-safe task ID assignment
         self._state_lock = threading.Lock()  # Thread-safe state mutations
         self.verbose = _verbose
@@ -1055,6 +1091,26 @@ class AgentTeam(SpawnAnnounceProtocol):
             self.task_id_counter += 1
             return task_id
 
+    def _last_hierarchical_task_id(self):
+        """Return the last user-supplied task id before hierarchical injection.
+
+        The hierarchical process injects a synthetic ``manager_task`` that always
+        lands last in the insertion-ordered ``self.tasks`` dict. Snapshotting the
+        real task ids up front lets the return path surface the final delegated
+        task's result instead of the Manager's own generic answer.
+
+        A ``manager_task`` from a prior run of the same team can still be present
+        in ``self.tasks`` (it is not removed after a run), so it is explicitly
+        skipped here; otherwise a second ``.start()`` would return the previous
+        run's Manager output instead of the final user-task result.
+        """
+        for task_id in reversed(self.tasks):
+            task = self.tasks.get(task_id)
+            if getattr(task, "name", None) == "manager_task":
+                continue
+            return task_id
+        return None
+
     def clean_json_output(self, output: str) -> str:
         # NOTE: This method is duplicated in chat_mixin.ChatMixin.clean_json_output.
         # Keep both implementations in sync when modifying either.
@@ -1113,10 +1169,14 @@ class AgentTeam(SpawnAnnounceProtocol):
         return self._context_manager
 
     def default_completion_checker(self, task, agent_output):
-        if task.output_json and task.result and task.result.json_dict:
-            return True
-        if task.output_pydantic and task.result and task.result.pydantic:
-            return True
+        # Fail-closed for structured output: if a structured model was requested
+        # but not produced, the task is NOT complete. Returning False here drives
+        # the existing retry loop and, once retries are exhausted, leaves the task
+        # in a "failed" state instead of silently succeeding with freeform prose.
+        if task.output_json:
+            return task.result is not None and task.result.json_dict is not None
+        if task.output_pydantic:
+            return task.result is not None and task.result.pydantic is not None
         return len(agent_output.strip()) > 0
 
     async def aexecute_task(self, task_id):
@@ -1418,6 +1478,12 @@ class AgentTeam(SpawnAnnounceProtocol):
             # Execute any remaining async tasks at the end
             await flush_async_tasks()
         elif self.process == "hierarchical":
+            # Snapshot the real (user-supplied) task ids before the hierarchical
+            # generator injects its synthetic manager_task. The manager_task is
+            # always added last (highest id), so relying on dict-insertion order
+            # in the return path would surface the Manager's own generic answer
+            # instead of the final delegated task's result.
+            self._last_real_task_id = self._last_hierarchical_task_id()
             async for task_id in process.ahierarchical():
                 if isinstance(task_id, Task):
                     task_id = self.add_task(task_id)
@@ -1460,10 +1526,14 @@ class AgentTeam(SpawnAnnounceProtocol):
         
         # By default, return only the final agent's response
         if not return_dict:
-            # Get the last task (assuming sequential processing)
-            task_ids = list(self.tasks.keys())
-            if task_ids:
-                last_task_id = task_ids[-1]
+            # Prefer the tracked last real task id (set by hierarchical runs so
+            # the synthetic manager_task never masks the real final result);
+            # otherwise fall back to the last task in insertion order.
+            last_task_id = getattr(self, "_last_real_task_id", None)
+            if last_task_id is None:
+                task_ids = list(self.tasks.keys())
+                last_task_id = task_ids[-1] if task_ids else None
+            if last_task_id is not None:
                 last_result = self.get_task_result(last_task_id)
                 if last_result:
                     return last_result.raw
@@ -1611,6 +1681,10 @@ class AgentTeam(SpawnAnnounceProtocol):
             for task_id in process.sequential():
                 self.run_task(task_id)
         elif self.process == "hierarchical":
+            # See arun_all_tasks: capture the last real task id before the
+            # synthetic manager_task is injected so the return path doesn't
+            # surface the Manager's own generic output.
+            self._last_real_task_id = self._last_hierarchical_task_id()
             for task_id in process.hierarchical():
                 if isinstance(task_id, Task):
                     task_id = self.add_task(task_id)
@@ -1847,9 +1921,14 @@ class AgentTeam(SpawnAnnounceProtocol):
         
         # By default, return only the final agent's response
         if not return_dict:
-            task_ids = list(self.tasks.keys())
-            if task_ids:
-                last_task_id = task_ids[-1]
+            # Prefer the tracked last real task id (set by hierarchical runs so
+            # the synthetic manager_task never masks the real final result);
+            # otherwise fall back to the last task in insertion order.
+            last_task_id = getattr(self, "_last_real_task_id", None)
+            if last_task_id is None:
+                task_ids = list(self.tasks.keys())
+                last_task_id = task_ids[-1] if task_ids else None
+            if last_task_id is not None:
                 last_result = self.get_task_result(last_task_id)
                 if last_result:
                     return last_result.raw
@@ -1869,6 +1948,170 @@ class AgentTeam(SpawnAnnounceProtocol):
         """
         # Always run silently - no verbose output
         return self.start(content=content, return_dict=return_dict, output="silent", **kwargs)
+
+    def _snapshot_task_state(self):
+        """Snapshot per-task run state so a batch can restore it afterwards.
+
+        Captures the fields that ``run_task``/``arun_task`` mutate during a run
+        (``status``, ``result``, ``retry_count``) plus caller-defined
+        ``variables``, keeping the public Task API backward-compatible.
+        """
+        snapshot = {}
+        for task_id, task in self.tasks.items():
+            snapshot[task_id] = {
+                "status": getattr(task, "status", None),
+                "result": getattr(task, "result", None),
+                "retry_count": getattr(task, "retry_count", None),
+                "variables": getattr(task, "variables", None),
+            }
+        return snapshot
+
+    def _reset_task_state_for_item(self):
+        """Reset per-task run state before each batch item executes.
+
+        Without this, ``run_task``/``arun_task`` see ``status == "completed"``
+        from the previous item and skip execution, returning stale results.
+        Clearing ``variables`` lets the current item's global ``variables``
+        re-propagate (see ``_run_task_start_hook``).
+        """
+        for task in self.tasks.values():
+            task.status = "not started"
+            task.result = None
+            if hasattr(task, "retry_count"):
+                task.retry_count = 0
+            task.variables = {}
+
+    def _restore_task_state(self, snapshot):
+        """Restore per-task run state captured by ``_snapshot_task_state``."""
+        for task_id, state in snapshot.items():
+            task = self.tasks.get(task_id)
+            if task is None:
+                continue
+            task.status = state["status"]
+            task.result = state["result"]
+            if state["retry_count"] is not None:
+                task.retry_count = state["retry_count"]
+            task.variables = state["variables"]
+
+    def _build_batch_result(self, batch_id, items):
+        """Aggregate per-item results into a batch summary dict.
+
+        ``token_usage_total`` is the session-level summary from the shared token
+        collector (cumulative, not batch-scoped) — kept lightweight; use
+        per-item outputs for finer accounting.
+        """
+        succeeded = sum(1 for item in items if item["success"])
+        return {
+            "batch_id": batch_id,
+            "items": items,
+            "outputs": [item["output"] for item in items],
+            "succeeded": succeeded,
+            "failed": len(items) - succeeded,
+            "total": len(items),
+            "token_usage_total": self.get_token_usage_summary(),
+        }
+
+    @staticmethod
+    def _validate_batch_input(item_input, index):
+        """Coerce/validate a single batch input into a dict of variables."""
+        if item_input is None:
+            return {}
+        if not isinstance(item_input, dict):
+            raise ValueError(
+                f"inputs[{index}] must be a dict of variables, got "
+                f"{type(item_input).__name__}"
+            )
+        return item_input
+
+    def start_for_each(
+        self,
+        inputs,
+        *,
+        on_error="continue",
+        output="silent",
+        **kwargs,
+    ):
+        """Run this team once per input dict, interpolating ``{{key}}`` placeholders.
+
+        Each input dict is applied as per-run ``variables`` (existing
+        ``{{placeholder}}`` interpolation in task descriptions), so the original
+        task templates are never permanently mutated.
+
+        Args:
+            inputs: List of dicts; each runs the team once with those variables.
+            on_error: "continue" (default) collects errors per item and keeps
+                going; "fail_fast" re-raises on the first failing item.
+            output: Output preset forwarded to ``start`` (default "silent").
+            **kwargs: Additional arguments forwarded to ``start``.
+
+        Returns:
+            dict with ``batch_id``, ``items`` (per-item ``index``/``input``/
+            ``success``/``output``/``error``), ``outputs``, ``succeeded``,
+            ``failed``, ``total`` and ``token_usage_total``.
+        """
+        if on_error not in ("continue", "fail_fast"):
+            raise ValueError("on_error must be 'continue' or 'fail_fast'")
+
+        batch_id = f"batch_{uuid.uuid4().hex[:12]}"
+        saved_variables = self.variables
+        task_snapshot = self._snapshot_task_state()
+        items = []
+        try:
+            for index, item_input in enumerate(inputs):
+                result = {"index": index, "input": item_input, "success": False,
+                          "output": None, "error": None}
+                try:
+                    item_vars = self._validate_batch_input(item_input, index)
+                    self.variables = {**saved_variables, **item_vars}
+                    self._reset_task_state_for_item()
+                    result["output"] = self.start(output=output, **kwargs)
+                    result["success"] = True
+                except Exception as exc:  # noqa: BLE001
+                    if on_error == "fail_fast":
+                        raise
+                    result["error"] = str(exc)
+                items.append(result)
+        finally:
+            self.variables = saved_variables
+            self._restore_task_state(task_snapshot)
+
+        return self._build_batch_result(batch_id, items)
+
+    async def astart_for_each(
+        self,
+        inputs,
+        *,
+        on_error="continue",
+        **kwargs,
+    ):
+        """Async twin of :meth:`start_for_each` (sequential per-item execution)."""
+        if on_error not in ("continue", "fail_fast"):
+            raise ValueError("on_error must be 'continue' or 'fail_fast'")
+
+        batch_id = f"batch_{uuid.uuid4().hex[:12]}"
+        saved_variables = self.variables
+        task_snapshot = self._snapshot_task_state()
+        items = []
+        try:
+            for index, item_input in enumerate(inputs):
+                result = {"index": index, "input": item_input, "success": False,
+                          "output": None, "error": None}
+                try:
+                    item_vars = self._validate_batch_input(item_input, index)
+                    self.variables = {**saved_variables, **item_vars}
+                    self._reset_task_state_for_item()
+                    result["output"] = await self.astart(**kwargs)
+                    result["success"] = True
+                except Exception as exc:  # noqa: BLE001
+                    if on_error == "fail_fast":
+                        raise
+                    result["error"] = str(exc)
+                items.append(result)
+        finally:
+            self.variables = saved_variables
+            self._restore_task_state(task_snapshot)
+
+        return self._build_batch_result(batch_id, items)
 
     def set_state(self, key: str, value: Any) -> None:
         """Set a state value"""

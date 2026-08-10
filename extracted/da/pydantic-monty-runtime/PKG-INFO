@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pydantic-monty-runtime
-Version: 0.0.19
+Version: 0.0.21
 Classifier: Development Status :: 3 - Alpha
 Classifier: Programming Language :: Rust
 Classifier: Intended Audience :: Developers
@@ -38,8 +38,32 @@ hello world
   before executing
 - `-m` / `--mount /host/path::/virtual/path[::mode[::write_limit_bytes]]` —
   mount a host directory into the sandbox (`ro`, `rw`, or `overlay`)
-- `--max-memory 10MB`, `--max-duration 0.5`, `--max-allocations`,
-  `--max-recursion-depth`, `--gc-interval` — sandbox resource limits
+- `--max-memory 10MB`, `--max-duration 0.5`, `--max-recursion-depth`,
+  `--gc-interval` — sandbox resource limits
+
+## Features
+
+- `standalone` (default) — the `monty <file>` / `-c` / REPL path and its
+  terminal stack (`rustyline`, `anstream`, `anstyle`). Without it the binary
+  serves `monty subprocess` alone, which is all a pool ever spawns; the flags
+  still parse, but anything other than `subprocess` is refused.
+- `telemetry` — see below. Implies `standalone`, since it only instruments that
+  path.
+
+## Observability
+
+Behind the `telemetry` feature, off by default because its exporter links MBs
+of TLS that `monty subprocess` — which never exports — would otherwise carry.
+Without it, `LOGFIRE_TOKEN` is ignored.
+
+Built with `--features telemetry`, standalone CLI runs configure the Rust
+Logfire SDK when `LOGFIRE_TOKEN` is set. The SDK also honors standard
+OpenTelemetry exporter and resource environment variables. The CLI owns the SDK
+lifecycle and flushes it before exiting.
+
+`monty subprocess` deliberately ignores telemetry environment configuration:
+worker processes are instrumented by their parent pool, avoiding duplicate
+exporters and keeping credentials out of sandbox workers.
 
 ## Worker mode
 
@@ -52,15 +76,21 @@ requests on stdin, framed events on stdout (see the
 runs Monty with crash isolation. It is meant to be driven by a parent
 process, not by hand.
 
+The binary runs under the
+[`monty-alloc`](https://crates.io/crates/monty-alloc) global allocator, which
+provides the session's soft-limit usage and enforces a higher hard ceiling.
+Crossing the soft limit raises `MemoryError` at an interpreter checkpoint;
+crossing the hard limit exits with a dedicated status the parent can classify.
+
 ## PyPI packaging (`pydantic-monty-runtime`)
 
 The binary is also packaged for PyPI as
 [`pydantic-monty-runtime`](https://pypi.org/project/pydantic-monty-runtime/), the same
 way `uv` and `ruff` package theirs: installing the wheel places the compiled
 binary in the environment's scripts directory. It exists so that
-`pydantic-monty` can find a `monty` binary without any manual setup, and is
-installed automatically as a dependency of that package — you normally don't
-install it directly.
+`pydantic-monty-client` can find a `monty` binary without any manual setup, and
+is pulled in automatically by the `pydantic-monty` metapackage — you normally
+don't install it directly.
 
 ## Monty crates
 

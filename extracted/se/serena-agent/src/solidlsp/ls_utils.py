@@ -13,6 +13,7 @@ import tarfile
 import tempfile
 import uuid
 import zipfile
+from collections.abc import Sequence
 from enum import Enum
 from pathlib import Path, PurePath
 from typing import Literal, cast
@@ -23,8 +24,18 @@ import requests
 
 from solidlsp.ls_exceptions import InvalidTextLocationError, SolidLSPException
 from solidlsp.ls_types import UnifiedSymbolInformation
+from solidlsp.util.subprocess_util import subprocess_run
 
 log = logging.getLogger(__name__)
+
+
+def is_running_in_ci() -> bool:
+    """
+    Determines whether the current process is running in a Continuous Integration (CI) environment.
+
+    :return: True if running in CI, False otherwise
+    """
+    return os.getenv("CI") == "true" or os.getenv("GITHUB_ACTIONS") == "true"
 
 
 class TextStepper:
@@ -382,6 +393,8 @@ class FileUtils:
     Utility functions for file operations.
     """
 
+    ArchiveType = Literal["tar", "gztar", "bztar", "xztar", "zip", "zip.gz", "gz", "binary"]
+
     @staticmethod
     def read_file(file_path: str, encoding: str) -> str:
         """
@@ -428,7 +441,7 @@ class FileUtils:
         url: str,
         target_path: str,
         expected_sha256: str | None = None,
-        allowed_hosts: tuple[str, ...] | list[str] | None = None,
+        allowed_hosts: Sequence[str] | None = None,
     ) -> None:
         """
         Downloads a file from ``url`` to ``target_path`` with optional integrity and host validation.
@@ -467,7 +480,7 @@ class FileUtils:
                 Path.unlink(Path(temp_file_path))
 
     @staticmethod
-    def download_and_extract_archive(url: str, target_path: str, archive_type: str) -> None:
+    def download_and_extract_archive(url: str, target_path: str, archive_type: ArchiveType) -> None:
         """
         Downloads the archive from the given URL having format {archive_type} and extracts it to the given {target_path}
         """
@@ -477,9 +490,9 @@ class FileUtils:
     def download_and_extract_archive_verified(
         url: str,
         target_path: str,
-        archive_type: str,
+        archive_type: ArchiveType,
         expected_sha256: str | None = None,
-        allowed_hosts: tuple[str, ...] | list[str] | None = None,
+        allowed_hosts: Sequence[str] | None = None,
     ) -> None:
         """
         Downloads an archive from ``url`` and extracts it safely into ``target_path``.
@@ -559,7 +572,7 @@ class FileUtils:
             raise SolidLSPException(f"Checksum verification failed for '{file_path}': expected {expected_sha256}, got {actual_sha256}")
 
     @staticmethod
-    def _validate_download_host(url: str, allowed_hosts: tuple[str, ...] | list[str] | None) -> None:
+    def _validate_download_host(url: str, allowed_hosts: Sequence[str] | None) -> None:
         """
         Validates that a download URL resolves to one of the configured hosts.
         """
@@ -740,9 +753,9 @@ class PlatformUtils:
         Returns the dotnet version for the current system
         """
         try:
-            result = subprocess.run(["dotnet", "--list-runtimes"], capture_output=True, check=True)
+            result = subprocess_run(["dotnet", "--list-runtimes"], capture_output=True, check=True)
             available_version_cmd_output = []
-            for line in result.stdout.decode("utf-8").split("\n"):
+            for line in result.stdout.split("\n"):
                 if line.startswith("Microsoft.NETCore.App"):
                     version_cmd_output = line.split(" ")[1]
                     available_version_cmd_output.append(version_cmd_output)
@@ -769,7 +782,7 @@ class PlatformUtils:
             )
         except (FileNotFoundError, subprocess.CalledProcessError):
             try:
-                result = subprocess.run(["mono", "--version"], capture_output=True, check=True)
+                result = subprocess_run(["mono", "--version"], capture_output=True, check=True)
                 return DotnetVersion.VMONO
             except (FileNotFoundError, subprocess.CalledProcessError):
                 raise SolidLSPException("dotnet or mono not found on the system")

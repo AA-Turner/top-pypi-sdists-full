@@ -13,14 +13,11 @@
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with this program. If not, see <http://www.gnu.org/licenses/>.
+# along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 """Model for subtitle data."""
 
 import aeidon
-
-__all__ = ("Project",)
-
 
 class ProjectMeta(type):
 
@@ -36,8 +33,7 @@ class ProjectMeta(type):
 
     def __new__(meta, class_name, bases, dic):
         new_dict = dic.copy()
-        for agent_class_name in aeidon.agents.__all__:
-            agent_class = getattr(aeidon.agents, agent_class_name)
+        for agent_class in aeidon.agents.classes:
             def is_delegate_method(name):
                 value = getattr(agent_class, name)
                 return (callable(value) and
@@ -48,7 +44,6 @@ class ProjectMeta(type):
             for attr_name in attr_names:
                 new_dict[attr_name] = getattr(agent_class, attr_name)
         return type.__new__(meta, class_name, bases, new_dict)
-
 
 class Project(aeidon.Observable, metaclass=ProjectMeta):
 
@@ -134,13 +129,13 @@ class Project(aeidon.Observable, metaclass=ProjectMeta):
         """Return method delegated to an agent."""
         try:
             return self._delegations[name]
-        except LookupError:
-            raise AttributeError
+        except KeyError:
+            raise AttributeError(name)
 
     def _init_delegations(self):
         """Initialize the delegation mappings."""
-        for agent_class_name in aeidon.agents.__all__:
-            agent = getattr(aeidon.agents, agent_class_name)(self)
+        for agent_class in aeidon.agents.classes:
+            agent = agent_class(self)
             def is_delegate_method(name):
                 value = getattr(agent, name)
                 return (callable(value) and
@@ -151,8 +146,7 @@ class Project(aeidon.Observable, metaclass=ProjectMeta):
             for attr_name in attr_names:
                 attr_value = getattr(agent, attr_name)
                 if attr_name in self._delegations:
-                    raise ValueError("Multiple definitions of {!r}"
-                                     .format(attr_name))
+                    raise ValueError(f"Multiple definitions of {attr_name!r}")
 
                 self._delegations[attr_name] = attr_value
                 # Remove class-level function added by ProjectMeta.

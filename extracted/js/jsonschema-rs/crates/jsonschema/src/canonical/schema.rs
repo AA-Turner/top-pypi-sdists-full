@@ -143,10 +143,16 @@ impl CanonicalSchema {
     /// Emit this canonical schema back to JSON Schema.
     #[must_use]
     pub fn to_json_schema(&self) -> Value {
-        let value = emit::to_json_schema(&self.inner, self.draft, &self.document.definitions);
         if self.inner == self.document.root {
-            return value;
+            // Parsing already drops what the document never names, so the whole map belongs here.
+            return emit::to_json_schema(&self.inner, self.draft, &self.document.definitions);
         }
+        let definitions = emit::reachable_definitions(
+            &self.inner,
+            &self.document.root,
+            &self.document.definitions,
+        );
+        let value = emit::to_json_schema(&self.inner, self.draft, &definitions);
         emit::rebind_document_root(value, &self.document.root, self.draft)
     }
 
@@ -219,7 +225,7 @@ impl CanonicalSchema {
         let context =
             CanonicalizationContext::new(self.draft, self.pattern_options, self.validate_formats);
         let inner = algebra::intersect(self.inner.clone(), other.inner.clone(), &context);
-        if context.saw_unspellable_meet() {
+        if context.saw_unspellable_meet() || context.outgrew_distribution() {
             return Err(CanonicalizationError::UnmodeledOperand);
         }
         // Two nodes of one document meet inside it, so `#` keeps its target there. Nodes of

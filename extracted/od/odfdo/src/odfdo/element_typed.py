@@ -50,6 +50,18 @@ class ElementTyped(Element):
             for obsolete in paragraphs:
                 obsolete.delete()
 
+    def set_text_content(self, text: str | Element | None) -> None:
+        """Sets the text content of the embedded paragraph.
+
+        This operation overwrites all existing text nodes and children
+        that may contain text.
+
+        Args:
+            text: The new text content.
+        """
+        self.delete_children()
+        self.text_content = text
+
     def clear_attrinutes(self) -> None:
         """Clear attrinutes defining type and value of the Cell."""
         self.del_attribute_list(
@@ -63,9 +75,18 @@ class ElementTyped(Element):
                 "table:formula",
                 "office:currency",
                 "calcext:value-type",
+                "calcext:value",
                 "loext:value-type",
+                "loext:active-table",
+                "loext:location",
+                "loext:target",
             )
         )
+
+    def delete_children(self) -> None:
+        """Delete all children of the ElementType."""
+        for child in self.children:
+            self.delete(child, keep_tail=False)
 
     def set_value_and_type(
         self,

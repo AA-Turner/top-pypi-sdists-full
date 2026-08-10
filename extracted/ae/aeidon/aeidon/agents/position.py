@@ -13,14 +13,13 @@
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with this program. If not, see <http://www.gnu.org/licenses/>.
+# along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 """Manipulating times and frames."""
 
 import aeidon
 
 from aeidon.i18n import _
-
 
 class PositionAgent(aeidon.Delegate):
 
@@ -130,7 +129,7 @@ class PositionAgent(aeidon.Delegate):
         if aeidon.is_time(p1[1]): return self._get_time_transform(p1, p2)
         if aeidon.is_frame(p1[1]): return self._get_frame_transform(p1, p2)
         if aeidon.is_seconds(p1[1]): return self._get_seconds_transform(p1, p2)
-        raise ValueError("Bad position argument: {!r}".format(p1))
+        raise ValueError(f"Bad position argument: {p1!r}")
 
     @aeidon.deco.export
     @aeidon.deco.revertable

@@ -13,40 +13,40 @@
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with this program. If not, see <http://www.gnu.org/licenses/>.
+# along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 """Internationalization functions."""
 
-import aeidon
+import contextlib
 import gettext
 import locale
 
 _translation = gettext.NullTranslations()
 
-
 # Wrapper class for marking lazy translations
 class __(str): pass
 
-
-def bind(localedir=aeidon.LOCALE_DIR):
+def bind(localedir):
     """Bind translation domains and initialize gettext."""
-    with aeidon.util.silent(Exception):
+    global _translation
+    with contextlib.suppress(Exception):
         # Set locale to the user's default setting.
         # Might fail on misconfigured systems.
         locale.setlocale(locale.LC_ALL, "")
     # Make translations available to the gettext module.
     gettext.bindtextdomain("gaupol", localedir)
     gettext.textdomain("gaupol")
-    with aeidon.util.silent(Exception):
+    with contextlib.suppress(Exception):
         # Make translations available to GTK as well.
         # Not available on all platforms.
         locale.bindtextdomain("gaupol", localedir)
         locale.textdomain("gaupol")
-    globals()["_translation"] = gettext.translation(
-        "gaupol", localedir=localedir, fallback=True)
+    _translation = gettext.translation("gaupol", localedir, fallback=True)
 
 def _(message):
     """Return the localized translation of `message`."""
+    # gettext translates the empty string to mo file metadata.
+    if not message: return message
     return _translation.gettext(message)
 
 def d_(domain, message):

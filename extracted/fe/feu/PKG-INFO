@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: feu
-Version: 0.8.0
+Version: 0.8.1
 Dynamic: Maintainer
 Dynamic: Maintainer-email
 Summary: A lightweight Python library for managing packages and versions across different Python environments
@@ -114,9 +114,13 @@ packages and their versions across different Python environments.
 
 - ✅ **Check package availability**: Verify if packages and modules are installed
 - 🔄 **Version-aware installation**: Install packages with automatic version compatibility checks
-- 🎯 **Smart version resolution**: Find the closest valid package version for your Python environment
+- 🎯 **Smart version resolution**: Find the closest valid package version for your target
+  environment (Python version, free-threadedness, OS, and CPU architecture)
 - 📋 **Package registry**: Built-in compatibility information for popular packages (numpy, pandas,
-  torch, etc.)
+  polars, torch, etc.)
+- 🔍 **PyPI-backed discovery**: Automatically discover version compatibility from PyPI for packages
+  that aren't in the built-in registry
+- 🐙 **GitHub utilities**: Fetch and sort repository metadata from the GitHub API
 - 🖥️ **CLI tools**: Command-line interface for package management tasks
 - 🪶 **Lightweight**: Minimal dependencies (only `packaging` required for core functionality)
 
@@ -192,6 +196,7 @@ is the corresponding `feu` versions and supported dependencies.
 | `feu`   | `packaging`    | `python`       | `click`<sup>*</sup> | `gitpython`<sup>*</sup> | `requests`<sup>*</sup> | `rich`<sup>*</sup> |
 |---------|----------------|----------------|---------------------|-------------------------|------------------------|--------------------|
 | `main`  | `>=21.0,<27.0` | `>=3.10`       | `>=8.1,<9.0`        | `>=3.1.41,<4.0`         | `>=2.30,<3.0`          | `>=14.0.0,<16.0`   |
+| `0.8.1` | `>=21.0,<27.0` | `>=3.10`       | `>=8.1,<9.0`        | `>=3.1.41,<4.0`         | `>=2.30,<3.0`          | `>=14.0.0,<16.0`   |
 | `0.8.0` | `>=21.0,<27.0` | `>=3.10`       | `>=8.1,<9.0`        | `>=3.1.41,<4.0`         | `>=2.30,<3.0`          | `>=14.0.0,<16.0`   |
 | `0.7.3` | `>=21.0,<27.0` | `>=3.10`       | `>=8.1,<9.0`        | `>=3.1.41,<4.0`         | `>=2.30,<3.0`          |                    |
 | `0.7.2` | `>=21.0,<27.0` | `>=3.10`       | `>=8.1,<9.0`        | `>=3.1.41,<4.0`         | `>=2.30,<3.0`          |                    |

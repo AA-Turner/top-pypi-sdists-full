@@ -13,15 +13,12 @@
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with this program. If not, see <http://www.gnu.org/licenses/>.
+# along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 """Text markup for the SubRip format."""
 
 import aeidon
 import re
-
-__all__ = ("SubRip",)
-
 
 class SubRip(aeidon.Markup):
 
@@ -43,7 +40,7 @@ class SubRip(aeidon.Markup):
     def bolden(self, text, bounds=None):
         """Return bolded `text`."""
         a, z = bounds or (0, len(text))
-        return "".join((text[:a], "<b>{}</b>".format(text[a:z]), text[z:]))
+        return "".join((text[:a], f"<b>{text[a:z]}</b>", text[z:]))
 
     def clean(self, text):
         """Return `text` with less ugly markup."""
@@ -62,7 +59,7 @@ class SubRip(aeidon.Markup):
     def colorize(self, text, color, bounds=None):
         """Return `text` colorized to hexadecimal value."""
         a, z = bounds or (0, len(text))
-        target = '<font color="#{}">{}</font>'.format(color, text[a:z])
+        target = f'<font color="#{color}">{text[a:z]}</font>'
         return "".join((text[:a], target, text[z:]))
 
     @property
@@ -73,7 +70,7 @@ class SubRip(aeidon.Markup):
     def italicize(self, text, bounds=None):
         """Return italicized `text`."""
         a, z = bounds or (0, len(text))
-        return "".join((text[:a], "<i>{}</i>".format(text[a:z]), text[z:]))
+        return "".join((text[:a], f"<i>{text[a:z]}</i>", text[z:]))
 
     def _main_decode(self, text):
         """Return `text` with decodable markup decoded."""
@@ -91,4 +88,4 @@ class SubRip(aeidon.Markup):
     def underline(self, text, bounds=None):
         """Return underlined `text`."""
         a, z = bounds or (0, len(text))
-        return "".join((text[:a], "<u>{}</u>".format(text[a:z]), text[z:]))
+        return "".join((text[:a], f"<u>{text[a:z]}</u>", text[z:]))

@@ -127,6 +127,7 @@ from nextcloud_mcp_server.server import (
 from nextcloud_mcp_server.server.auth_tools import register_auth_tools
 from nextcloud_mcp_server.server.oauth_tools import register_oauth_tools
 from nextcloud_mcp_server.vector.metrics_publisher import (
+    usage_stock_task,
     vector_density_snapshot_task,
     vector_sync_metrics_task,
 )
@@ -150,6 +151,32 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 HTTPXClientInstrumentor().instrument()
+
+
+def build_dcr_scopes(*, vector_sync_enabled: bool, offline_access_enabled: bool) -> str:
+    """Build the space-separated scope list this server registers via DCR.
+
+    When we register as a resource server (with resource_url) the allowed
+    scopes describe what is AVAILABLE for this resource, not what the server
+    itself needs — external clients then request tokens limited to this list.
+    Every scope any tool requires must appear, and since a token scope is
+    required for every tool call, an omission here makes those tools
+    permanently uncallable.
+
+    Derived from ALL_SUPPORTED_SCOPES rather than hand-maintained: the two were
+    a duplicated pair that silently drifted, leaving mail.send (and every mail
+    scope) ungrantable in OAuth mode despite being in use. semantic.read is
+    subtracted and re-added conditionally so it is advertised only when
+    semantic search is enabled — subtracting is what keeps it from being
+    emitted twice now that it is a member of the vocabulary.
+    """
+    scopes = ["openid", "profile", "email"]
+    scopes += sorted(ALL_SUPPORTED_SCOPES - {"semantic.read"})
+    if vector_sync_enabled:
+        scopes.append("semantic.read")
+    if offline_access_enabled:
+        scopes.append("offline_access")
+    return " ".join(scopes)
 
 
 def initialize_document_processors():
@@ -855,31 +882,17 @@ async def load_oauth_client_credentials(
             f"{mcp_server_url}/oauth/callback",  # Unified callback (flow determined by query param)
         ]
 
-        # MCP server DCR: Register with ALL supported scopes
-        # When we register as a resource server (with resource_url), the allowed_scopes
-        # represent what scopes are AVAILABLE for this resource, not what the server needs.
-        # External clients will request tokens with resource=http://localhost:8001/mcp
-        # and the authorization server will limit them to these allowed scopes.
-        #
-        # The PRM endpoint advertises the same scopes dynamically via @require_scopes
-        # decorators, so this list must cover every scope any tool requires. It is
-        # derived from ALL_SUPPORTED_SCOPES rather than hand-maintained: the two were
-        # a duplicated pair that silently drifted, leaving mail.send (and every mail
-        # scope) ungrantable in OAuth mode despite being in use.
-        dcr_scopes = "openid profile email " + " ".join(sorted(ALL_SUPPORTED_SCOPES))
-
         # Add conditional scopes based on server configuration
         dcr_settings = get_settings()
-
-        # semantic.read gates MCP-server-level semantic search tools
-        if dcr_settings.vector_sync_enabled:
-            dcr_scopes = f"{dcr_scopes} semantic.read"
-            logger.info("✓ semantic.read scope enabled for semantic search tools")
-
-        # offline_access enables refresh tokens for background operations
         enable_offline_access = dcr_settings.enable_offline_access
+
+        dcr_scopes = build_dcr_scopes(
+            vector_sync_enabled=dcr_settings.vector_sync_enabled,
+            offline_access_enabled=enable_offline_access,
+        )
+        if dcr_settings.vector_sync_enabled:
+            logger.info("✓ semantic.read scope enabled for semantic search tools")
         if enable_offline_access:
-            dcr_scopes = f"{dcr_scopes} offline_access"
             logger.info("✓ offline_access scope enabled for refresh tokens")
 
         logger.info("MCP server DCR scopes (resource server): %s", dcr_scopes)
@@ -2245,6 +2258,12 @@ def get_app(transport: str = "streamable-http", enabled_apps: list[str] | None =
                 if settings.vector_density_snapshot_enabled:
                     await tg.start(vector_density_snapshot_task, shutdown_event)
 
+                # Billable retention snapshot (chunks_stored), once per UTC day.
+                # Gated on metering alone — the task no-ops otherwise, and it must
+                # run on BOTH consumer paths or multi-user tenants go un-metered.
+                if settings.usage_metering_enabled:
+                    await tg.start(usage_stock_task, shutdown_event)
+
                 logger.info(
                     "Background sync tasks started: 1 scanner + %s processors (queue=%s)",
                     ingest_transport.active_consumer_count,
@@ -2481,6 +2500,13 @@ def get_app(transport: str = "streamable-http", enabled_apps: list[str] | None =
                     # VECTOR_DENSITY_SNAPSHOT_ENABLED.
                     if settings.vector_density_snapshot_enabled:
                         await tg.start(vector_density_snapshot_task, shutdown_event)
+
+                    # Billable retention snapshot (chunks_stored), once per UTC
+                    # day. Must be spawned here too: this is the multi-user
+                    # consumer path, and omitting it would silently un-meter
+                    # every multi-user tenant's storage.
+                    if settings.usage_metering_enabled:
+                        await tg.start(usage_stock_task, shutdown_event)
 
                     logger.info(
                         "Background sync tasks started: 1 user manager + %s processors (queue=%s)",

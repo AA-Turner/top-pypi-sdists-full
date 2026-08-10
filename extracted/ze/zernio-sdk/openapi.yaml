@@ -1153,7 +1153,7 @@ components:
             `{ status, ok, body }` to `vars[saveAs]`. Edge: `'success'` on 2xx, `'error'` otherwise.
 
 
-            **ai**: `{ provider: anthropic|openai|google|mistral|groq, model, preset:
+            **ai**: `{ provider: anthropic|openai|google|mistral|groq|openrouter, model, preset:
             smart|tools|cheap, systemPrompt, userPromptTemplate, saveAs, temperature, maxTokens,
             outputType: text|json, tools:[{ name, description, parameters }] }`. Set `provider` +
             `model` for BYOK (uses your stored API key); omit `provider` for the legacy Telnyx
@@ -15705,6 +15705,17 @@ paths:
           in: query
           schema: { type: boolean, default: false }
           description: When true, the user is redirected to your redirect_url with raw OAuth data (code, state) instead of Zernio's default account selection UI. Use this to build a custom connect experience.
+        - name: loginMethod
+          in: query
+          schema: { type: string, enum: [instagram_login, facebook_login], default: instagram_login }
+          description: |
+            Instagram only. Which of the two Instagram connection methods to use. Ignored for every other platform.
+
+            `instagram_login` (the default, and what you get if you omit this): the Instagram Login dialog. The user authorizes their Instagram professional account directly, no Facebook Page required.
+
+            `facebook_login`: the Facebook Login dialog, i.e. "Instagram API with Facebook Login". The user authorizes a Facebook Page that has a linked Instagram professional account, and every API call for that account then runs through the Page. Use this when the customer manages Instagram through a Page and expects the Facebook consent screen. Because the user has to pick which Page to connect, the callback continues at the account-selection step, `/v1/connect/instagram/select-account`.
+
+            `facebook_login` supports `headless=true` like the other selection platforms: the callback redirects to your `redirect_url` with `profileId`, `tempToken`, `platform=instagram`, `step=select_account` and `connect_token`, which you pass into the select-account endpoints to finish. The default `instagram_login` has no selection step, so it connects the account directly.
       security:
         - bearerAuth: []
       responses:
@@ -16134,6 +16145,142 @@ paths:
                   code: { type: string, enum: [RECONNECT_ACCOUNT_MISMATCH] }
         '500':
           description: Failed to save Facebook connection
+
+  /v1/connect/instagram/select-account:
+    get:
+      operationId: listInstagramPages
+      tags: [Connect]
+      summary: List Pages with a linked Instagram account
+      description: |
+        Completes the `loginMethod=facebook_login` Instagram flow, i.e. "Instagram API with Facebook Login".
+
+        After the user authorizes on Facebook, extract `tempToken` from the redirect params (headless mode adds `step=select_account`) and pass it here to list the Facebook Pages they manage. Only Pages that have a linked Instagram professional account are returned, so an empty array means the user has no eligible Page. Use the X-Connect-Token header if connecting via API key.
+
+        Not used by the default `instagram_login` flow, which creates the account without a selection step.
+      parameters:
+        - name: profileId
+          in: query
+          required: true
+          schema: { type: string }
+          description: Profile ID from your connection flow
+        - name: tempToken
+          in: query
+          required: true
+          schema: { type: string }
+          description: Long-lived Facebook user access token from the OAuth callback redirect
+      security:
+        - bearerAuth: []
+        - connectToken: []
+      responses:
+        '200':
+          description: Facebook Pages that have a linked Instagram professional account
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  pages:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string, description: Facebook Page ID }
+                        name: { type: string, description: Page name }
+                        access_token: { type: string, description: Page-specific access token }
+                        instagram_business_account:
+                          type: object
+                          description: The Instagram professional account linked to this Page
+                          properties:
+                            id: { type: string, description: Instagram Business Account ID }
+                            username: { type: string }
+                            profile_picture_url: { type: string }
+              example:
+                pages:
+                  - id: "811889972008357"
+                    name: "My Brand Page"
+                    access_token: "EAAxxxxx..."
+                    instagram_business_account:
+                      id: "17841400649984407"
+                      username: "mybrand"
+                      profile_picture_url: "https://..."
+        '400': { description: 'Missing required parameters (profileId or tempToken)' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { description: User does not have access to the specified profile }
+    post:
+      operationId: selectInstagramAccount
+      tags: [Connect]
+      summary: Select the Page whose Instagram account to connect
+      description: |
+        Saves the selected Page as an Instagram account connected via Facebook Login. The Page access token becomes the account's access token, so every Instagram call for it runs against the Facebook Graph host.
+
+        One Instagram account per profile: if the profile already has an Instagram account, this replaces it, and picking a different Instagram identity purges the previous account's conversations, external posts and stats.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [profileId, pageId, tempToken]
+              properties:
+                profileId:
+                  type: string
+                  description: Profile ID from your connection flow
+                pageId:
+                  type: string
+                  description: 'The Facebook Page ID selected by the user, from GET /v1/connect/instagram/select-account'
+                tempToken:
+                  type: string
+                  description: Long-lived Facebook user access token from the OAuth callback redirect
+                redirect_url:
+                  type: string
+                  format: uri
+                  description: Optional custom redirect URL to return to after selection
+            example:
+              profileId: "507f1f77bcf86cd799439011"
+              pageId: "811889972008357"
+              tempToken: "EAAxxxxx..."
+              redirect_url: "https://yourdomain.com/integrations/callback"
+      security:
+        - bearerAuth: []
+        - connectToken: []
+      responses:
+        '200':
+          description: Instagram account connected
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string }
+                  redirect_url:
+                    type: string
+                    description: Redirect URL if a custom redirect_url was provided
+                  account:
+                    type: object
+                    properties:
+                      accountId: { type: string, description: ID of the created SocialAccount }
+                      platform: { type: string, enum: [instagram] }
+                      username: { type: string }
+                      displayName: { type: string, description: Name of the Facebook Page backing this account }
+                      profilePicture: { type: string }
+                      isActive: { type: boolean }
+                      loginMethod: { type: string, enum: [facebook_login] }
+              example:
+                message: "Instagram (via Facebook) connected"
+                account:
+                  accountId: "64e1f0a9e2b5af0012ab34cd"
+                  platform: "instagram"
+                  username: "mybrand"
+                  displayName: "My Brand Page"
+                  profilePicture: "https://..."
+                  isActive: true
+                  loginMethod: "facebook_login"
+        '400':
+          description: 'Missing required fields, or the selected Page has no linked Instagram professional account'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '402': { $ref: '#/components/responses/PaymentRequired' }
+        '403': { description: User does not have access to the specified profile }
+        '404': { description: Selected page not found among the pages this token can manage }
 
   /v1/connect/googlebusiness/locations:
     get:
@@ -24243,7 +24390,12 @@ paths:
                             properties:
                               id: { type: string }
                               type: { type: string, enum: [image, video, audio, file, sticker, share] }
-                              url: { type: string }
+                              url:
+                                type: string
+                                description: 'Direct media link. On Instagram and Facebook this is a signed Meta CDN url that EXPIRES: use it now, do not store it. Persist `refreshUrl` instead.'
+                              refreshUrl:
+                                type: [string, "null"]
+                                description: 'Instagram and Facebook only. Endpoint that resolves this attachment to a working url every time, re-minting it from Meta when the stored one has expired. Safe to store and render indefinitely.'
                               filename: { type: [string, "null"] }
                               previewUrl: { type: [string, "null"] }
                         subject: { type: [string, "null"], description: Reddit message subject }
@@ -25513,6 +25665,77 @@ paths:
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
 
+  /v1/inbox/conversations/{conversationId}/messages/{messageId}/attachments/{index}:
+    get:
+      x-resource-group: "messages"
+      operationId: getMessageAttachment
+      summary: Resolve message attachment
+      description: |
+        Resolve one attachment on a message to a media url that works right now.
+
+        Instagram and Facebook sign DM media urls per request and expire them, so
+        the `url` on a message is a snapshot: it works when you read the message
+        and stops working later. This endpoint checks the stored url and, when it
+        has gone stale, re-mints the message's media from Meta and persists it
+        before answering. The message id never expires, so this URL is the one to
+        store — it is returned on each attachment as `refreshUrl`.
+
+        By default it responds `302` to the live media url, so it can be used
+        directly as an `<img src>` on a browser session. API-key integrators
+        should pass `?format=json` and read `url` off the body, since a browser
+        cannot attach an Authorization header to an image request.
+
+        Only Instagram and Facebook media can be re-minted. On other platforms
+        the stored url is returned as-is when it still resolves, and `404`
+        otherwise.
+      tags: [Messages]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: conversationId
+          in: path
+          required: true
+          schema: { type: string }
+          description: 'The conversation ID (Zernio id or platform conversation id)'
+        - name: messageId
+          in: path
+          required: true
+          schema: { type: string }
+          description: 'The message id as returned by the list-messages endpoint (the platform message id)'
+        - name: index
+          in: path
+          required: true
+          schema: { type: integer, minimum: 0 }
+          description: 'Zero-based position of the attachment in the message''s attachments array'
+        - name: accountId
+          in: query
+          required: true
+          schema: { type: string }
+          description: Social account ID
+        - name: format
+          in: query
+          required: false
+          schema: { type: string, enum: [redirect, json], default: redirect }
+          description: '`redirect` (default) answers 302 to the media; `json` returns the url in the body'
+      responses:
+        '200':
+          description: 'Resolved url (only when format=json)'
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: success }
+                  url: { type: string, description: 'Live media url. Short-lived; re-request this endpoint rather than storing it.' }
+                  refreshed: { type: boolean, description: True when the stored url had expired and was re-minted from the platform. }
+        '302':
+          description: Redirect to the live media url
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: Inbox addon required
+        '404':
+          description: 'Account, conversation, message or attachment not found, or the platform no longer serves the media'
+
   /v1/inbox/comments:
     get:
       x-resource-group: "engagement"
@@ -26086,8 +26309,12 @@ paths:
       operationId: likeInboxComment
       summary: Like comment
       description: |
-        Like or upvote a comment on a post. Supported platforms: Facebook, Twitter/X, Bluesky, Reddit.
-        For Bluesky, the cid (content identifier) is required in the request body.
+        Like or upvote a comment on a post. Supported platforms: Facebook, Twitter/X,
+        Bluesky, Reddit, LinkedIn. For Bluesky, the cid (content identifier) is required
+        in the request body. For LinkedIn, pass the composite comment URN returned by the
+        comments endpoints as commentId; an optional reactionType picks the reaction
+        (defaults to LIKE), and accounts connected before the social-feed scopes were
+        requested get a 403 with code `linkedin_reconnect_required`.
       tags: [Comments]
       security: [{ bearerAuth: [] }]
       parameters:
@@ -26108,6 +26335,10 @@ paths:
               required: [accountId]
               properties:
                 accountId: { type: string, description: The social account ID }
+                reactionType:
+                  type: string
+                  enum: [LIKE, PRAISE, EMPATHY, INTEREST, APPRECIATION, ENTERTAINMENT]
+                  description: '(LinkedIn only) Reaction to create. Defaults to LIKE; ignored on other platforms.'
                 cid: { type: string, description: (Bluesky only) Content identifier for the comment }
       responses:
         '200':
@@ -26132,8 +26363,8 @@ paths:
       operationId: unlikeInboxComment
       summary: Unlike comment
       description: |
-        Remove a like from a comment. Supported platforms: Facebook, Twitter/X, Bluesky, Reddit.
-        For Bluesky, the likeUri query parameter is required.
+        Remove a like from a comment. Supported platforms: Facebook, Twitter/X, Bluesky,
+        Reddit, LinkedIn. For Bluesky, the likeUri query parameter is required.
       tags: [Comments]
       security: [{ bearerAuth: [] }]
       parameters:
@@ -26170,6 +26401,112 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403':
           description: Inbox addon required
+
+  /v1/inbox/posts/{postId}/like:
+    post:
+      operationId: likePost
+      summary: Like post
+      description: |
+        Like (or react to) a post as a connected account. Supported platforms: LinkedIn,
+        Twitter/X, Facebook, YouTube, Bluesky. Instagram, Threads, TikTok and Pinterest
+        expose no like endpoint in their APIs and return 400. Reddit returns 400 too,
+        pointing at `POST /v1/accounts/{accountId}/reddit-vote`, which covers upvote,
+        downvote and clear on both posts and comments.
+
+        The account does not have to be the one that published the post, which is what
+        makes executive engagement possible: pass an exec's `accountId` and the brand
+        post's ID. `postId` accepts either a Zernio post ID or the platform's native post
+        ID. A Zernio post ID resolves to the entry for `accountId`, falling back to the
+        post's single entry on the same platform (two entries on that platform is a 400,
+        so pass the native ID).
+
+        LinkedIn requires the `w_member_social_feed` / `w_organization_social_feed`
+        scopes, which are not retroactive: accounts connected before those were requested
+        get a 403 with code `linkedin_reconnect_required` until the user reconnects the
+        account. YouTube spends 50 quota units per call.
+      tags: [Comments]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: postId
+          in: path
+          required: true
+          schema: { type: string }
+          description: Zernio post ID or the platform's native post ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [accountId]
+              properties:
+                accountId: { type: string, description: The social account acting as the liker }
+                reactionType:
+                  type: string
+                  enum: [LIKE, PRAISE, EMPATHY, INTEREST, APPRECIATION, ENTERTAINMENT]
+                  description: '(LinkedIn only) Reaction to create. Defaults to LIKE; ignored on other platforms.'
+                cid: { type: string, description: (Bluesky only) Content identifier of the post }
+      responses:
+        '200':
+          description: Post liked
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string }
+                  postId: { type: string, description: The resolved native post ID }
+                  platform: { type: string }
+                  liked: { type: boolean }
+                  likeUri: { type: string, description: (Bluesky only) URI to use for unliking }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: Inbox addon required, or the account is missing the platform scope
+        '404':
+          description: Account or post not found
+    delete:
+      operationId: unlikePost
+      summary: Unlike post
+      description: |
+        Remove this account's like from a post. Supported platforms: LinkedIn, Twitter/X,
+        Facebook, YouTube, Bluesky. On YouTube this clears the rating. For Bluesky,
+        `likeUri` (returned when the post was liked) is required. Reddit uses
+        `POST /v1/accounts/{accountId}/reddit-vote` with `direction: 0`.
+      tags: [Comments]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: postId
+          in: path
+          required: true
+          schema: { type: string }
+          description: Zernio post ID or the platform's native post ID
+        - name: accountId
+          in: query
+          required: true
+          schema: { type: string }
+        - name: likeUri
+          in: query
+          schema: { type: string }
+          description: (Bluesky only) The like URI returned when liking
+      responses:
+        '200':
+          description: Post unliked
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string }
+                  postId: { type: string, description: The resolved native post ID }
+                  platform: { type: string }
+                  liked: { type: boolean }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: Inbox addon required, or the account is missing the platform scope
+        '404':
+          description: Account or post not found
 
   /v1/inbox/comments/{postId}/{commentId}/private-reply:
     post:
@@ -36000,6 +36337,7 @@ paths:
                         clickTag: { type: string, description: "Tag applied to a contact when they click a tracked link." }
                         dmDelaySeconds: { type: integer, description: "Seconds waited after the trigger before the DM is sent. Absent when the DM goes out immediately." }
                         commentReplyDelaySeconds: { type: integer, description: "Seconds waited before the public reply is posted. Absent when it follows the DM immediately." }
+                        alsoMatchInDms: { type: boolean, description: "Whether these keywords also fire on a plain inbound DM." }
                         isActive: { type: boolean }
                         stats:
                           type: object
@@ -36046,6 +36384,12 @@ paths:
         decides what happens for everyone else - including `verify`, which sends a one-tap
         confirmation DM (`followGate`) and then delivers the real DM automatically. People we
         already know follow you skip the tap entirely.
+
+        Set `alsoMatchInDms: true` on a `comment` automation to also answer people who send
+        a keyword as a direct message instead of commenting it. One automation then covers
+        both doors, and each door is deduplicated separately (someone who already got the DM
+        from their comment still gets it if they later DM the keyword). Requires at least one
+        keyword.
 
         Links in the DM's buttons can be click-tracked (`linkTracking`, on by default) and
         clickers optionally tagged (`clickTag`) for segmentation. Stats returned include
@@ -36098,6 +36442,7 @@ paths:
                 clickTag: { type: string, description: "Optional tag applied to a contact when they click a tracked link (requires linkTracking). Lets you segment clickers for broadcasts/sequences." }
                 dmDelaySeconds: { type: integer, minimum: 0, maximum: 86400, description: "Seconds to wait after the trigger before sending the DM. Omit or send 0 to reply immediately (the default). Max 86400 (24h). The trigger is still matched and deduplicated the moment the comment arrives, so a delay only moves when the response is sent." }
                 commentReplyDelaySeconds: { type: integer, minimum: 0, maximum: 86400, description: "Seconds to wait before posting the public comment reply. Omit or send 0 to post it right after the DM (the default). The reply never goes out before the DM, so a value below dmDelaySeconds is raised to it. Ignored when trigger=story_reply, which has no public reply." }
+                alsoMatchInDms: { type: boolean, default: false, description: "Also fire these keywords on a plain inbound DM, so the automation answers people who message the keyword instead of commenting it. Requires at least one keyword (an empty keyword list means 'match anything', which would answer every inbound message) and is rejected on story_reply automations, which already trigger on DMs. Dedup is per door: a contact who already received the DM from their comment can still receive it from a DM." }
                 audience: { $ref: '#/components/schemas/CommentAutomationAudience' }
                 followGate: { $ref: '#/components/schemas/CommentAutomationFollowGate' }
       responses:
@@ -36137,6 +36482,7 @@ paths:
                       commentReplyDelaySeconds: { type: integer, description: "Seconds waited before the public reply is posted. Absent when it follows the DM immediately." }
                       audience: { $ref: '#/components/schemas/CommentAutomationAudience' }
                       followGate: { $ref: '#/components/schemas/CommentAutomationFollowGate' }
+                      alsoMatchInDms: { type: boolean, description: "Whether these keywords also fire on a plain inbound DM." }
                       isActive: { type: boolean }
                       stats: { type: object, properties: { totalTriggered: { type: integer }, totalSent: { type: integer }, totalFailed: { type: integer } } }
                       createdAt: { type: string, format: date-time }
@@ -36195,6 +36541,7 @@ paths:
                       commentReplyDelaySeconds: { type: integer, description: "Seconds waited before the public reply is posted. Absent when it follows the DM immediately." }
                       audience: { $ref: '#/components/schemas/CommentAutomationAudience' }
                       followGate: { $ref: '#/components/schemas/CommentAutomationFollowGate' }
+                      alsoMatchInDms: { type: boolean, description: "Whether these keywords also fire on a plain inbound DM." }
                       isActive: { type: boolean }
                       stats: { type: object, properties: { totalTriggered: { type: integer }, totalSent: { type: integer }, totalFailed: { type: integer } } }
                       createdAt: { type: string, format: date-time }
@@ -36209,6 +36556,7 @@ paths:
                         commenterId: { type: string }
                         commenterName: { type: string }
                         commentText: { type: string }
+                        source: { type: string, enum: [comment, story_reply, dm], description: "Which door triggered this send. Absent on rows written before this field existed (all of those are comment-triggered)." }
                         status: { type: string, enum: [pending, sent, failed, skipped, gated], description: "DM outcome. 'pending' = the automation has a dmDelaySeconds and the response is queued but not sent yet. 'gated' = the follow-gate confirmation DM went out and we are waiting for the tap; it flips to 'sent' or 'skipped' when they tap." }
                         audienceOutcome: { type: string, enum: [passed, blocked, gate_sent, gate_passed, gate_failed], description: "How the audience rule resolved. Absent on automations without one." }
                         commenterIsFollower: { type: boolean, description: "Follow relationship at decision time. Absent when Instagram would not tell us (the commenter never messaged the account)." }
@@ -36269,6 +36617,7 @@ paths:
                   description: "Alternate public replies for random rotation. Pass [] to clear."
                 linkTracking: { type: boolean, description: "Wrap link buttons in a tracked redirect to count clicks. Pass false to send links untouched." }
                 clickTag: { type: string, description: "Tag applied to a contact when they click a tracked link (requires linkTracking). Empty string clears it." }
+                alsoMatchInDms: { type: boolean, description: "Also fire these keywords on a plain inbound DM. Enabling it requires the automation to end up with at least one keyword (this request's keywords if you send them, otherwise the stored ones) and is rejected on story_reply automations." }
                 dmDelaySeconds: { type: integer, minimum: 0, maximum: 86400, description: "Seconds to wait after the trigger before sending the DM. Send 0 to clear the delay and reply immediately." }
                 commentReplyDelaySeconds: { type: integer, minimum: 0, maximum: 86400, description: "Seconds to wait before posting the public comment reply. Send 0 to clear it. The reply never goes out before the DM." }
                 audience: { $ref: '#/components/schemas/CommentAutomationAudience' }
@@ -36304,6 +36653,7 @@ paths:
                       commentReplyVariations: { type: array, items: { type: string }, description: "Alternate public replies rotated at random with commentReply. Omitted when none." }
                       audience: { $ref: '#/components/schemas/CommentAutomationAudience' }
                       followGate: { $ref: '#/components/schemas/CommentAutomationFollowGate' }
+                      alsoMatchInDms: { type: boolean, description: "Whether these keywords also fire on a plain inbound DM." }
                       isActive: { type: boolean }
                       updatedAt: { type: string, format: date-time }
         '401': { $ref: '#/components/responses/Unauthorized' }
@@ -36356,6 +36706,7 @@ paths:
                         commenterId: { type: string }
                         commenterName: { type: string }
                         commentText: { type: string }
+                        source: { type: string, enum: [comment, story_reply, dm], description: "Which door triggered this send. Absent on rows written before this field existed (all of those are comment-triggered)." }
                         status: { type: string, enum: [pending, sent, failed, skipped, gated], description: "DM outcome. 'pending' = the automation has a dmDelaySeconds and the response is queued but not sent yet. 'gated' = the follow-gate confirmation DM went out and we are waiting for the tap; it flips to 'sent' or 'skipped' when they tap." }
                         audienceOutcome: { type: string, enum: [passed, blocked, gate_sent, gate_passed, gate_failed], description: "How the audience rule resolved. Absent on automations without one." }
                         commenterIsFollower: { type: boolean, description: "Follow relationship at decision time. Absent when Instagram would not tell us (the commenter never messaged the account)." }

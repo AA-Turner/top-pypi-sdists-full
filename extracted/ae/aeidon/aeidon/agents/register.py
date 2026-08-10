@@ -13,7 +13,7 @@
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with this program. If not, see <http://www.gnu.org/licenses/>.
+# along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 """
 Managing revertable actions.
@@ -43,7 +43,6 @@ This way it will not be in any way processed by the undo/redo system.
 """
 
 import aeidon
-
 
 class RegisterAgent(aeidon.Delegate):
 
@@ -96,8 +95,7 @@ class RegisterAgent(aeidon.Delegate):
             return self.undoables
         if register.shift == -1:
             return self.redoables
-        raise ValueError("Invalid register: {!r}"
-                         .format(register))
+        raise ValueError(f"Invalid register: {register!r}")
 
     def _get_source_stack(self, register):
         """Return the stack where the action to register is taken from."""
@@ -105,8 +103,7 @@ class RegisterAgent(aeidon.Delegate):
             return self.redoables
         if register.shift == -1:
             return self.undoables
-        raise ValueError("Invalid register: {!r}"
-                         .format(register))
+        raise ValueError(f"Invalid register: {register!r}")
 
     @aeidon.deco.export
     def group_actions(self, register, count, description):

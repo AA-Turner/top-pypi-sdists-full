@@ -13,14 +13,13 @@
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with this program. If not, see <http://www.gnu.org/licenses/>.
+# along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 """Storing text to the clipboard and pasting from it."""
 
 import aeidon
 
 from aeidon.i18n import _
-
 
 class ClipboardAgent(aeidon.Delegate):
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mammoth
-Version: 1.12.0
+Version: 1.12.1
 Summary: Convert Word documents from docx to simple and clean HTML and Markdown
 Home-page: https://github.com/mwilliamson/python-mammoth
 Author: Michael Williamson
@@ -505,6 +505,14 @@ instance:
    default. To enable access when converting trusted source documents,
    pass ``external_file_access=True``.
 
+-  The conversion may exhibit pathological performance on certain
+   documents: it’s likely possible to craft a source document that
+   causes high CPU or memory usage. Depending on the performance
+   constraints of your application and the likelihood of receiving
+   untrusted input, you may wish to consider isolating any calls to
+   Mammoth, such as running Mammoth in a separate thread with a timeout,
+   to prevent denial-of-service attacks.
+
 Document transforms
 ~~~~~~~~~~~~~~~~~~~
 
@@ -889,13 +897,3 @@ within ``div.aside``:
    div.aside > h2
 
 You can nest elements to any depth.
-
-Donations
----------
-
-If you’d like to say thanks, feel free to `make a donation through
-Ko-fi <https://ko-fi.com/S6S01MG20>`__.
-
-If you use Mammoth as part of your business, please consider supporting
-the ongoing maintenance of Mammoth by `making a weekly donation through
-Liberapay <https://liberapay.com/mwilliamson/donate>`__.

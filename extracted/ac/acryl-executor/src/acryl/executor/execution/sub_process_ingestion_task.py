@@ -431,6 +431,7 @@ class SubProcessIngestionTask(Task):
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.STDOUT,
             limit=SubProcessTaskUtil.SUBPROCESS_BUFFER_SIZE,
+            start_new_session=True,  # own process group, so cancellation can signal the whole tree
         )
 
         # Write the envelope to stdin and close it
@@ -541,6 +542,15 @@ class SubProcessIngestionTask(Task):
                 cancelled=cancelled,
             )
 
+    @staticmethod
+    def _signal_process_group(process: asyncio.subprocess.Process, sig: int) -> None:
+        """Signal the wrapper's whole process group so the datahub grandchild is
+        terminated too, not just the direct child."""
+        try:
+            os.killpg(os.getpgid(process.pid), sig)
+        except ProcessLookupError:
+            pass  # already exited
+
     async def _monitor_subprocess(
         self,
         ingest_process: asyncio.subprocess.Process,
@@ -647,7 +657,7 @@ class SubProcessIngestionTask(Task):
             # This could just be a normal cancellation or it could be that
             # one of the monitoring tasks threw an exception.
             # In this case, we should kill the subprocess and cancel the other tasks.
-            ingest_process.terminate()
+            self._signal_process_group(ingest_process, signal.SIGTERM)
 
             # If the cause of the exception was a cancellation, then this is a no-op
             # because the gather method already propagates the cancellation.
@@ -667,7 +677,7 @@ class SubProcessIngestionTask(Task):
             )
             if pending:
                 logger.info(f"Failed to cancel {len(pending)} tasks on cleanup.")
-                ingest_process.kill()
+                self._signal_process_group(ingest_process, signal.SIGKILL)
 
             if isinstance(e, asyncio.CancelledError):
                 # If it was a cancellation, then we re-raise.

@@ -278,8 +278,6 @@ impl VTTLPolicy {
                 })
                 .unwrap();
 
-            drop(cursor);
-
             gv.increment();
 
             let handle = self.heap.pop_front(compare_fn!()).unwrap();
@@ -504,7 +502,7 @@ impl PolicyExt for VTTLPolicy {
 
     fn from_pickle(
         maxsize: usize,
-        getsizeof: Option<crate::internal::alias::PyObject>,
+        getsizeof: Option<alias::PyObject>,
         _global_ttl: Option<std::time::Duration>,
         builded: pyo3::Bound<'_, pyo3::types::PyTuple>,
     ) -> pyo3::PyResult<(Self::Shared, Self)> {

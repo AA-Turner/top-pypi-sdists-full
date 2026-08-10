@@ -72,8 +72,9 @@ docs = [
 ]
 test = [
   "brotli",
-  "camelot-py[base]",
-  "endesive[full]",
+  "camelot-py",
+  "endesive",
+  "pypdf",
   "pytest",
   "pytest-cov",
   "qrcode",
@@ -144,14 +145,6 @@ ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = "uharfbuzz"
-ignore_missing_imports = true
-
-[[tool.mypy.overrides]]
-module = "pymemtrace.*"
-ignore_missing_imports = true
-
-[[tool.mypy.overrides]]
-module = "pympler.*"
 ignore_missing_imports = true
 
 [tool.pyright]

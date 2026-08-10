@@ -203,7 +203,14 @@ class ComparisonChecker(_BasicChecker):
         else:
             equal_or_not_equal = "=="
             is_or_is_not = "is"
-        fixed_node_str = incorrect_node_str.replace(is_or_is_not, equal_or_not_equal)
+        # Rebuild the suggestion from the operands and operator instead of a
+        # blind ``str.replace``, which corrupts identifiers that contain ``is``
+        # (e.g. ``axis is 5`` produced ``ax== == 5``). ``visit_compare`` only
+        # reaches this method for single-operator comparisons.
+        fixed_node_str = (
+            f"{node.left.as_string()} {equal_or_not_equal} "
+            f"{node.ops[0][1].as_string()}"
+        )
         self.add_message(
             "literal-comparison",
             args=(
@@ -266,19 +273,28 @@ class ComparisonChecker(_BasicChecker):
         if operator not in COMPARISON_OPERATORS:
             return
 
-        bare_callables = (nodes.FunctionDef, astroid.BoundMethod)
         left_operand, right_operand = node.left, node.ops[0][1]
         # this message should be emitted only when there is comparison of bare callable
         # with non bare callable.
         number_of_bare_callables = 0
         for operand in left_operand, right_operand:
             inferred = utils.safe_infer(operand)
+            # An unbound method on its own is not a bare callable here, but a
+            # bound method proxies the function it was built from, so unwrap it.
+            # This matters because a lambda assigned as a class attribute also
+            # infers to a ``BoundMethod``, and a ``Lambda`` has no
+            # ``decoratornames()`` and its ``body`` is a single expression
+            # instead of a list of statements.
+            while isinstance(inferred, astroid.BoundMethod):
+                inferred = inferred._proxied
+                if isinstance(inferred, astroid.UnboundMethod):
+                    inferred = inferred._proxied
+            if not isinstance(inferred, nodes.FunctionDef):
+                continue
             # Ignore callables that raise, as well as typing constants
             # implemented as functions (that raise via their decorator)
-            if (
-                isinstance(inferred, bare_callables)
-                and "typing._SpecialForm" not in inferred.decoratornames()
-                and not any(isinstance(x, nodes.Raise) for x in inferred.body)
+            if "typing._SpecialForm" not in inferred.decoratornames() and not any(
+                isinstance(x, nodes.Raise) for x in inferred.body
             ):
                 number_of_bare_callables += 1
         if number_of_bare_callables == 1:

@@ -290,24 +290,58 @@ def test_new_soap_service(tmp_path):
     assert "метод Операция1()" in module
 
 
+def test_processing_gets_both_modules(tmp_path):
+    # A processor has two modules, and the element one is not where the algorithm goes
+    # (topics/processing-project-element): the stub of each says what belongs there.
+    apply_result(scaffold.op_new_object(tmp_path, "Обработка", "РасчетДоставки"))
+    element = (tmp_path / "РасчетДоставки.xbsl").read_text(encoding="utf-8")
+    obj = (tmp_path / "РасчетДоставки.Объект.xbsl").read_text(encoding="utf-8")
+    assert "РасчетДоставки.Объект.xbsl" in element
+    assert "@Обработчик" in obj
+
+
+@pytest.mark.needs_data
+def test_processing_attribute_has_no_id(tmp_path):
+    # The attribute class of a processor declares no Id at all; writing it fails the deploy
+    # with an unknown-property error.
+    apply_result(scaffold.op_new_object(tmp_path, "Обработка", "РасчетДоставки"))
+    yaml_path = tmp_path / "РасчетДоставки.yaml"
+    apply_result(scaffold.op_add_field(yaml_path, "реквизит", "Вес", type_="Число"))
+    parsed = _valid_yaml(yaml_path.read_text(encoding="utf-8"))
+    attribute = parsed["Реквизиты"][0]
+    assert attribute["Имя"] == "Вес" and "Ид" not in attribute
+
+
+def test_catalog_attribute_keeps_id(tmp_path):
+    # the negative control of the test above: an identified item still gets its Id
+    apply_result(scaffold.op_new_object(tmp_path, "Справочник", "Товары"))
+    yaml_path = tmp_path / "Товары.yaml"
+    apply_result(scaffold.op_add_field(yaml_path, "реквизит", "Артикул"))
+    parsed = _valid_yaml(yaml_path.read_text(encoding="utf-8"))
+    assert parsed["Реквизиты"][0]["Ид"]
+
+
 def test_processing_operation_writes_handler(tmp_path):
     apply_result(scaffold.op_new_object(tmp_path, "Обработка", "РасчетДоставки"))
     yaml_path = tmp_path / "РасчетДоставки.yaml"
     result = scaffold.op_add_field(yaml_path, "операция", "Рассчитать")
     apply_result(result)
-    # The operation landed in the yaml, and the same-named @Обработчик method - in the module.
+    # The operation landed in the yaml, and the same-named @Handler method - in the OBJECT
+    # module: in the element module the attributes of the processor are out of context.
     parsed = _valid_yaml(yaml_path.read_text(encoding="utf-8"))
     assert [o["Имя"] for o in parsed["Операции"]] == ["Рассчитать"]
-    module = (tmp_path / "РасчетДоставки.xbsl").read_text(encoding="utf-8")
-    assert "@Обработчик\nметод Рассчитать()" in module.replace("\r\n", "\n")
+    object_module = (tmp_path / "РасчетДоставки.Объект.xbsl").read_text(encoding="utf-8")
+    assert "@Обработчик\nметод Рассчитать()" in object_module.replace("\r\n", "\n")
+    element_module = (tmp_path / "РасчетДоставки.xbsl").read_text(encoding="utf-8")
+    assert "метод Рассчитать()" not in element_module
     assert any("Рассчитать" in n for n in result.notes)
 
     # Adding the same method again does not duplicate it in the module.
     apply_result(scaffold.op_add_field(yaml_path, "операция", "РассчитатьПочтой"))
     again = scaffold.op_add_field(yaml_path, "операция", "Ещё")
     apply_result(again)
-    module = (tmp_path / "РасчетДоставки.xbsl").read_text(encoding="utf-8")
-    assert module.count("метод Рассчитать()") == 1
+    object_module = (tmp_path / "РасчетДоставки.Объект.xbsl").read_text(encoding="utf-8")
+    assert object_module.count("метод Рассчитать()") == 1
 
 
 def test_http_root_url_drops_kind_suffix(tmp_path):
@@ -2377,7 +2411,7 @@ def test_section_insertions_keep_crlf_files_crlf(tmp_path):
 # --- properties of metadata items ---------------------------------------------------------
 
 
-def _constants_set(tmp_path, name="НастройкиСайта"):
+def _constants_set(tmp_path, name="НастройкиПриложения"):
     apply_result(scaffold.op_new_object(tmp_path, "НаборКонстант", name))
     return tmp_path / f"{name}.yaml"
 
@@ -2497,12 +2531,12 @@ def test_set_field_property_on_a_tabular_attribute(tmp_path):
 
 def test_new_object_presentation(tmp_path):
     apply_result(scaffold.op_new_object(
-        tmp_path, "НаборКонстант", "НастройкиСайта", presentation="Настройки сайта",
+        tmp_path, "НаборКонстант", "НастройкиПриложения", presentation="Настройки приложения",
     ))
-    text = (tmp_path / "НастройкиСайта.yaml").read_text(encoding="utf-8")
-    assert _valid_yaml(text)["Представление"] == "Настройки сайта"
+    text = (tmp_path / "НастройкиПриложения.yaml").read_text(encoding="utf-8")
+    assert _valid_yaml(text)["Представление"] == "Настройки приложения"
     # Right after Name, the order the platform serializes the header in.
-    assert "Имя: НастройкиСайта\nПредставление: Настройки сайта\nОбластьВидимости:" in text
+    assert "Имя: НастройкиПриложения\nПредставление: Настройки приложения\nОбластьВидимости:" in text
 
 
 def test_new_object_presentation_for_a_generated_kind(tmp_path):
@@ -2524,7 +2558,7 @@ def test_new_object_presentation_only_where_the_kind_has_one(tmp_path):
     # would produce a file the compiler rejects.
     with pytest.raises(ScaffoldError, match="нет свойства Представление"):
         scaffold.op_new_object(
-            tmp_path, "HttpСервис", "СайтHttpСервис", presentation="Сервис сайта",
+            tmp_path, "HttpСервис", "ОбменHttpСервис", presentation="Сервис обмена",
         )
 
 
@@ -2544,6 +2578,6 @@ def test_new_object_presentation_is_a_caption_or_an_attribute_name(tmp_path):
     ))
     assert "Представление: Название" in (tmp_path / "Товары.yaml").read_text(encoding="utf-8")
     apply_result(scaffold.op_new_object(
-        tmp_path, "НаборКонстант", "Настройки", presentation="Настройки сайта",
+        tmp_path, "НаборКонстант", "Настройки", presentation="Настройки приложения",
     ))
-    assert "Представление: Настройки сайта" in (tmp_path / "Настройки.yaml").read_text(encoding="utf-8")
+    assert "Представление: Настройки приложения" in (tmp_path / "Настройки.yaml").read_text(encoding="utf-8")

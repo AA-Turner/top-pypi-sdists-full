@@ -13,16 +13,15 @@
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with this program. If not, see <http://www.gnu.org/licenses/>.
+# along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 """Text markup for the SubViewer 2.0 format."""
 
 import aeidon
 
-__all__ = ("SubViewer2",)
+from .subrip import SubRip
 
-
-class SubViewer2(aeidon.markups.SubRip):
+class SubViewer2(SubRip):
 
     """
     Text markup for the SubViewer 2.0 format.

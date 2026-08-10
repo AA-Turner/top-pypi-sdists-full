@@ -1,20 +1,20 @@
-import sys
 from asyncio import TimeoutError as AsyncioTimeoutError
 from asyncio import iscoroutinefunction
 from asyncio import sleep as aiosleep
-from collections.abc import Coroutine
+from collections.abc import Callable, Coroutine
 from functools import partial, wraps
 from inspect import isasyncgenfunction, stack
 from json import JSONDecodeError
 from logging import getLogger
 from random import randrange
 from time import sleep as timesleep
-from typing import Any, Callable, Final, Optional, TypeVar, Union, overload
+from typing import Any, Final, ParamSpec, TypeVar, overload
 
 import requests
 
 from eth_retry import ENVIRONMENT_VARIABLES as ENVS
 from eth_retry.conditional_imports import ClientError  # type: ignore
+from eth_retry.conditional_imports import ClientResponseError  # type: ignore
 from eth_retry.conditional_imports import HTTPError  # type: ignore
 from eth_retry.conditional_imports import MaxRetryError  # type: ignore
 from eth_retry.conditional_imports import OperationalError  # type: ignore
@@ -23,11 +23,6 @@ from eth_retry.conditional_imports import ReadTimeout  # type: ignore
 logger = getLogger("eth_retry")
 
 # Types
-if sys.version_info >= (3, 10):
-    from typing import ParamSpec
-else:
-    from typing_extensions import ParamSpec
-
 __T = TypeVar("__T")
 __P = ParamSpec("__P")
 
@@ -78,13 +73,13 @@ def auto_retry(
     suppress_logs: int = SUPPRESS_LOGS,
 ) -> Callable[__P, __T]: ...
 def auto_retry(
-    func: Optional[Callable[__P, __T]] = None,
+    func: Callable[__P, __T] | None = None,
     *,
     max_retries: int = MAX_RETRIES,
     min_sleep_time: int = MIN_SLEEP_TIME,
     max_sleep_time: int = MAX_SLEEP_TIME,
     suppress_logs: int = SUPPRESS_LOGS,
-) -> Union[Callable[__P, __T], Decorator]:  # type: ignore [type-arg]
+) -> Callable[__P, __T] | Decorator:  # type: ignore [type-arg]
     """
     Decorator that will retry the function on:
     - :class:`ConnectionError`
@@ -193,6 +188,8 @@ def should_retry(e: Exception, failures: int, max_retries: int) -> bool:
     if ETH_RETRY_DISABLED or failures > max_retries:
         return False
 
+    stre = str(e)
+
     retry_on_errs = (
         # Occurs on any chain when making computationally intensive calls. Just retry.
         # Sometimes works, sometimes doesn't. Worth a shot.
@@ -218,8 +215,13 @@ def should_retry(e: Exception, failures: int, max_retries: int) -> bool:
         # quicknode.com rate limiting
         "request limit reached - reduce calls per second or upgrade your account at quicknode.com",
     )
-    if any(filter(str(e).lower().__contains__, retry_on_errs)):  # type: ignore [arg-type]
+    if any(filter(stre.lower().__contains__, retry_on_errs)):  # type: ignore [arg-type]
         return True
+
+    if isinstance(e, HTTPError) and e.response is not None and e.response.status_code == 403:
+        return False
+    if isinstance(e, ClientResponseError) and e.status == 403:
+        return False
 
     general_exceptions = (
         ConnectionError,
@@ -232,7 +234,6 @@ def should_retry(e: Exception, failures: int, max_retries: int) -> bool:
         ClientError,
     )
 
-    stre = str(e)
     if (
         any(isinstance(e, E) for E in general_exceptions)
         and "Too Large" not in stre
@@ -249,7 +250,7 @@ def should_retry(e: Exception, failures: int, max_retries: int) -> bool:
 _aio_files: Final = "asyncio/events.py", "asyncio/base_events.py"
 
 
-def _get_caller_details_from_stack() -> Optional[str]:
+def _get_caller_details_from_stack() -> str | None:
     for frame in stack()[2:]:
         if all(filename not in frame.filename for filename in _aio_files):
             details = f"{frame.filename} line {frame.lineno}"

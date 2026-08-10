@@ -13,14 +13,11 @@
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with this program. If not, see <http://www.gnu.org/licenses/>.
+# along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 """Actions that can be reverted, i.e. undone and redone."""
 
 import aeidon
-
-__all__ = ("RevertableAction", "RevertableActionGroup",)
-
 
 class RevertableAction:
 
@@ -59,15 +56,13 @@ class RevertableAction:
             return aeidon.registers.UNDO
         if self.register.shift == -1:
             return aeidon.registers.REDO
-        raise ValueError("Invalid register: {!r}"
-                         .format(self.register))
+        raise ValueError(f"Invalid register: {self.register!r}")
 
     def revert(self):
         """Call the reversion function."""
         kwargs = self.revert_kwargs.copy()
         kwargs["register"] = self._get_reversion_register()
         return self.revert_function(*self.revert_args, **kwargs)
-
 
 class RevertableActionGroup:
 

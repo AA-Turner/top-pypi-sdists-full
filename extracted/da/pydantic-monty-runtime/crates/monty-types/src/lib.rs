@@ -1,5 +1,8 @@
 #![doc = include_str!("../README.md")]
 
+/// The monty version this build was compiled as.
+pub const MONTY_VERSION: &str = env!("CARGO_PKG_VERSION");
+
 pub mod args;
 mod builtins;
 mod exceptions;
@@ -11,6 +14,7 @@ mod os;
 mod resource;
 mod results;
 mod run_options;
+mod type_checking;
 
 pub use crate::{
     builtins::BuiltinsFunctions,
@@ -30,9 +34,10 @@ pub use crate::{
         RenameCallArgs, dir_stat, file_stat, stat_result, symlink_stat,
     },
     resource::{
-        DEFAULT_MAX_RECURSION_DEPTH, LARGE_RESULT_THRESHOLD, LimitedTracker, NoLimitTracker, ResourceError,
-        ResourceLimits, ResourceTracker,
+        BASELINE_MEMORY, DEFAULT_MAX_RECURSION_DEPTH, LARGE_RESULT_THRESHOLD, LIVE_MEMORY, OOM_EXIT_CODE,
+        ResourceError, ResourceLimits, ResourceTracker,
     },
     results::{ExtFunctionResult, NameLookupResult},
     run_options::{AssertMessageAnnotations, CompileOptions},
+    type_checking::{TypeCheckState, TypeCheckingConfig, TypeCheckingFormat},
 };

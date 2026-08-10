@@ -13,7 +13,7 @@
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with this program. If not, see <http://www.gnu.org/licenses/>.
+# along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 """
 Lists of named constants with integer values.
@@ -25,9 +25,6 @@ in its set. New items can always be added to an enumeration.
 
 from aeidon.i18n import _
 from aeidon.i18n import __
-
-__all__ = ("EnumerationItem", "Enumeration",)
-
 
 class EnumerationItem(int):
 
@@ -58,7 +55,6 @@ class EnumerationItem(int):
     def __str__(self):
         """Return name as the string representation."""
         return self.name
-
 
 class Enumeration(list):
 
@@ -98,7 +94,7 @@ class Enumeration(list):
         for item in self:
             if getattr(item, name) == value:
                 return item
-        raise ValueError("Name {!r} not found".format(name))
+        raise ValueError(f"Name {name!r} not found")
 
     def __setattr__(self, name, value):
         """Set value of enumeration item with correct attributes."""

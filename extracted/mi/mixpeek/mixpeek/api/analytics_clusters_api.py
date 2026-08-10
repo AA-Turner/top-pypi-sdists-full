@@ -333,6 +333,8 @@ class AnalyticsClustersApi:
 
         # authentication setting
         _auth_settings: List[str] = [
+            'NamespaceHeader', 
+            'BearerAuth'
         ]
 
         return self.api_client.param_serialize(
@@ -628,6 +630,8 @@ class AnalyticsClustersApi:
 
         # authentication setting
         _auth_settings: List[str] = [
+            'NamespaceHeader', 
+            'BearerAuth'
         ]
 
         return self.api_client.param_serialize(

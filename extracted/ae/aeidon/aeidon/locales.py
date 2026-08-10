@@ -13,7 +13,7 @@
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with this program. If not, see <http://www.gnu.org/licenses/>.
+# along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 """
 Names and codes for locales and conversions between them.
@@ -24,10 +24,9 @@ Locale codes are of form ``aa[_BB][@Cccc]``, where ``aa`` is a language code,
 """
 
 import aeidon
-import os
+import re
 
 from aeidon.i18n import _
-
 
 def code_to_country(code):
     """Convert locale `code` to localized country name or ``None``."""
@@ -53,13 +52,6 @@ def get_system_code():
     import locale
     return locale.getlocale()[0]
 
-@aeidon.deco.once
-def get_system_modifier():
-    """Return the system default script modifier or ``None``."""
-    for name in ("LANGUAGE", "LC_ALL", "LC_MESSAGES", "LANG"):
-        value = os.environ.get(name, None)
-        if value and value.count("@") == 1:
-            i = value.index("@")
-            return value[i+1:i+5]
-    # No script modifier found implies the language default script.
-    return None
+def is_valid(code):
+    """Return ``True`` if `code` is a valid locale code."""
+    return re.match(r"^[a-z]{2}(_[A-Z]{2})?(@[A-Z][a-z]{3})?$", code) is not None

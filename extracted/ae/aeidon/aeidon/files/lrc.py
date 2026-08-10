@@ -13,15 +13,12 @@
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with this program. If not, see <http://www.gnu.org/licenses/>.
+# along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 """LRC file."""
 
 import aeidon
 import re
-
-__all__ = ("LRC",)
-
 
 class LRC(aeidon.SubtitleFile):
 
@@ -76,4 +73,4 @@ class LRC(aeidon.SubtitleFile):
             first = 4 if start.startswith("-") else 3
             start = sign + start[first:-1]
             text = subtitle.get_text(doc).replace("\n", " ")
-            f.write("[{}]{}\n".format(start, text))
+            f.write(f"[{start}]{text}\n")

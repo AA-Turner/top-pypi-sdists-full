@@ -195,6 +195,11 @@ class Info(BaseModel):
     )
     uptime: str
     started_at: AwareDatetime
+    config_ui_url: str = Field(
+        ...,
+        description="Externally-reachable address of this daemon's Config UI,\nderived from `north.rest.public_url` with the SPA mount\nappended. Empty when no public URL is configured.\n\nIt answers a question a client cannot answer for itself: the\naddress a client uses to TALK to the daemon (a container\nnetwork, a LAN address behind a reverse proxy) is not\nnecessarily one a browser can follow. Only the operator knows\nthat, and `public_url` is where they record it. A client that\nwants to link a person at the Config UI reads this and falls\nback to guessing from its own connection address when empty.\n\nThe mount path is appended by the daemon on purpose — a\nclient that had to know where the SPA is mounted would break\non the next mount change.\n",
+        examples=["https://loom.example.de/app/"],
+    )
     api_version: str = Field(
         ...,
         description="North-bound contract version (semver). Bumps independently\nof `version`. Minor bumps add backwards-compatible\ncapabilities; major bumps remove or rename existing\npayload fields, scopes, or capabilities.\n",
@@ -2287,12 +2292,13 @@ class SurfaceInfo(BaseModel):
         None,
         description="Surface this one lives inside. A child is never more visible\nthan its parent.\n",
     )
+    opens: str | None = Field(
+        None,
+        description="Editor this read-only overview hands off to. While that\neditor is hidden the overview stays — a fleet-wide catalogue\nanswers a question the device detail cannot — but its rows\nstop linking into a tab that is not there.\n",
+        examples=["device.configure.schedule"],
+    )
     role_admin: bool | None = Field(
         None, description="Only ever shown to admins, independent of the profile."
-    )
-    write_gated: bool | None = Field(
-        None,
-        description="In the embedded profile this surface's entry also decides\nwhether the Home Assistant Ingress passthrough identity may\nwrite to it.\n",
     )
     multi_central_visible: bool | None = Field(
         None,
@@ -2301,6 +2307,11 @@ class SurfaceInfo(BaseModel):
     ha_owns: bool | None = Field(
         None, description="Home Assistant provides this surface itself."
     )
+
+
+class EmbeddedScope(StrEnum):
+    inside_ha = "inside_ha"
+    always = "always"
 
 
 class Profile(StrEnum):
@@ -2318,7 +2329,15 @@ class SurfacesResponse(BaseModel):
         ...,
         description="The master toggle — whether Home Assistant owns this daemon's config surface.",
     )
-    profile: Profile = Field(..., description="The live profile.")
+    embedded_scope: EmbeddedScope = Field(
+        ...,
+        description="Where the master toggle applies. `inside_ha` (the default)\nlimits the embedded profile to requests that arrive through\nHome Assistant, so a browser pointed straight at this daemon\nkeeps the full UI — the duplicate-editor argument that\nmotivates hiding does not apply to it. `always` restores the\ndaemon-wide behaviour.\n",
+    )
+    inside_ha: bool = Field(
+        ...,
+        description="Whether THIS request reached the daemon through Home\nAssistant, decided by the Supervisor's `X-Ingress-Path`\nheader (the remote proxy add-on forwards it). With the\ndefault scope it is what selects `profile`, so the same\nconfiguration answers differently on the other door.\n",
+    )
+    profile: Profile = Field(..., description="The profile served to this request.")
     profiles: dict[str, dict[str, Profiles]] = Field(
         ..., description="Stored, sparse overrides per profile name."
     )
@@ -2335,6 +2354,10 @@ class SurfacesResponse(BaseModel):
 
 class SurfacesRequest(BaseModel):
     embedded: bool | None = Field(None, description="Flip the master toggle.")
+    embedded_scope: EmbeddedScope | None = Field(
+        None,
+        description="Move where the master toggle applies. An unrecognised value\nis rejected rather than falling back to the default — a typo\nwould otherwise keep hiding views on direct access, which is\nwhat the operator was switching off.\n",
+    )
     profiles: dict[str, dict[str, Profiles]] | None = Field(
         None,
         description="Full desired override set per profile. The daemon reduces it\nto the sparse form before persisting.\n",
@@ -2523,6 +2546,11 @@ class CentralBehavior(BaseModel):
     )
 
 
+class Kind3(StrEnum):
+    week_profile = "week_profile"
+    climate = "climate"
+
+
 class ScheduleChannelRef(BaseModel):
     address: str
     number: int
@@ -2572,14 +2600,14 @@ class SimpleScheduleEntry(BaseModel):
     )
 
 
-class Kind3(StrEnum):
+class Kind4(StrEnum):
     climate = "climate"
     simple = "simple"
 
 
 class Schedule(BaseModel):
     channel: ScheduleChannelRef
-    kind: Kind3
+    kind: Kind4
     domain: str | None = None
     active_profile: str | None = None
     active_profile_index: int | None = None
@@ -3067,13 +3095,13 @@ class Incident1(BaseModel):
     silenced: bool | None = None
 
 
-class Kind4(StrEnum):
+class Kind5(StrEnum):
     exit_delay = "exit_delay"
     entry_delay = "entry_delay"
 
 
 class Countdown(BaseModel):
-    kind: Kind4 | None = None
+    kind: Kind5 | None = None
     remaining_s: int | None = None
     total_s: int | None = None
 
@@ -3143,7 +3171,7 @@ class AlarmCodePerms(BaseModel):
     silence: bool
 
 
-class Kind5(StrEnum):
+class Kind6(StrEnum):
     pin = "pin"
     keypad_slot = "keypad_slot"
     remote_key = "remote_key"
@@ -3152,7 +3180,7 @@ class Kind5(StrEnum):
 class AlarmCode(BaseModel):
     id: str
     name: str
-    kind: Kind5 = Field(..., description="Code class.")
+    kind: Kind6 = Field(..., description="Code class.")
     duress: bool | None = Field(
         None,
         description="A PIN that disarms normally but fires a silent duress alarm. Only meaningful for the pin kind.\n",
@@ -3178,7 +3206,7 @@ class AlarmCode(BaseModel):
 
 class AlarmCodeRequest(BaseModel):
     name: str
-    kind: Kind5
+    kind: Kind6
     pin: str | None = Field(
         None,
         description="Cleartext code, write-only, for the pin kind. Omitted on update to keep the existing hash.\n",
@@ -3701,6 +3729,18 @@ class CentralRow(BaseModel):
     )
     created_at: AwareDatetime | None = None
     updated_at: AwareDatetime | None = None
+
+
+class ScheduleDeviceSummary(BaseModel):
+    central: str = Field(..., description="The CCU this device belongs to.")
+    address: str = Field(..., description="Device address.")
+    name: str = Field(..., description="Display name.")
+    model: str | None = Field(None, description='Device type, e.g. "HmIP-eTRV-2".')
+    channel: ScheduleChannelRef
+    kind: Kind3 = Field(
+        ...,
+        description="`week_profile` when a dedicated channel carries the profile,\n`climate` when a thermostat carries it in MASTER.\n",
+    )
 
 
 class WeekProfileResponse(BaseModel):

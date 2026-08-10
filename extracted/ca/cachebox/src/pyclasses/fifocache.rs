@@ -100,13 +100,12 @@ impl PyFIFOCache {
             if let Some(iterable) = iterable {
                 let getsizeof = wrapped.shared().getsizeof().clone_ref(py);
 
-                let result = wrapped.extend(
+                wrapped.extend(
                     // iterable object
                     iterable,
                     // transform function
                     |key, value| fifopolicy::Handle::new(py, &getsizeof, key, value),
-                );
-                result
+                )
             } else {
                 Ok(())
             }
@@ -163,13 +162,13 @@ impl PyFIFOCache {
 
     #[inline]
     fn __sizeof__(&self) -> usize {
-        const FIXED_SIZE: usize = std::mem::size_of::<Wrapped<fifopolicy::FIFOPolicy>>();
+        const FIXED_SIZE: usize = size_of::<Wrapped<fifopolicy::FIFOPolicy>>();
 
         let inner = self.0.get();
         let policy = inner.policy();
 
-        let table_cap = policy.table().capacity() * std::mem::size_of::<usize>();
-        let vecdeque_cap = policy.entries().capacity() * std::mem::size_of::<fifopolicy::Handle>();
+        let table_cap = policy.table().capacity() * size_of::<usize>();
+        let vecdeque_cap = policy.entries().capacity() * size_of::<fifopolicy::Handle>();
         FIXED_SIZE + table_cap + vecdeque_cap
     }
 
@@ -275,7 +274,7 @@ impl PyFIFOCache {
     /// Returns:
     ///     The value associated with the key, or the default value if the key is not found.
     #[pyo3(signature = (key, default=utils::OptionalArgument::Undefined))]
-    fn get<'p>(
+    fn get(
         &self,
         py: pyo3::Python,
         key: alias::PyObject,
@@ -318,7 +317,7 @@ impl PyFIFOCache {
         }
     }
 
-    /// Get `key`s value, or atomatically insert `default` and return it.
+    /// Get `key`s value, or automatically insert `default` and return it.
     ///
     /// If `key` exists, its current value is returned and `default` is ignored.
     /// Otherwise `default` is inserted for `key` and returned.
@@ -363,14 +362,15 @@ impl PyFIFOCache {
         Ok(default_object)
     }
 
-    /// Get `key`s value, or atomatically create and insert one via `factory`.
+    /// Get `key`s value, or automatically create and insert one via `factory`.
     ///
     /// If `key` exists, its current value is returned and `factory` is not called.
-    /// Otherwise `factory` is called exactly once under an internal lock, its
+    /// Otherwise `factory` is called with the internal lock released, its
     /// result is inserted and returned.
     ///
-    /// Warning: `factory` must not call back into this cache (deadlock risk) or block
-    /// for long. If `factory` raises, nothing is inserted and the exception
+    /// Warning: if two threads miss the same key at once, `factory` can run
+    /// more than once; the value inserted first wins and is returned to
+    /// both. If `factory` raises, nothing is inserted and the exception
     /// propagates.
     fn setdefault_with(
         &self,
@@ -385,13 +385,23 @@ impl PyFIFOCache {
 
         let inner = self.0.get();
         let shared = inner.shared();
+
+        {
+            let mut policy = inner.policy();
+
+            if let Some(x) = policy.get(py, &key)? {
+                return Ok(x.value().clone_ref(py));
+            }
+        }
+
+        // `factory` is Python code: a GC pass inside it would deadlock on `__traverse__`
+        let default_object = factory.call0(py)?;
+
         let mut policy = inner.policy();
 
         if let Some(x) = policy.get(py, &key)? {
             return Ok(x.value().clone_ref(py));
         }
-
-        let default_object = factory.call0(py)?;
 
         let handle = fifopolicy::Handle::with_precomputed_hash_key(
             py,
@@ -536,51 +546,54 @@ impl PyFIFOCache {
             .map(|x| !x)
     }
 
-    fn items(&self) -> pyo3::PyResult<pyo3::Py<PyFIFOCacheItems>> {
-        let inner = self.0.get();
+    fn items(slf: pyo3::Bound<'_, Self>) -> pyo3::PyResult<pyo3::Py<PyFIFOCacheItems>> {
+        let inner = slf.get().0.get();
         let gv = inner.shared().generation_version().clone();
         let initial_gv = gv.get();
 
         // SAFETY: We cannot use lifetimes here, but we're tracking changes using [`GenerationVersion`]
         let result = PyFIFOCacheItems {
+            cache: slf.as_any().clone().unbind(),
             iter: parking_lot::Mutex::new(inner.policy().iter()),
             gv,
             initial_gv,
         };
-        pyo3::Python::attach(|py| pyo3::Py::new(py, result))
+        pyo3::Py::new(slf.py(), result)
     }
 
-    fn values(&self) -> pyo3::PyResult<pyo3::Py<PyFIFOCacheValues>> {
-        let inner = self.0.get();
+    fn values(slf: pyo3::Bound<'_, Self>) -> pyo3::PyResult<pyo3::Py<PyFIFOCacheValues>> {
+        let inner = slf.get().0.get();
         let gv = inner.shared().generation_version().clone();
         let initial_gv = gv.get();
 
         // SAFETY: We cannot use lifetimes here, but we're tracking changes using [`GenerationVersion`]
         let result = PyFIFOCacheValues {
+            cache: slf.as_any().clone().unbind(),
             iter: parking_lot::Mutex::new(inner.policy().iter()),
             gv,
             initial_gv,
         };
-        pyo3::Python::attach(|py| pyo3::Py::new(py, result))
+        pyo3::Py::new(slf.py(), result)
     }
 
-    fn keys(&self) -> pyo3::PyResult<pyo3::Py<PyFIFOCacheKeys>> {
-        let inner = self.0.get();
+    fn keys(slf: pyo3::Bound<'_, Self>) -> pyo3::PyResult<pyo3::Py<PyFIFOCacheKeys>> {
+        let inner = slf.get().0.get();
         let gv = inner.shared().generation_version().clone();
         let initial_gv = gv.get();
 
         // SAFETY: We cannot use lifetimes here, but we're tracking changes using [`GenerationVersion`]
         let result = PyFIFOCacheKeys {
+            cache: slf.as_any().clone().unbind(),
             iter: parking_lot::Mutex::new(inner.policy().iter()),
             gv,
             initial_gv,
         };
-        pyo3::Python::attach(|py| pyo3::Py::new(py, result))
+        pyo3::Py::new(slf.py(), result)
     }
 
     #[inline]
-    fn __iter__(&self) -> pyo3::PyResult<pyo3::Py<PyFIFOCacheKeys>> {
-        self.keys()
+    fn __iter__(slf: pyo3::Bound<'_, Self>) -> pyo3::PyResult<pyo3::Py<PyFIFOCacheKeys>> {
+        Self::keys(slf)
     }
 
     fn copy(&self, py: pyo3::Python) -> pyo3::PyResult<pyo3::Py<Self>> {
@@ -697,6 +710,7 @@ macro_rules! implement_iterator {
         $(
             implement_pyclass! {
                 [generic, frozen] $name as $pyname {
+                    cache: pyo3::Py<pyo3::PyAny>,
                     initial_gv: u32,
                     gv: utils::GenerationVersion,
                     iter: parking_lot::Mutex<utils::RawVecDequeIter<fifopolicy::Handle>>,
@@ -708,6 +722,10 @@ macro_rules! implement_iterator {
                 #[inline]
                 fn __iter__(slf: pyo3::PyRef<'_, Self>) -> pyo3::PyRef<'_, Self> {
                     slf
+                }
+
+                fn __traverse__(&self, visit: pyo3::PyVisit<'_>) -> Result<(), pyo3::PyTraverseError> {
+                    visit.call(&self.cache)
                 }
 
                 fn __next__(slf: pyo3::PyRef<'_, Self>) -> pyo3::PyResult<$rt_type> {

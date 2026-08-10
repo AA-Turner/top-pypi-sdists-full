@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cycode
-Version: 3.18.0
+Version: 3.19.0
 Summary: Boost security in your dev lifecycle via SAST, SCA, Secrets & IaC scanning.
 License-Expression: MIT
 License-File: LICENCE
@@ -24,8 +24,8 @@ Requires-Dist: anyio (>=4.0.0,<4.13.0)
 Requires-Dist: arrow (>=1.0.0,<1.5.0)
 Requires-Dist: click (>=8.1.0,<8.2.0)
 Requires-Dist: colorama (>=0.4.3,<0.5.0)
-Requires-Dist: gitpython (>=3.1.50,<3.2.0)
-Requires-Dist: marshmallow (>=3.15.0,<4.0.0)
+Requires-Dist: gitpython (>=3.1.51,<3.2.0)
+Requires-Dist: marshmallow (>=4.0.1,<4.1.0)
 Requires-Dist: mcp (>=1.28.1,<2.0.0) ; python_version >= "3.10"
 Requires-Dist: patch-ng (==1.19.1)
 Requires-Dist: pathvalidate (>=3.3.1,<4.0.0)
@@ -33,8 +33,8 @@ Requires-Dist: pydantic (>=2.11.5,<3.0.0)
 Requires-Dist: pyjwt (>=2.8.0,<3.0)
 Requires-Dist: pyyaml (>=6.0,<7.0)
 Requires-Dist: requests (>=2.32.4,<3.0)
-Requires-Dist: rich (>=13.9.4,<14)
-Requires-Dist: tenacity (>=9.0.0,<9.1.0)
+Requires-Dist: rich (>=15.0.0,<16.0.0)
+Requires-Dist: tenacity (>=9.1.2,<9.2.0)
 Requires-Dist: tomli (>=2.0.0,<3.0.0) ; python_version < "3.11"
 Requires-Dist: tomli-w (>=1.0.0,<2.0.0)
 Requires-Dist: typer (>=0.15.3,<0.16.0)
@@ -43,6 +43,8 @@ Project-URL: Repository, https://github.com/cycodehq/cycode-cli
 Description-Content-Type: text/markdown
 
 # Cycode CLI User Guide
+
+[![MCP Toplist](https://mcptoplist.com/badge/glama%2Fcycodehq%2Fcycode-cli.svg)](https://mcptoplist.com/server/glama%2Fcycodehq%2Fcycode-cli)
 
 The Cycode Command Line Interface (CLI) is an application you can install locally to scan your repositories for secrets, infrastructure as code misconfigurations, software composition analysis vulnerabilities, and static application security testing issues.
 
@@ -70,7 +72,9 @@ This guide walks you through both installation and usage.
     1. [Discovering Commands](#discovering-commands)
     2. [Examples](#platform-examples)
     3. [Notes & Limitations](#platform-notes--limitations)
-6. [Scan Command](#scan-command)
+6. [AI Guardrails](#ai-guardrails-beta)
+    1. [Data Collected by AI Guardrails](#data-collected-by-ai-guardrails)
+7. [Scan Command](#scan-command)
     1. [Running a Scan](#running-a-scan)
         1. [Options](#options)
            1. [Severity Threshold](#severity-option)
@@ -746,6 +750,32 @@ cycode platform projects list --page-size 100 | jq '.items[].name'
 - **Override the cache TTL** with `CYCODE_SPEC_CACHE_TTL=<seconds>`.
 
 
+# AI Guardrails \[BETA\]
+
+AI Guardrails installs hooks into supported AI coding agents (Claude Code, Cursor, Copilot, Codex) so that
+prompts, files the agent reads, and MCP tool arguments are scanned for secrets before they reach the model.
+
+## Data Collected by AI Guardrails
+
+Scanning happens server-side, so the scanned content leaves the machine: the prompt text, the contents of
+files the agent reads, and MCP tool arguments are sent to your Cycode tenant to be checked for secrets.
+
+Each event is also reported with context about the developer and the machine, so a finding can be attributed
+to the device and user it came from. Some of this is personal data:
+
+- **Device identifiers** — the machine's hostname and hardware serial number.
+- **User identifiers** — the email address of the user signed in to the AI coding agent, and the local
+  operating-system username.
+- **Environment details** — operating system and version, the AI agent, its version and the model in use,
+  the contents of the agent's MCP configuration files, and its enabled plugins.
+
+The hardware serial number is cached in a local temporary file, readable only by the user who ran the
+command, so repeated hook invocations don't re-query the hardware.
+
+If collecting this data is not acceptable in your environment, do not install the guardrails hooks
+(`cycode ai-guardrails uninstall` removes hooks that are already installed).
+
+
 # Scan Command
 
 ## Running a Scan
@@ -858,6 +888,7 @@ The following ecosystems support automatic lockfile restoration:
 | NuGet | `*.csproj` | `packages.lock.json` | `dotnet restore --use-lock-file` |
 | Ruby | `Gemfile` | `Gemfile.lock` | `bundle --quiet` |
 | Poetry | `pyproject.toml` | `poetry.lock` | `poetry lock` |
+| pip | `pyproject.toml` / `requirements.txt` | `pylock.toml` | `pip lock .` / `pip lock -r requirements.txt -o pylock.toml` |
 | Pipenv | `Pipfile` | `Pipfile.lock` | `pipenv lock` |
 | PHP Composer | `composer.json` | `composer.lock` | `composer update --no-cache --no-install --no-scripts --ignore-platform-reqs` |
 

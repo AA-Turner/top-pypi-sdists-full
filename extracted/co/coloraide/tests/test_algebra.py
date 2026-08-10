@@ -2856,8 +2856,8 @@ class TestAlgebra(unittest.TestCase):
         self.assertEqual(alg.sign(float('inf')), 1)
         self.assertEqual(alg.sign(float('-inf')), -1)
 
-    def test_solve_newton_and_halley(self):
-        """Test solving with Newton."""
+    def test_solve_newton_variants(self):
+        """Test solving with Newton variants."""
 
         def f0(x):
             return 2 * x ** 3 - 3 * x ** 2 - 3 * x + 2
@@ -2874,8 +2874,52 @@ class TestAlgebra(unittest.TestCase):
         self.assertEqual(alg.solve_newton(1, f0, dx), (0.5, True))
         # Halley
         self.assertEqual(alg.solve_newton(1, f0, dx, dx2), (0.5, True))
+        # Traub
+        self.assertEqual(alg.solve_newton(1, f0, dx, order=3), (0.5, True))
         # Ostrowski
-        self.assertEqual(alg.solve_newton(1, f0, dx, ostrowski=True), (0.5, True))
+        self.assertEqual(alg.solve_newton(1, f0, dx, order=4), (0.5, True))
+
+
+    def test_solve_newton_bracketed(self):
+        """Solve newton bracketed."""
+
+        def cubic_poly(t, a, b, c, d):
+            return a * t ** 3 + b * t ** 2 + c * t + d
+
+        def cubic_poly_dt(t, a, b, c):
+            return 3 * a * t ** 2 + 2 * b * t + c
+
+        def cubic_poly_dt2(t, a, b):
+            return 6 * a * t + 2 * b
+
+        args = [4.0, -6.0, 3.0, -0.22]
+
+        # Cannot solve
+        results = alg.solve_newton(
+            0.5,
+            lambda t, args=args: cubic_poly(t, *args),
+            lambda t, args=args: cubic_poly_dt(t, *args[:-1]),
+        )
+        self.assertEqual(results, (0.5, None))
+
+        # Solved
+        results = alg.solve_newton(
+            0.5,
+            lambda t, args=args: cubic_poly(t, *args),
+            lambda t, args=args: cubic_poly_dt(t, *args[:-1]),
+            bounds=(0, 1)
+        )
+        self.assertEqual(results, (0.08787147001914433, True))
+
+        # Solved
+        results = alg.solve_newton(
+            0.5,
+            lambda t, args=args: cubic_poly(t, *args),
+            lambda t, args=args: cubic_poly_dt(t, *args[:-1]),
+            lambda t, args=args: cubic_poly_dt2(t, *args[:-2]),
+            bounds=(0, 1)
+        )
+        self.assertEqual(results, (0.0878714700191443, True))
 
     def test_pinv(self):
         """Test Moore-Penrose pseudo inverse."""
@@ -3481,9 +3525,11 @@ class TestAlgebra(unittest.TestCase):
         self.assertEqual(alg.solve_poly([3]), [])
         self.assertEqual(alg.solve_poly([0, 0, 0, 3]), [])
 
+        # 4th degree
+        self.assertEqual(alg.solve_poly([-1, 4, -2, 9, 3]), [-0.30034240252377803, 4.092439383430102])
+
         # 4th+ degree
-        with self.assertRaises(ValueError):
-            alg.solve_poly([1, 2, 3, 4, 5])
+        self.assertEqual(alg.solve_poly([7, 3, -1, 4, -2, 9, 3]), [-0.3001501530989436, -1.3147435529574867])
 
     def test_flip(self):
         """Test flip."""

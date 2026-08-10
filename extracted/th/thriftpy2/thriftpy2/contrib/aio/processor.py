@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 from thriftpy2.thrift import TApplicationException, TType, TMessageType
 
 
@@ -20,8 +19,8 @@ class TAsyncProcessor(object):
         await iprot.read_message_end()
         result = getattr(self._service, api + "_result")()
 
-        # convert kwargs to args
-        api_args = [args.thrift_spec[k][1] for k in sorted(args.thrift_spec)]
+        # convert kwargs to args, following the IDL declaration order
+        api_args = [item[1] for item in args.thrift_spec.values()]
 
         async def call():
             f = getattr(self._handler, api)
@@ -58,6 +57,7 @@ class TAsyncProcessor(object):
         if isinstance(result, TApplicationException):
             return (await self.send_exception(oprot, api, result, seqid))
 
+        assert call is not None
         try:
             result.success = await call()
         except Exception as e:

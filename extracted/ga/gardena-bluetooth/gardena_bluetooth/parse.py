@@ -1,10 +1,12 @@
+import logging
 from abc import ABC
 from calendar import Day
 from dataclasses import dataclass, field
 from datetime import datetime, time, timedelta, timezone
-from enum import Enum, IntEnum, auto
+from enum import Enum, IntEnum, IntFlag, auto
 from typing import ClassVar, Generic, Self, TypeVar
 
+LOGGER = logging.getLogger(__name__)
 CharacteristicType = TypeVar("CharacteristicType")
 
 
@@ -260,6 +262,17 @@ class CharacteristicPnpId(Characteristic[CharacteristicPnpIdData]):
 
 
 @dataclass
+class CharacteristicIgnore(Characteristic[None]):
+    @classmethod
+    def decode(cls, data: bytes) -> None:
+        return None
+
+    @classmethod
+    def encode(cls, value: None) -> bytes:
+        return b""
+
+
+@dataclass
 class CharacteristicBytes(Characteristic[bytes]):
     @classmethod
     def decode(cls, data: bytes) -> bytes:
@@ -502,6 +515,214 @@ class CharacteristicContours(Characteristic[set[Contour]]):
 
 
 @dataclass
+class PositionContourMaskEntry:
+    position: int
+    """1-indexed position (1-5)."""
+    assigned_contours: set[Contour]
+    """Contours available to this position - a position can have several."""
+    is_segmented_watering: bool
+    is_externally_managed: bool
+    is_automatic_mode: bool
+
+
+PositionContourMask = list[PositionContourMaskEntry]
+"""One entry per position, in position order (1-5)."""
+
+
+@dataclass
+class CharacteristicPositionContourMask(Characteristic[PositionContourMask]):
+    @classmethod
+    def decode(cls, data: bytes) -> PositionContourMask:
+        return [
+            PositionContourMaskEntry(
+                position=i + 1,
+                assigned_contours={Contour(c) for c in range(5) if b & (1 << c)},
+                is_segmented_watering=bool(b & 0x20),
+                is_externally_managed=bool(b & 0x40),
+                is_automatic_mode=bool(b & 0x80),
+            )
+            for i, b in enumerate(data)
+        ]
+
+    @classmethod
+    def encode(cls, value: PositionContourMask) -> bytes:
+        result = bytearray(5)
+        for entry in value:
+            b = 0
+            for contour in entry.assigned_contours:
+                b |= 1 << int(contour)
+            b |= int(entry.is_segmented_watering) << 5
+            b |= int(entry.is_externally_managed) << 6
+            b |= int(entry.is_automatic_mode) << 7
+            result[entry.position - 1] = b
+        return bytes(result)
+
+
+class SegmentCommand(EnumOrInt):
+    FIRST = 0
+    NEXT = 1
+    ACK = 2
+    QUERY = 3
+
+
+@dataclass
+class Segment:
+    """A single frame of a multi-frame segmented characteristic transfer.
+
+    This is the generic frame envelope (command, resource index, frames
+    remaining) - the payload itself is opaque here. Reassemble frames with
+    `SegmentAssembler` and parse the completed payload with a data-specific
+    parser.
+    """
+
+    cmd: SegmentCommand | int
+    index: int
+    frames_left: int
+    """1-indexed count of frames remaining, inclusive - 1 marks the final frame."""
+    payload: bytes
+
+    @classmethod
+    def decode(cls, data: bytes) -> "Segment":
+        header = data[0]
+        cmd = SegmentCommand.enum_or_int(header // 32)
+        index = header % 32
+        frames_left = data[1]
+        return cls(cmd=cmd, index=index, frames_left=frames_left, payload=data[2:])
+
+
+@dataclass
+class SegmentQuery:
+    """A request for a segmented resource, addressed by index.
+
+    Write the encoded result to the requesting characteristic, having
+    subscribed to notifications on it beforehand to receive the response.
+    """
+
+    index: int
+
+    def encode(self) -> bytes:
+        return bytes([(int(SegmentCommand.QUERY) << 5) | self.index])
+
+    @classmethod
+    def decode(cls, data: bytes) -> "SegmentQuery":
+        return cls(index=data[0] % 32)
+
+
+@dataclass
+class SegmentAck:
+    """An acknowledgement for a segmented transfer, addressed by index.
+
+    Write it back to the requesting characteristic once the final response
+    frame (`frames_left == 1`) has been received.
+    """
+
+    index: int
+
+    def encode(self) -> bytes:
+        return bytes([(int(SegmentCommand.ACK) << 5) | self.index])
+
+    @classmethod
+    def decode(cls, data: bytes) -> "SegmentAck":
+        return cls(index=data[0] % 32)
+
+
+@dataclass
+class SegmentAssembler:
+    """Reassembles a stream of Segment notifications into a full payload.
+
+    Frames for an index other than the one being assembled are ignored, to
+    tolerate stray notifications from an unrelated in-flight request. The
+    first frame is expected to carry `SegmentCommand.FIRST` and subsequent
+    frames `SegmentCommand.NEXT`; a frame that breaks this order aborts the
+    transfer, discarding whatever was accumulated so far. Frames received
+    after completion are rejected.
+    """
+
+    index: int
+    payload: bytes = b""
+    done: bool = False
+    started: bool = False
+
+    def add_frame(self, frame: Segment) -> bool:
+        """Merge a frame's payload, return True once the transfer is complete."""
+        if self.done:
+            LOGGER.debug("Rejecting frame for segment %s, already complete", self.index)
+            return self.done
+        if frame.index != self.index:
+            LOGGER.debug(
+                "Ignoring frame for segment %s, expected %s", frame.index, self.index
+            )
+            return self.done
+
+        expected_cmd = SegmentCommand.NEXT if self.started else SegmentCommand.FIRST
+        if frame.cmd != expected_cmd:
+            LOGGER.warning(
+                "Unexpected command %s for segment %s, expected %s, aborting",
+                frame.cmd,
+                self.index,
+                expected_cmd,
+            )
+            self.payload = b""
+            self.done = True
+            return self.done
+        self.started = True
+
+        self.payload += frame.payload
+        if frame.frames_left == 1:
+            self.done = True
+        return self.done
+
+
+@dataclass
+class CharacteristicSegmented(Characteristic[CharacteristicType]):
+    """A characteristic whose value is transferred via a multi-frame segmented read.
+
+    The transfer uses two distinct characteristics: `uuid` (inherited) is
+    the receiving side - subscribed to for the notified response frames -
+    while `write_uuid` is the separate characteristic the request is
+    written to. `query_index` addresses which segmented resource to
+    request, and is folded into `unique_id` so that multiple indexed
+    resources sharing a UUID/variant remain distinguishable.
+    """
+
+    write_uuid: str = field(kw_only=True)
+    query_index: int = field(kw_only=True)
+
+    def __post_init__(self):
+        super().__post_init__()
+        object.__setattr__(
+            self, "unique_id", f"{self.unique_id}:segment{self.query_index}"
+        )
+
+
+@dataclass
+class ContourPoint:
+    angle: int
+    """Angle in degrees (0-359)."""
+    distance: int
+    """Distance in cm."""
+
+
+ContourPoints = list[ContourPoint]
+"""A contour's curve, as points in the order they were received."""
+
+
+@dataclass
+class CharacteristicContourPoints(CharacteristicSegmented[ContourPoints]):
+    @classmethod
+    def decode(cls, data: bytes) -> ContourPoints:
+        points: ContourPoints = []
+        for i in range(0, len(data) - 1, 2):
+            angle_byte, distance_byte = data[i], data[i + 1]
+            if angle_byte == 0 and distance_byte == 0:
+                continue
+            angle = (angle_byte << 1) | (distance_byte >> 7)
+            distance = (distance_byte & 0x7F) * 10
+            points.append(ContourPoint(angle, distance))
+        return points
+
+
+@dataclass
 class CharacteristicTime(Characteristic[datetime]):
     @classmethod
     def decode(cls, data: bytes) -> datetime:
@@ -613,6 +834,150 @@ class CharacteristicErrorData[T: IntEnum](Characteristic[ErrorData[T]]):
         ]
 
 
+class PowerSourceConnected(EnumOrInt):
+    NOT_CONNECTED = 0
+    CONNECTED = 1
+    UNKNOWN = 2
+
+
+class BatteryChargeState(EnumOrInt):
+    UNKNOWN = 0
+    CHARGING = 1
+    DISCHARGING_ACTIVE = 2
+    DISCHARGING_INACTIVE = 3
+
+
+class BatteryChargeLevel(EnumOrInt):
+    UNKNOWN = 0
+    GOOD = 1
+    LOW = 2
+    CRITICAL = 3
+
+
+class BatteryChargingType(EnumOrInt):
+    UNKNOWN = 0
+    CONSTANT_CURRENT = 1
+    CONSTANT_VOLTAGE = 2
+    TRICKLE = 3
+    FLOAT = 4
+
+
+class BatteryChargingFaultReason(IntFlag):
+    NONE = 0
+    BATTERY = 1 << 0
+    EXTERNAL_POWER_SOURCE = 1 << 1
+    OTHER = 1 << 2
+
+
+class BatteryServiceRequired(EnumOrInt):
+    NOT_REQUIRED = 0
+    REQUIRED = 1
+    UNKNOWN = 2
+
+
+@dataclass
+class CharacteristicBatteryLevelStatusData:
+    battery_present: bool
+    wired_external_power_source_connected: PowerSourceConnected | int
+    wireless_external_power_source_connected: PowerSourceConnected | int
+    battery_charge_state: BatteryChargeState | int
+    battery_charge_level: BatteryChargeLevel | int
+    battery_charging_type: BatteryChargingType | int
+    battery_charging_fault_reason: BatteryChargingFaultReason
+    identifier: int | None = None
+    battery_level: int | None = None
+    service_required: BatteryServiceRequired | int | None = None
+    battery_fault: bool | None = None
+
+
+@dataclass
+class CharacteristicBatteryLevelStatus(
+    Characteristic[CharacteristicBatteryLevelStatusData]
+):
+    @classmethod
+    def decode(cls, data: bytes) -> CharacteristicBatteryLevelStatusData:
+        flags = data[0]
+        power_state = int.from_bytes(data[1:3], "little", signed=False)
+        offset = 3
+
+        identifier = None
+        if flags & 0x01:
+            identifier = int.from_bytes(
+                data[offset : offset + 2], "little", signed=False
+            )
+            offset += 2
+
+        battery_level = None
+        if flags & 0x02:
+            battery_level = data[offset]
+            offset += 1
+
+        service_required = None
+        battery_fault = None
+        if flags & 0x04:
+            additional_status = data[offset]
+            service_required = BatteryServiceRequired.enum_or_int(
+                additional_status & 0x03
+            )
+            battery_fault = bool((additional_status >> 2) & 0x01)
+            offset += 1
+
+        return CharacteristicBatteryLevelStatusData(
+            battery_present=bool(power_state & 0x01),
+            wired_external_power_source_connected=PowerSourceConnected.enum_or_int(
+                (power_state >> 1) & 0x03
+            ),
+            wireless_external_power_source_connected=PowerSourceConnected.enum_or_int(
+                (power_state >> 3) & 0x03
+            ),
+            battery_charge_state=BatteryChargeState.enum_or_int(
+                (power_state >> 5) & 0x03
+            ),
+            battery_charge_level=BatteryChargeLevel.enum_or_int(
+                (power_state >> 7) & 0x03
+            ),
+            battery_charging_type=BatteryChargingType.enum_or_int(
+                (power_state >> 9) & 0x07
+            ),
+            battery_charging_fault_reason=BatteryChargingFaultReason(
+                (power_state >> 12) & 0x07
+            ),
+            identifier=identifier,
+            battery_level=battery_level,
+            service_required=service_required,
+            battery_fault=battery_fault,
+        )
+
+    @classmethod
+    def encode(cls, value: CharacteristicBatteryLevelStatusData) -> bytes:
+        power_state = (
+            (int(value.battery_present) & 0x01)
+            | ((int(value.wired_external_power_source_connected) & 0x03) << 1)
+            | ((int(value.wireless_external_power_source_connected) & 0x03) << 3)
+            | ((int(value.battery_charge_state) & 0x03) << 5)
+            | ((int(value.battery_charge_level) & 0x03) << 7)
+            | ((int(value.battery_charging_type) & 0x07) << 9)
+            | ((int(value.battery_charging_fault_reason) & 0x07) << 12)
+        )
+
+        flags = 0
+        tail = b""
+        if value.identifier is not None:
+            flags |= 0x01
+            tail += value.identifier.to_bytes(2, "little", signed=False)
+        if value.battery_level is not None:
+            flags |= 0x02
+            tail += bytes([value.battery_level])
+        if value.service_required is not None or value.battery_fault is not None:
+            flags |= 0x04
+            additional_status = (int(value.service_required or 0) & 0x03) | (
+                (int(bool(value.battery_fault)) & 0x01) << 2
+            )
+            tail += bytes([additional_status])
+
+        return bytes([flags]) + power_state.to_bytes(2, "little", signed=False) + tail
+
+
 @dataclass
 class CharacteristicScheduleData:
     start_time: time
@@ -671,6 +1036,15 @@ class Service:
             if product_type in service.products
         ]
 
+    @classmethod
+    def find_characteristics(cls, uuid: str) -> list[Characteristic]:
+        """Get all characteristics declared for a given physical UUID.
+
+        Usually a single match, but a UUID can be shared by several logical
+        characteristics (e.g. segmented reads multiplexed over one UUID).
+        """
+        return [char for char in cls.characteristics.values() if char.uuid == uuid]
+
     def __init_subclass__(cls, /, **kwargs):
         super().__init_subclass__(**kwargs)
         if ABC in cls.__bases__:
@@ -684,7 +1058,7 @@ class Service:
         cls.characteristics = {}
         for value in vars(cls).values():
             if isinstance(value, Characteristic):
-                cls.characteristics[value.uuid] = value
+                cls.characteristics[value.unique_id] = value
 
 
 @dataclass

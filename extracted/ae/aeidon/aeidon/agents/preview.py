@@ -13,14 +13,12 @@
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with this program. If not, see <http://www.gnu.org/licenses/>.
+# along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 """Previewing subtitles with a video player."""
 
 import aeidon
-import os
 import string
-
 
 class PreviewAgent(aeidon.Delegate):
 
@@ -42,12 +40,9 @@ class PreviewAgent(aeidon.Delegate):
         e.g. 'movie.avi' for 'movie.en.srt'.
         """
         if self.main_file is None: return None
-        dirname = os.path.dirname(self.main_file.path)
-        subname = os.path.basename(self.main_file.path)
-        for name in os.listdir(dirname):
-            path = os.path.join(dirname, name)
-            root = os.path.splitext(name)[0]
-            if not subname.startswith(root): continue
+        subname = self.main_file.path.name
+        for path in self.main_file.path.parent.iterdir():
+            if not subname.startswith(path.stem): continue
             if aeidon.util.is_video_file(path):
                 self.video_path = path
                 return self.video_path
@@ -100,8 +95,8 @@ class PreviewAgent(aeidon.Delegate):
         fout = open(aeidon.temp.create(".output"), "w")
         seconds = max(0, self.calc.to_seconds(position) - offset)
         command = string.Template(command).safe_substitute(
-            MILLISECONDS=("{:.0f}".format(seconds * 1000)),
-            SECONDS=("{:.3f}".format(seconds)),
+            MILLISECONDS=f"{seconds * 1000:.0f}",
+            SECONDS=f"{seconds:.3f}",
             SUBFILE=aeidon.util.shell_quote(sub_path),
             VIDEOFILE=aeidon.util.shell_quote(self.video_path))
 

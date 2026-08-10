@@ -5,4 +5,4 @@ import time as _time
 # end-to-end scan duration from the moment the user actually triggered it.
 _BOOT_WALL: float = _time.time()
 
-__version__ = '3.18.0'  # DON'T TOUCH. Placeholder. Will be filled automatically on poetry build from Git Tag
+__version__ = '3.19.0'  # DON'T TOUCH. Placeholder. Will be filled automatically on poetry build from Git Tag

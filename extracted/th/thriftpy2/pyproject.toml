@@ -7,14 +7,14 @@ requires = [
 
 [project]
 name = "thriftpy2"
-version = "0.6.0"
+version = "0.7.0"
 description = "Pure python implementation of Apache Thrift."
 authors = [
     {name = "ThriftPy Organization", email = "gotzehsing@gmail.com"},
 ]
 dependencies = [
     "ply>=3.4,<4.0",
-    "six~=1.15",
+    "ijson>=3.0,<4.0",
     "typing_extensions>=3.7.4; python_version<'3.8'",
 ]
 requires-python = ">=3.7"
@@ -53,16 +53,17 @@ dev = [
     "pytest-asyncio",
     "pytest-reraise",
     "pytest>=6.1.1,<8.2.0",
-    "tornado>=4.0,<7.0; python_version>='3.12'",
-    "tornado>=4.0,<6.0; python_version<'3.12'",
     "aiohttp>=3.8.0,<4.0.0",
-]
-
-tornado = [
-    "tornado>=4.0,<7.0; python_version>='3.12'",
-    "tornado>=4.0,<6.0; python_version<'3.12'",
 ]
 
 aiohttp = [
     "aiohttp>=3.8.0,<4.0.0",
 ]
+
+[tool.basedpyright]
+include = ["thriftpy2"]
+exclude = ["**/*.pyx"]
+pythonVersion = "3.7"
+typeCheckingMode = "standard"
+reportMissingTypeStubs = "none"
+baselineFile = ".basedpyright/baseline.json"

@@ -30,8 +30,12 @@ MAX_EDGE_PENWIDTH_GRAPHVIZ = 2.6
 MIN_EDGE_PENWIDTH_GRAPHVIZ = 1.0
 
 
-def get_business_hour_slots(parameters):
-    """Return the schedule to use for duration labels, if configured."""
+def get_business_hour_slots(parameters, performance_dfg=None):
+    """Return the schedule to use for duration labels, if configured.
+
+    Explicit visualization parameters take precedence over metadata retained
+    by a discovered performance DFG.
+    """
     from pm4py.util import constants, exec_utils
 
     missing = object()
@@ -43,8 +47,14 @@ def get_business_hour_slots(parameters):
     )
     if business_hours is not missing and not business_hours:
         return None
-    if business_hour_slots is not missing:
+    if business_hour_slots is not missing and business_hour_slots is not None:
         return business_hour_slots
+    if performance_dfg is not None:
+        discovered_slots = getattr(
+            performance_dfg, "business_hour_slots", None
+        )
+        if discovered_slots is not None:
+            return discovered_slots
     if business_hours is not missing and business_hours:
         return constants.DEFAULT_BUSINESS_HOUR_SLOTS
     return None

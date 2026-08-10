@@ -13,13 +13,11 @@
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with this program. If not, see <http://www.gnu.org/licenses/>.
+# along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 """Text markup of all formats."""
 
 import aeidon
-
-aeidon.util.install_module("markups", lambda: None)
 
 from .ssa        import SubStationAlpha
 from .ass        import AdvSubStationAlpha
@@ -31,27 +29,26 @@ from .subviewer2 import SubViewer2
 from .tmplayer   import TMPlayer
 from .webvtt     import WebVTT
 
-__all__ = [
-    "SubStationAlpha",
-    "AdvSubStationAlpha",
-    "LRC",
-    "MicroDVD",
-    "MPL2",
-    "SubRip",
-    "SubViewer2",
-    "TMPlayer",
-    "WebVTT",
+classes = [
+    SubStationAlpha,
+    AdvSubStationAlpha,
+    LRC,
+    MicroDVD,
+    MPL2,
+    SubRip,
+    SubViewer2,
+    TMPlayer,
+    WebVTT,
 ]
 
 def add(cls):
     """Add a new :class:`aeidon.Markup` class."""
     globals()[cls.__name__] = cls
-    __all__.append(cls.__name__)
+    classes.append(cls)
 
 def new(format):
     """Return a new :class:`aeidon.Markup` instance given `format`."""
-    for cls in map(eval, __all__):
+    for cls in classes:
         if cls.format == format:
             return cls()
-    raise ValueError("Format {!r} not found"
-                     .format(format))
+    raise ValueError(f"Format {format!r} not found")

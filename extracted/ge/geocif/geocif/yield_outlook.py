@@ -592,8 +592,10 @@ def _load_observed_baselines(countries, crop, parser, current_year=None):
     """Load observed yield baselines from statistics CSVs.
 
     Returns dict: {period_label -> DataFrame(Region, obs_mean)}
-    Periods: '2013-2017', '2018-2022', '10yr' (10 years prior to current_year).
-    The current season is always excluded from the 10yr window.
+    Periods: '2013-2017', '2018-2022', '10yr' (10 years prior to current_year),
+    and a rolling last-5-observed-years window ending the year before the
+    forecast year (e.g. current_year 2026 -> '2021-2025', 2014 -> '2009-2013').
+    The current season is always excluded from the rolling windows.
     Returns empty dict if no statistics CSVs found.
     """
     from geocif import utils
@@ -619,11 +621,20 @@ def _load_observed_baselines(countries, crop, parser, current_year=None):
     # 10yr upper bound: exclude current forecast year (use current_year-1 if known,
     # otherwise fall back to max_year-1 which may exclude the last observed season)
     y2_10yr = (current_year - 1) if current_year is not None else (max_year - 1)
+    # Rolling last-5-observed-years window ending the year BEFORE the forecast
+    # year (the forecast year isn't observed yet): current_year 2026 -> 2021-2025,
+    # 2014 -> 2009-2013. Falls back to the last observed year if current_year is
+    # unknown. Anomaly maps built from this show the current prediction's %
+    # departure from the most recent 5-year observed norm.
+    last5_y2 = (current_year - 1) if current_year is not None else max_year
+    last5_y1 = last5_y2 - 4
+    last5_label = f"{last5_y1}-{last5_y2}"
     baselines = {}
     for label, y1, y2 in [
         ("2013-2017", 2013, 2017),
         ("2018-2022", 2018, 2022),
         ("10yr", max_year - 10, y2_10yr),
+        (last5_label, last5_y1, last5_y2),
     ]:
         sub = df_all[(df_all["Harvest Year"] >= y1) & (df_all["Harvest Year"] <= y2)]
         if sub.empty:
@@ -4255,6 +4266,37 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
                 )
                 df_table = df_table.merge(df_last_obs, on="Region", how="left")
 
+                # Mean of the last 5 observed years per region + the span of
+                # years averaged. Reuses df_obs_last5 (the forest plot's
+                # reference set) so the table and the "Observed (yr_min-yr_max)"
+                # plot reference are computed from exactly the same rows.
+                if not df_obs_last5.empty:
+                    df_last5 = (
+                        df_obs_last5.groupby("Region")
+                        .agg(
+                            _mean=("Observed Yield (tn per ha)", "mean"),
+                            _ymin=("Harvest Year", "min"),
+                            _ymax=("Harvest Year", "max"),
+                            _n=("Harvest Year", "count"),
+                        )
+                        .reset_index()
+                    )
+                    df_last5["Mean 5yr Obs Yield"] = df_last5["_mean"].round(2)
+                    # Contiguous spans print as "YYYY-YYYY"; gaps (or <5 years
+                    # available) append "(n=k)" so the count isn't misread.
+                    df_last5["5yr Obs Years"] = df_last5.apply(
+                        lambda r: (
+                            f"{int(r['_ymin'])}–{int(r['_ymax'])}"
+                            if int(r["_ymax"]) - int(r["_ymin"]) == int(r["_n"]) - 1
+                            else f"{int(r['_ymin'])}–{int(r['_ymax'])} (n={int(r['_n'])})"
+                        ),
+                        axis=1,
+                    )
+                    df_table = df_table.merge(
+                        df_last5[["Region", "Mean 5yr Obs Yield", "5yr Obs Years"]],
+                        on="Region", how="left",
+                    )
+
                 from .viz.diagnostics import is_production_share_shown
                 _show_prod_share = is_production_share_shown()
                 if prod_pct:
@@ -4282,6 +4324,9 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
                 if ci_has_values:
                     cols_order += ["lower CI", "upper CI"]
                 cols_order += ["Last Obs Yield", "Last Obs Year"]
+                for _c in ["Mean 5yr Obs Yield", "5yr Obs Years"]:
+                    if _c in df_table.columns:
+                        cols_order.append(_c)
                 diag.yield_table(
                     df_table[["Region"] + cols_order],
                     out_path=plot_dir / f"yield_table_{country_lower}_{crop}_{model}.png",

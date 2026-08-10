@@ -34,16 +34,7 @@ static inline uint8_t sample_size_bits(struct jls_core_fsr_s * self) {
 }
 
 static inline uint8_t summary_entry_size(struct jls_core_fsr_s * self) {
-    switch (self->parent->signal_def.data_type & 0xffff) {
-        case JLS_DATATYPE_I32: // intentional fall-through
-        case JLS_DATATYPE_I64: // intentional fall-through
-        case JLS_DATATYPE_U32: // intentional fall-through
-        case JLS_DATATYPE_U64: // intentional fall-through
-        case JLS_DATATYPE_F64:
-            return 64;
-        default:
-            return 32;
-    }
+    return jls_core_fsr_summary_entry_size_bits(self->parent->signal_def.data_type);
 }
 
 int32_t jls_core_fsr_sample_buffer_alloc(struct jls_core_fsr_s * self) {
@@ -335,7 +326,7 @@ static void summary_entry_add(struct jls_core_fsr_s * self, uint8_t level,
 
 
 int32_t jls_core_fsr_summaryN(struct jls_core_fsr_s * self, uint8_t level, int64_t pos) {
-    if (level < 2) {
+    if ((level < 2) || (level >= JLS_SUMMARY_LEVEL_COUNT)) {
         JLS_LOGE("invalid jls_core_fsr_summaryN level: %d", (int) level);
         return JLS_ERROR_PARAMETER_INVALID;
     }
@@ -481,7 +472,10 @@ static int32_t wr_data_inner(struct jls_core_fsr_s * self, const void * data, ui
             if (byte_length) {
                 memcpy(dst_u8, src_u8, byte_length);
             }
-            self->shift_buffer = src_u8[byte_length];
+            if ((length * sample_size_bits) & 7) {
+                // partial trailing byte, only present for sub-byte types
+                self->shift_buffer = src_u8[byte_length];
+            }
             src_u8 += byte_length;
         }
         b->header.entry_count += length;

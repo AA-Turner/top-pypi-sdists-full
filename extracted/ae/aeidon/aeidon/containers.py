@@ -13,10 +13,9 @@
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with this program. If not, see <http://www.gnu.org/licenses/>.
+# along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 """Containers for additional format-specific subtitle attributes."""
-
 
 class SubRip:
 
@@ -33,7 +32,6 @@ class SubRip:
     y1 = 0
     x2 = 0
     y2 = 0
-
 
 class SubStationAlpha:
 
@@ -59,7 +57,6 @@ class SubStationAlpha:
     margin_v = 0
     effect = ""
 
-
 class WebVTT:
 
     """
@@ -78,7 +75,6 @@ class WebVTT:
     settings = ""
     style = ""
 
-
 def new(name):
     """Return a new container instance given the container's `name`."""
     if name == "ssa":
@@ -87,5 +83,4 @@ def new(name):
         return SubRip()
     if name == "webvtt":
         return WebVTT()
-    raise ValueError("Invalid name: {!r}"
-                     .format(name))
+    raise ValueError(f"Invalid name: {name!r}")

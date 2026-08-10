@@ -13,33 +13,32 @@
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with this program. If not, see <http://www.gnu.org/licenses/>.
+# along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 """Names and ISO 3166 codes for countries and conversions between them."""
 
 import aeidon
+import contextlib
 import json
-import os
 
 from aeidon.i18n import d_
+from pathlib import Path
 
 _countries = {}
-
 
 def _init_countries():
     """Initialize the dictionary mapping codes to names."""
     # Prefer globally installed, fall back on possibly bundled.
-    path = "/usr/share/iso-codes/json/iso_3166-1.json"
-    if os.path.isfile(path):
+    path = Path("/usr/share/iso-codes/json/iso_3166-1.json")
+    if path.is_file():
         return _init_countries_json(path)
-    path = os.path.join(aeidon.DATA_DIR, "iso-codes", "iso_3166-1.json")
-    if os.path.isfile(path):
+    path = aeidon.DATA_DIR / "iso-codes" / "iso_3166-1.json"
+    if path.is_file():
         return _init_countries_json(path)
 
 def _init_countries_json(path):
     """Initialize the dictionary mapping codes to names."""
-    with open(path, "r", encoding="utf_8") as f:
-        iso = json.load(f)
+    iso = json.loads(path.read_text(encoding="utf_8"))
     for country in iso["3166-1"]:
         code = country.get("alpha_2", None)
         name = country.get("name", None)
@@ -50,7 +49,7 @@ def code_to_name(code):
     """Convert ISO 3166 `code` to localized country name."""
     if not _countries:
         _init_countries()
-    with aeidon.util.silent(LookupError):
+    with contextlib.suppress(LookupError):
         return d_("iso_3166", _countries[code])
     return code
 

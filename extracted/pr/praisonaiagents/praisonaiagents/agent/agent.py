@@ -859,8 +859,6 @@ class Agent(GoalLoopMixin, SteeringMixin, SandboxMixin, SkillReviewMixin, Unifie
         planning_tools = None
         planning_reasoning = False
         policy = None
-        background = None
-        checkpoints = None
         output_style = None
         thinking_budget = None
         skills_dirs = None
@@ -1655,7 +1653,14 @@ class Agent(GoalLoopMixin, SteeringMixin, SandboxMixin, SkillReviewMixin, Unifie
             else:
                 llm = model  # model= takes precedence
         
-        # Store rate limiter (optional, zero overhead when None)
+        # Store rate limiter (optional, zero overhead when None).
+        # Auto-build a RateLimiter from max_rpm when no explicit limiter is
+        # provided so ExecutionConfig(max_rpm=N) actually throttles requests.
+        if max_rpm is not None and max_rpm <= 0:
+            raise ValueError(f"max_rpm must be a positive int, got {max_rpm!r}")
+        if rate_limiter is None and max_rpm is not None:
+            from praisonaiagents.llm.rate_limiter import RateLimiter
+            rate_limiter = RateLimiter(requests_per_minute=max_rpm)
         self._rate_limiter = rate_limiter
         
         # Store OpenAI client parameters for lazy initialization (kept separate)
@@ -2263,8 +2268,6 @@ Your Goal: {self.goal}
         # Agent-centric feature instances (lazy loaded for zero performance impact)
         self._auto_memory = auto_memory
         self._policy = policy
-        self._background = background
-        self._checkpoints = checkpoints
         self._output_style = output_style
         self._thinking_budget = thinking_budget
         
@@ -2539,24 +2542,6 @@ Your Goal: {self.goal}
         self._policy = value
 
     @property
-    def background(self) -> Optional[bool]:
-        """BackgroundRunner instance for async task execution."""
-        return self._background
-    
-    @background.setter
-    def background(self, value: Optional[bool]) -> None:
-        self._background = value
-
-    @property
-    def checkpoints(self) -> Optional[bool]:
-        """CheckpointService instance for file-level undo/restore."""
-        return self._checkpoints
-    
-    @checkpoints.setter
-    def checkpoints(self, value: Optional[bool]) -> None:
-        self._checkpoints = value
-
-    @property
     def output_style(self) -> Optional[str]:
         """OutputStyle instance for response formatting."""
         return self._output_style
@@ -2718,16 +2703,7 @@ Your Goal: {self.goal}
                 from ..context.models import ContextConfig as _ContextConfig
                 if isinstance(self._context_param, _ContextConfig):
                     # Build ManagerConfig from ContextConfig fields
-                    manager_config = ManagerConfig(
-                        auto_compact=self._context_param.auto_compact,
-                        compact_threshold=self._context_param.compact_threshold,
-                        strategy=self._context_param.strategy,
-                        output_reserve=self._context_param.output_reserve,
-                        default_tool_output_max=self._context_param.tool_output_max,  # Map field name
-                        protected_tools=list(self._context_param.protected_tools),
-                        keep_recent_turns=self._context_param.keep_recent_turns,
-                        monitor_enabled=self._context_param.monitor.enabled if self._context_param.monitor else False,
-                    )
+                    manager_config = self._manager_config_from_context_config(self._context_param)
                     # Check if llm_summarize is enabled in ContextConfig
                     llm_summarize_enabled = getattr(self._context_param, 'llm_summarize', False)
                     if llm_summarize_enabled:
@@ -2756,16 +2732,7 @@ Your Goal: {self.goal}
                 try:
                     from ..context.models import ContextConfig as _ContextConfig
                     context_config = _ContextConfig(**preset_config)
-                    manager_config = ManagerConfig(
-                        auto_compact=context_config.auto_compact,
-                        compact_threshold=context_config.compact_threshold,
-                        strategy=context_config.strategy,
-                        output_reserve=context_config.output_reserve,
-                        default_tool_output_max=context_config.tool_output_max,
-                        protected_tools=list(context_config.protected_tools),
-                        keep_recent_turns=context_config.keep_recent_turns,
-                        monitor_enabled=context_config.monitor.enabled if context_config.monitor else False,
-                    )
+                    manager_config = self._manager_config_from_context_config(context_config)
                     self._context_manager = ContextManager(
                         model=self.llm if isinstance(self.llm, str) else "gpt-4o-mini",
                         config=manager_config,
@@ -2784,16 +2751,7 @@ Your Goal: {self.goal}
             try:
                 from ..context.models import ContextConfig as _ContextConfig
                 context_config = _ContextConfig(**self._context_param)
-                manager_config = ManagerConfig(
-                    auto_compact=context_config.auto_compact,
-                    compact_threshold=context_config.compact_threshold,
-                    strategy=context_config.strategy,
-                    output_reserve=context_config.output_reserve,
-                    default_tool_output_max=context_config.tool_output_max,
-                    protected_tools=list(context_config.protected_tools),
-                    keep_recent_turns=context_config.keep_recent_turns,
-                    monitor_enabled=context_config.monitor.enabled if context_config.monitor else False,
-                )
+                manager_config = self._manager_config_from_context_config(context_config)
                 llm_summarize_enabled = self._context_param.get('llm_summarize', False)
                 self._context_manager = ContextManager(
                     model=self.llm if isinstance(self.llm, str) else "gpt-4o-mini",
@@ -2817,6 +2775,20 @@ Your Goal: {self.goal}
         """Set context manager directly."""
         self._context_manager = value
         self._context_manager_initialized = True
+
+    def _manager_config_from_context_config(self, cc: Any) -> Any:
+        """Build a ManagerConfig from a ContextConfig (single source of truth)."""
+        from ..context import ManagerConfig
+        return ManagerConfig(
+            auto_compact=cc.auto_compact,
+            compact_threshold=cc.compact_threshold,
+            strategy=cc.strategy,
+            output_reserve=cc.output_reserve,
+            default_tool_output_max=cc.tool_output_max,  # Map field name
+            protected_tools=list(cc.protected_tools),
+            keep_recent_turns=cc.keep_recent_turns,
+            monitor_enabled=cc.monitor.enabled if cc.monitor else False,
+        )
 
     def _create_llm_summarize_fn(self) -> Optional[Callable]:
         """
@@ -6454,10 +6426,14 @@ Answer:"""
         """Clean up global server registry entries for this agent."""
         if getattr(self, '_agent_id', None) is None:
             return  # No ID generated, nothing registered
-            
+
         try:
-            _get_default_server_registry().cleanup_agent_registrations(self._agent_id)
-                    
+            # Tear down the routes launch() actually registered (module-level
+            # state in execution_mixin.py). ServerRegistry above is a separate,
+            # unpopulated structure and cleaning it up is a no-op.
+            from .execution_mixin import cleanup_launch_registration
+            cleanup_launch_registration(self._agent_id)
+
         except Exception as e:
             import sys
             if sys.meta_path is not None:

@@ -1,30 +1,31 @@
-# -*- coding: utf-8 -*-
-from __future__ import absolute_import
-
 import json
 import sys
 import time
+from io import BytesIO
 from multiprocessing import Process
+from pathlib import Path
 
 import pytest
-import six
 
 import thriftpy2
 from thriftpy2.http import make_server as make_http_server, \
-    make_client as make_http_client
+    make_client as make_http_client, TFileObjectTransport
 from thriftpy2.protocol import TApacheJSONProtocolFactory
+from thriftpy2.protocol.apache_json import TApacheJSONProtocol
 from thriftpy2.rpc import make_server as make_rpc_server, \
     make_client as make_rpc_client
 from thriftpy2.thrift import TProcessor, TType
 from thriftpy2.transport import TMemoryBuffer
 from thriftpy2.transport.buffered import TBufferedTransportFactory
 
+TEST_DIR = Path(__file__).parent
+
 
 def recursive_vars(obj):
-    if isinstance(obj, six.string_types):
-        return six.ensure_str(obj)
-    if isinstance(obj, six.binary_type):
-        return six.ensure_binary(obj)
+    if isinstance(obj, str):
+        return obj
+    if isinstance(obj, bytes):
+        return obj
     if isinstance(obj, (int, float, bool)):
         return obj
     if isinstance(obj, dict):
@@ -37,7 +38,7 @@ def recursive_vars(obj):
 
 def test_thrift_transport():
     test_thrift = thriftpy2.load(
-        "apache_json_test.thrift",
+        TEST_DIR / "apache_json_test.thrift",
         module_name="test_thrift"
     )
     Test = test_thrift.Test
@@ -127,12 +128,31 @@ def test_thrift_transport():
            json.loads(final_data.decode('utf8'))[4]['0']
 
 
+def test_streaming_parse_backslash_string():
+    """Regression: a JSON string containing a single backslash used to break
+    the old byte-by-byte scanner because it treated the closing quote of
+    ``"\\"`` as escaped, leaving in_string=True and never closing the array.
+
+    The streaming path (no getvalue) must parse this correctly via ijson.
+    """
+    inner = chr(0x5C)  # single backslash
+    doc = [1, "x", 1, 0, {"1": {"rec": {"7": {"str": inner}}}}]
+    payload = json.dumps(doc, separators=(",", ":")).encode("utf8")
+    # TFileObjectTransport has no getvalue(), so we hit the ijson path.
+    trans = TFileObjectTransport(BytesIO(payload))
+    assert not hasattr(trans, "getvalue")
+    proto = TApacheJSONProtocol(trans)
+    proto._load_data()
+    assert proto._req[1:4] == ["x", 1, 0]
+    assert proto._req[4]["1"]["rec"]["7"]["str"] == inner
+
+
 @pytest.mark.skipif(sys.platform == "win32", reason="this test requires fork")
 @pytest.mark.parametrize('server_func', [(make_rpc_server, make_rpc_client),
                                          (make_http_server, make_http_client)])
 def test_client(server_func):
     test_thrift = thriftpy2.load(
-        "apache_json_test.thrift",
+        TEST_DIR / "apache_json_test.thrift",
         module_name="test_thrift"
     )
 

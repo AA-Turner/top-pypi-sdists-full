@@ -13,7 +13,7 @@
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with this program. If not, see <http://www.gnu.org/licenses/>.
+# along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 """Mapping position types to basic Python types."""
 
@@ -23,15 +23,6 @@
 # 'as_*' to ensure argument types and functions can use 'is_*' to check
 # argument types, all in a way which is compatible with the old ambiguous way
 # of using int, float and str directly.
-
-__all__ = (
-    "as_frame",
-    "as_seconds",
-    "as_time",
-    "is_frame",
-    "is_seconds",
-    "is_time",
-)
 
 def as_frame(pos):
     """Return `pos` as type frame."""

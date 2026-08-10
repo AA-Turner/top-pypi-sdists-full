@@ -14,6 +14,10 @@ impl EmptyAwaitable {
         slf
     }
 
+    fn __iter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
+        slf
+    }
+
     #[allow(clippy::unused_self)]
     fn __next__(&self) -> Option<()> {
         None
@@ -29,6 +33,10 @@ pub(super) struct ValueAwaitable {
 #[pymethods]
 impl ValueAwaitable {
     fn __await__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
+        slf
+    }
+
+    fn __iter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
         slf
     }
 
@@ -51,6 +59,10 @@ pub(super) struct ErrorAwaitable {
 #[pymethods]
 impl ErrorAwaitable {
     fn __await__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
+        slf
+    }
+
+    fn __iter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
         slf
     }
 

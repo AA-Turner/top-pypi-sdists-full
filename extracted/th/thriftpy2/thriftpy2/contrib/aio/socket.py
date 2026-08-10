@@ -1,7 +1,3 @@
-# -*- coding: utf-8 -*-
-
-from __future__ import absolute_import, division
-
 import asyncio
 import errno
 import os
@@ -9,6 +5,7 @@ import socket
 import ssl
 import struct
 import sys
+from typing import Optional
 if sys.version_info >= (3, 7, 0):
     from asyncio import get_running_loop
 else:
@@ -30,7 +27,8 @@ class TAsyncSocket(object):
 
     def __init__(self, host=None, port=None, unix_socket=None,
                  sock=None, socket_family=socket.AF_INET,
-                 socket_timeout=3000, connect_timeout=None,
+                 socket_timeout: Optional[int] = 3000,
+                 connect_timeout: Optional[int] = None,
                  ssl_context=None, validate=True,
                  cafile=None, capath=None, certfile=None, keyfile=None,
                  ciphers=DEFAULT_CIPHERS):
@@ -143,23 +141,25 @@ class TAsyncSocket(object):
 
     async def open(self):
         self._init_sock()
+        raw_sock = self.raw_sock
+        assert raw_sock is not None
 
         addr = self.unix_socket or (self.host, self.port)
 
         try:
             if self.connect_timeout:
-                self.raw_sock.settimeout(self.connect_timeout)
+                raw_sock.settimeout(self.connect_timeout)
 
             loop = get_running_loop()
             # The raw_sock.connect may block the event loop if the target
             # server is slow or unreachable. Using a thread pool to solve it
             # as a quick and dirty way. See #270.
-            await loop.run_in_executor(None, lambda: self.raw_sock.connect(addr))
+            await loop.run_in_executor(None, lambda: raw_sock.connect(addr))
 
             if self.socket_timeout:
-                self.raw_sock.settimeout(self.socket_timeout)
+                raw_sock.settimeout(self.socket_timeout)
 
-            kwargs = {'sock': self.raw_sock, 'ssl': self.ssl_context}
+            kwargs = {'sock': raw_sock, 'ssl': self.ssl_context}
             if self.server_hostname:
                 kwargs['server_hostname'] = self.server_hostname
 
@@ -218,7 +218,8 @@ class TAsyncServerSocket(object):
     """Socket implementation for server side."""
 
     def __init__(self, host=None, port=None, unix_socket=None,
-                 socket_family=socket.AF_INET, client_timeout=3000,
+                 socket_family=socket.AF_INET,
+                 client_timeout: Optional[int] = 3000,
                  backlog=128, ssl_context=None, certfile=None, keyfile=None,
                  ciphers=RESTRICTED_SERVER_CIPHERS):
         """Initialize a TServerSocket
@@ -287,7 +288,7 @@ class TAsyncServerSocket(object):
             try:
                 _sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
             except socket.error as err:
-                if err[0] in (errno.ENOPROTOOPT, errno.EINVAL):
+                if err.errno in (errno.ENOPROTOOPT, errno.EINVAL):
                     pass
                 else:
                     raise

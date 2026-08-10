@@ -13,7 +13,7 @@
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with this program. If not, see <http://www.gnu.org/licenses/>.
+# along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 """
 Reading, writing and manipulating text-based subtitle files.
@@ -56,9 +56,8 @@ reverting actions is never needed, greater flexibility can be achieved by
 accessing the subtitles directly (via :attr:`aeidon.Project.subtitles`).
 
 :var CONFIG_HOME_DIR: Path to the user's local configuration directory
-:var DATA_DIR: Path to the global data directory
+:var DATA_DIR: Path to the aeidon data directory
 :var DATA_HOME_DIR: Path to the user's local data directory
-:var LOCALE_DIR: Path to the global locale directory
 :var RE_ANY_TAG: Regular expression for markup tags of any format
 
 :var align_methods: Enumerations for subtitle align methods
@@ -74,7 +73,7 @@ accessing the subtitles directly (via :attr:`aeidon.Project.subtitles`).
 import re
 import sys
 
-__version__ = "1.16"
+__version__ = "2.0"
 
 RUNNING_SPHINX = (sys.argv[0].endswith("autogen.py") or
                   sys.argv[0].endswith("sphinx-build"))
@@ -83,45 +82,69 @@ RE_ANY_TAG = re.compile(r"(^[/\\_]+|<.*?>|\{.*?\})")
 
 try:
     import gi
-    gi.require_version("Gspell", "1")
+    gi.require_version("Spelling", "1")
 except Exception:
     pass
 
-from aeidon.paths import * # noqa
-from aeidon.position import * # noqa
-from aeidon import deco # noqa
-from aeidon import i18n # noqa
-from aeidon import util # noqa
-from aeidon import temp # noqa
-from aeidon.delegate import * # noqa
-from aeidon.singleton import * # noqa
-from aeidon.mutables import * # noqa
-from aeidon.observable import * # noqa
-from aeidon.errors import * # noqa
-from aeidon.enum import * # noqa
-from aeidon.enums import * # noqa
-from aeidon import encodings # noqa
-from aeidon import languages # noqa
-from aeidon import countries # noqa
-from aeidon import locales # noqa
-from aeidon import scripts # noqa
-from aeidon.metadata import * # noqa
-from aeidon.calculator import * # noqa
-from aeidon.finder import * # noqa
-from aeidon.parser import * # noqa
-from aeidon.liner import * # noqa
-from aeidon import containers # noqa
-from aeidon.subtitle import * # noqa
-from aeidon.file import * # noqa
-from aeidon import files # noqa
-from aeidon.markup import * # noqa
-from aeidon import markups # noqa
-from aeidon.markupconv import * # noqa
-from aeidon.pattern import * # noqa
-from aeidon.patternman import * # noqa
-from aeidon.clipboard import * # noqa
-from aeidon.revertable import * # noqa
-from aeidon.spell import * # noqa
-from aeidon import agents # noqa
-from aeidon.project import * # noqa
-from aeidon.unittest import * # noqa
+from aeidon.paths import CONFIG_HOME_DIR
+from aeidon.paths import DATA_DIR
+from aeidon.paths import DATA_HOME_DIR
+from aeidon.position import as_frame
+from aeidon.position import as_seconds
+from aeidon.position import as_time
+from aeidon.position import is_frame
+from aeidon.position import is_seconds
+from aeidon.position import is_time
+from aeidon import deco
+from aeidon import i18n
+from aeidon import util
+from aeidon import temp
+from aeidon.delegate import Delegate
+from aeidon.singleton import Singleton
+from aeidon.mutables import ObservableDict
+from aeidon.mutables import ObservableList
+from aeidon.mutables import ObservableSet
+from aeidon.observable import Observable
+from aeidon.errors import Error
+from aeidon.errors import AffirmationError
+from aeidon.errors import FormatError
+from aeidon.errors import ParseError
+from aeidon.errors import ProcessError
+from aeidon.enum import EnumerationItem
+from aeidon.enum import Enumeration
+from aeidon.enums import align_methods
+from aeidon.enums import documents
+from aeidon.enums import formats
+from aeidon.enums import framerates
+from aeidon.enums import modes
+from aeidon.enums import newlines
+from aeidon.enums import players
+from aeidon.enums import registers
+from aeidon import encodings
+from aeidon import languages
+from aeidon import countries
+from aeidon import locales
+from aeidon import scripts
+from aeidon.metadata import MetadataItem
+from aeidon.calculator import Calculator
+from aeidon.finder import Finder
+from aeidon.parser import Parser
+from aeidon.liner import Liner
+from aeidon import containers
+from aeidon.subtitle import Subtitle
+from aeidon.file import SubtitleFile
+from aeidon import files
+from aeidon.markup import Markup
+from aeidon import markups
+from aeidon.markupconv import MarkupConverter
+from aeidon.pattern import Pattern
+from aeidon.patternman import PatternManager
+from aeidon.clipboard import Clipboard
+from aeidon.revertable import RevertableAction
+from aeidon.revertable import RevertableActionGroup
+from aeidon.spell import SpellChecker
+from aeidon.spell import SpellCheckNavigator
+from aeidon.spell import SpellCheckTokenizer
+from aeidon import agents
+from aeidon.project import Project
+from aeidon.unittest import TestCase

@@ -1,17 +1,20 @@
-from __future__ import print_function
+import re
+import sys
+from pathlib import Path
 
 from setuptools import setup
-import sys
 
-import unittest
-
-def test_suite():
-    test_loader = unittest.TestLoader()
-    test_suite = test_loader.discover('pony.orm.tests', pattern='test_*.py')
-    return test_suite
 
 name = "pony"
-version = __import__('pony').__version__
+version_file = Path(__file__).parent / "pony" / "__init__.py"
+version_match = re.search(
+    r'^__version__ = ["\']([^"\']+)["\']',
+    version_file.read_text(encoding="utf-8"),
+    re.MULTILINE,
+)
+if version_match is None:
+    raise RuntimeError("Cannot find Pony version")
+version = version_match.group(1)
 description = "Pony Object-Relational Mapper"
 long_description = """
 About
@@ -59,35 +62,35 @@ Pony ORM Links:
 """
 
 classifiers = [
-    'Development Status :: 4 - Beta',
-    'Intended Audience :: Developers',
-    'License :: OSI Approved :: Apache Software License',
-    'Operating System :: OS Independent',
-    'Programming Language :: Python',
-    'Programming Language :: Python :: 3',
-    'Programming Language :: Python :: 3.8',
-    'Programming Language :: Python :: 3.9',
-    'Programming Language :: Python :: 3.10',
-    'Programming Language :: Python :: 3.11',
-    'Programming Language :: Python :: 3.12',
-    'Programming Language :: Python :: Implementation :: PyPy',
-    'Topic :: Software Development :: Libraries',
-    'Topic :: Database'
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Database",
 ]
 
-author = ', '.join([
-    'Alexander Kozlovsky <alexander.kozlovsky@gmail.com>',
-    'Alexey Malashkevich <alexey@ponyorm.org>',
-    'Alexander Tischenko <sashaaero@yandex.ru>'
-])
+author = ", ".join(
+    [
+        "Alexander Kozlovsky <alexander.kozlovsky@gmail.com>",
+        "Alexey Malashkevich <alexey@ponyorm.org>",
+        "Alexander Tischenko <sashaaero@yandex.ru>",
+    ]
+)
 author_email = "team@ponyorm.com"
 url = "https://ponyorm.com"
 project_urls = {
     "Documentation": "https://docs.ponyorm.org",
     "Source": "https://github.com/ponyorm/pony",
 }
-licence = "Apache License Version 2.0"
-
 packages = [
     "pony",
     "pony.flask",
@@ -98,22 +101,24 @@ packages = [
     "pony.orm.integration",
     "pony.orm.tests",
     "pony.thirdparty",
-    "pony.utils"
+    "pony.utils",
 ]
 
 package_data = {
-    'pony.flask.example': ['templates/*.html'],
-    'pony.orm.tests': ['queries.txt']
+    "pony.flask.example": ["templates/*.html"],
+    "pony.orm.tests": ["queries.txt"],
 }
 
 download_url = "http://pypi.python.org/pypi/pony/"
 
 if __name__ == "__main__":
     pv = sys.version_info[:2]
-    if pv < (3, 8) or pv > (3, 12):
-        s = "Sorry, but %s %s requires Python of one of the following versions: 3.8-3.12." \
+    if pv < (3, 10) or pv > (3, 14):
+        s = (
+            "Sorry, but %s %s requires Python of one of the following versions: 3.10-3.14."
             " You have version %s"
-        print(s % (name, version, sys.version.split(' ', 1)[0]))
+        )
+        print(s % (name, version, sys.version.split(" ", 1)[0]))
         sys.exit(1)
 
     setup(
@@ -126,9 +131,8 @@ if __name__ == "__main__":
         author_email=author_email,
         url=url,
         project_urls=project_urls,
-        license=licence,
         packages=packages,
         package_data=package_data,
         download_url=download_url,
-        test_suite='setup.test_suite'
+        python_requires=">=3.10,<3.15",
     )

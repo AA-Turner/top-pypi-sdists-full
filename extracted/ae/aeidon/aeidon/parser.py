@@ -13,14 +13,11 @@
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with this program. If not, see <http://www.gnu.org/licenses/>.
+# along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 """Text parser for markup-tag-aware text editing."""
 
 import aeidon
-
-__all__ = ("Parser",)
-
 
 class Parser(aeidon.Finder):
 

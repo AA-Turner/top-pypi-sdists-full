@@ -1187,8 +1187,44 @@ _TRIAL_STATE = {
     "plan": None,
     "trial_days_left": None,
     "upgrade_url": "https://app.clawmetry.com/cloud",
+    "checkout_url": None,    # signed per-account Stripe checkout URL, if any
     "last_log_day": "",     # YYYY-MM-DD of the last "sync paused" log
 }
+
+# Trial-state cache file the paywall overlay's backend reads
+# (clawmetry/trial_enforcement.py::persisted_trial_state). The daemon writes
+# it from heartbeat responses so the dashboard process's "Continue to payment"
+# button can point at the per-account signed Stripe checkout URL instead of
+# the generic upgrade page. In-memory _TRIAL_STATE alone is useless to the
+# dashboard: it runs in a different process and only ever sees the defaults.
+_TRIAL_STATE_FILE_PATH = os.path.expanduser("~/.clawmetry/trial_state.json")
+
+
+def _persist_trial_state_to_disk() -> None:
+    """Mirror the heartbeat's upgrade/checkout URLs into
+    ``~/.clawmetry/trial_state.json``. Idempotent (skips the write when the
+    file already matches) and best-effort — never raises."""
+    try:
+        payload = {
+            "upgrade_url": _TRIAL_STATE.get("upgrade_url"),
+            "checkout_url": _TRIAL_STATE.get("checkout_url"),
+            "plan": _TRIAL_STATE.get("plan"),
+            "sync_allowed": _TRIAL_STATE.get("sync_allowed"),
+        }
+        try:
+            if os.path.isfile(_TRIAL_STATE_FILE_PATH):
+                with open(_TRIAL_STATE_FILE_PATH, encoding="utf-8") as fh:
+                    if json.load(fh) == payload:
+                        return
+        except Exception:
+            pass
+        os.makedirs(os.path.dirname(_TRIAL_STATE_FILE_PATH), exist_ok=True)
+        tmp = _TRIAL_STATE_FILE_PATH + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as fh:
+            json.dump(payload, fh)
+        os.replace(tmp, _TRIAL_STATE_FILE_PATH)
+    except Exception as exc:
+        log.debug("trial_state: persist failed: %s", exc)
 
 # Cloud-plan cache file the entitlements resolver reads. The daemon writes it
 # from heartbeat responses so a separate process (the Flask dashboard) can pick
@@ -1344,6 +1380,11 @@ def _update_trial_state(resp: dict) -> None:
         _TRIAL_STATE["trial_days_left"] = resp.get("trial_days_left")
     if resp.get("upgrade_url"):
         _TRIAL_STATE["upgrade_url"] = resp["upgrade_url"]
+    if resp.get("checkout_url"):
+        _TRIAL_STATE["checkout_url"] = resp["checkout_url"]
+    # Persist the URLs for the dashboard process (paywall "Continue to
+    # payment" button); idempotent, so cheap on every beat.
+    _persist_trial_state_to_disk()
     # Reconcile the on-disk plan cache on EVERY heartbeat (the founder ask:
     # "check & start sync at every heartbeat, for which plan it is in"). The
     # call is idempotent (a no-op when the cache already matches the live tier),
@@ -1410,6 +1451,48 @@ _TRIAL_WARNING_STATE = {
     "last_warn_day": "",   # YYYY-MM-DD of the last warning we sent
 }
 
+# Same file routes/trial.py's /api/trial/mark-warned writes ({"YYYY-MM-DD":
+# days_left}); sharing it means either writer suppresses the other's re-fire.
+# The in-memory guard alone resets on every daemon restart, and auto-update
+# restarts the daemon on every release (often several per day), so without the
+# disk check each restart re-fired /ingest/trial-warning (2026-08-10 trial-email
+# spam RCA).
+_TRIAL_WARNINGS_PATH = os.path.expanduser("~/.clawmetry/trial_warnings.json")
+
+
+def _trial_warning_sent_on(day: str) -> bool:
+    """True when ``day`` (YYYY-MM-DD) is already recorded on disk. Never raises."""
+    try:
+        if not os.path.isfile(_TRIAL_WARNINGS_PATH):
+            return False
+        with open(_TRIAL_WARNINGS_PATH, encoding="utf-8") as fh:
+            data = json.load(fh)
+        return isinstance(data, dict) and day in data
+    except Exception:
+        return False
+
+
+def _record_trial_warning(day: str, days_left: int) -> None:
+    """Persist ``{day: days_left}`` into the warnings file. Never raises."""
+    try:
+        os.makedirs(os.path.dirname(_TRIAL_WARNINGS_PATH), exist_ok=True)
+        existing = {}
+        if os.path.isfile(_TRIAL_WARNINGS_PATH):
+            try:
+                with open(_TRIAL_WARNINGS_PATH, encoding="utf-8") as fh:
+                    existing = json.load(fh) or {}
+            except Exception:
+                existing = {}
+        if not isinstance(existing, dict):
+            existing = {}
+        existing[day] = days_left
+        tmp = _TRIAL_WARNINGS_PATH + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as fh:
+            json.dump(existing, fh)
+        os.replace(tmp, _TRIAL_WARNINGS_PATH)
+    except Exception as exc:
+        log.debug("trial-warning persist failed: %s", exc)
+
 
 def _maybe_install_license_from_heartbeat(resp: dict) -> None:
     """Persist a signed license key the cloud attached to this heartbeat.
@@ -1471,10 +1554,12 @@ def _maybe_send_trial_warning(resp: dict) -> None:
     fire ``POST /ingest/trial-warning`` on the cloud so it can send the
     customer a "your trial ends in N days — click to upgrade" email.
 
-    Rate-limited: at most one warning per UTC day per daemon process. The
-    cloud is authoritative on email throttling itself; this guard just
-    prevents a daemon that beats every 30s from spamming the cloud with 2880
-    identical warnings.
+    Rate-limited: at most one warning per UTC day, guarded both in memory
+    (fast path for a daemon that beats every 30s) and on disk
+    (``~/.clawmetry/trial_warnings.json``) so an auto-update restart — which
+    happens on every release, often several times a day — doesn't reset the
+    guard and re-fire the POST. The cloud is authoritative on email
+    throttling itself.
 
     Never raises."""
     if not isinstance(resp, dict):
@@ -1496,7 +1581,12 @@ def _maybe_send_trial_warning(resp: dict) -> None:
     today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     if _TRIAL_WARNING_STATE["last_warn_day"] == today:
         return
+    if _trial_warning_sent_on(today):
+        # A previous daemon process (pre-restart) already warned today.
+        _TRIAL_WARNING_STATE["last_warn_day"] = today
+        return
     _TRIAL_WARNING_STATE["last_warn_day"] = today
+    _record_trial_warning(today, days_i)
     try:
         cfg = load_config() or {}
         api_key = cfg.get("api_key")
@@ -3680,23 +3770,27 @@ def _local_ingest_session_batch(
     # Non-fatal: span failures never block event ingest.
     try:
         from clawmetry.adapters.openclaw import OpenClawAdapter
-        for sp in OpenClawAdapter._build_spans_from_events(
+        _spans = list(OpenClawAdapter._build_spans_from_events(
             batch, session_id, agent_type=agent_type
-        ):
-            store.ingest_span(sp)
+        ))
+        if _spans:
+            store.ingest_spans_batch(_spans)
     except Exception as _e:
         log.debug("span reconstruction skipped (non-fatal): %s", _e)
 
 
 def _local_ingest_sessions_batch(rows: list, node_id: str) -> None:
     """Mirror a batch of session rows (the same dicts we push to /ingest/sessions)
-    into the local DuckDB ``sessions`` table. One upsert per row; safe to call
-    on a store that already has these sessions (ON CONFLICT DO UPDATE)."""
+    into the local DuckDB ``sessions`` table. Batched: ONE
+    ``ingest_sessions_batch`` call (one lock hold / one transaction) instead
+    of a per-row upsert; safe to call on a store that already has these
+    sessions (ON CONFLICT DO UPDATE)."""
     if not rows:
         return
     from clawmetry import local_store
 
     store = local_store.get_store()
+    session_rows: list = []
     for s in rows:
         sid = s.get("session_id") or s.get("session_key") or s.get("id")
         if not sid:
@@ -3715,7 +3809,7 @@ def _local_ingest_sessions_batch(rows: list, node_id: str) -> None:
                      "session_key", "end_reason", "runtime", "thinking_level")
             and v
         }
-        store.ingest_session({
+        session_rows.append({
             "agent_type": s.get("agent_type") or "openclaw",
             "session_id": sid,
             "node_id": node_id,
@@ -3730,6 +3824,8 @@ def _local_ingest_sessions_batch(rows: list, node_id: str) -> None:
             "message_count": s.get("message_count") or 0,
             "metadata": meta_extras or None,
         })
+    if session_rows:
+        store.ingest_sessions_batch(session_rows)
 
 
 def _local_ingest_memory_files(all_files: list, changed_paths: list) -> None:
@@ -12653,15 +12749,16 @@ def sync_family_runtimes(config: dict, state: dict, paths: dict) -> int:
                     # blocks the subagent row / watermark logic.
                     try:
                         from clawmetry import span_reconstruct as _sr
-                        for _sp in _sr.build_family_spans(
+                        _sp_batch = list(_sr.build_family_spans(
                             runtime, s, [], node_id=node_id
-                        ):
-                            store.ingest_span(_sp)
+                        ))
                         _spawn = _sr.build_subagent_spawn_span(
                             runtime, s, node_id=node_id
                         )
                         if _spawn:
-                            store.ingest_span(_spawn)
+                            _sp_batch.append(_spawn)
+                        if _sp_batch:
+                            store.ingest_spans_batch(_sp_batch)
                     except Exception as _spe:
                         log.debug(
                             "family spawn-span ingest failed (%s): %s",
@@ -12792,10 +12889,11 @@ def sync_family_runtimes(config: dict, state: dict, paths: dict) -> int:
                 # span failures never block event ingest or the watermark.
                 try:
                     from clawmetry import span_reconstruct as _sr
-                    for _sp in _sr.build_family_spans(
+                    _sp_batch = list(_sr.build_family_spans(
                         runtime, s, _events, node_id=node_id
-                    ):
-                        store.ingest_span(_sp)
+                    ))
+                    if _sp_batch:
+                        store.ingest_spans_batch(_sp_batch)
                 except Exception as _spe:
                     log.debug(
                         "family span reconstruction failed (%s): %s",

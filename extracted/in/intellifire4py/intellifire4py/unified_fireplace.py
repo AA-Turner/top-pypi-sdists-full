@@ -145,10 +145,7 @@ class UnifiedFireplace:
 
     def get_user_data_as_json(self) -> str:
         """Dump the internal _fireplace_data object to a JSON String."""
-        try:
-            return str(self._fireplace_data.model_dump_json(indent=2))  # type: ignore[attr-defined]
-        except AttributeError:
-            return str(self._fireplace_data.json(indent=2))
+        return str(self._fireplace_data.model_dump_json(indent=2))
 
     @property
     def ip_address(self) -> str:
@@ -644,7 +641,7 @@ class UnifiedFireplace:
         inspect(self, methods=True, help=True)
 
     async def async_validate_connectivity(
-        self, timeout: int = 600
+        self, timeout: float = 600
     ) -> tuple[bool, bool]:
         """Asynchronously validate connectivity for both local and cloud services.
 

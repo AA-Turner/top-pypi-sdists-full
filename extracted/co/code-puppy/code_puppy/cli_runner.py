@@ -42,6 +42,7 @@ from code_puppy.keymap import (
     validate_cancel_agent_key,
 )
 from code_puppy.messaging import emit_info
+from code_puppy.platform_utils import startup_banner_text
 from code_puppy.terminal_utils import (
     print_truecolor_warning,
     reset_unix_terminal,
@@ -245,7 +246,7 @@ async def main():
             import pyfiglet
 
             intro_lines = pyfiglet.figlet_format(
-                "CODE PUPPY", font="ansi_shadow"
+                startup_banner_text(), font="ansi_shadow"
             ).split("\n")
 
             # Simple blue to green gradient (top to bottom)

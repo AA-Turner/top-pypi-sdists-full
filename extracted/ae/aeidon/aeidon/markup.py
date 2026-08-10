@@ -13,15 +13,13 @@
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with this program. If not, see <http://www.gnu.org/licenses/>.
+# along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 """Base class for text markup."""
 
 import aeidon
+import contextlib
 import re
-
-__all__ = ("Markup",)
-
 
 class Markup(aeidon.Singleton):
 
@@ -144,13 +142,13 @@ class Markup(aeidon.Singleton):
         orig_text = text
         match = regex.search(text)
         if match is None: return text
-        text = regex.sub(r"\{}".format(target), text, 1)
+        text = regex.sub(rf"\{target}", text, 1)
         a = match.start()
         z = a + len(match.group(target))
         args = (text, (a, z))
         if value is not None:
             args = (text, match.group(value), (a, z))
-        with aeidon.util.silent(NotImplementedError):
+        with contextlib.suppress(NotImplementedError):
             text = method(*args)
         if text == orig_text: return text
         return self._encode_apply(text, regex, method, target, value)

@@ -1,3 +1,0 @@
-build = "uv run python -m compileall -q src/"
-test = "uv run pytest tests/ -x -q"
-timeout = 600

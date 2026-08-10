@@ -109,7 +109,7 @@ async def test_build_with_user_data_cloud_and_local(
 
 
 @pytest.mark.asyncio
-async def test_unified_connectivity(mock_cloud_login_flow_connectivity_testing):  # type: ignore
+async def test_unified_connectivity(mock_cloud_login_flow_connectivity_testing):
     """Test connectivity."""
     username = "user"
     password = "pass"  # noqa: S105 NOSONAR
@@ -267,11 +267,11 @@ async def test_switch_read_mode_else_branch(mock_common_data_local):
     mode = DummyMode()
 
     # Patch stop_background_polling to be async no-op
-    async def nop():
-        return None
+    async def nop() -> bool:
+        return True
 
-    fp._local_api.stop_background_polling = nop
-    fp._cloud_api.stop_background_polling = nop
+    fp._local_api.stop_background_polling = nop  # type: ignore
+    fp._cloud_api.stop_background_polling = nop  # type: ignore
     await fp._switch_read_mode(mode)
     assert fp._read_mode == mode
     assert fp._fireplace_data.read_mode == mode
@@ -439,3 +439,12 @@ async def test_async_validate_connectivity_aiohttp_client_connection_error(
         with patch.object(fp, "perform_cloud_poll", new=AsyncMock(return_value=None)):
             result = await fp.async_validate_connectivity()
             assert result[0] is False
+
+
+@pytest.mark.asyncio
+async def test_debug_method(mock_common_data_local):
+    """Cover unified_fireplace.py line 647 — debug() calls rich inspect."""
+    fp = UnifiedFireplace(mock_common_data_local)
+    with patch("intellifire4py.unified_fireplace.inspect") as mock_inspect:
+        fp.debug()
+        mock_inspect.assert_called_once_with(fp, methods=True, help=True)

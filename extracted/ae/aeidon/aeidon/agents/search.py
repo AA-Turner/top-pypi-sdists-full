@@ -13,15 +13,15 @@
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with this program. If not, see <http://www.gnu.org/licenses/>.
+# along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 """Searching for and replacing text."""
 
 import aeidon
+import contextlib
 import re
 
 from aeidon.i18n import _
-
 
 class SearchAgent(aeidon.Delegate):
 
@@ -74,7 +74,7 @@ class SearchAgent(aeidon.Delegate):
         self._match_passed = False
         indices = self._indices or self.get_all_indices()
         while True:
-            with aeidon.util.silent(ValueError):
+            with contextlib.suppress(ValueError):
                 # Return match in document after location.
                 return find(index, doc, pos)
             # Proceed to the next document or raise StopIteration.
@@ -131,8 +131,7 @@ class SearchAgent(aeidon.Delegate):
             raise StopIteration
         if not next and doc == aeidon.documents.TRAN:
             return aeidon.documents.MAIN
-        raise ValueError("Invalid document: {!r} or invalid next: {!r}"
-                         .format(doc, next))
+        raise ValueError(f"Invalid document: {doc!r} or invalid next: {next!r}")
 
     def _next_in_document(self, index, doc, pos=None):
         """

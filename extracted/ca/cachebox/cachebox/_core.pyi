@@ -361,7 +361,7 @@ class Cache(BaseCacheImpl[KT, VT]):
         default: typing.Optional[DT] = None,
     ) -> typing.Optional[VT | DT]:
         """
-        Get `key`s value, or atomatically insert `default` and return it.
+        Get `key`s value, or automatically insert `default` and return it.
         If `key` exists, its current value is returned and `default` is ignored.
         Otherwise `default` is inserted for `key` and returned.
 
@@ -382,9 +382,9 @@ class Cache(BaseCacheImpl[KT, VT]):
         factory: typing.Callable[[], DT],
     ) -> VT | DT:
         """
-        Get `key`s value, or atomatically create and insert one via `factory`.
+        Get `key`s value, or automatically create and insert one via `factory`.
         If `key` exists, its current value is returned and `factory` is not called.
-        Otherwise `factory` is called exactly once under an internal lock, its
+        Otherwise `factory` is called with the internal lock released, its
         result is inserted and returned.
 
         Args:
@@ -392,8 +392,9 @@ class Cache(BaseCacheImpl[KT, VT]):
             factory: The factory to call and get default value from if ``key`` is not in the cache.
 
         Warning:
-            `factory` must not call back into this cache (deadlock risk) or block
-            for long. If `factory` raises, nothing is inserted and the exception
+            if two threads miss the same key at once, `factory` can run
+            more than once; the value inserted first wins and is returned to
+            both. If `factory` raises, nothing is inserted and the exception
             propagates.
         """
         ...
@@ -542,7 +543,7 @@ class FIFOCache(BaseCacheImpl[KT, VT]):
         default: typing.Optional[DT] = None,
     ) -> typing.Optional[VT | DT]:
         """
-        Get `key`s value, or atomatically insert `default` and return it.
+        Get `key`s value, or automatically insert `default` and return it.
         If `key` exists, its current value is returned and `default` is ignored.
         Otherwise `default` is inserted for `key` and returned.
 
@@ -563,9 +564,9 @@ class FIFOCache(BaseCacheImpl[KT, VT]):
         factory: typing.Callable[[], DT],
     ) -> VT | DT:
         """
-        Get `key`s value, or atomatically create and insert one via `factory`.
+        Get `key`s value, or automatically create and insert one via `factory`.
         If `key` exists, its current value is returned and `factory` is not called.
-        Otherwise `factory` is called exactly once under an internal lock, its
+        Otherwise `factory` is called with the internal lock released, its
         result is inserted and returned.
 
         Args:
@@ -573,8 +574,9 @@ class FIFOCache(BaseCacheImpl[KT, VT]):
             factory: The factory to call and get default value from if ``key`` is not in the cache.
 
         Warning:
-            `factory` must not call back into this cache (deadlock risk) or block
-            for long. If `factory` raises, nothing is inserted and the exception
+            if two threads miss the same key at once, `factory` can run
+            more than once; the value inserted first wins and is returned to
+            both. If `factory` raises, nothing is inserted and the exception
             propagates.
         """
         ...
@@ -756,7 +758,7 @@ class RRCache(BaseCacheImpl[KT, VT]):
         default: typing.Optional[DT] = None,
     ) -> typing.Optional[VT | DT]:
         """
-        Get `key`s value, or atomatically insert `default` and return it.
+        Get `key`s value, or automatically insert `default` and return it.
         If `key` exists, its current value is returned and `default` is ignored.
         Otherwise `default` is inserted for `key` and returned.
 
@@ -777,9 +779,9 @@ class RRCache(BaseCacheImpl[KT, VT]):
         factory: typing.Callable[[], DT],
     ) -> VT | DT:
         """
-        Get `key`s value, or atomatically create and insert one via `factory`.
+        Get `key`s value, or automatically create and insert one via `factory`.
         If `key` exists, its current value is returned and `factory` is not called.
-        Otherwise `factory` is called exactly once under an internal lock, its
+        Otherwise `factory` is called with the internal lock released, its
         result is inserted and returned.
 
         Args:
@@ -787,8 +789,9 @@ class RRCache(BaseCacheImpl[KT, VT]):
             factory: The factory to call and get default value from if ``key`` is not in the cache.
 
         Warning:
-            `factory` must not call back into this cache (deadlock risk) or block
-            for long. If `factory` raises, nothing is inserted and the exception
+            if two threads miss the same key at once, `factory` can run
+            more than once; the value inserted first wins and is returned to
+            both. If `factory` raises, nothing is inserted and the exception
             propagates.
         """
         ...
@@ -963,7 +966,7 @@ class LRUCache(BaseCacheImpl[KT, VT]):
         default: typing.Optional[DT] = None,
     ) -> typing.Optional[VT | DT]:
         """
-        Get `key`s value, or atomatically insert `default` and return it.
+        Get `key`s value, or automatically insert `default` and return it.
         If `key` exists, its current value is returned and `default` is ignored.
         Otherwise `default` is inserted for `key` and returned.
 
@@ -984,9 +987,9 @@ class LRUCache(BaseCacheImpl[KT, VT]):
         factory: typing.Callable[[], DT],
     ) -> VT | DT:
         """
-        Get `key`s value, or atomatically create and insert one via `factory`.
+        Get `key`s value, or automatically create and insert one via `factory`.
         If `key` exists, its current value is returned and `factory` is not called.
-        Otherwise `factory` is called exactly once under an internal lock, its
+        Otherwise `factory` is called with the internal lock released, its
         result is inserted and returned.
 
         Args:
@@ -994,8 +997,9 @@ class LRUCache(BaseCacheImpl[KT, VT]):
             factory: The factory to call and get default value from if ``key`` is not in the cache.
 
         Warning:
-            `factory` must not call back into this cache (deadlock risk) or block
-            for long. If `factory` raises, nothing is inserted and the exception
+            if two threads miss the same key at once, `factory` can run
+            more than once; the value inserted first wins and is returned to
+            both. If `factory` raises, nothing is inserted and the exception
             propagates.
         """
         ...
@@ -1211,7 +1215,7 @@ class LFUCache(BaseCacheImpl[KT, VT]):
         default: typing.Optional[DT] = None,
     ) -> typing.Optional[VT | DT]:
         """
-        Get `key`s value, or atomatically insert `default` and return it.
+        Get `key`s value, or automatically insert `default` and return it.
         If `key` exists, its current value is returned and `default` is ignored.
         Otherwise `default` is inserted for `key` and returned.
 
@@ -1232,9 +1236,9 @@ class LFUCache(BaseCacheImpl[KT, VT]):
         factory: typing.Callable[[], DT],
     ) -> VT | DT:
         """
-        Get `key`s value, or atomatically create and insert one via `factory`.
+        Get `key`s value, or automatically create and insert one via `factory`.
         If `key` exists, its current value is returned and `factory` is not called.
-        Otherwise `factory` is called exactly once under an internal lock, its
+        Otherwise `factory` is called with the internal lock released, its
         result is inserted and returned.
 
         Args:
@@ -1242,8 +1246,9 @@ class LFUCache(BaseCacheImpl[KT, VT]):
             factory: The factory to call and get default value from if ``key`` is not in the cache.
 
         Warning:
-            `factory` must not call back into this cache (deadlock risk) or block
-            for long. If `factory` raises, nothing is inserted and the exception
+            if two threads miss the same key at once, `factory` can run
+            more than once; the value inserted first wins and is returned to
+            both. If `factory` raises, nothing is inserted and the exception
             propagates.
         """
         ...
@@ -1418,7 +1423,7 @@ class TTLCache(BaseCacheImpl[KT, VT]):
         default: typing.Optional[DT] = None,
     ) -> typing.Optional[VT | DT]:
         """
-        Get `key`s value, or atomatically insert `default` and return it.
+        Get `key`s value, or automatically insert `default` and return it.
         If `key` exists, its current value is returned and `default` is ignored.
         Otherwise `default` is inserted for `key` and returned.
 
@@ -1439,9 +1444,9 @@ class TTLCache(BaseCacheImpl[KT, VT]):
         factory: typing.Callable[[], DT],
     ) -> VT | DT:
         """
-        Get `key`s value, or atomatically create and insert one via `factory`.
+        Get `key`s value, or automatically create and insert one via `factory`.
         If `key` exists, its current value is returned and `factory` is not called.
-        Otherwise `factory` is called exactly once under an internal lock, its
+        Otherwise `factory` is called with the internal lock released, its
         result is inserted and returned.
 
         Args:
@@ -1449,8 +1454,9 @@ class TTLCache(BaseCacheImpl[KT, VT]):
             factory: The factory to call and get default value from if ``key`` is not in the cache.
 
         Warning:
-            `factory` must not call back into this cache (deadlock risk) or block
-            for long. If `factory` raises, nothing is inserted and the exception
+            if two threads miss the same key at once, `factory` can run
+            more than once; the value inserted first wins and is returned to
+            both. If `factory` raises, nothing is inserted and the exception
             propagates.
         """
         ...
@@ -1683,7 +1689,7 @@ class VTTLCache(BaseCacheImpl[KT, VT]):
         ttl: float | timedelta | datetime | None = None,
     ) -> typing.Optional[VT | DT]:
         """
-        Get `key`s value, or atomatically insert `default` and return it.
+        Get `key`s value, or automatically insert `default` and return it.
         If `key` exists, its current value is returned and `default` is ignored.
         Otherwise `default` is inserted for `key` and returned.
 
@@ -1706,9 +1712,9 @@ class VTTLCache(BaseCacheImpl[KT, VT]):
         ttl: float | timedelta | datetime | None = None,
     ) -> VT | DT:
         """
-        Get `key`s value, or atomatically create and insert one via `factory`.
+        Get `key`s value, or automatically create and insert one via `factory`.
         If `key` exists, its current value is returned and `factory` is not called.
-        Otherwise `factory` is called exactly once under an internal lock, its
+        Otherwise `factory` is called with the internal lock released, its
         result is inserted and returned.
 
         Args:
@@ -1717,8 +1723,9 @@ class VTTLCache(BaseCacheImpl[KT, VT]):
             ttl: An optional time-to-live duration for item.
 
         Warning:
-            `factory` must not call back into this cache (deadlock risk) or block
-            for long. If `factory` raises, nothing is inserted and the exception
+            if two threads miss the same key at once, `factory` can run
+            more than once; the value inserted first wins and is returned to
+            both. If `factory` raises, nothing is inserted and the exception
             propagates.
         """
         ...

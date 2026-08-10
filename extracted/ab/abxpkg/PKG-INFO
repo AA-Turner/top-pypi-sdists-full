@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: abxpkg
-Version: 1.12.47
+Version: 1.12.51
 Summary: System package manager interfaces with Python type hints
 Project-URL: Homepage, https://github.com/ArchiveBox/abxpkg
 Project-URL: Source, https://github.com/ArchiveBox/abxpkg
@@ -26,7 +26,6 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Requires-Python: <3.15,>=3.12
-Requires-Dist: pip>=26.0.1
 Requires-Dist: platformdirs>=4.9.2
 Requires-Dist: pydantic>=2.12.5
 Requires-Dist: rich-click>=1.9.7

@@ -13,14 +13,11 @@
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with this program. If not, see <http://www.gnu.org/licenses/>.
+# along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 """Metadata store for one item in a desktop-style file."""
 
-import aeidon
-
-__all__ = ("MetadataItem",)
-
+from aeidon.i18n import _
 
 class MetadataItem:
 
@@ -29,12 +26,13 @@ class MetadataItem:
 
     :ivar fields: Dictionary mapping field names to their string values
 
-    Common localized fields with custom handling are ``Name`` and
+    Common translated fields with custom handling are ``Name`` and
     ``Description``; arbitrary fields are accessible with :meth:`get_field`.
     Strings ``True`` and ``False`` are used for boolean fields.
 
-    For the string syntax and especially the localization handling, see
-    freedesktop.org_'s Desktop Entry Specification_.
+    For the string syntax, see freedesktop.org_'s Desktop Entry
+    Specification_, of which translations are the notable exception:
+    fields are stored in English only and translated at runtime.
 
     .. _freedesktop.org: https://www.freedesktop.org/
     .. _Specification: https://www.freedesktop.org/wiki/Specifications/desktop-entry-spec/
@@ -46,9 +44,8 @@ class MetadataItem:
 
     def get_description(self, localize=True):
         """Return description as defined by the ``Description`` field."""
-        if not localize:
-            return self.get_field("Description")
-        return self._get_localized_field("Description")
+        description = self.get_field("Description")
+        return _(description) if localize else description
 
     def get_field(self, name, fallback=None):
         """Return the string value of field or `fallback`."""
@@ -65,8 +62,7 @@ class MetadataItem:
             return True
         if value == "False":
             return False
-        raise ValueError("Invalid boolean value: {!r}"
-                         .format(value))
+        raise ValueError(f"Invalid boolean value: {value!r}")
 
     def get_field_list(self, name, fallback=None):
         """Return the list of strings value of field or `fallback`."""
@@ -76,43 +72,10 @@ class MetadataItem:
         if not lst[-1]: lst.pop(-1)
         return lst
 
-    def _get_localized_field(self, name):
-        """Return the localized value of field."""
-        locale = aeidon.locales.get_system_code()
-        modifier = aeidon.locales.get_system_modifier()
-        if locale is None:
-            return self.get_field(name)
-        # 'xx_YY@Zzzz', fall back to 'xx@Zzzz'.
-        if ("_" in locale) and (modifier is not None):
-            key = "{}[{}@{}]".format(name, locale, modifier)
-            if key in self.fields:
-                return self.get_field(key)
-            locale = locale[0:2]
-        # 'xx_YY', fall back to 'xx'.
-        if ("_" in locale) and (modifier is None):
-            key = "{}[{}]".format(name, locale)
-            if key in self.fields:
-                return self.get_field(key)
-            locale = locale[0:2]
-        # 'xx@Zzzz', fall back to unlocalized.
-        if (not "_" in locale) and (modifier is not None):
-            key = "{}[{}@{}]".format(name, locale, modifier)
-            if key in self.fields:
-                return self.get_field(key)
-            return self.get_field(name)
-        # 'xx', fall back to unlocalized.
-        if (not "_" in locale) and (modifier is None):
-            key = "{}[{}]".format(name, locale)
-            if key in self.fields:
-                return self.get_field(key)
-            return self.get_field(name)
-        return self.get_field(name)
-
     def get_name(self, localize=True):
         """Return name as defined by the ``Name`` field."""
-        if not localize:
-            return self.get_field("Name")
-        return self._get_localized_field("Name")
+        name = self.get_field("Name")
+        return _(name) if localize else name
 
     def has_field(self, name):
         """Return ``True`` if field exists."""

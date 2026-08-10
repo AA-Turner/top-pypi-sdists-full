@@ -654,6 +654,8 @@ from mixpeek.models.mappings_value import MappingsValue
 from mixpeek.models.mark_as_read_request import MarkAsReadRequest
 from mixpeek.models.markdown_content import MarkdownContent
 from mixpeek.models.marketplace_listing import MarketplaceListing
+from mixpeek.models.me_key_info import MeKeyInfo
+from mixpeek.models.me_response import MeResponse
 from mixpeek.models.mean_shift_params import MeanShiftParams
 from mixpeek.models.message_history_item import MessageHistoryItem
 from mixpeek.models.message_response import MessageResponse

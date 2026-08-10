@@ -7,13 +7,18 @@ import aiohttp
 from plugp100.api.requests.tapo_request import TapoRequest
 from plugp100.common.credentials import AuthCredential
 from plugp100.common.functional.tri import Try
+from plugp100.common.utils.ssl_utils import ssl_context_for_url
 from plugp100.protocol.securepassthrough_transport import (
     Session,
     SecurePassthroughTransport,
 )
 from plugp100.common.utils.http_client import AsyncHttp
 from plugp100.protocol.tapo_protocol import TapoProtocol
-from plugp100.responses.tapo_exception import TapoException, TapoError
+from plugp100.responses.tapo_exception import (
+    TapoException,
+    TapoError,
+    TapoRetryableError,
+)
 from plugp100.responses.tapo_response import TapoResponse
 
 logger = logging.getLogger(__name__)
@@ -28,9 +33,11 @@ class PassthroughProtocol(TapoProtocol):
     ):
         super().__init__()
         self._url = url
+        self._ssl_context = ssl_context_for_url(url)
         self._owns_http_session = http_session is None
         self._http = AsyncHttp(
-            aiohttp.ClientSession() if self._owns_http_session else http_session
+            aiohttp.ClientSession() if self._owns_http_session else http_session,
+            ssl_context=self._ssl_context,
         )
         self._passthrough = SecurePassthroughTransport(self._http)
         self._session: Optional[Session] = None
@@ -44,19 +51,15 @@ class PassthroughProtocol(TapoProtocol):
         self, request: TapoRequest, retry: int = 3
     ) -> Try[TapoResponse[dict[str, Any]]]:
         response = await self._send_request(request)
-        if retry > 0 and isinstance(response.error(), TapoException):
-            if response.error().error_code == TapoError.ERR_SESSION_TIMEOUT.value:
+        error = response.error()
+        if retry > 0 and isinstance(error, TapoRetryableError):
+            if self._session is not None:
                 self._session.invalidate()
-                logger.warning(
-                    "Session timeout, invalidate it, retrying with new session"
-                )
-                return await self.send_request(request, retry - 1)
-            elif response.error().error_code == TapoError.ERR_DEVICE.value:
-                self._session.invalidate()
-                logger.warning(
-                    "Error device, probably exceeding rate limit, retrying with new session"
-                )
-                return await self.send_request(request, retry - 1)
+            logger.warning(
+                "Retryable device error %s, retrying with a new session",
+                error.error_code,
+            )
+            return await self.send_request(request, retry - 1)
         return response
 
     async def _send_request(
@@ -107,5 +110,3 @@ class PassthroughProtocol(TapoProtocol):
                         "Detected handshake session timeout",
                     )
                 )
-
-

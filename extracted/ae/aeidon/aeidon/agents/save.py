@@ -13,12 +13,11 @@
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with this program. If not, see <http://www.gnu.org/licenses/>.
+# along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 """Writing subtitle data to file."""
 
 import aeidon
-
 
 class SaveAgent(aeidon.Delegate):
 
@@ -63,7 +62,7 @@ class SaveAgent(aeidon.Delegate):
             return self.save_main(file, keep_changes)
         if doc == aeidon.documents.TRAN:
             return self.save_translation(file, keep_changes)
-        raise ValueError("Invalid document: {!r}".format(doc))
+        raise ValueError(f"Invalid document: {doc!r}")
 
     @aeidon.deco.export
     def save_main(self, file=None, keep_changes=True):

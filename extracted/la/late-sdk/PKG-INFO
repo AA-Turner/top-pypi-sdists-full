@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: late-sdk
-Version: 1.4.459
+Version: 1.4.465
 Summary: The official Python library for the Zernio API
 Project-URL: Homepage, https://zernio.com
 Project-URL: Documentation, https://docs.zernio.com
@@ -375,6 +375,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 |--------|-------------|
 | `connect.list_facebook_pages()` | List Facebook pages |
 | `connect.list_google_business_locations()` | List GBP locations |
+| `connect.list_instagram_pages()` | List Pages with a linked Instagram account |
 | `connect.list_linked_in_organizations()` | List LinkedIn orgs |
 | `connect.list_pinterest_boards_for_selection()` | List Pinterest boards |
 | `connect.list_snapchat_profiles()` | List Snapchat profiles |
@@ -409,6 +410,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `connect.initiate_telegram_connect()` | Connect Telegram directly |
 | `connect.select_facebook_page()` | Select Facebook page |
 | `connect.select_google_business_location()` | Select GBP location |
+| `connect.select_instagram_account()` | Select the Page whose Instagram account to connect |
 | `connect.select_linked_in_organization()` | Select LinkedIn org |
 | `connect.select_pinterest_board()` | Select Pinterest board |
 | `connect.select_snapchat_profile()` | Select Snapchat profile |
@@ -566,11 +568,13 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `comments.edit_inbox_comment()` | Edit comment |
 | `comments.hide_inbox_comment()` | Hide comment |
 | `comments.like_inbox_comment()` | Like comment |
+| `comments.like_post()` | Like post |
 | `comments.reply_to_inbox_post()` | Reply to comment |
 | `comments.send_private_reply_to_comment()` | Send private reply |
 | `comments.set_comment_moderation()` | Set comment moderation status |
 | `comments.unhide_inbox_comment()` | Unhide comment |
 | `comments.unlike_inbox_comment()` | Unlike comment |
+| `comments.unlike_post()` | Unlike post |
 
 ### Connected Apps
 | Method | Description |
@@ -733,6 +737,7 @@ Both `from zernio import ...` and `from late import ...` work identically. The `
 | `messages.create_inbox_conversation()` | Create conversation |
 | `messages.get_inbox_conversation()` | Get conversation |
 | `messages.get_inbox_conversation_messages()` | List messages |
+| `messages.get_message_attachment()` | Resolve message attachment |
 | `messages.update_inbox_conversation()` | Update conversation status |
 | `messages.delete_inbox_message()` | Delete message |
 | `messages.add_message_reaction()` | Add reaction |

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: json-tools-rs
-Version: 0.9.29
+Version: 0.9.30
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
@@ -414,7 +414,13 @@ Dual-licensed under either [MIT](LICENSE-MIT) or [Apache-2.0](LICENSE-APACHE), a
 
 ## Changelog
 
-### v0.9.29 (Current)
+### v0.9.30 (Current)
+
+* **Performance**: round 16 algorithmic audit of `builder.rs` and every `rayon`/parallel-dispatch call site. When `.num_threads(Some(n))` is set and a batch of documents individually wide enough to also trigger nested parallelism is processed, every worker thread of the batch-level pool used to independently rebuild another fresh `n`-thread pool per qualifying document instead of reusing the pool it was already running inside -- up to `O(batch_size)` pool constructions instead of one. Now reuses the ambient pool when it already matches the requested thread count (confirmed 1.77x-2.09x faster). Also cached `available_parallelism()` instead of re-querying it per document.
+
+See [CHANGELOG.md](CHANGELOG.md) for the full, itemized list.
+
+### v0.9.29
 
 * **Performance**: round 15 algorithmic audit, moving from `python.rs`'s DataFrame layer (rounds 13-14) to the core engine (`flatten.rs`, `unflatten.rs`, `convert.rs`, `transform.rs`). Normal mode's (non-`.flatten()`/`.unflatten()`) key-transform/collision path no longer allocates a `String` for every object key -- switched to `Cow<'a, str>`, only allocating when a transform actually changed the key, plus removed a redundant hashmap lookup in collision serialization (confirmed 1.4x-1.85x faster). Unflatten's array-to-object conversion (triggered by a digit-only key that overflows `usize`) now pre-sizes the new map instead of growing from zero capacity (confirmed 1.54x faster).
 

@@ -148,6 +148,8 @@ fn exception_and_type_values_round_trip() {
     });
     assert_value_round_trip(&MontyObject::Type(MontyType::Int));
     assert_value_round_trip(&MontyObject::Type(MontyType::DateTime));
+    // Qualified name (`collections.deque`) must survive the wire round-trip.
+    assert_value_round_trip(&MontyObject::Type(MontyType::Deque));
     assert_value_round_trip(&MontyObject::Type(MontyType::Exception(ExcType::KeyError)));
     assert_value_round_trip(&MontyObject::Type(MontyType::Instance("Foo".to_owned())));
     let builtin = MontyObject::builtin_function_from_name("len").expect("len is a builtin");
@@ -440,7 +442,7 @@ fn resource_limits_round_trip() {
         max_duration: Some(Duration::from_millis(1500)),
         max_memory: Some(64 * 1024 * 1024),
         gc_interval: Some(100),
-        max_recursion_depth: Some(50),
+        max_recursion_depth: 50,
     };
     let back = ResourceLimits::from(pb::ResourceLimits::from(&limits));
     assert_eq!(back.max_duration, limits.max_duration);
@@ -451,10 +453,10 @@ fn resource_limits_round_trip() {
 
 #[test]
 fn empty_resource_limits_default_recursion_depth() {
-    // an all-absent wire message must behave like ResourceLimits::new():
+    // an all-absent wire message must behave like ResourceLimits::default():
     // unlimited everything except the standard recursion-depth default
     let back = ResourceLimits::from(pb::ResourceLimits::default());
-    let expected = ResourceLimits::new();
+    let expected = ResourceLimits::default();
     assert_eq!(back.max_duration, expected.max_duration);
     assert_eq!(back.max_memory, expected.max_memory);
     assert_eq!(back.gc_interval, expected.gc_interval);
@@ -547,6 +549,7 @@ fn decodes_in_frame(value: &MontyObject) -> bool {
             }],
             skip_type_check: false,
         })),
+        trace_parent: None,
     };
     pb::ParentRequest::decode(request.encode_to_vec().as_slice()).is_ok()
 }
@@ -704,4 +707,23 @@ fn os_call_conversion_rejects_invalid_payloads() {
         OsFunctionCall::try_from(missing_default),
         Err(ProtoConvertError::MissingField("Getenv.default"))
     ));
+}
+
+#[test]
+fn shutdown_event_round_trips() {
+    let event = pb::ChildEvent {
+        kind: Some(pb::child_event::Kind::Shutdown(pb::ShutdownDump {
+            dump: Some(vec![1, 2, 3]),
+        })),
+        ..Default::default()
+    };
+    let back = pb::ChildEvent::decode(event.encode_to_vec().as_slice()).expect("ShutdownDump event decodes");
+    assert_eq!(back, event);
+    // a shutdown with nothing to dump (no session yet) also round-trips
+    let bare = pb::ChildEvent {
+        kind: Some(pb::child_event::Kind::Shutdown(pb::ShutdownDump { dump: None })),
+        ..Default::default()
+    };
+    let back = pb::ChildEvent::decode(bare.encode_to_vec().as_slice()).expect("bare ShutdownDump decodes");
+    assert_eq!(back, bare);
 }

@@ -3,7 +3,6 @@ from django.db.backends.base.operations import BaseDatabaseOperations
 from django.utils.functional import cached_property
 
 from clickhouse_backend import compat
-from clickhouse_backend.driver import JSON
 from clickhouse_backend.driver.client import insert_pattern
 from clickhouse_backend.utils.timezone import get_timezone
 
@@ -46,6 +45,7 @@ class DatabaseOperations(BaseDatabaseOperations):
     explain_types = {
         "AST",
         "SYNTAX",
+        "QUERY TREE",
         "PLAN",
         "PIPELINE",
         "ESTIMATE",
@@ -126,6 +126,10 @@ class DatabaseOperations(BaseDatabaseOperations):
         "RawBLOB",
         "MsgPack",
     }
+
+    @cached_property
+    def output_formats_by_lower_name(self):
+        return {format.lower(): format for format in self.supported_output_formats}
 
     def unification_cast_sql(self, output_field):
         db_type = output_field.db_type(self.connection)
@@ -321,9 +325,6 @@ class DatabaseOperations(BaseDatabaseOperations):
     def adapt_decimalfield_value(self, value, max_digits=None, decimal_places=None):
         return value
 
-    def adapt_json_value(self, value, encoder):
-        return JSON(value)
-
     def explain_query_prefix(self, format=None, **options):
         # bypass normal explain prefix insert in compiler.as_sql
         return ""
@@ -342,9 +343,12 @@ class DatabaseOperations(BaseDatabaseOperations):
 
         if format:
             supported_formats = self.supported_output_formats
-            normalized_format = format.upper()
-            if normalized_format not in supported_formats:
-                msg = "%s is not a recognized format." % normalized_format
+            # Most ClickHouse output format names are mixed case, such as
+            # TabSeparated, so they can't be normalized by upper casing them.
+            # ClickHouse itself matches them case insensitively.
+            normalized_format = self.output_formats_by_lower_name.get(format.lower())
+            if normalized_format is None:
+                msg = "%s is not a recognized format." % format
                 if supported_formats:
                     msg += " Allowed formats: %s" % ", ".join(sorted(supported_formats))
                 else:

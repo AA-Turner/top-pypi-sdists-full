@@ -15,11 +15,12 @@
 """  # noqa: E501
 
 
-__version__ = "1.3.301"
+__version__ = "1.3.311"
 
 # Define package exports
 __all__ = [
     "Mixpeek",
+    "AccountApi",
     "AdhocRetrieversApi",
     "AgentSessionsApi",
     "AlertsApi",
@@ -765,6 +766,8 @@ __all__ = [
     "MarkAsReadRequest",
     "MarkdownContent",
     "MarketplaceListing",
+    "MeKeyInfo",
+    "MeResponse",
     "MeanShiftParams",
     "MessageHistoryItem",
     "MessageResponse",
@@ -1346,6 +1349,7 @@ __all__ = [
 ]
 
 # import apis into sdk package
+from mixpeek.api.account_api import AccountApi as AccountApi
 from mixpeek.api.adhoc_retrievers_api import AdhocRetrieversApi as AdhocRetrieversApi
 from mixpeek.api.agent_sessions_api import AgentSessionsApi as AgentSessionsApi
 from mixpeek.api.alerts_api import AlertsApi as AlertsApi
@@ -2095,6 +2099,8 @@ from mixpeek.models.mappings_value import MappingsValue as MappingsValue
 from mixpeek.models.mark_as_read_request import MarkAsReadRequest as MarkAsReadRequest
 from mixpeek.models.markdown_content import MarkdownContent as MarkdownContent
 from mixpeek.models.marketplace_listing import MarketplaceListing as MarketplaceListing
+from mixpeek.models.me_key_info import MeKeyInfo as MeKeyInfo
+from mixpeek.models.me_response import MeResponse as MeResponse
 from mixpeek.models.mean_shift_params import MeanShiftParams as MeanShiftParams
 from mixpeek.models.message_history_item import MessageHistoryItem as MessageHistoryItem
 from mixpeek.models.message_response import MessageResponse as MessageResponse

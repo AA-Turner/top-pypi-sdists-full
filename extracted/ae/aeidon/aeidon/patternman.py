@@ -13,17 +13,13 @@
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with this program. If not, see <http://www.gnu.org/licenses/>.
+# along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 """Managing regular expression substitutions for subtitle texts."""
 
 import aeidon
-import os
 import re
 import xml.etree.ElementTree as ET
-
-__all__ = ("PatternManager",)
-
 
 class PatternManager:
 
@@ -57,11 +53,12 @@ class PatternManager:
         """
         filtered_patterns = []
         for pattern in patterns:
-            name = pattern.get_name(False)
+            # Compare untranslated names, the English name being the identifier.
+            name = pattern.get_name(localize=False)
             policy = pattern.get_field("Policy")
             last_index = len(filtered_patterns) - 1
             for j, filtered_pattern in enumerate(filtered_patterns):
-                if filtered_pattern.get_name() == name:
+                if filtered_pattern.get_name(localize=False) == name:
                     last_index = j
                     if policy == "Replace":
                         filtered_patterns[j] = None
@@ -76,15 +73,15 @@ class PatternManager:
         if not None in (script,):
             codes.append(script)
         if not None in (script, language):
-            codes.append("{}-{}".format(script, language))
+            codes.append(f"{script}-{language}")
         if not None in (script, language, country):
-            codes.append("{}-{}-{}".format(script, language, country))
+            codes.append(f"{script}-{language}-{country}")
         return tuple(codes)
 
     def get_countries(self, script, language):
         """Return a sequence of countries for which patterns exist."""
         codes = list(self._patterns.keys())
-        start = "{}-{}-".format(script, language)
+        start = f"{script}-{language}-"
         codes = [x for x in codes if x.startswith(start)]
         countries = [x.split("-")[2] for x in codes]
         return tuple(aeidon.util.get_unique(countries))
@@ -92,7 +89,7 @@ class PatternManager:
     def get_languages(self, script):
         """Return a sequence of languages for which patterns exist."""
         codes = list(self._patterns.keys())
-        start = "{}-".format(script)
+        start = f"{script}-"
         codes = [x for x in codes if x.startswith(start)]
         languages = [x.split("-")[1] for x in codes]
         return tuple(aeidon.util.get_unique(languages))
@@ -120,19 +117,17 @@ class PatternManager:
 
     def _read_config_from_directory(self, directory, encoding):
         """Read configurations from files in `directory`."""
-        if not os.path.isdir(directory): return
-        extension = ".{}.conf".format(self.pattern_type)
-        files = os.listdir(directory)
-        for name in (x for x in files if x.endswith(extension)):
-            path = os.path.join(directory, name)
-            self._read_config_from_file(path, encoding)
+        if not directory.is_dir(): return
+        extension = f".{self.pattern_type}.conf"
+        for path in directory.iterdir():
+            if path.name.endswith(extension):
+                self._read_config_from_file(path, encoding)
 
     def _read_config_from_file(self, path, encoding):
         """Read configurations from file at `path`."""
-        if not os.path.isfile(path): return
-        basename = os.path.basename(path)
-        extension = ".{}.conf".format(self.pattern_type)
-        code = basename.replace(extension, "")
+        if not path.is_file(): return
+        extension = f".{self.pattern_type}.conf"
+        code = path.name.replace(extension, "")
         if not code in self._patterns: return
         patterns = self._patterns[code]
         for element in ET.parse(path).findall("pattern"):
@@ -146,9 +141,9 @@ class PatternManager:
 
     def _read_patterns(self):
         """Read all patterns of :attr:`pattern_type` from files."""
-        data_dir = os.path.join(aeidon.DATA_DIR, "patterns")
-        data_home_dir = os.path.join(aeidon.DATA_HOME_DIR, "patterns")
-        config_home_dir = os.path.join(aeidon.CONFIG_HOME_DIR, "patterns")
+        data_dir = aeidon.DATA_DIR / "patterns"
+        data_home_dir = aeidon.DATA_HOME_DIR / "patterns"
+        config_home_dir = aeidon.CONFIG_HOME_DIR / "patterns"
         encoding = aeidon.util.get_default_encoding()
         self._read_patterns_from_directory(data_dir, "utf_8")
         self._read_patterns_from_directory(data_home_dir, encoding)
@@ -157,30 +152,18 @@ class PatternManager:
 
     def _read_patterns_from_directory(self, directory, encoding):
         """Read all patterns from files in `directory`."""
-        if not os.path.isdir(directory): return
-        extension = ".{}".format(self.pattern_type)
-        extensions = (extension, "{}.in".format(extension))
-        files = [x for x in os.listdir(directory)
-                 if x.endswith(extensions)]
-
-        for name in [x for x in files if x.endswith(".in")]:
-            # If both untranslated and translated pattern files are found,
-            # load patterns only from the translated one.
-            if name[:-3] in files:
-                files.remove(name)
-        for name in files:
-            path = os.path.join(directory, name)
-            self._read_patterns_from_file(path, encoding)
+        if not directory.is_dir(): return
+        extension = f".{self.pattern_type}"
+        for path in directory.iterdir():
+            if path.name.endswith(extension):
+                self._read_patterns_from_file(path, encoding)
 
     def _read_patterns_from_file(self, path, encoding):
         """Read all patterns from file at `path`."""
-        if not os.path.isfile(path): return
-        basename = os.path.basename(path)
-        extension = ".{}".format(self.pattern_type)
-        if basename.endswith(".in"):
-            extension = ".{}.in".format(self.pattern_type)
-        code = basename.replace(extension, "")
-        local = path.startswith(aeidon.DATA_HOME_DIR)
+        if not path.is_file(): return
+        extension = f".{self.pattern_type}"
+        code = path.name.replace(extension, "")
+        local = path.is_relative_to(aeidon.DATA_HOME_DIR)
         patterns = self._patterns.setdefault(code, [])
         lines = aeidon.util.readlines(path, encoding)
         lines = [self._re_comment.sub("", x) for x in lines]
@@ -210,9 +193,8 @@ class PatternManager:
 
     def _write_config_to_file(self, code, encoding):
         """Write configurations of all patterns to file."""
-        local_dir = os.path.join(aeidon.CONFIG_HOME_DIR, "patterns")
-        basename = "{}.{}.conf".format(code, self.pattern_type)
-        path = os.path.join(local_dir, basename)
+        basename = f"{code}.{self.pattern_type}.conf"
+        path = aeidon.CONFIG_HOME_DIR / "patterns" / basename
         lines = ['<?xml version="1.0" encoding="utf-8"?>']
         lines.append('<patterns>')
         written_names = set()
@@ -223,8 +205,7 @@ class PatternManager:
             name = name.replace("&", "&amp;")
             name = name.replace('"', "&quot;")
             enabled = "true" if pattern.enabled else "false"
-            lines.append('  <pattern name="{}" enabled="{}"/>'
-                         .format(name, enabled))
+            lines.append(f'  <pattern name="{name}" enabled="{enabled}"/>')
 
         lines.append('</patterns>')
         aeidon.util.writelines(path, lines, encoding)

@@ -173,15 +173,26 @@ def detect_runtimes_via_venv(venv_python: Path, *, timeout: float = 6.0) -> list
 
 # ─── Post-auth: hand key to clawmetry connect ───────────────────────────
 
-def apply_cm_key(venv_clawmetry: Path, cm_key: str, *, timeout: float = 60.0) -> tuple[bool, str]:
-    """Run ``clawmetry connect --key cm_… --start-sync-now`` in the venv.
+def apply_cm_key(
+    venv_clawmetry: Path, cm_key: str, *, mode: str = "cloud", timeout: float = 60.0
+) -> tuple[bool, str]:
+    """Run ``clawmetry connect --key cm_…`` in the venv.
 
     This is the single seam that:
       * validates the key against the cloud (/auth)
       * writes ~/.clawmetry/config.json
       * calls ``auto_provision_pro`` (Pro wheel downloads iff account is
-        Trial/Starter/Pro/Enterprise)
-      * starts the sync daemon (cloud sync is default-ON per product spec)
+        Trial/Starter/Pro/Enterprise) — this is what starts the 7-day
+        all-runtimes trial in both modes
+      * starts the sync daemon
+
+    ``mode`` is the user's hosting choice from the onboarding pane:
+      * "cloud"    → ``--start-sync-now``: cloud sync ON (E2E-encrypted
+                     snapshots to ingest.clawmetry.com).
+      * "selfhost" → ``--keep-local --defer-sync`` + ``clawmetry sync``:
+                     account linked, trial provisioned, nocloud marker
+                     kept, data stays on this machine; the sync daemon
+                     runs local-only ingest.
 
     We avoid duplicating any of that in the shell. Returns
     (ok, short_message). The message is user-safe (no key/token
@@ -191,25 +202,46 @@ def apply_cm_key(venv_clawmetry: Path, cm_key: str, *, timeout: float = 60.0) ->
         return False, "runtime venv is not ready yet"
     if not (cm_key or "").startswith("cm_"):
         return False, "invalid sign-in key"
+    # selfhost: --keep-local preserves the nocloud marker (sign-in must not
+    # flip a self-host install to cloud sync), skips the ownership OTP that
+    # would otherwise kill this non-interactive subprocess, and still mints
+    # the account's 7-day trial; --defer-sync leaves daemon/dashboard
+    # management to this shell.
+    mode_flags = (
+        ["--keep-local", "--defer-sync"] if mode == "selfhost"
+        else ["--start-sync-now"]
+    )
     try:
         r = subprocess.run(
-            [str(bin_), "connect", "--key", cm_key, "--start-sync-now"],
+            [str(bin_), "connect", "--key", cm_key, *mode_flags],
             capture_output=True, text=True, timeout=timeout,
             **_win_subprocess_kwargs(),
         )
-        if r.returncode == 0:
-            return True, "signed in"
-        # Trim to the last non-empty line — clawmetry connect prints a
-        # user-friendly one-liner on failure.
-        tail = next(
-            (ln for ln in reversed((r.stderr + r.stdout).splitlines()) if ln.strip()),
-            "sign-in failed",
-        )
-        return False, tail.strip()[:200]
+        if r.returncode == 0 and mode == "selfhost":
+            # --defer-sync leaves the daemon down; start local-only
+            # ingest now so the dashboard has data on first paint. The
+            # shell's watcher heals it from here on.
+            try:
+                subprocess.run(
+                    [str(bin_), "sync"],
+                    capture_output=True, text=True, timeout=timeout,
+                    **_win_subprocess_kwargs(),
+                )
+            except Exception:
+                pass  # ensure_sync_daemon() in app.py retries
     except subprocess.TimeoutExpired:
         return False, "sign-in timed out — check your connection and try again"
     except Exception as exc:
         return False, f"sign-in error: {exc}"
+    if r.returncode == 0:
+        return True, "signed in"
+    # Trim to the last non-empty line — clawmetry connect prints a
+    # user-friendly one-liner on failure.
+    tail = next(
+        (ln for ln in reversed((r.stderr + r.stdout).splitlines()) if ln.strip()),
+        "sign-in failed",
+    )
+    return False, tail.strip()[:200]
 
 
 # ─── Cross-sell slides (Ubuntu-installer style) ─────────────────────────
@@ -255,7 +287,6 @@ CROSS_SELL_SLIDES = [
         "cta_label": "See the Desk device",
         "cta_url": "https://clawmetry.com/device",
         "art": "desk",
-        "img": "https://clawmetry.com/device-square.png",
     },
     {
         "eyebrow": "For teams",
@@ -270,6 +301,177 @@ CROSS_SELL_SLIDES = [
         "art": "enterprise",
     },
 ]
+
+
+# ─── Slide art (inline SVG) ─────────────────────────────────────────────
+# One hand-drawn vector illustration per slide, in brand colors. Inline
+# SVG keeps the pane self-contained (the module promises no external
+# assets) and stays crisp at any DPI — a downscaled raster screenshot of
+# the landing site reads as cheap; a purpose-built diagram reads as the
+# product. One idea per picture, nothing else.
+
+SLIDE_ART_SVG = {
+    # An idealized in-app view (Apple-style marketing render, not a
+    # raster screenshot): window chrome, live stat tiles, spend chart,
+    # session rows. Detailed enough to sell "this is what you get".
+    "dashboard": """<svg viewBox="0 0 460 280" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="The ClawMetry dashboard"
+     font-family="-apple-system,'Segoe UI',system-ui,sans-serif">
+  <rect x="10" y="10" width="440" height="260" rx="14" fill="#10151f" stroke="#1f2937" stroke-width="1.5"/>
+  <g fill="#273143">
+    <circle cx="30" cy="28" r="4"/><circle cx="44" cy="28" r="4"/><circle cx="58" cy="28" r="4"/>
+  </g>
+  <circle cx="86" cy="28" r="4.5" fill="#E94644"/>
+  <text x="96" y="32" font-size="11" font-weight="700" fill="#e2e8f0">ClawMetry</text>
+  <g font-size="10" fill="#94a3b8">
+    <text x="240" y="32" fill="#e2e8f0" font-weight="600">Overview</text>
+    <text x="298" y="32">Sessions</text>
+    <text x="352" y="32">Usage</text>
+    <text x="392" y="32">Brain</text>
+  </g>
+  <rect x="240" y="38" width="48" height="2" rx="1" fill="#E94644"/>
+  <g>
+    <rect x="26" y="52" width="128" height="52" rx="10" fill="#141924" stroke="#1f2937"/>
+    <text x="38" y="70" font-size="7.5" letter-spacing="1" fill="#94a3b8">TOKENS TODAY</text>
+    <text x="38" y="92" font-size="16" font-weight="700" fill="#e2e8f0">4.2M</text>
+    <rect x="166" y="52" width="128" height="52" rx="10" fill="#141924" stroke="#1f2937"/>
+    <text x="178" y="70" font-size="7.5" letter-spacing="1" fill="#94a3b8">SPEND TODAY</text>
+    <text x="178" y="92" font-size="16" font-weight="700" fill="#e2e8f0">$12.40</text>
+    <rect x="306" y="52" width="128" height="52" rx="10" fill="#141924" stroke="#1f2937"/>
+    <text x="318" y="70" font-size="7.5" letter-spacing="1" fill="#94a3b8">AGENTS LIVE</text>
+    <text x="318" y="92" font-size="16" font-weight="700" fill="#e2e8f0">7</text>
+    <circle cx="350" cy="87" r="4" fill="#4ade80"/>
+  </g>
+  <g>
+    <rect x="26" y="114" width="268" height="104" rx="10" fill="#141924" stroke="#1f2937"/>
+    <text x="38" y="132" font-size="7.5" letter-spacing="1" fill="#94a3b8">SPEND · LAST 24H</text>
+    <g stroke="#1c2433" stroke-width="1">
+      <path d="M38 156 L 282 156"/><path d="M38 180 L 282 180"/>
+    </g>
+    <defs>
+      <linearGradient id="cm-a" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#E94644" stop-opacity=".28"/>
+        <stop offset="1" stop-color="#E94644" stop-opacity="0"/>
+      </linearGradient>
+    </defs>
+    <path d="M38 196 L 66 184 L 94 190 L 122 168 L 150 176 L 178 152 L 206 160 L 234 142 L 262 148 L 282 138 L 282 206 L 38 206 Z"
+          fill="url(#cm-a)"/>
+    <path d="M38 196 L 66 184 L 94 190 L 122 168 L 150 176 L 178 152 L 206 160 L 234 142 L 262 148 L 282 138"
+          fill="none" stroke="#E94644" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="282" cy="138" r="3.5" fill="#E94644"/>
+  </g>
+  <g>
+    <rect x="306" y="114" width="128" height="104" rx="10" fill="#141924" stroke="#1f2937"/>
+    <text x="318" y="132" font-size="7.5" letter-spacing="1" fill="#94a3b8">BY MODEL</text>
+    <g font-size="8.5" fill="#94a3b8">
+      <text x="318" y="152">opus</text>
+      <text x="318" y="176">sonnet</text>
+      <text x="318" y="200">haiku</text>
+    </g>
+    <g fill="#E94644">
+      <rect x="352" y="145" width="70" height="8" rx="4"/>
+      <rect x="352" y="169" width="44" height="8" rx="4" opacity=".65"/>
+      <rect x="352" y="193" width="22" height="8" rx="4" opacity=".4"/>
+    </g>
+  </g>
+  <g>
+    <circle cx="34" cy="238" r="4" fill="#4ade80"/>
+    <text x="46" y="241" font-size="9.5" fill="#e2e8f0">claude-code · refactor auth flow</text>
+    <text x="252" y="241" font-size="9.5" fill="#94a3b8">$0.84</text>
+    <circle cx="316" cy="238" r="4" fill="#4ade80"/>
+    <text x="328" y="241" font-size="9.5" fill="#e2e8f0">openclaw · main</text>
+    <text x="412" y="241" font-size="9.5" fill="#94a3b8">$2.10</text>
+    <circle cx="34" cy="256" r="4" fill="#facc15"/>
+    <text x="46" y="259" font-size="9.5" fill="#e2e8f0">cursor · fix flaky e2e</text>
+    <text x="252" y="259" font-size="9.5" fill="#94a3b8">$0.31</text>
+    <circle cx="316" cy="256" r="4" fill="#94a3b8"/>
+    <text x="328" y="259" font-size="9.5" fill="#e2e8f0">codex · idle</text>
+    <text x="412" y="259" font-size="9.5" fill="#94a3b8">$0.00</text>
+  </g>
+</svg>""",
+    # Blueprint scaffold: describe the agent, the builder wires it up.
+    "builder": """<svg viewBox="0 0 440 240" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Agent blueprint being scaffolded">
+  <rect x="70" y="30" width="300" height="180" rx="14" fill="none"
+        stroke="#334155" stroke-width="1.5" stroke-dasharray="7 7"/>
+  <g stroke="#334155" fill="none" stroke-width="1.5">
+    <path d="M220 78 L 150 132"/>
+    <path d="M220 78 L 290 132"/>
+    <path d="M150 156 L 150 168"/>
+    <path d="M290 156 L 290 168"/>
+  </g>
+  <circle cx="220" cy="68" r="20" fill="#141924" stroke="#E94644" stroke-width="2"/>
+  <rect x="212" y="60" width="16" height="16" rx="4" fill="#E94644"/>
+  <g fill="#141924" stroke="#1f2937">
+    <rect x="122" y="132" width="56" height="26" rx="8"/>
+    <rect x="262" y="132" width="56" height="26" rx="8"/>
+  </g>
+  <g fill="#94a3b8">
+    <rect x="132" y="142" width="36" height="5" rx="2.5"/>
+    <rect x="272" y="142" width="36" height="5" rx="2.5"/>
+  </g>
+  <g fill="#141924" stroke="#334155" stroke-dasharray="4 4">
+    <rect x="122" y="168" width="56" height="26" rx="8"/>
+    <rect x="262" y="168" width="56" height="26" rx="8"/>
+  </g>
+  <g stroke="#94a3b8" stroke-width="1.6" stroke-linecap="round">
+    <path d="M150 176 L 150 186 M145 181 L 155 181"/>
+    <path d="M290 176 L 290 186 M285 181 L 295 181"/>
+  </g>
+</svg>""",
+    # The Desk device: a screen of agents with approve/deny at a glance.
+    "desk": """<svg viewBox="0 0 440 240" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="ClawMetry Desk device">
+  <ellipse cx="220" cy="212" rx="96" ry="8" fill="#0f131c"/>
+  <rect x="140" y="28" width="160" height="178" rx="20" fill="#141924" stroke="#1f2937" stroke-width="1.5"/>
+  <rect x="154" y="42" width="132" height="128" rx="10" fill="#0b0e14" stroke="#1f2937"/>
+  <g>
+    <circle cx="170" cy="60" r="4" fill="#4ade80"/>
+    <rect x="182" y="56" width="66" height="7" rx="3.5" fill="#94a3b8"/>
+    <circle cx="170" cy="84" r="4" fill="#4ade80"/>
+    <rect x="182" y="80" width="52" height="7" rx="3.5" fill="#94a3b8"/>
+    <circle cx="170" cy="108" r="4" fill="#E94644"/>
+    <rect x="182" y="104" width="60" height="7" rx="3.5" fill="#94a3b8"/>
+  </g>
+  <g>
+    <rect x="164" y="130" width="52" height="24" rx="12" fill="none" stroke="#4ade80" stroke-width="1.5"/>
+    <path d="M182 142 L 187 147 L 197 136" fill="none" stroke="#4ade80" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="224" y="130" width="52" height="24" rx="12" fill="none" stroke="#E94644" stroke-width="1.5"/>
+    <path d="M244 137 L 255 147 M255 137 L 244 147" stroke="#E94644" stroke-width="2" stroke-linecap="round"/>
+  </g>
+  <rect x="204" y="182" width="32" height="8" rx="4" fill="#1f2937"/>
+  <rect x="210" y="206" width="20" height="5" rx="2.5" fill="#1f2937"/>
+</svg>""",
+    # Shield + identity ring: SSO in, every action audited.
+    "enterprise": """<svg viewBox="0 0 440 240" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Enterprise SSO and audit shield">
+  <g stroke="#334155" fill="none" stroke-width="1.5">
+    <path d="M96 70 C 140 70, 150 120, 178 120"/>
+    <path d="M96 120 L 178 120"/>
+    <path d="M96 170 C 140 170, 150 120, 178 120"/>
+  </g>
+  <g fill="#141924" stroke="#1f2937">
+    <circle cx="78" cy="70" r="17"/>
+    <circle cx="78" cy="120" r="17"/>
+    <circle cx="78" cy="170" r="17"/>
+  </g>
+  <g fill="#94a3b8">
+    <circle cx="78" cy="65" r="5"/>
+    <path d="M68 79 C 68 71, 88 71, 88 79 Z"/>
+    <circle cx="78" cy="115" r="5"/>
+    <path d="M68 129 C 68 121, 88 121, 88 129 Z"/>
+    <circle cx="78" cy="165" r="5"/>
+    <path d="M68 179 C 68 171, 88 171, 88 179 Z"/>
+  </g>
+  <path d="M240 40 L 306 62 L 306 122 C 306 164, 276 190, 240 202
+           C 204 190, 174 164, 174 122 L 174 62 Z"
+        fill="#141924" stroke="#E94644" stroke-width="2"/>
+  <path d="M214 120 L 234 142 L 268 100" fill="none" stroke="#E94644"
+        stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <g fill="#334155">
+    <rect x="336" y="76" width="70" height="9" rx="4.5"/>
+    <rect x="336" y="96" width="54" height="9" rx="4.5"/>
+    <rect x="336" y="116" width="62" height="9" rx="4.5"/>
+    <rect x="336" y="136" width="44" height="9" rx="4.5"/>
+  </g>
+</svg>""",
+}
 
 
 # ─── HTML surfaces ──────────────────────────────────────────────────────
@@ -321,14 +523,108 @@ def _shared_css() -> str:
     """
 
 
-def _logo_data_uri(assets_dir: Path) -> str:
-    """Embed the horizontal-darkbg logo as a data URI so the HTML is
-    fully self-contained (no external asset loads)."""
-    p = Path(assets_dir) / "clawmetry-logo-horizontal-darkbg.svg"
+def _asset_data_uri(assets_dir: Path, name: str, mime: str) -> str:
+    """Embed a bundled asset as a data URI so the HTML is fully
+    self-contained (no external asset loads)."""
+    p = Path(assets_dir) / name
     try:
-        return "data:image/svg+xml;base64," + base64.b64encode(p.read_bytes()).decode()
+        return f"data:{mime};base64," + base64.b64encode(p.read_bytes()).decode()
     except OSError:
         return ""
+
+
+def _logo_data_uri(assets_dir: Path) -> str:
+    return _asset_data_uri(
+        assets_dir, "clawmetry-logo-horizontal-darkbg.svg", "image/svg+xml"
+    )
+
+
+def render_mode_pane(*, assets_dir: Path) -> str:
+    """Post-sign-in hosting choice: ClawMetry Cloud vs Local / Self-host.
+
+    Both choices start the same 7-day all-runtimes trial (the account's
+    entitlement does that); the ONLY difference is where the data goes,
+    and the pane says so explicitly. Calls
+    ``window.pywebview.api.choose_mode('cloud'|'selfhost')``."""
+    logo = _logo_data_uri(assets_dir)
+    return f"""<!doctype html>
+<html><head>
+  <meta charset="utf-8"/>
+  <title>ClawMetry: Choose hosting</title>
+  <style>
+    {_shared_css()}
+    .card {{
+      width: 100%; max-width: 620px;
+      background: var(--panel); border: 1px solid var(--border);
+      border-radius: 16px; padding: 40px 36px;
+    }}
+    .headline {{
+      font-size: 22px; font-weight: 700; letter-spacing: -0.01em;
+      margin: 0 0 8px; line-height: 1.25;
+    }}
+    .subline {{
+      color: var(--muted); font-size: 14px; line-height: 1.5;
+      margin: 0 0 24px;
+    }}
+    .modes {{ display: flex; gap: 14px; }}
+    .mode {{
+      flex: 1; text-align: left; cursor: pointer;
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: 12px; padding: 20px 18px;
+      transition: border-color .15s ease;
+      /* <button> does NOT inherit text color — without this the
+         headings render UA-default black on the dark card. */
+      color: var(--text);
+    }}
+    .mode:hover {{ border-color: var(--accent); }}
+    .mode h3 {{ margin: 0 0 6px; font-size: 15px; color: var(--text); }}
+    .mode p {{ margin: 0; color: var(--muted); font-size: 12.5px; line-height: 1.5; }}
+    .mode .tag {{
+      display: inline-block; margin-bottom: 10px; padding: 2px 9px;
+      border-radius: 999px; font-size: 10.5px; font-weight: 700;
+      letter-spacing: .04em; text-transform: uppercase;
+    }}
+    .mode.cloud .tag {{ background: rgba(124,140,255,.15); color: #a5b4ff; }}
+    .mode.selfhost .tag {{ background: rgba(74,222,128,.12); color: #4ade80; }}
+    .trial-note {{
+      margin-top: 20px; text-align: center; font-size: 12.5px;
+      color: var(--muted);
+    }}
+    .trial-note b {{ color: var(--text); }}
+  </style>
+</head><body>
+  <div class="center"><div class="card">
+    {'<img class="brand-logo" src="' + logo + '" alt="ClawMetry"/>' if logo else ''}
+    <h1 class="headline">Where should your data live?</h1>
+    <p class="subline">Either way, your <b>7-day free trial of every runtime</b> starts
+      now — this only decides where dashboards are served from.</p>
+    <div class="modes">
+      <button class="mode cloud" onclick="choose('cloud')">
+        <span class="tag">Cloud</span>
+        <h3>ClawMetry Cloud</h3>
+        <p>See this machine's agents from anywhere at app.clawmetry.com.
+           Snapshots leave this machine E2E-encrypted; only your browser
+           holds the key.</p>
+      </button>
+      <button class="mode selfhost" onclick="choose('selfhost')">
+        <span class="tag">Local / Self-host</span>
+        <h3>Stay on this machine</h3>
+        <p>Nothing leaves this box. Dashboard on localhost only.
+           You can turn cloud sync on later with one click.</p>
+      </button>
+    </div>
+    <p class="trial-note">No card required. After 7 days the free tier keeps
+      OpenClaw &amp; NemoClaw; paid tiers keep everything.</p>
+  </div></div>
+  <script>
+    var done = false;
+    function choose(mode) {{
+      if (done) return; done = true;
+      try {{ window.pywebview.api.choose_mode(mode); }} catch (e) {{ done = false; }}
+    }}
+  </script>
+</body></html>
+"""
 
 
 def render_auth_pane(
@@ -578,6 +874,7 @@ def render_bootstrap_carousel(*, assets_dir: Path, status: str = "Preparing runt
     on a CTA opens the URL in the system browser (via pywebview API)."""
     logo = _logo_data_uri(assets_dir)
     slides_json = json.dumps(CROSS_SELL_SLIDES)
+    art_json = json.dumps(SLIDE_ART_SVG)
     safe_status = status.replace("<", "&lt;")
 
     return f"""<!doctype html>
@@ -612,21 +909,25 @@ def render_bootstrap_carousel(*, assets_dir: Path, status: str = "Preparing runt
     }}
     .slide {{
       max-width: 720px; text-align: center;
-      opacity: 0; transition: opacity 500ms ease;
       position: absolute; padding: 0 20px;
+      /* Inactive slides stay stacked underneath for the cross-fade but
+         must not swallow clicks meant for the active slide's CTA
+         (opacity:0 alone leaves them clickable). */
+      opacity: 0; visibility: hidden; pointer-events: none;
+      transition: opacity 500ms ease, visibility 0s linear 500ms;
     }}
-    .slide.active {{ opacity: 1; }}
+    .slide.active {{
+      opacity: 1; visibility: visible; pointer-events: auto;
+      transition: opacity 500ms ease;
+    }}
+    /* Frameless vector illustration floating on the dark canvas — no
+       gradient box, no border. The art carries its own chrome. */
     .slide-art {{
-      width: 220px; height: 140px; margin: 0 auto 32px;
-      border-radius: 14px;
-      background: linear-gradient(135deg, {BRAND_RED}22, {BRAND_RED}05);
-      border: 1px solid var(--border);
-      display: flex; align-items: center; justify-content: center;
-      font-size: 56px;
+      width: 460px; max-width: 100%; margin: 0 auto 28px;
     }}
-    .slide-art img {{
-      max-width: 100%; max-height: 100%; object-fit: contain;
-      border-radius: 8px;
+    .slide-art svg {{
+      display: block; width: 100%; height: auto;
+      filter: drop-shadow(0 18px 40px rgba(0,0,0,.45));
     }}
     .eyebrow {{
       font-size: 11px; font-weight: 700; letter-spacing: 0.12em;
@@ -670,19 +971,14 @@ def render_bootstrap_carousel(*, assets_dir: Path, status: str = "Preparing runt
 
   <script>
     const SLIDES = {slides_json};
-    const ART = {{
-      dashboard: '📊',
-      builder: '🛠',
-      desk: '📟',
-      enterprise: '🔒',
-    }};
+    const ART = {art_json};
     let idx = 0;
 
     function render() {{
       const c = document.getElementById('carousel');
       c.innerHTML = SLIDES.map((s, i) => `
         <div class="slide ${{i === idx ? 'active' : ''}}" data-i="${{i}}">
-          <div class="slide-art">${{s.img ? `<img src="${{s.img}}" alt="" loading="lazy" onerror="this.parentElement.textContent='${{ART[s.art] || '★'}}'"/>` : (ART[s.art] || '★')}}</div>
+          <div class="slide-art">${{ART[s.art] || ''}}</div>
           <div class="eyebrow">${{s.eyebrow}}</div>
           <h2>${{s.title}}</h2>
           <p>${{s.body}}</p>
@@ -734,6 +1030,15 @@ def oauth_loopback_flow(
     thread — starts + tears down its own HTTPServer."""
     base = (app_base or resolve_app_base()).rstrip("/")
 
+    logo = _asset_data_uri(
+        Path(__file__).resolve().parent / "assets",
+        "clawmetry-logo-stacked-darkbg.svg", "image/svg+xml",
+    )
+    logo_html = (
+        f"<img src='{logo}' alt='ClawMetry' style='width:180px;height:auto'/>"
+        if logo else "<div style='font-size:40px'>\U0001f99e</div>"
+    )
+
     captured: dict = {}
 
     class _Handler(http.server.BaseHTTPRequestHandler):
@@ -754,7 +1059,7 @@ def oauth_loopback_flow(
                  "<body style='font-family:-apple-system,sans-serif;background:#0b0e14;"
                  "color:#e2e8f0;display:flex;align-items:center;justify-content:center;"
                  "height:100vh;margin:0'>"
-                 "<div style='text-align:center'><div style='font-size:40px'>\U0001f99e</div>"
+                 f"<div style='text-align:center'>{logo_html}"
                  f"<h2 style='font-weight:700'>{msg}</h2></div>"
                  "</body></html>").encode("utf-8")
             )

@@ -5,7 +5,9 @@ from typing import Any, Literal, TypeAlias, TypedDict
 from typing_extensions import NotRequired
 
 PossibleValue: TypeAlias = "bool | int | str | list[bool | int | str] | dict[str, PossibleValue]"
-PossibleNoneValue: TypeAlias = "PossibleValue | None"  # noqa: TC008
+PossibleNoneValue: TypeAlias = "PossibleValue | None"  # ruff:ignore[quoted-type-alias]
+
+DataType: TypeAlias = "str | ArrayType | UnionType"
 
 ModulePath: TypeAlias = "LocalModulePath | BicepRegistryModulePath | BicepRegistryAliasModulePath | TemplateSpecModulePath | TemplateSpecAliasModulePath"
 ModuleDetail: TypeAlias = "_LocalModulePathDetail | _BicepRegistryModulePathDetail | _BicepRegistryAliasModulePathDetail | _TemplateSpecModulePathDetail | _TemplateSpecAliasModulePathDetail"
@@ -17,7 +19,7 @@ ComparisonOperators: TypeAlias = "GreaterThanOrEquals | GreaterThan | LessThanOr
 LogicalOperators: TypeAlias = "And | Or | Not | Coalesce | Conditional"
 NumericOperators: TypeAlias = "Add | Divide | Minus | Modulo | Multiply | Substract"
 AccessorOperators: TypeAlias = "IndexAccessor | FunctionAccessor | NestedResourceAccessor | PropertyAccessor"
-Operators: TypeAlias = "ComparisonOperators | LogicalOperators | NumericOperators | AccessorOperators"  # noqa: TC008
+Operators: TypeAlias = "ComparisonOperators | LogicalOperators | NumericOperators | AccessorOperators"  # ruff:ignore[quoted-type-alias]
 
 AnyFunctions: TypeAlias = "AnyFunc"
 ArrayFunctions: TypeAlias = "Array | Concat | Contains | Empty | First | Flatten | Intersection | Last | Length | Max | Min | Range | Skip | Take | UnionFunc"
@@ -32,6 +34,23 @@ ResourceFunctions: TypeAlias = "ExtensionResourceId | ListFunc | ManagementGroup
 ScopeFunctions: TypeAlias = "ManagementGroup | ResourceGroup | Subscription | Tenant"
 StringFunctions: TypeAlias = "Base64 | Base64ToJson | Base64ToString | DataUri | DataUriToString | EndsWith | Format | Guid | IndexOf | Join | LastIndexOf | NewGuid | PadLeft | Replace | Split | StartsWith | String | Substring | ToLower | ToUpper | Trim | UniqueString | Uri | UriComponent | UriComponentToString"
 Functions: TypeAlias = "AnyFunctions | ArrayFunctions | DateFunctions | DeploymentFunctions | FileFunctions | LambdaFunctions | LogicalFunctions | NumericFunctions | ObjectFunctions | ResourceFunctions | ScopeFunctions | StringFunctions | UnknownFunction"
+
+
+####################
+#
+# Data types
+#
+####################
+
+
+class ArrayType(TypedDict):
+    type: Literal["array"]
+    item_type: DataType
+
+
+class UnionType(TypedDict):
+    type: Literal["union"]
+    members: list[DataType]
 
 
 ####################
@@ -118,7 +137,7 @@ class ExtensionResponse(TypedDict):
 
 class ParameterAttributes(TypedDict):
     decorators: list[Decorator]
-    type: str
+    type: DataType
     default: PossibleNoneValue
     __start_line__: NotRequired[int]
     __end_line__: NotRequired[int]
@@ -135,7 +154,7 @@ class ParamResponse(TypedDict):
 
 class VariableAttributes(TypedDict):
     decorators: list[Decorator]
-    type: NotRequired[str]
+    type: NotRequired[DataType]
     value: PossibleValue
     __start_line__: NotRequired[int]
     __end_line__: NotRequired[int]
@@ -152,7 +171,7 @@ class VarResponse(TypedDict):
 
 class OutputAttributes(TypedDict):
     decorators: list[Decorator]
-    type: str
+    type: DataType
     value: PossibleValue
     __start_line__: NotRequired[int]
     __end_line__: NotRequired[int]
@@ -223,8 +242,8 @@ class TypeResponse(TypedDict):
 
 class FunctionAttributes(TypedDict):
     decorators: list[Decorator]
-    args: dict[str, str]
-    type: str
+    args: dict[str, DataType]
+    type: DataType
     expression: PossibleValue
     __start_line__: NotRequired[int]
     __end_line__: NotRequired[int]

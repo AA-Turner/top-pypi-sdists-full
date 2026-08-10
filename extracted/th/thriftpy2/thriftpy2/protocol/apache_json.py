@@ -1,16 +1,13 @@
-# -*- coding: utf-8 -*-
-
 """
 Transport for json protocol that apache thrift files will understand
 unfortunately, thriftpy2's TJSONProtocol is not compatible with apache's
 """
 
-from __future__ import absolute_import
 import json
 import base64
-import sys
+from typing import Any
 
-import six
+import ijson
 
 from thriftpy2.protocol import TProtocolBase
 from thriftpy2.thrift import TType
@@ -62,9 +59,28 @@ def _ensure_b64_encode(val):
     Ensure that the variable is something that we can encode with b64encode
     python3 needs bytes, python2 needs string
     """
-    if sys.version_info[0] > 2 and isinstance(val, str):
+    if isinstance(val, str):
         return val.encode()
     return val
+
+
+class _ListSink(object):
+    """Minimal coroutine-like sink for ijson's items_coro pipeline.
+
+    ijson's chained-coroutine API calls ``target.send(item)`` on its sink, so
+    a plain ``list.append`` won't work as a target. This wrapper exposes a
+    ``send`` (and ``close``) so a list can act as the sink directly.
+    """
+    __slots__ = ('_target',)
+
+    def __init__(self, target):
+        self._target = target
+
+    def send(self, item):
+        self._target.append(item)
+
+    def close(self):
+        pass
 
 
 class TApacheJSONProtocolFactory(object):
@@ -79,37 +95,39 @@ class TApacheJSONProtocol(TProtocolBase):
 
     def __init__(self, trans):
         TProtocolBase.__init__(self, trans)
-        self._req = None
+        self._req: Any = None
 
     def _load_data(self):
-        data = b""
-        l_braces = 0
-        in_string = False
-        while True:
-            # read(sz) will wait until it has read exactly sz bytes,
-            # so we must read until we get a balanced json list in absence of knowing
-            # how long the json string will be
-            if hasattr(self.trans, 'getvalue'):
-                try:
-                    data = self.trans.getvalue()
+        # Fast path: transports that buffer the whole message expose getvalue()
+        getvalue = getattr(self.trans, 'getvalue', None)
+        if getvalue is not None:
+            try:
+                data = getvalue()
+                self._req = json.loads(data.decode('utf8')) if data else None
+                return
+            except Exception:
+                pass
+
+        # Streaming path: feed bytes to ijson's push parser; stop the moment
+        # the top-level value is fully materialized. trans.read(n) blocks until
+        # exactly n bytes arrive and Apache JSON has no length prefix, so we
+        # must read one byte at a time to avoid consuming past the message end.
+        items = []
+        sink = _ListSink(items)
+        coro = ijson.items_coro(sink, '')
+        try:
+            while not items:
+                chunk = self.trans.read(1)
+                if not chunk:
                     break
-                except Exception:
-                    pass
-            new_data = self.trans.read(1)
-            data += new_data
-            if new_data == b'"' and not data.endswith(b'\\"'):
-                in_string = not in_string
-            if not in_string:
-                if new_data == b"[":
-                    l_braces += 1
-                elif new_data == b"]":
-                    l_braces -= 1
-            if l_braces == 0:
-                break
-        if data:
-            self._req = json.loads(data.decode('utf8'))
-        else:
-            self._req = None
+                coro.send(chunk)
+        finally:
+            try:
+                coro.close()
+            except Exception:
+                pass
+
+        self._req = items[0] if items else None
 
     def read_message_begin(self):
         if not self._req:
@@ -141,7 +159,7 @@ class TApacheJSONProtocol(TProtocolBase):
         json_str = json.dumps(doc, separators=(',', ':'))
         self.trans.write(json_str.encode("utf8"))
 
-    def _thrift_to_dict(self, thrift_obj, item_type=None):
+    def _thrift_to_dict(self, thrift_obj: Any, item_type: Any = None) -> Any:
         """
         Convert a thriftpy2 into an apache conformant dict, eg:
 
@@ -181,13 +199,15 @@ class TApacheJSONProtocol(TProtocolBase):
                 return int(thrift_obj)
             if (
                 item_type == TType.BINARY
-                or (isinstance(item_type, tuple) and item_type[0] == TType.BINARY)
+                or (isinstance(item_type, tuple) and item_type
+                    and item_type[0] == TType.BINARY)
             ) and TType.BINARY != TType.STRING:
                 return base64.b64encode(_ensure_b64_encode(thrift_obj)).decode("ascii")
             return thrift_obj
         result = {}
         for field_idx, thrift_spec in thrift_obj.thrift_spec.items():
-            ttype, field_name, spec = thrift_spec[:3]
+            ttype, field_name, raw_spec = thrift_spec[:3]
+            spec: Any = raw_spec
             if isinstance(spec, int):
                 spec = (spec,)
             val = getattr(thrift_obj, field_name)
@@ -224,7 +244,7 @@ class TApacheJSONProtocol(TProtocolBase):
                     }
         return result
 
-    def _dict_to_thrift(self, data, base_type):
+    def _dict_to_thrift(self, data: Any, base_type: Any) -> Any:
         """
         Convert an apache thrift dict (where key is the type, value is the data)
 
@@ -233,10 +253,13 @@ class TApacheJSONProtocol(TProtocolBase):
         :return:
         """
         # if the result is a python type, return it:
-        if isinstance(data, (str, int, float, bool, six.string_types, six.binary_type)) or data is None:
+        if data is None:
+            return None
+        if isinstance(data, (str, int, float, bool)):
             if base_type in (TType.I08, TType.I16, TType.I32, TType.I64):
                 return int(data)
             if base_type == TType.BINARY and TType.BINARY != TType.STRING:
+                assert isinstance(data, str)
                 return base64.b64decode(data)
             if base_type == TType.BOOL:
                 return {
@@ -244,12 +267,13 @@ class TApacheJSONProtocol(TProtocolBase):
                     'false': False,
                     '1': True,
                     '0': False
-                }[data.lower()]
+                }[str(data).lower()]
             if isinstance(data, bool):
                 return int(data)
             return data
 
         if isinstance(base_type, tuple):
+            assert len(base_type) >= 2
             container_type = base_type[0]
             item_type = base_type[1]
             if container_type == TType.STRUCT:
@@ -257,10 +281,12 @@ class TApacheJSONProtocol(TProtocolBase):
             elif container_type in (TType.LIST, TType.SET):
                 return [self._dict_to_thrift(v, item_type) for v in data[2:]]
             elif container_type == TType.MAP:
+                assert isinstance(item_type, tuple) and len(item_type) >= 2
                 return {
                     self._dict_to_thrift(k, item_type[0]):
                         self._dict_to_thrift(v, item_type[1]) for k, v in data[3].items()
                 }
+            raise ValueError("Unsupported container type: %s" % container_type)
         result = {}
         base_spec = base_type.thrift_spec
         for field_idx, val in data.items():
@@ -297,7 +323,7 @@ class TApacheJSONProtocol(TProtocolBase):
                         'dbl': float,
                         'str': str,
                     }[ftype](value)
-        if hasattr(base_type, '__call__'):
+        if callable(base_type):
             return base_type(**result)
         else:
             for k, v in result.items():

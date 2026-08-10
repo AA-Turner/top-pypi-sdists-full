@@ -1863,7 +1863,7 @@ mod unit_tests {
 
 #[cfg(test)]
 mod memory_profiling_tests {
-    use crate::tests::extract_multiple;
+    use crate::tests::{extract_multiple, extract_single};
     use crate::JSONTools;
     use serde_json::Value;
 
@@ -1976,6 +1976,71 @@ mod memory_profiling_tests {
             let parsed: Value = serde_json::from_str(flat).unwrap();
             assert_eq!(parsed["id"], i);
             assert_eq!(parsed["nested.value"], i);
+        }
+    }
+
+    #[test]
+    fn test_num_threads_batch_with_nested_parallel_documents() {
+        // Round 16: a batch of documents individually wide enough to also trigger
+        // per-document nested parallelism (flatten_collecting_parallel), combined
+        // with a `num_threads(Some(n))` override and a low parallel_threshold, so
+        // this exercises both batch-level AND nested-per-document parallel dispatch
+        // at once -- the exact shape that caused flatten_collecting_parallel to
+        // rebuild a redundant thread pool per document before the round-16 fix.
+        // Guards correctness (not just speed): the fix only changes which pool runs
+        // the work, never what gets computed.
+        let json_docs: Vec<String> = (0..20)
+            .map(|doc_i| {
+                let fields: Vec<String> = (0..150)
+                    .map(|k| format!(r#""field_{k}": {}"#, doc_i * 1000 + k))
+                    .collect();
+                format!("{{{}}}", fields.join(","))
+            })
+            .collect();
+        let json_refs: Vec<&str> = json_docs.iter().map(|s| s.as_str()).collect();
+
+        let result = JSONTools::new()
+            .flatten()
+            .parallel_threshold(1)
+            .nested_parallel_threshold(50)
+            .num_threads(Some(4))
+            .execute(json_refs)
+            .expect("Batch with nested-parallel documents failed");
+
+        let results = extract_multiple(result);
+        assert_eq!(results.len(), 20);
+        for (doc_i, flat) in results.iter().enumerate() {
+            let parsed: Value = serde_json::from_str(flat).unwrap();
+            assert_eq!(parsed.as_object().unwrap().len(), 150);
+            for k in 0..150 {
+                assert_eq!(parsed[format!("field_{k}")], doc_i * 1000 + k);
+            }
+        }
+    }
+
+    #[test]
+    fn test_num_threads_single_wide_document_still_correct() {
+        // The non-batch path: a single document (not a Vec/list input) wide enough
+        // to trigger nested parallelism, with num_threads(Some(n)) set. No ambient
+        // batch-level pool exists here, so flatten_collecting_parallel must still
+        // build its own dedicated pool (current_num_threads() won't match n) --
+        // guards that the round-16 fix's new branch doesn't accidentally skip pool
+        // construction when one is actually needed.
+        let fields: Vec<String> = (0..150).map(|k| format!(r#""field_{k}": {k}"#)).collect();
+        let json = format!("{{{}}}", fields.join(","));
+
+        let result = JSONTools::new()
+            .flatten()
+            .nested_parallel_threshold(50)
+            .num_threads(Some(3))
+            .execute(json.as_str())
+            .expect("Single wide document with num_threads failed");
+
+        let flat = extract_single(result);
+        let parsed: Value = serde_json::from_str(&flat).unwrap();
+        assert_eq!(parsed.as_object().unwrap().len(), 150);
+        for k in 0..150 {
+            assert_eq!(parsed[format!("field_{k}")], k);
         }
     }
 

@@ -1100,6 +1100,75 @@ fn bench_nested_parallelism(c: &mut Criterion) {
     group.finish();
 }
 
+/// Wide JSON document (~150 top-level scalar keys) -- crosses the default
+/// `nested_parallel_threshold` (100) on its own, used to force per-document
+/// nested parallelism within a batch that's also crossing the batch-level
+/// `parallel_threshold`.
+fn wide_json(n_keys: usize) -> String {
+    let mut json = String::from("{");
+    for i in 0..n_keys {
+        if i > 0 {
+            json.push(',');
+        }
+        json.push_str(&format!(r#""field_{i}": {i}"#));
+    }
+    json.push('}');
+    json
+}
+
+/// Benchmark 16: `num_threads(Some(n))` on a batch of wide documents -- each
+/// document individually crosses `nested_parallel_threshold`, so this exercises
+/// both batch-level AND per-document nested parallelism at once. See round 16's
+/// fix in `flatten_collecting_parallel` (skip rebuilding a thread pool when
+/// already running inside one sized to match `num_threads`).
+fn bench_num_threads_batch_nested(c: &mut Criterion) {
+    let mut group = c.benchmark_group("16_num_threads_batch_nested");
+    group.measurement_time(Duration::from_secs(10));
+    group.sample_size(30);
+
+    let doc = wide_json(150);
+    let batch_sizes = vec![10, 50, 100];
+
+    for &size in &batch_sizes {
+        let batch: Vec<&str> = (0..size).map(|_| doc.as_str()).collect();
+
+        group.bench_with_input(
+            BenchmarkId::new("num_threads_4", size),
+            &batch,
+            |b, batch| {
+                b.iter(|| {
+                    let result = JSONTools::new()
+                        .flatten()
+                        .parallel_threshold(1)
+                        .nested_parallel_threshold(50)
+                        .num_threads(Some(4))
+                        .execute(black_box(batch.as_slice()))
+                        .expect("Batch failed");
+                    black_box(result);
+                });
+            },
+        );
+
+        group.bench_with_input(
+            BenchmarkId::new("num_threads_default", size),
+            &batch,
+            |b, batch| {
+                b.iter(|| {
+                    let result = JSONTools::new()
+                        .flatten()
+                        .parallel_threshold(1)
+                        .nested_parallel_threshold(50)
+                        .execute(black_box(batch.as_slice()))
+                        .expect("Batch failed");
+                    black_box(result);
+                });
+            },
+        );
+    }
+
+    group.finish();
+}
+
 criterion_group!(
     benches,
     bench_baseline,
@@ -1117,7 +1186,8 @@ criterion_group!(
     bench_comprehensive,
     bench_roundtrip,
     bench_batch_processing,
-    bench_nested_parallelism
+    bench_nested_parallelism,
+    bench_num_threads_batch_nested
 );
 
 criterion_main!(benches);

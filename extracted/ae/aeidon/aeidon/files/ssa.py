@@ -13,15 +13,12 @@
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with this program. If not, see <http://www.gnu.org/licenses/>.
+# along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 """Sub Station Alpha file."""
 
 import aeidon
 import re
-
-__all__ = ("SubStationAlpha",)
-
 
 class SubStationAlpha(aeidon.SubtitleFile):
 
@@ -76,7 +73,7 @@ class SubStationAlpha(aeidon.SubtitleFile):
     def _encode_field(self, field_name, subtitle, doc):
         """Return value of field as string to be written to file."""
         if field_name == "Marked":
-            return "Marked={:d}".format(subtitle.ssa.marked)
+            return f"Marked={subtitle.ssa.marked:d}"
         if field_name == "Start":
             value = subtitle.calc.round(subtitle.start_time, 2)
             return self._re_subtitle_time.sub(r"\1\2", value)
@@ -88,7 +85,8 @@ class SubStationAlpha(aeidon.SubtitleFile):
             return value.replace("\n", "\\N")
         if field_name in ("MarginL", "MarginR", "MarginV"):
             name = aeidon.util.title_to_lower_case(field_name)
-            return "{:04d}".format(getattr(subtitle.ssa, name))
+            value = getattr(subtitle.ssa, name)
+            return f"{value:04d}"
         # Return plain string container attribute value.
         name = aeidon.util.title_to_lower_case(field_name)
         return getattr(subtitle.ssa, name)
@@ -138,8 +136,9 @@ class SubStationAlpha(aeidon.SubtitleFile):
         f.write(self.header + "\n\n")
         f.write("[Events]\n")
         fields = ", ".join(self.event_fields)
-        f.write("Format: {}\n".format(fields))
+        f.write(f"Format: {fields}\n")
         for subtitle in subtitles:
-            f.write("Dialogue: {}\n".format(",".join([
+            dialogue = ",".join(
                 self._encode_field(x, subtitle, doc)
-                for x in self.event_fields])))
+                for x in self.event_fields)
+            f.write(f"Dialogue: {dialogue}\n")

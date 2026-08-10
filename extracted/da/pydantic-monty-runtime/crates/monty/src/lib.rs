@@ -8,6 +8,7 @@ mod asyncio;
 mod builtins;
 mod bytecode;
 mod codecs;
+mod dump_format;
 mod exception_private;
 mod expressions;
 mod fstring;
@@ -30,12 +31,14 @@ mod run_progress;
 mod sorting;
 mod source_map;
 mod string_builder;
+mod stringize;
 mod types;
 mod value;
 
 #[cfg(feature = "ref-count-return")]
 pub use crate::run::RefCountOutput;
 pub use crate::{
+    dump_format::{DUMP_VERSION, Dump, DumpError, Session, SessionRef, dump},
     repl::{
         MontyRepl, ReplContinuationMode, ReplFunctionCall, ReplNameLookup, ReplOsCall, ReplProgress,
         ReplResolveFutures, ReplStartError, detect_repl_continuation_mode,

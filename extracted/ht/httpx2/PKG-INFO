@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: httpx2
-Version: 2.9.1
+Version: 2.10.0
 Summary: The next generation HTTP client.
 Project-URL: Changelog, https://github.com/pydantic/httpx2/blob/main/src/httpx2/CHANGELOG.md
 Project-URL: Homepage, https://github.com/pydantic/httpx2
@@ -23,18 +23,20 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Internet :: WWW/HTTP
 Requires-Python: >=3.10
-Requires-Dist: anyio>=4.10
-Requires-Dist: httpcore2==2.9.1
+Requires-Dist: anyio>=4.10; sys_platform != 'emscripten'
+Requires-Dist: httpcore2==2.10.0; sys_platform != 'emscripten'
+Requires-Dist: httpx2-jsfetch; sys_platform == 'emscripten' and python_version >= '3.12'
 Requires-Dist: idna>=3.18
-Requires-Dist: truststore>=0.10
+Requires-Dist: truststore>=0.10; sys_platform != 'emscripten'
 Requires-Dist: typing-extensions>=4.5.0; python_version < '3.13'
 Provides-Extra: brotli
 Requires-Dist: brotli; (platform_python_implementation == 'CPython') and extra == 'brotli'
 Requires-Dist: brotlicffi; (platform_python_implementation != 'CPython') and extra == 'brotli'
 Provides-Extra: cli
-Requires-Dist: click>=8.4; extra == 'cli'
+Requires-Dist: click>=8.4.2; extra == 'cli'
 Requires-Dist: pygments==2.*; extra == 'cli'
 Requires-Dist: rich<16,>=10; extra == 'cli'
 Provides-Extra: http2
@@ -155,6 +157,28 @@ The [Developer Interface](https://httpx2.pydantic.dev/api/) provides a comprehen
 
 To find out about tools that integrate with HTTPX, see [Third Party Packages](https://httpx2.pydantic.dev/third_party_packages/).
 
+## Observability with Pydantic Logfire
+
+Install Logfire with HTTPX instrumentation support:
+
+```shell
+pip install 'logfire[httpx]'
+```
+
+HTTPX2 works out of the box with [Pydantic Logfire](https://pydantic.dev/logfire), our observability platform built on OpenTelemetry. One line instruments every request, giving you traces, timings, and status codes with no other changes:
+
+```python
+import logfire
+import httpx2
+
+logfire.configure()
+logfire.instrument_httpx()
+
+httpx2.get("https://pydantic.dev/")
+```
+
+This works the same way for explicit `httpx2.Client()` and `httpx2.AsyncClient()` instances, and you can scope instrumentation to a single client by passing it in: `logfire.instrument_httpx(client)`. Pass `capture_all=True` to also record headers and bodies. See the [Logfire HTTPX docs](https://logfire.pydantic.dev/docs/integrations/http-clients/httpx/) for the full set of options.
+
 ## Contribute
 
 If you want to contribute with HTTPX2 check out the [Contributing Guide](https://httpx2.pydantic.dev/contributing/) to learn how to start.
@@ -188,9 +212,25 @@ inspiration around the lower-level networking details.
 
 ## Release Information
 
+### Added
+
+* Add support for running on WebAssembly / Emscripten via Pyodide, using a JavaScript
+  `fetch`-based transport defined in `httpx2-jsfetch`.
+  ([#1119](https://github.com/pydantic/httpx2/pull/1119))
+* Add `max_event_size` to cap SSE event buffering. ([#1071](https://github.com/pydantic/httpx2/pull/1071))
+* Add RFC 9110 status code constants. ([#1069](https://github.com/pydantic/httpx2/pull/1069))
+* Add support for Python 3.15. ([#1090](https://github.com/pydantic/httpx2/pull/1090))
+
+### Changed
+
+* Improve SSE chunk buffering performance. ([#1117](https://github.com/pydantic/httpx2/pull/1117))
+* Skip cookie extraction for responses without `Set-Cookie` headers. ([#1107](https://github.com/pydantic/httpx2/pull/1107))
+* Return `str | None` instead of `Any` from `Headers.get`. ([#1121](https://github.com/pydantic/httpx2/pull/1121))
+
 ### Fixed
 
-* Alias `httpcore` imports to `httpcore2` in `alias_httpx()`. ([#1082](https://github.com/pydantic/httpx2/pull/1082))
+* Enforce the WebSocket max message size across fragmented messages. ([#1085](https://github.com/pydantic/httpx2/pull/1085))
+* Ignore unsolicited and duplicate WebSocket Pong frames. ([#1122](https://github.com/pydantic/httpx2/pull/1122))
 
 
 ---

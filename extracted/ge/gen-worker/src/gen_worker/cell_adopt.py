@@ -9,11 +9,26 @@ free-text ``aot_adopt`` activity event that put ``family=… key=… sku=…`` i
 prose and no numbers anywhere.
 
 Only the free-text one was ever reachable from the path adoptions actually take
-(boot attach through ``fleet_cells``); the typed one was reachable only from the
+(arming at boot, through ``fleet_cells`` — historically called "boot attach",
+which names WHEN the cell is armed, never a hub push); the typed one was
+reachable only from the
 hub-commanded ``ADOPT_COMPILE_CACHE`` operation, which no stack has ever
 dispatched. So the measured lane had zero rows on both live stacks while every
 real adoption landed at ``duration_ms=0``, and the percentile endpoint
 aggregated a population with no members.
+
+pgw#1032 finished the argument: ``ADOPT_COMPILE_CACHE`` is GONE on both sides.
+Its hub-side push was keyed off the COMPUTED (``kind="inductor"``) cell key,
+and since pgw#1010 nothing mints into that key space — every publishable cell
+is STAMPED ``aot-inductor`` — so the push could never have selected a cell.
+
+**Nothing is DELIVERED to a pod any more.** th#1702 also deletes the hub's
+snapshot attach (HelloAck and RunJob both), so the worker ACQUIRES its own
+cell: ``aot_cells`` fetch-and-filter lists the family repo through the hub's
+catalog read API at arm time, downloads what this runtime can serve, and feeds
+it through the same gates. That is the only adoption there is. (pgw#904
+replaces the listing with a hub-RESOLVED ``Arm.artifact`` — still a pull, not
+a push.)
 
 The free-text lane is DELETED. This module is what replaced it: the arm returns
 a typed outcome instead of a bare bool, the arming policy times it and names the
@@ -77,11 +92,30 @@ class EagerPhase(StrEnum):
     #: identity must not be re-minted) and was the one that only logged.
     CELL_QUARANTINED = "cell_quarantined"
 
-    #: Eager with an END — a delegated mint child is building the cell. Equal
-    #: to ``serving_mode.POSTURE_MINT_IN_PROGRESS`` by contract; the audit
-    #: asserts the two, because a fleet that is warming up must never read as
-    #: a fleet that never will.
+    #: Eager with an END — a delegated mint child is building the cell.
     MINT_IN_PROGRESS = "mint_in_progress"
+
+    #: pgw#1035: the four tokens below rode the SAME wire columns as the ones
+    #: above — `phase` on `self_mint_skipped`/`self_mint_started`, and the
+    #: request row's `fallback_reason` — while living as bare literals in
+    #: `serving_mode` and `executor`. That is exactly the two-lists-of-literals
+    #: drift channel this enum was created to close, and only
+    #: `MINT_IN_PROGRESS` had ever been pinned to it. `serving_mode`'s
+    #: `POSTURE_*` names are now ALIASES of these members, so there is one
+    #: vocabulary and the values are unchanged (the hub's grouped history is
+    #: untouched).
+
+    #: The arming brain has not answered yet (boot in flight, setup unfinished).
+    ARM_PENDING = "arm_pending"
+    #: The release declared no compile target at all — eager is the contract,
+    #: not a degradation. Distinct so it never pollutes the defect classes.
+    NO_COMPILE_DECLARED = "no_compile_declared"
+    #: Terminal fallback when a decline reached the request path unclassified.
+    UNCOMPILED = "uncompiled"
+    #: Setup finished with a declared compile target, nothing armed and no mint
+    #: in flight: this worker serves eager for the rest of its life. Terminal,
+    #: and it must mean "nothing is dispatchable" (pgw#844), never "partial".
+    BOOT_ENDED_UNCOMPILED = "boot_ended_uncompiled"
 
     #: `_fail_closed`'s default, for a caller that has not classified its exit.
     #: A new decline landing here rather than on its own member is the
@@ -128,10 +162,10 @@ class CellAdoption:
 
     ``arm_ms`` is the wall time of the arm itself — load, bind, wrap, gate —
     and is the same quantity the hub stores as the adoption's ``duration_ms``.
-    The warmup half is deliberately absent: a boot-attached cell is armed during
-    injection and warmed later, by the setup warmup, so the two numbers are
-    known at two different instants and the executor joins them. A hot
-    (hub-commanded) adoption arms and warms in one frame and fills both there.
+    The warmup half is deliberately absent: a cell is armed during injection
+    and warmed later, by the setup warmup, so the two numbers are known at two
+    different instants and the executor joins them (pgw#1032: an arm-time
+    acquisition is the only adoption there is, so this is the only shape).
     """
 
     ref: str

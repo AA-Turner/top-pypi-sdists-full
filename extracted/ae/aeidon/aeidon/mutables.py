@@ -13,15 +13,12 @@
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with this program. If not, see <http://www.gnu.org/licenses/>.
+# along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 """Observable versions of built-in mutable objects."""
 
 import copy
 import functools
-
-__all__ = ("ObservableDict", "ObservableList", "ObservableSet",)
-
 
 def _mutation(function):
     """Decorator for sending a notification after mutating object."""
@@ -31,7 +28,6 @@ def _mutation(function):
         args[0].master.notify(args[0].name)
         return value
     return wrapper
-
 
 class ObservableDict(dict):
 
@@ -82,7 +78,6 @@ class ObservableDict(dict):
     @_mutation
     def update(self, *args, **kwargs):
         return dict.update(self, *args, **kwargs)
-
 
 class ObservableList(list):
 
@@ -149,7 +144,6 @@ class ObservableList(list):
     @_mutation
     def sort(self, *args, **kwargs):
         return list.sort(self, *args, **kwargs)
-
 
 class ObservableSet(set):
 

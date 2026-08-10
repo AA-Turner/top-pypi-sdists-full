@@ -355,6 +355,8 @@ class BucketSyncsApi:
 
         # authentication setting
         _auth_settings: List[str] = [
+            'NamespaceHeader', 
+            'BearerAuth'
         ]
 
         return self.api_client.param_serialize(
@@ -661,6 +663,8 @@ class BucketSyncsApi:
 
         # authentication setting
         _auth_settings: List[str] = [
+            'NamespaceHeader', 
+            'BearerAuth'
         ]
 
         return self.api_client.param_serialize(
@@ -954,6 +958,8 @@ class BucketSyncsApi:
 
         # authentication setting
         _auth_settings: List[str] = [
+            'NamespaceHeader', 
+            'BearerAuth'
         ]
 
         return self.api_client.param_serialize(
@@ -1247,6 +1253,8 @@ class BucketSyncsApi:
 
         # authentication setting
         _auth_settings: List[str] = [
+            'NamespaceHeader', 
+            'BearerAuth'
         ]
 
         return self.api_client.param_serialize(
@@ -1540,6 +1548,8 @@ class BucketSyncsApi:
 
         # authentication setting
         _auth_settings: List[str] = [
+            'NamespaceHeader', 
+            'BearerAuth'
         ]
 
         return self.api_client.param_serialize(
@@ -1848,6 +1858,8 @@ class BucketSyncsApi:
 
         # authentication setting
         _auth_settings: List[str] = [
+            'NamespaceHeader', 
+            'BearerAuth'
         ]
 
         return self.api_client.param_serialize(
@@ -2141,6 +2153,8 @@ class BucketSyncsApi:
 
         # authentication setting
         _auth_settings: List[str] = [
+            'NamespaceHeader', 
+            'BearerAuth'
         ]
 
         return self.api_client.param_serialize(
@@ -2462,6 +2476,8 @@ class BucketSyncsApi:
 
         # authentication setting
         _auth_settings: List[str] = [
+            'NamespaceHeader', 
+            'BearerAuth'
         ]
 
         return self.api_client.param_serialize(
@@ -2904,6 +2920,8 @@ class BucketSyncsApi:
 
         # authentication setting
         _auth_settings: List[str] = [
+            'NamespaceHeader', 
+            'BearerAuth'
         ]
 
         return self.api_client.param_serialize(
@@ -3361,6 +3379,8 @@ class BucketSyncsApi:
 
         # authentication setting
         _auth_settings: List[str] = [
+            'NamespaceHeader', 
+            'BearerAuth'
         ]
 
         return self.api_client.param_serialize(
@@ -3654,6 +3674,8 @@ class BucketSyncsApi:
 
         # authentication setting
         _auth_settings: List[str] = [
+            'NamespaceHeader', 
+            'BearerAuth'
         ]
 
         return self.api_client.param_serialize(
@@ -3975,6 +3997,8 @@ class BucketSyncsApi:
 
         # authentication setting
         _auth_settings: List[str] = [
+            'NamespaceHeader', 
+            'BearerAuth'
         ]
 
         return self.api_client.param_serialize(
@@ -4268,6 +4292,8 @@ class BucketSyncsApi:
 
         # authentication setting
         _auth_settings: List[str] = [
+            'NamespaceHeader', 
+            'BearerAuth'
         ]
 
         return self.api_client.param_serialize(
@@ -4578,6 +4604,8 @@ class BucketSyncsApi:
 
         # authentication setting
         _auth_settings: List[str] = [
+            'NamespaceHeader', 
+            'BearerAuth'
         ]
 
         return self.api_client.param_serialize(
@@ -4899,6 +4927,8 @@ class BucketSyncsApi:
 
         # authentication setting
         _auth_settings: List[str] = [
+            'NamespaceHeader', 
+            'BearerAuth'
         ]
 
         return self.api_client.param_serialize(

@@ -400,9 +400,8 @@ class Container:
             self.__path_like = None
 
     def _read_folder(self) -> None:
-        try:
-            mimetype, timestamp = self._get_folder_part("mimetype")
-        except OSError:
+        mimetype, timestamp = self._get_folder_part("mimetype")
+        if mimetype is None:
             msg = "Corrupted or not an OpenDocument folder (missing mimetype)"
             printwarn(msg)
             mimetype = b""
@@ -1003,15 +1002,19 @@ class Container:
         """Get the list of members in the ODF folder."""
         return self._parse_folder("")
 
-    def _get_folder_part(self, name: str) -> tuple[bytes, int]:
+    def _get_folder_part(self, name: str) -> tuple[bytes | None, int]:
         """Get bytes of a part from the ODF folder, with timestamp."""
         if self.path is None:
-            raise ValueError("Document path is not defined")
+            raise ValueError(f"Document path is not defined {name!r}")
         path = self.path / name
-        timestamp = int(path.stat().st_mtime)
-        if path.is_dir():
-            return (b"", timestamp)
-        return (path.read_bytes(), timestamp)
+        try:
+            timestamp = int(path.stat().st_mtime)
+            if path.is_dir():
+                return (b"", timestamp)
+            return (path.read_bytes(), timestamp)
+        except OSError as e:
+            printwarn(f"{e}")
+            return (None, 0)
 
     def _get_folder_part_timestamp(self, name: str) -> int:
         if self.path is None:
@@ -1037,7 +1040,7 @@ class Container:
                 upath = normalize_path(name)
                 self.__parts[upath] = self._read_zip_entry(zf, name)
                 return self.__parts[upath]
-        except BadZipfile:
+        except (BadZipfile, KeyError):
             return None
 
     def _get_all_zip_part(self) -> None:
@@ -1481,7 +1484,13 @@ class Container:
             path: path of the required part.
 
         Returns:
-            The actual content of the part.
+            The actual content of the part, or None for missing parts when
+            the container uses XML (Flat ODF) packaging.
+
+        Raises:
+            KeyError: If the part is not found in a ZIP container.
+            FileNotFoundError: If the part is not found in a folder container.
+            ValueError: If the part was explicitly deleted from the container.
         """
         path = str(path)
         if path in self.__parts:
@@ -1493,13 +1502,20 @@ class Container:
                 current_ts = self._get_folder_part_timestamp(path)
                 if current_ts != cache_ts:
                     part, timestamp = self._get_folder_part(path)
+                    if part is None:
+                        raise FileNotFoundError(path)
                     self.__parts[path] = part
                     self.__parts_ts[path] = timestamp
             return part
         if self.__packaging == ZIP:
-            return self._get_zip_part(path)
+            part = self._get_zip_part(path)
+            if part is None:
+                raise KeyError(path)
+            return part
         if self.__packaging == FOLDER:
             part, timestamp = self._get_folder_part(path)
+            if part is None:
+                raise FileNotFoundError(path)
             self.__parts[path] = part
             self.__parts_ts[path] = timestamp
             return part

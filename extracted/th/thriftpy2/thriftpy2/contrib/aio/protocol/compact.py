@@ -1,8 +1,5 @@
-# -*- coding: utf-8 -*-
-
-from __future__ import absolute_import
-
 from struct import unpack
+from typing import Any
 
 from thriftpy2.protocol.exc import TProtocolException
 from thriftpy2.thrift import TException, TType
@@ -186,7 +183,7 @@ class TAsyncCompactProtocol(TCompactProtocol,  # Inherit all of the writing
             self._read_field_end()
         self._read_struct_end()
 
-    async def _read_val(self, ttype, spec=None):
+    async def _read_val(self, ttype, spec: Any = None):
         if ttype == TType.BOOL:
             return await self._read_bool()
 

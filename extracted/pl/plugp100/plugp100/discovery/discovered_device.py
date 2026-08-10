@@ -5,8 +5,8 @@ from typing import Optional, Any
 import aiohttp
 
 from plugp100.common.credentials import AuthCredential
-from plugp100.new.device_factory import DeviceConnectConfiguration, connect
-from plugp100.new.tapodevice import TapoDevice
+from plugp100.devices.device_factory import DeviceConnectConfiguration, connect
+from plugp100.devices.tapodevice import TapoDevice
 
 
 @dataclasses.dataclass
@@ -82,6 +82,7 @@ class DiscoveredDevice:
                 device_type=self.device_type,
                 encryption_type=encrypt_schema.encrypt_type,
                 encryption_version=encrypt_schema.lv,
+                is_support_https=bool(encrypt_schema.is_support_https),
             )
         else:
             logging.warning(

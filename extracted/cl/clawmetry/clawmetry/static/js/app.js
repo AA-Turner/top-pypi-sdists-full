@@ -18,6 +18,9 @@
 (function initClawMetryHardBlockOverlay() {
   var POLL_MS_ACTIVE = 15000;    // while blocked: retry auto-refresh every 15s
   var POLL_MS_IDLE   = 60000;    // while unblocked: sanity-check every 60s
+  var POLL_MS_PAYING = 5000;     // after "Continue to payment": poll hard
+  var PAYING_WINDOW_MS = 10 * 60 * 1000;  // fast-poll for 10 min after click
+  var _checkoutClickedAt = 0;
   var OVERLAY_ID     = 'cm-hard-block-overlay';
   var STYLE_ID       = 'cm-hard-block-overlay-style';
 
@@ -113,7 +116,7 @@
     el.setAttribute('aria-modal', 'true');
     el.setAttribute('aria-labelledby', 'cm-hbo-title');
     el.setAttribute('data-cm-locked', '1');
-    var upgradeUrl = (state && state.upgrade_url) || 'https://app.clawmetry.com/upgrade';
+    var upgradeUrl = (state && (state.checkout_url || state.upgrade_url)) || 'https://app.clawmetry.com/upgrade';
     var reason = (state && state.reason) || 'A valid ClawMetry subscription is required to continue.';
     var eyebrow = state && state.expired ? 'Trial ended' : 'Subscription required';
     var daysLeft = state && typeof state.days_until_expiry === 'number' ? state.days_until_expiry : null;
@@ -150,6 +153,46 @@
         }),
       }).catch(function () {});
     } catch (e) { /* noop */ }
+
+    // Wire the payment CTA. The href (per-account checkout URL if the
+    // heartbeat cached one, else the upgrade page) is only the no-JS
+    // fallback: on click we ask /api/trial/checkout to mint a live Stripe
+    // Checkout Session for the account this node is already linked to, so
+    // the user lands directly on the card form instead of a generic
+    // upgrade page. The tab MUST be opened synchronously in the click
+    // handler (popup blockers kill window.open from inside a fetch
+    // callback) and is redirected once the URL arrives.
+    var ctaEl = el.querySelector('.cm-hbo-cta');
+    var statusElForCta = el.querySelector('.cm-hbo-status');
+    ctaEl.addEventListener('click', function (ev) {
+      ev.preventDefault();
+      _checkoutClickedAt = Date.now();
+      var payTab = null;
+      try { payTab = window.open('about:blank', '_blank'); } catch (e) { payTab = null; }
+      function go(url) {
+        if (payTab) { try { payTab.location = url; return; } catch (e) { /* fall through */ } }
+        try { window.open(url, '_blank', 'noopener'); } catch (e) { window.location.href = url; }
+      }
+      statusElForCta.className = 'cm-hbo-status';
+      statusElForCta.textContent = 'Opening secure checkout…';
+      fetch('/api/trial/checkout', { method: 'POST' })
+        .then(function (r) { return r.json().catch(function () { return {}; }); })
+        .then(function (resp) {
+          go(resp && resp.url ? resp.url : ctaEl.href);
+          statusElForCta.textContent = 'Waiting for payment. This dashboard unlocks automatically once checkout completes.';
+          // Poll hard while the user is off paying so the unlock feels
+          // instant when the license lands on the next daemon heartbeat.
+          refreshAndMaybeUnblock(true);
+        })
+        .catch(function () { go(ctaEl.href); });
+      try {
+        fetch('/api/paywall/event', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ event: 'hard_block_checkout_click' }),
+        }).catch(function () {});
+      } catch (e) { /* noop */ }
+    });
 
     // Wire activate button — POSTs to /api/license/activate (allowlisted),
     // then forces a refresh + snapshot. The overlay auto-removes itself if
@@ -247,13 +290,18 @@
       if (!existing) mount(state);
     }
     _lastBlocked = blocked;
-    var delay = blocked ? POLL_MS_ACTIVE : POLL_MS_IDLE;
+    var paying = _checkoutClickedAt && (Date.now() - _checkoutClickedAt) < PAYING_WINDOW_MS;
+    var delay = blocked ? (paying ? POLL_MS_PAYING : POLL_MS_ACTIVE) : POLL_MS_IDLE;
     if (window.__cmHardBlockTimer) clearTimeout(window.__cmHardBlockTimer);
     window.__cmHardBlockTimer = setTimeout(tick, delay);
   }
 
   function tick() {
-    refreshAndMaybeUnblock(false);
+    // While the user is off paying, force the refresh-license path so the
+    // entitlement cache is invalidated and a license the daemon just wrote
+    // is honoured on THIS tick, not after the resolver TTL expires.
+    var paying = _checkoutClickedAt && (Date.now() - _checkoutClickedAt) < PAYING_WINDOW_MS;
+    refreshAndMaybeUnblock(!!paying);
   }
 
   // First tick: read status ASAP (before any other tab hits an /api/* that
@@ -9943,7 +9991,7 @@ function _invRosterRow(a, rtFilter) {
   var naTip = '<span class="inv-na" data-i18n-title="inventory.cost_na_tip" title="This runtime does not report cost yet.">--</span>';
   var dayCell = hasCost ? _invFmtUsd(a.cost24hUsd) : naTip;
   var lifeCell = hasCost ? _invFmtUsd(a.costUsd) : naTip;
-  var work = (a.sessions || 0) + ((a.sessions === 1) ? ' conversation' : ' conversations');
+  var work = (a.sessions || 0) + ((a.sessions === 1) ? ' session' : ' sessions');
   var model = a.primaryModel || '--';
   var highlight = (rtFilter !== 'all' && rt === rtFilter) ? ' inv-row-active' : '';
   // Subscription coverage, mirroring the desk device's green "covered" / amber
@@ -16028,9 +16076,13 @@ async function loadTranscripts() {
       _txWinEmpty = (_preWin > 0 && data.transcripts.length === 0);
     }
     var plumbingTotal = 0;
-    data.transcripts.forEach(function(t) {
-      var raw = String(t.id || '');
-      var titleSrc = (t.title && String(t.title).trim()) || (t.name && String(t.name).trim()) || '';
+    // NOTE: the callback param must NOT be named `t` — that shadows the global
+    // i18n t() and the score-button line below throws "t is not a function",
+    // blanking the whole tab (founder report 2026-08-09). Guarded by
+    // tests/test_app_js_t_shadowing.py.
+    data.transcripts.forEach(function(tx) {
+      var raw = String(tx.id || '');
+      var titleSrc = (tx.title && String(tx.title).trim()) || (tx.name && String(tx.name).trim()) || '';
       var looksLikeId = !titleSrc || titleSrc === raw || UUIDISH.test(titleSrc) || raw.indexOf(titleSrc) === 0;
       var title = looksLikeId ? 'Untitled session' : titleSrc;
       var isPlumbing = _isPlumbingTranscript(titleSrc);
@@ -16042,9 +16094,9 @@ async function loadTranscripts() {
       html += '<div class="transcript-name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escHtml(title) + '</div>';
       html += '<div class="transcript-meta-row" style="gap:10px;">';
       html += '<span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--text-muted,#888);font-size:11px;" title="' + escHtml(raw) + '">' + escHtml(raw.slice(0, 8)) + '</span>';
-      html += '<span>' + t.messages + ' messages</span>';
-      if (t.size > 0) html += '<span>' + (t.size > 1024 ? (t.size/1024).toFixed(1) + ' KB' : t.size + ' B') + '</span>';
-      html += '<span>' + timeAgo(t.modified) + '</span>';
+      html += '<span>' + tx.messages + ' messages</span>';
+      if (tx.size > 0) html += '<span>' + (tx.size > 1024 ? (tx.size/1024).toFixed(1) + ' KB' : tx.size + ' B') + '</span>';
+      html += '<span>' + timeAgo(tx.modified) + '</span>';
       html += '</div></div>';
       // Score-this-conversation button (#4562): runs the same judge the daemon
       // uses via /api/evals/rescore. Empty judge key → button flips to
@@ -16080,7 +16132,7 @@ async function loadTranscripts() {
     var plumbBtn = document.getElementById('transcript-plumbing-btn');
     if (plumbBtn) plumbBtn.style.display = plumbingTotal > 0 ? '' : 'none';
     var emptyMsg = _txWinEmpty
-      ? '<div style="padding:16px;color:#666;">' + t('transcripts.window_empty', null, 'No conversations were active in this window. Try a wider window — or note that only recently synced conversations are listed here.') + '</div>'
+      ? '<div style="padding:16px;color:#666;">' + t('transcripts.window_empty', null, 'No sessions were active in this window. Try a wider window — or note that only recently synced sessions are listed here.') + '</div>'
       : _rtNoTx
       ? '<div style="padding:16px;color:#666;">No <strong>' + escHtml(_cmRuntimeLabel(_rtFilter)) + '</strong> sessions have a transcript yet. Pick <strong>All runtimes</strong> in the header to see every session.</div>'
       : (plumbingTotal > 0 && !window._transcriptShowPlumbing)
@@ -17501,13 +17553,13 @@ function renderToolCatalog() {
 var _cmHarnessTemplates = null;   // {runtime: template}, fetched once
 var _cmHarnessData = null;
 
-// Show the Harness nav iff a specific runtime is selected AND it has a template.
+// The Harness nav is always visible: the tab opens with the plain-language
+// "anatomy of a harness" explainer (static, works for every runtime and on
+// cloud), and adds the runtime-specific extras panel when a template exists.
 function _cmRefreshHarnessNav() {
   var nav = document.getElementById('left-nav-harness');
   if (!nav) return;
-  var rt = (typeof _cmRuntimeFilter === 'function') ? _cmRuntimeFilter() : 'all';
-  if (!rt || rt === 'all') { nav.style.display = 'none'; return; }
-  nav.style.display = (_cmHarnessTemplates && _cmHarnessTemplates[rt]) ? '' : 'none';
+  nav.style.display = '';
 }
 
 // Eagerly fetch templates at page-init so the nav can appear without waiting
@@ -17539,14 +17591,15 @@ async function loadHarness() {
     _cmHarnessData = data;
     el.innerHTML = renderHarnessPanel(tmpl, data);
   } catch (e) {
-    el.innerHTML = '<div style="color:var(--muted,#888);">Failed to load harness view: '
+    el.innerHTML = '<div style="color:var(--muted,#888);">Failed to load the runtime panel: '
       + escapeHtml(String((e && e.message) || e)) + '</div>';
   }
 }
 
 function _cmHarnessNoTemplate(rt) {
-  return '<div style="color:var(--muted,#888);line-height:1.5;">No harness panel for <b>'
-    + escapeHtml(rt) + '</b> yet.<br>Pro runtimes light up their panels when '
+  return '<div style="color:var(--muted,#888);line-height:1.5;">Nothing extra for <b>'
+    + escapeHtml(rt) + '</b> yet. The anatomy above applies to every runtime.<br>'
+    + 'Pro runtimes light up their own panels when '
     + 'clawmetry-pro is installed (Cloud Pro or a self-hosted license).</div>';
 }
 
@@ -24631,20 +24684,42 @@ function dismissLicenseExpiredBanner() {
 async function checkLicenseExpiry() {
   var banner = document.getElementById('license-expired-banner');
   if (!banner) return;
+  var dismissedAt = 0;
   try {
-    var dismissedAt = parseInt(localStorage.getItem('cm_license_expired_dismissed') || '0', 10) || 0;
-    if (dismissedAt && (Date.now() - dismissedAt) < 24 * 3600 * 1000) return;
+    dismissedAt = parseInt(localStorage.getItem('cm_license_expired_dismissed') || '0', 10) || 0;
   } catch (e) {}
   try {
     var e = await fetch('/api/entitlement', { credentials: 'same-origin' }).then(function (r) { return r.json(); });
     var expiredTrial = !!(e && e.expired && e.tier === 'trial');
     var expiredPaid = !!(e && e.expired && e.is_paid && e.tier !== 'trial');
-    if (!expiredTrial && !expiredPaid) { banner.style.display = 'none'; return; }
+    // Trial ending: say it LOUD before the cliff, not after.
+    // days_until_expiry === 0 means "ends today". `e.grace` must NOT
+    // gate this: it is the global paywall-rollout flag (true on every
+    // install until enforcement goes live), not a statement about this
+    // trial's expiry — keying on it made a freshly-activated 7-day
+    // trial read "ends today". A trial whose expiry actually passed
+    // surfaces via `e.expired` above.
+    var days = (e && typeof e.days_until_expiry === 'number') ? e.days_until_expiry : null;
+    var endingTrial = !!(e && !e.expired && e.tier === 'trial'
+      && days !== null && days <= 3);
+    if (!expiredTrial && !expiredPaid && !endingTrial) { banner.style.display = 'none'; return; }
+    // A dismissed EXPIRED banner stays gone for 24h; a dismissed
+    // countdown comes back after 4h — the clock is literally running.
+    var dismissWindowMs = (expiredTrial || expiredPaid) ? 24 * 3600 * 1000 : 4 * 3600 * 1000;
+    if (dismissedAt && (Date.now() - dismissedAt) < dismissWindowMs) { banner.style.display = 'none'; return; }
     var msg = document.getElementById('license-expired-msg');
+    var t = (typeof window.t === 'function') ? window.t : function (k, v, fb) { return fb; };
     if (msg && expiredPaid) {
-      var t = (typeof window.t === 'function') ? window.t : function (k, v, fb) { return fb; };
       msg.textContent = t('banners.license_expired_msg', null,
         'Your license has expired. Renew to keep every runtime.');
+    } else if (msg && endingTrial) {
+      if (days <= 0) {
+        msg.textContent = t('banners.trial_ends_today_msg', null,
+          'Your trial ends today. Upgrade now to keep every runtime — after that, this node drops to the free tier.');
+      } else {
+        msg.textContent = t('banners.trial_ending_msg', { days: days },
+          'Your trial ends in ' + days + ' day' + (days === 1 ? '' : 's') + '. Upgrade to keep every runtime.');
+      }
     }
     // Hide the paste-a-key link when the selfhost modal is not on this page.
     var haveKey = document.getElementById('license-expired-have-key');

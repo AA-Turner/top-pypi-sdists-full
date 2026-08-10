@@ -144,6 +144,23 @@ def test_collect_inclusive_groups_walks_nested_vol_all_values() -> None:
     }
 
 
+def test_collect_inclusive_groups_descends_list_item_schemas() -> None:
+    """Inclusive markers inside a ``cv.ensure_list`` item keep their paths."""
+    schema = {
+        cv.Optional("entries"): cv.ensure_list(
+            {
+                cv.Inclusive("certificate", "cert_and_key"): cv.string,
+                cv.Inclusive("key", "cert_and_key"): cv.string,
+            }
+        ),
+    }
+    out = _collect_inclusive_groups(_FakeManifest(schema))
+    assert out == {
+        ("entries", "certificate"): "cert_and_key",
+        ("entries", "key"): "cert_and_key",
+    }
+
+
 def test_collect_inclusive_groups_returns_empty_when_manifest_has_no_schema() -> None:
     """Missing ``config_schema`` is handled gracefully."""
 
@@ -203,6 +220,19 @@ def test_collect_required_groups_captures_nested_constraint() -> None:
     out = _collect_required_groups(_FakeManifest(schema))
     assert out == {
         ("eap",): [{"kind": "at_least_one", "keys": ["identity", "certificate"]}],
+    }
+
+
+def test_collect_required_groups_descends_list_item_schemas() -> None:
+    """A constraint on a ``cv.ensure_list`` item schema lands at the list field's path."""
+    item = vol.All(
+        cv.Schema({cv.Optional("identity"): cv.string, cv.Optional("certificate"): cv.string}),
+        cv.has_at_least_one_key("identity", "certificate"),
+    )
+    schema = cv.Schema({cv.Optional("networks"): cv.ensure_list(item)})
+    out = _collect_required_groups(_FakeManifest(schema))
+    assert out == {
+        ("networks",): [{"kind": "at_least_one", "keys": ["identity", "certificate"]}],
     }
 
 

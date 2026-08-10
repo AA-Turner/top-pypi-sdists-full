@@ -35,7 +35,13 @@ def publish_job() -> dict[str, object]:
 def test_feed_is_release_3_0_only_and_wakes_after_publisher() -> None:
     text = workflow_text()
     namespace = runpy.run_path(str(TOOL))
+    trusted_push = """push:
+    branches: [main]
+    paths:
+      - .github/workflows/desktop-core-alpha-feed.yml
+      - scripts/release/desktop_core_alpha_feed.py"""
     assert namespace["SUPPORTED_TRAINS"] == {"3.0"}
+    assert trusted_push in text
     assert "branches: [release/3.0]" in text
     assert 'workflows: ["Publish to PyPI"]' in text
     assert "workflow_run.conclusion == 'success'" in text
@@ -73,6 +79,15 @@ def test_feed_uses_apple_trust_and_no_redundant_manifest_key() -> None:
     helper = TOOL.read_text(encoding="utf-8")
     job = publish_job()
     steps = {step.get("name"): step for step in job["steps"]}
+    extraction_line = 'codesign --display --extract-certificates "$BINARY" >/dev/null 2> "$RUNNER_TEMP/codesign-certificates.txt"'
+    extraction_lines = [
+        line.strip()
+        for line in text.splitlines()
+        if "codesign --display --extract-certificates" in line
+    ]
+    verify = steps["Verify exact Apple identity, notarization, and Core contract"]
+    verify_run = verify["run"]
+    assert isinstance(verify_run, str)
     assert "HOL_GUARD_CORE_UPDATE_PRIVATE_KEY" not in text
     assert "HOL_GUARD_CORE_UPDATE_PUBLIC_KEY" not in text
     assert "json.sig" not in text
@@ -81,12 +96,21 @@ def test_feed_uses_apple_trust_and_no_redundant_manifest_key() -> None:
     assert steps["Import Apple signing identity"]["if"] == "steps.release.outputs.available == 'true'"
     assert "security find-identity -v -p codesigning" in text
     assert "apple-signing-fingerprint.txt" in text
-    assert "codesign --display --extract-certificates" in text
+    assert 'CERT_DIR="$RUNNER_TEMP/codesign-certs"' in text
+    assert 'cd "$CERT_DIR"' in text
+    assert extraction_lines == [extraction_line]
+    assert '--extract-certificates "$CERT_DIR"' not in text
+    assert '--extract-certificates "$CERT_PREFIX"' not in text
+    assert 'test -s "$CERT_DIR/codesign0"' in text
+    assert 'cat "$RUNNER_TEMP/codesign-certificates.txt" >&2' in text
     assert "openssl x509 -inform DER" in text
     assert 'test "$ACTUAL_FINGERPRINT" = "$EXPECTED_FINGERPRINT"' in text
     assert 'grep -Fx "Authority=$APPLE_SIGNING_IDENTITY"' not in text
     assert 'grep -Fx "TeamIdentifier=$APPLE_TEAM_ID"' in text
-    assert 'grep -F "source=Notarized Developer ID"' in text
+    assert verify["env"]["MODE"] == "${{ steps.existing.outputs.mode }}"
+    assert "spctl --assess" not in verify_run
+    assert 'test -s "$RUNNER_TEMP/notary-result.json"' in verify_run
+    assert ".status == \"Accepted\" and (.id | type == \"string\" and length > 0)" in verify_run
 
 
 def test_macos_feed_avoids_bash4_only_builtins_and_binds_mode() -> None:

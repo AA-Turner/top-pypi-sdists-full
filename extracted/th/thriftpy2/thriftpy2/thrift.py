@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
     thriftpy2.thrift
     ~~~~~~~~~~~~~~~~~~
@@ -7,14 +5,12 @@
     Thrift simplified.
 """
 
-from __future__ import absolute_import
-
 import functools
 import linecache
 import types
 from itertools import zip_longest
-from typing import (Any, Callable, Dict, List, Optional, Tuple, Type,
-                    TYPE_CHECKING)
+from typing import (Any, Callable, ClassVar, Dict, List, Optional, Tuple,
+                    Type, TYPE_CHECKING)
 
 if TYPE_CHECKING:
     from thriftpy2.protocol.base import TProtocolBase
@@ -22,7 +18,9 @@ if TYPE_CHECKING:
 
 def args_to_kwargs(thrift_spec: Dict[int, tuple], *args: Any,
                    **kwargs: Any) -> Dict[str, Any]:
-    for item, value in zip_longest(sorted(thrift_spec.items()), args):
+    # Positional arguments follow the IDL declaration order (the order of
+    # thrift_spec insertion), matching Apache Thrift generated signatures.
+    for item, value in zip_longest(thrift_spec.items(), args):
         arg_name = item[1][1]
         required = item[1][-1]
         if value is not None:
@@ -139,6 +137,11 @@ class TMessageType(object):
 
 class TPayloadMeta(type):
 
+    # Declared for type checkers: generated payload classes carry these
+    # class attributes (assigned by gen_init / the parser at runtime).
+    thrift_spec: Dict[int, tuple]
+    default_spec: List[Tuple[str, Any]]
+
     def __new__(cls, name: str, bases: Tuple[type, ...],
                 attrs: Dict[str, Any]) -> 'TPayloadMeta':
         if "default_spec" in attrs:
@@ -157,9 +160,30 @@ def gen_init(cls: type, thrift_spec: Optional[Dict[int, tuple]] = None,
     return cls
 
 
+def _hash_value(value: Any) -> int:
+    """Hash a field value, freezing mutable containers so that the
+    result is consistent with ``TPayload.__eq__``."""
+    if isinstance(value, dict):
+        return hash(frozenset(
+            (_hash_value(k), _hash_value(v)) for k, v in value.items()))
+    if isinstance(value, (list, tuple)):
+        return hash(tuple(_hash_value(v) for v in value))
+    if isinstance(value, (set, frozenset)):
+        return hash(frozenset(_hash_value(v) for v in value))
+    return hash(value)
+
+
 class TPayload(metaclass=TPayloadMeta):
 
-    __hash__ = None
+    thrift_spec: ClassVar[Dict[int, tuple]]
+    default_spec: ClassVar[List[Tuple[str, Any]]]
+
+    def __hash__(self) -> int:
+        # Consistent with __eq__: equal payloads hash equal, so structs
+        # can be used as thrift map keys or set members.  Note that like
+        # any mutable object used as a key, mutating a payload after it
+        # is put in a dict or set breaks lookups.
+        return hash(self.__class__) ^ _hash_value(self.__dict__)
 
     def read(self, iprot: 'TProtocolBase') -> None:
         iprot.read_struct(self)
@@ -289,8 +313,8 @@ class TProcessor(object):
         iprot.read_message_end()
         result = getattr(self._service, api + "_result")()
 
-        # convert kwargs to args
-        api_args = [args.thrift_spec[k][1] for k in sorted(args.thrift_spec)]
+        # convert kwargs to args, following the IDL declaration order
+        api_args = [item[1] for item in args.thrift_spec.values()]
 
         def call():
             f = getattr(self._handler, api)
@@ -330,6 +354,7 @@ class TProcessor(object):
         if isinstance(result, TApplicationException):
             return self.send_exception(oprot, api, result, seqid)
 
+        assert call is not None
         try:
             result.success = call()
         except TApplicationException as e:
@@ -380,8 +405,8 @@ class TMultiplexedProcessor(TProcessor):
         iprot.read_message_end()
         result = getattr(proc._service, api + "_result")()
 
-        # convert kwargs to args
-        api_args = [args.thrift_spec[k][1] for k in sorted(args.thrift_spec)]
+        # convert kwargs to args, following the IDL declaration order
+        api_args = [item[1] for item in args.thrift_spec.values()]
 
         def call():
             f = getattr(proc._handler, api)

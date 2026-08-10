@@ -13,15 +13,12 @@
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with this program. If not, see <http://www.gnu.org/licenses/>.
+# along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 """MicroDVD file."""
 
 import aeidon
 import re
-
-__all__ = ("MicroDVD",)
-
 
 class MicroDVD(aeidon.SubtitleFile):
 
@@ -62,7 +59,6 @@ class MicroDVD(aeidon.SubtitleFile):
             f.write(self.header + "\n")
         for subtitle in subtitles:
             text = subtitle.get_text(doc).replace("\n", "|")
-            f.write(("{{{:d}}}{{{:d}}}{}\n"
-                     .format(subtitle.start_frame,
-                             subtitle.end_frame,
-                             text)))
+            start = subtitle.start_frame
+            end = subtitle.end_frame
+            f.write(f"{{{start:d}}}{{{end:d}}}{text}\n")

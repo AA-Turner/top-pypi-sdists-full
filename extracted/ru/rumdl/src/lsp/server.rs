@@ -7,7 +7,6 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use futures::future::join_all;
 use tokio::sync::{RwLock, mpsc};
 use tower_lsp::jsonrpc::Result as JsonRpcResult;
 use tower_lsp::lsp_types::*;
@@ -15,8 +14,8 @@ use tower_lsp::{Client, LanguageServer};
 
 use crate::config::{Config, ConfigValidated, SourcedConfig, is_valid_rule_name};
 use crate::discovery::{ExcludeMatchers, is_markdown_extension};
-use crate::lsp::index_worker::IndexWorker;
-use crate::lsp::types::{IndexState, IndexUpdate, LspRuleSettings, RumdlLspConfig};
+use crate::lsp::index_worker::{IndexWorker, SharedIndexState};
+use crate::lsp::types::{IndexState, IndexUpdate, LspRuleSettings, RelintRequest, RumdlLspConfig};
 use crate::workspace_index::WorkspaceIndex;
 
 /// Maximum number of rules in enable/disable lists (DoS protection)
@@ -119,8 +118,14 @@ pub struct RumdlLanguageServer {
     pub(crate) workspace_index: Arc<RwLock<WorkspaceIndex>>,
     /// Current state of the workspace index (building/ready/error)
     pub(crate) index_state: Arc<RwLock<IndexState>>,
-    /// Channel to send updates to the background index worker
-    pub(crate) update_tx: mpsc::Sender<IndexUpdate>,
+    /// Channel to send updates to the background index worker.
+    ///
+    /// `None` on the copy a background task holds (see
+    /// [`Self::detached_for_background`]), which must not be able to queue
+    /// index work: it would keep the index worker waiting on a channel that
+    /// can never close, so neither task would stop when the editor goes away.
+    /// Queue through [`Self::queue_index_update`] rather than reading it.
+    update_tx: Option<mpsc::Sender<IndexUpdate>>,
     /// Whether the client supports pull diagnostics (textDocument/diagnostic)
     /// When true, we skip pushing diagnostics to avoid duplicates
     pub(crate) client_supports_pull_diagnostics: Arc<RwLock<bool>>,
@@ -148,39 +153,80 @@ impl RumdlLanguageServer {
         let index_state = Arc::new(RwLock::new(IndexState::default()));
         let workspace_roots = Arc::new(RwLock::new(Vec::new()));
         let rumdl_config = Arc::new(RwLock::new(Config::default()));
+        let documents = Arc::new(RwLock::new(HashMap::new()));
 
         // Create channels for index worker communication
         let (update_tx, update_rx) = mpsc::channel::<IndexUpdate>(100);
-        let (relint_tx, _relint_rx) = mpsc::channel::<PathBuf>(100);
+        let (relint_tx, relint_rx) = mpsc::channel::<RelintRequest>(100);
 
         // Spawn the background index worker
         let worker = IndexWorker::new(
             update_rx,
-            workspace_index.clone(),
-            index_state.clone(),
             client.clone(),
-            workspace_roots.clone(),
             relint_tx,
-            rumdl_config.clone(),
+            SharedIndexState {
+                workspace_index: workspace_index.clone(),
+                index_state: index_state.clone(),
+                workspace_roots: workspace_roots.clone(),
+                rumdl_config: rumdl_config.clone(),
+                documents: documents.clone(),
+            },
         );
         tokio::spawn(worker.run());
 
-        Self {
+        let server = Self {
             client,
             config: Arc::new(RwLock::new(initial_config)),
             rumdl_config,
             rumdl_sourced: Arc::new(RwLock::new(None)),
-            documents: Arc::new(RwLock::new(HashMap::new())),
+            documents,
             document_aliases: Arc::new(RwLock::new(HashMap::new())),
             workspace_roots,
             config_cache: Arc::new(RwLock::new(HashMap::new())),
             workspace_index,
             index_state,
-            update_tx,
+            update_tx: Some(update_tx),
             client_supports_pull_diagnostics: Arc::new(RwLock::new(false)),
             client_supports_hierarchical_symbols: Arc::new(RwLock::new(false)),
             cli_config_path,
+        };
+
+        // Consume the index worker's re-lint requests. Cross-file diagnostics are
+        // computed from the workspace index, so the events that change an answer
+        // reach this server rather than the editor: another file's headings moved,
+        // or the initial scan finished after a document was already linted.
+        tokio::spawn(server.detached_for_background().run_relint_worker(relint_rx));
+
+        server
+    }
+
+    /// A copy of this server for a background task, holding the same state but
+    /// not the connection's claim on the index worker.
+    ///
+    /// A task parked on a channel holds its copy for as long as it runs, and
+    /// the index worker runs until every sender is dropped. A plain clone would
+    /// therefore make the two keep each other alive: the worker waiting on a
+    /// channel the re-lint task holds open, the re-lint task waiting on a
+    /// channel the worker holds open, with the whole server state behind them.
+    /// A client that closes its connection without sending `shutdown` is what
+    /// reaches that.
+    fn detached_for_background(&self) -> Self {
+        Self {
+            update_tx: None,
+            ..self.clone()
         }
+    }
+
+    /// Queue work for the background index worker.
+    ///
+    /// Answers whether the worker took it. `false` means the worker is gone,
+    /// which is the normal state after shutdown and on a background copy of the
+    /// server; a caller that wants to report it decides what that is worth.
+    pub(crate) async fn queue_index_update(&self, update: IndexUpdate) -> bool {
+        let Some(update_tx) = &self.update_tx else {
+            return false;
+        };
+        update_tx.send(update).await.is_ok()
     }
 
     /// Get document content, either from cache or by reading from disk
@@ -454,7 +500,7 @@ impl LanguageServer for RumdlLanguageServer {
             .await;
 
         // Trigger initial workspace indexing for cross-file analysis
-        if self.update_tx.send(IndexUpdate::FullRescan).await.is_err() {
+        if !self.queue_index_update(IndexUpdate::FullRescan).await {
             log::warn!("Failed to trigger initial workspace indexing");
         } else {
             log::info!("Triggered initial workspace indexing for cross-file analysis");
@@ -613,7 +659,7 @@ impl LanguageServer for RumdlLanguageServer {
         self.reload_configuration().await;
 
         // Trigger full workspace rescan for cross-file index
-        if self.update_tx.send(IndexUpdate::FullRescan).await.is_err() {
+        if !self.queue_index_update(IndexUpdate::FullRescan).await {
             log::warn!("Failed to trigger workspace rescan after folder change");
         }
     }
@@ -872,37 +918,48 @@ impl LanguageServer for RumdlLanguageServer {
             // Rebuild the workspace index under the reloaded config: a new
             // configPath can change exclude patterns or respect_gitignore,
             // which the scan reads from the shared config.
-            if self.update_tx.send(IndexUpdate::FullRescan).await.is_err() {
+            if !self.queue_index_update(IndexUpdate::FullRescan).await {
                 log::warn!("Failed to request workspace rescan after configuration change");
             }
         }
 
-        // Collect all open documents first (to avoid holding lock during async operations)
+        // Collect all open documents first (to avoid holding lock during async
+        // operations). Files cached from disk to answer a request are not open:
+        // publishing for one puts diagnostics on screen for a document the
+        // editor never opened, and no `didClose` will ever clear them.
         let doc_list: Vec<_> = {
             let documents = self.documents.read().await;
             documents
                 .iter()
+                .filter(|(_, entry)| !entry.from_disk)
                 .map(|(uri, entry)| (uri.clone(), entry.content.clone()))
                 .collect()
         };
 
-        // Refresh diagnostics for all open documents concurrently
-        let tasks = doc_list.into_iter().map(|(uri, text)| {
-            let server = self.clone();
-            tokio::spawn(async move {
-                server.update_diagnostics(uri, text, true).await;
+        // Refresh diagnostics for all open documents concurrently. Collecting the
+        // handles is what starts every task: a lazy iterator would spawn each one
+        // only as the loop below awaits it, running them one at a time.
+        let tasks: Vec<_> = doc_list
+            .into_iter()
+            .map(|(uri, text)| {
+                let server = self.clone();
+                tokio::spawn(async move {
+                    server.update_diagnostics(uri, text, true).await;
+                })
             })
-        });
+            .collect();
 
         // Wait for all diagnostics to complete
-        let _ = join_all(tasks).await;
+        for task in tasks {
+            let _ = task.await;
+        }
     }
 
     async fn shutdown(&self) -> JsonRpcResult<()> {
         log::info!("Shutting down rumdl Language Server");
 
         // Signal the index worker to shut down
-        let _ = self.update_tx.send(IndexUpdate::Shutdown).await;
+        self.queue_index_update(IndexUpdate::Shutdown).await;
 
         Ok(())
     }
@@ -931,13 +988,11 @@ impl LanguageServer for RumdlLanguageServer {
 
         // Send update to index worker for cross-file analysis
         if let Some(path) = super::resolve_uri(&uri) {
-            let _ = self
-                .update_tx
-                .send(IndexUpdate::FileChanged {
-                    path,
-                    content: text.clone(),
-                })
-                .await;
+            self.queue_index_update(IndexUpdate::FileChanged {
+                path,
+                content: text.clone(),
+            })
+            .await;
         }
 
         self.update_diagnostics(uri, text, true).await;
@@ -959,13 +1014,11 @@ impl LanguageServer for RumdlLanguageServer {
 
             // Send update to index worker for cross-file analysis
             if let Some(path) = super::resolve_uri(&uri) {
-                let _ = self
-                    .update_tx
-                    .send(IndexUpdate::FileChanged {
-                        path,
-                        content: text.clone(),
-                    })
-                    .await;
+                self.queue_index_update(IndexUpdate::FileChanged {
+                    path,
+                    content: text.clone(),
+                })
+                .await;
             }
 
             self.update_diagnostics(uri, text, false).await;
@@ -1093,10 +1146,29 @@ impl LanguageServer for RumdlLanguageServer {
                 {
                     match change.typ {
                         FileChangeType::CREATED | FileChangeType::CHANGED => {
+                            // The filesystem does not speak for a document an editor
+                            // holds: what is on disk is the last save, and opening a
+                            // document indexes it whatever discovery says. Re-queue
+                            // the buffer rather than skipping the event, so a file
+                            // deleted and recreated underneath the editor (a branch
+                            // switch) keeps the version the user is looking at. The
+                            // lookup goes through the spelling the server identifies
+                            // documents by, because a watch event words the path the
+                            // way the filesystem does and not the way the editor did.
+                            if let Some(content) = self
+                                .get_open_document_content(&super::resolve_uri_spelling(&change.uri))
+                                .await
+                            {
+                                self.queue_index_update(IndexUpdate::FileChanged {
+                                    path: path.clone(),
+                                    content,
+                                })
+                                .await;
+                                continue;
+                            }
                             // Skip files the full scan would ignore (e.g. generated
                             // output) so filesystem-watch events don't reintroduce
-                            // them. Explicitly opened/edited files bypass this via
-                            // the did_open/did_change handlers.
+                            // them.
                             let roots = self.workspace_roots.read().await.clone();
                             let (options, excludes) = {
                                 let config = self.rumdl_config.read().await;
@@ -1109,28 +1181,22 @@ impl LanguageServer for RumdlLanguageServer {
                                 // A file that was indexed before an ignore rule began
                                 // matching it (e.g. just added to .gitignore) must be
                                 // evicted so completions and navigation stop surfacing
-                                // it. FileDeleted is a no-op when it was never indexed.
-                                let _ = self
-                                    .update_tx
-                                    .send(IndexUpdate::FileDeleted { path: path.clone() })
+                                // it. The message is a no-op when it was never indexed.
+                                self.queue_index_update(IndexUpdate::FileRemoved { path: path.clone() })
                                     .await;
                                 continue;
                             }
                             // Read file content and update index
                             if let Ok(content) = tokio::fs::read_to_string(&path).await {
-                                let _ = self
-                                    .update_tx
-                                    .send(IndexUpdate::FileChanged {
-                                        path: path.clone(),
-                                        content,
-                                    })
-                                    .await;
+                                self.queue_index_update(IndexUpdate::FileChanged {
+                                    path: path.clone(),
+                                    content,
+                                })
+                                .await;
                             }
                         }
                         FileChangeType::DELETED => {
-                            let _ = self
-                                .update_tx
-                                .send(IndexUpdate::FileDeleted { path: path.clone() })
+                            self.queue_index_update(IndexUpdate::FileRemoved { path: path.clone() })
                                 .await;
                         }
                         _ => {}
@@ -1144,7 +1210,7 @@ impl LanguageServer for RumdlLanguageServer {
             // Rebuild the workspace index: discovery-relevant settings
             // (exclude patterns, respect_gitignore) may have changed, and the
             // scan reads them from the shared config.
-            if self.update_tx.send(IndexUpdate::FullRescan).await.is_err() {
+            if !self.queue_index_update(IndexUpdate::FullRescan).await {
                 log::warn!("Failed to request workspace rescan after config change");
             }
 

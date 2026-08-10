@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Union
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Literal, Optional, Union
 
 
 @dataclass
@@ -29,11 +29,26 @@ class WorkflowInputSchema:
     properties: Optional[Dict[str, WorkflowPropertySchema]] = None
     required: Optional[List[str]] = None
     additionalProperties: Optional[bool] = None
+    _raw_schema: Optional[Dict[str, Any]] = field(
+        default=None,
+        init=False,
+        repr=False,
+        compare=False,
+    )
+
+
+@dataclass
+class WorkflowVaultSchemaEntry:
+    type: Optional[Literal["credential"]] = None
+    domain: Optional[str] = None
+    example: Optional[str] = None
 
 
 @dataclass
 class WorkflowMetadata:
     input_schema: WorkflowInputSchema
+    workspace_id: Optional[str] = None
+    vault_schema: Dict[str, WorkflowVaultSchemaEntry] = field(default_factory=dict)
 
 
 @dataclass
@@ -43,6 +58,14 @@ class InvalidTypeDetail:
     actual: str
 
 
+@dataclass
+class SchemaErrorDetail:
+    instancePath: str
+    schemaPath: str
+    keyword: str
+    message: str
+
+
 class InputValidationError(Exception):
     def __init__(
         self,
@@ -50,9 +73,11 @@ class InputValidationError(Exception):
         missing_required: Optional[List[str]] = None,
         invalid_types: Optional[List[InvalidTypeDetail]] = None,
         unknown_keys: Optional[List[str]] = None,
+        schema_errors: Optional[List[SchemaErrorDetail]] = None,
     ) -> None:
         super().__init__(message)
         self.missingRequired = missing_required or []
         self.invalidTypes = invalid_types or []
         self.unknownKeys = unknown_keys or []
+        self.schemaErrors = schema_errors or []
 

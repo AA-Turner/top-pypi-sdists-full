@@ -95,20 +95,53 @@ class IndexLookup:
         return self._refs_by_name.get(name, [])
 
     def struct_by_name(self, name: str) -> Optional[dict]:
-        """Members of a module-declared type (structure/exception/enumeration)."""
-        return (self.index.get("struct_members") or {}).get(name)
+        """Members of a project type by its name: a module-declared structure/exception/
+        enumeration, or a type described in metadata (a structure's Fields, the constants of
+        a set under `<Name>.Record` / `<Name>.Data`).
+
+        A structure declared in a module is indexed under its BARE name, while code names it
+        with its module (`Каталог.Карточка`) - so a qualified name falls back to its tail."""
+        members = self.index.get("struct_members") or {}
+        found = members.get(name)
+        if found is None and "." in name:
+            found = members.get(name.rpartition(".")[2])
+        return found
 
     def method_returns(self) -> dict[str, dict[str, str]]:
-        """{module: {method: return type head}} - project methods in the shape the type
-        inference expects of the stdlib catalogue, so that `val X = Module.Method(...)` is
-        typed the same way a platform call is. Only methods that declare a return type."""
+        """{name: {method: result type}} - the return types the inference needs of a PROJECT
+        name, in the shape it expects of the stdlib catalogue, so that a variable initialized by
+        a call of a module method is typed the way a platform call is.
+
+        Two sources: the methods a module DECLARES with a return type, and the methods the
+        platform GENERATES on an object of a kind (`generated_returns` of the index - a
+        constants set `Rates` answers `Rates.Get()` with a `Rates.Record`). A declaration
+        outranks a generated method of the same name: written code beats an assumption about
+        the kind."""
         cached = getattr(self, "_method_returns", None)
         if cached is None:
-            cached = {}
+            cached = {
+                str(name): dict(by_name)
+                for name, by_name in (self.index.get("generated_returns") or {}).items()
+                if isinstance(by_name, dict)
+            }
+            # The fields of a project TYPE belong here too: the catalogue is keyed by the name
+            # of what carries the member, and for a field the carrier is the structure. Without
+            # them a chain stops at the first field (`Данные.Строки` answers nothing), and a
+            # for-each over that field has no element type to take.
+            for name, record in (self.index.get("struct_members") or {}).items():
+                types = record.get("property_types") if isinstance(record, dict) else None
+                if not (isinstance(types, dict) and types):
+                    continue
+                # Under both spellings: the record is kept under the bare name, and code in
+                # another module writes the qualified one (`Каталог.Карточка`).
+                owner = record.get("module")
+                keys = [str(name)] + ([f"{owner}.{name}"] if owner else [])
+                for key in keys:
+                    cached[key] = {**cached.get(key, {}), **types}
             for module, methods in self._module_methods.items():
                 by_name = {m["name"]: m["returns"] for m in methods if m.get("returns")}
                 if by_name:
-                    cached[module] = by_name
+                    cached[module] = {**cached.get(module, {}), **by_name}
             self._method_returns = cached
         return cached
 
@@ -318,31 +351,51 @@ def _method_entry(m: dict) -> dict:
 
 
 def _project_type_entries(lookup: IndexLookup, type_name: str) -> Optional[list[dict]]:
-    """Members of a variable of a PROJECT type: a module-declared structure/exception/
-    enumeration (fields, enum values, methods) or a yaml structure object (attributes)."""
+    """Members of a variable of a PROJECT type: a structure/exception/enumeration declared in
+    a module or a type described in metadata (the fields of a structure, the constants of a
+    set) - fields, enumeration values and the methods of the module extending the type."""
     struct = lookup.struct_by_name(type_name)
-    if struct:
-        entries = [
-            {"label": str(x), "kind": "field", "detail": "поле"}
-            for x in struct.get("properties") or []
-        ]
-        entries += [
-            {"label": str(x), "kind": "enumMember", "detail": "значение перечисления"}
-            for x in struct.get("values") or []
-        ]
-        entries += [
-            {"label": str(x), "kind": "method", "detail": "метод", "snippet": f"{x}($0)"}
-            for x in struct.get("methods") or []
-        ]
-        return entries or None
-    obj = lookup.object_by_name(type_name)
-    if obj and obj.get("kind") in ("Структура", "ХранимаяСтруктура"):
-        entries = [
-            {"label": a.get("name", ""), "kind": "field", "detail": "реквизит"}
-            for a in obj.get("attributes") or []
-        ]
-        return entries or None
-    return None
+    if not struct:
+        return None
+    # A constant is not a field: the hint says what the author writes in the yaml of the set.
+    field_detail = "константа" if struct.get("kind") == "НаборКонстант" else "поле"
+    entries = [
+        {"label": str(x), "kind": "field", "detail": field_detail}
+        for x in struct.get("properties") or []
+    ]
+    entries += [
+        {"label": str(x), "kind": "enumMember", "detail": "значение перечисления"}
+        for x in struct.get("values") or []
+    ]
+    entries += [
+        {"label": str(x), "kind": "method", "detail": "метод", "snippet": f"{x}($0)"}
+        for x in struct.get("methods") or []
+    ]
+    return entries or None
+
+
+#: Buckets of the `manager` field of an index object, with what a completion item says about
+#: each: the label detail, and whether the item inserts a call's parentheses.
+_MANAGER_BUCKETS = (
+    ("methods", "метод вида", True),
+    ("properties", "свойство вида", False),
+    # data generated before properties and methods were told apart
+    ("members", "член вида", False),
+)
+
+
+def _manager_entries(manager) -> list[dict]:
+    """Completion items for the members of the kind's singleton type."""
+    if not isinstance(manager, dict):
+        return []
+    entries: list[dict] = []
+    for bucket, detail, is_call in _MANAGER_BUCKETS:
+        for name in manager.get(bucket) or ():
+            item = {"label": str(name), "kind": "method", "detail": detail}
+            if is_call:
+                item["snippet"] = f"{name}($0)"
+            entries.append(item)
+    return entries
 
 
 def _object_member_entries(lookup: IndexLookup, name: str) -> Optional[list[dict]]:
@@ -358,6 +411,11 @@ def _object_member_entries(lookup: IndexLookup, name: str) -> Optional[list[dict
         else:
             for f in obj.get("family", []):
                 entries.append({"label": str(f), "kind": "family", "detail": "тип"})
+            # Members of the kind's singleton type: what the code writes on the object name
+            # itself, next to the types the object generates. A method takes the parentheses
+            # snippet, a property does not; data generated before the two were told apart
+            # arrives in one bucket and gets neither the snippet nor a claim about which it is.
+            entries.extend(_manager_entries(obj.get("manager")))
             for t in obj.get("tabular", []):
                 entries.append({"label": t.get("name", ""), "kind": "tabular", "detail": "табличная часть"})
             for t in obj.get("local_types", []):
@@ -385,11 +443,18 @@ def _yaml_type_entries(lookup: IndexLookup, stdlib_names: Optional[Any]) -> list
     for o in lookup.objects():
         kind = o.get("kind", "")
         add(o.get("name", ""), "enum" if kind == "Перечисление" else "object", kind)
-    for s_name in lookup.index.get("struct_members") or {}:
-        add(str(s_name), "localType", "тип модуля")
+    for s_name, record in (lookup.index.get("struct_members") or {}).items():
+        add(str(s_name), "localType", _struct_detail(record))
     for name in _stdlib_type_names(stdlib_names):
         add(name, "object", "тип платформы")
     return entries
+
+
+def _struct_detail(record: Any) -> str:
+    """What a struct_members entry is: a type described in metadata names its element kind
+    (a constants set is also there under `<Имя>.Запись`), the rest is declared in a module."""
+    kind = record.get("kind") if isinstance(record, dict) else None
+    return str(kind) if kind else "тип модуля"
 
 
 def _stdlib_type_names(stdlib_names: Optional[Any]) -> list[str]:
@@ -615,8 +680,8 @@ def resolve_completions(
         for o in lookup.objects():
             kind = o.get("kind", "")
             add(o.get("name", ""), "enum" if kind == "Перечисление" else "object", kind)
-        for s_name in (lookup.index.get("struct_members") or {}):
-            add(s_name, "localType", "тип модуля")
+        for s_name, record in (lookup.index.get("struct_members") or {}).items():
+            add(s_name, "localType", _struct_detail(record))
         for g in stdlib_globals or ():
             add(str(g), "method", "глобальный контекст", f"{g}($0)")
         for t_name in _stdlib_type_names(stdlib_names or stdlib_members):

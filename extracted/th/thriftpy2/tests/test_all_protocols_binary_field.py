@@ -1,12 +1,10 @@
-from __future__ import absolute_import
-
 import sys
 import time
 import traceback
 from multiprocessing import Process
+from pathlib import Path
 
 import pytest
-import six
 
 from thriftpy2 import _compat
 from thriftpy2.thrift import TType, TPayloadMeta
@@ -24,6 +22,8 @@ from thriftpy2.protocol import TBinaryProtocolFactory
 from thriftpy2.rpc import make_server as make_rpc_server, \
     make_client as make_rpc_client
 from thriftpy2.transport import TBufferedTransportFactory, TCyMemoryBuffer
+
+TEST_DIR = Path(__file__).parent
 
 
 if sys.platform == "win32":
@@ -45,10 +45,10 @@ protocols = [TApacheJSONProtocolFactory,
 
 
 def recursive_vars(obj):
-    if isinstance(obj, six.string_types):
-        return six.ensure_str(obj)
-    if isinstance(obj, six.binary_type):
-        return six.ensure_binary(obj)
+    if isinstance(obj, str):
+        return obj
+    if isinstance(obj, bytes):
+        return obj
     if isinstance(obj, (int, float, bool)):
         return obj
     if isinstance(obj, dict):
@@ -67,7 +67,7 @@ def recursive_vars(obj):
 @pytest.mark.parametrize('proto_factory', protocols)
 def test_protocols(proto_factory, binary, tlist, server_func):
     test_thrift = thriftpy2.load(
-        "apache_json_test.thrift",
+        TEST_DIR / "apache_json_test.thrift",
         module_name="test_thrift"
     )
     Foo = test_thrift.Foo
@@ -164,7 +164,7 @@ def test_protocols(proto_factory, binary, tlist, server_func):
 @pytest.mark.parametrize('proto_factory', protocols)
 def test_exceptions(server_func, proto_factory):
     test_thrift = thriftpy2.load(
-        "apache_json_test.thrift",
+        TEST_DIR / "apache_json_test.thrift",
         module_name="test_thrift"
     )
     TestException = test_thrift.TestException
@@ -204,7 +204,7 @@ def test_exceptions(server_func, proto_factory):
 @pytest.mark.parametrize('proto_factory', protocols)
 def test_complex_binary(proto_factory):
 
-    spec = thriftpy2.load("bin_test.thrift", module_name="bin_thrift")
+    spec = thriftpy2.load(TEST_DIR / "bin_test.thrift", module_name="bin_thrift")
     bin_test_obj = spec.BinTest(
         tbinary=b'\x01\x0f\xffa binary string\x0f\xee',
         str2bin={
@@ -299,13 +299,13 @@ type_map = {
     TType.I32: (int,),
     TType.I64: (int,),
     TType.DOUBLE: (float,),
-    TType.STRING: six.string_types,
+    TType.STRING: str,
     TType.BOOL: (bool,),
     TType.STRUCT: TPayloadMeta,
     TType.SET: (set, list),
     TType.LIST: (list,),
     TType.MAP: (dict,),
-    TType.BINARY: six.binary_type
+    TType.BINARY: bytes
 }
 
 type_names = {

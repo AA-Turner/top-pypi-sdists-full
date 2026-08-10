@@ -318,6 +318,7 @@ class NotificationsApi:
 
         # authentication setting
         _auth_settings: List[str] = [
+            'BearerAuth'
         ]
 
         return self.api_client.param_serialize(
@@ -596,6 +597,7 @@ class NotificationsApi:
 
         # authentication setting
         _auth_settings: List[str] = [
+            'BearerAuth'
         ]
 
         return self.api_client.param_serialize(
@@ -859,6 +861,7 @@ class NotificationsApi:
 
         # authentication setting
         _auth_settings: List[str] = [
+            'BearerAuth'
         ]
 
         return self.api_client.param_serialize(
@@ -1137,6 +1140,7 @@ class NotificationsApi:
 
         # authentication setting
         _auth_settings: List[str] = [
+            'BearerAuth'
         ]
 
         return self.api_client.param_serialize(
@@ -1400,6 +1404,7 @@ class NotificationsApi:
 
         # authentication setting
         _auth_settings: List[str] = [
+            'BearerAuth'
         ]
 
         return self.api_client.param_serialize(
@@ -1680,6 +1685,7 @@ class NotificationsApi:
 
         # authentication setting
         _auth_settings: List[str] = [
+            'BearerAuth'
         ]
 
         return self.api_client.param_serialize(
@@ -1943,6 +1949,7 @@ class NotificationsApi:
 
         # authentication setting
         _auth_settings: List[str] = [
+            'BearerAuth'
         ]
 
         return self.api_client.param_serialize(
@@ -2223,6 +2230,7 @@ class NotificationsApi:
 
         # authentication setting
         _auth_settings: List[str] = [
+            'BearerAuth'
         ]
 
         return self.api_client.param_serialize(
@@ -2650,6 +2658,7 @@ class NotificationsApi:
 
         # authentication setting
         _auth_settings: List[str] = [
+            'BearerAuth'
         ]
 
         return self.api_client.param_serialize(
@@ -2941,6 +2950,7 @@ class NotificationsApi:
 
         # authentication setting
         _auth_settings: List[str] = [
+            'BearerAuth'
         ]
 
         return self.api_client.param_serialize(
@@ -3219,6 +3229,7 @@ class NotificationsApi:
 
         # authentication setting
         _auth_settings: List[str] = [
+            'BearerAuth'
         ]
 
         return self.api_client.param_serialize(
@@ -3510,6 +3521,7 @@ class NotificationsApi:
 
         # authentication setting
         _auth_settings: List[str] = [
+            'BearerAuth'
         ]
 
         return self.api_client.param_serialize(
@@ -3801,6 +3813,7 @@ class NotificationsApi:
 
         # authentication setting
         _auth_settings: List[str] = [
+            'BearerAuth'
         ]
 
         return self.api_client.param_serialize(

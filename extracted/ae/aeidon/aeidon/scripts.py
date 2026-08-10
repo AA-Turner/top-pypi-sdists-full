@@ -13,33 +13,32 @@
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with this program. If not, see <http://www.gnu.org/licenses/>.
+# along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 """Names and ISO 15924 codes for scripts and conversions between them."""
 
 import aeidon
+import contextlib
 import json
-import os
 
 from aeidon.i18n import d_
+from pathlib import Path
 
 _scripts = {}
-
 
 def _init_scripts():
     """Initialize the dictionary mapping codes to names."""
     # Prefer globally installed, fall back on possibly bundled.
-    path = "/usr/share/iso-codes/json/iso_15924.json"
-    if os.path.isfile(path):
+    path = Path("/usr/share/iso-codes/json/iso_15924.json")
+    if path.is_file():
         return _init_scripts_json(path)
-    path = os.path.join(aeidon.DATA_DIR, "iso-codes", "iso_15924.json")
-    if os.path.isfile(path):
+    path = aeidon.DATA_DIR / "iso-codes" / "iso_15924.json"
+    if path.is_file():
         return _init_scripts_json(path)
 
 def _init_scripts_json(path):
     """Initialize the dictionary mapping codes to names."""
-    with open(path, "r", encoding="utf_8") as f:
-        iso = json.load(f)
+    iso = json.loads(path.read_text(encoding="utf_8"))
     for script in iso["15924"]:
         code = script.get("alpha_4", None)
         name = script.get("name", None)
@@ -50,7 +49,7 @@ def code_to_name(code):
     """Convert ISO 15924 `code` to localized script name."""
     if not _scripts:
         _init_scripts()
-    with aeidon.util.silent(LookupError):
+    with contextlib.suppress(LookupError):
         return d_("iso_15924", _scripts[code])
     return code
 

@@ -49,7 +49,6 @@ import json
 import logging
 import os
 import shutil
-import tarfile
 import tempfile
 import threading
 import time
@@ -59,7 +58,11 @@ from typing import Any, Callable, Dict, List, Mapping, Optional, Tuple
 
 
 from . import activity as activity_mod
-from . import aot_cells, cell_key
+from . import aot_cells, aot_serve, artifact_meta, cell_key, env_seal
+# Class import beside the module import: inside `PendingSelfMint` the field
+# named `cell_key` shadows the module, so the `arm_key` annotation needs the
+# class under its own name.
+from .cell_key import CellKey
 from . import boot_phases as boot_mod
 from . import compile_cache as cc
 from .cell_adopt import AdoptOutcome, CellAdoption, EagerPhase
@@ -92,13 +95,17 @@ class SelfMint:
 
     Produced only by :func:`adopt_delegated_mint`, after the child's cell
     passes the same arm gates a hub-delivered one does. The serving-bootstrap
-    half of gw#587/th#910:
-    the minting worker ADVERTISES this identity under its own key so the
-    hub's self-attested dispatch fence
-    (``ActiveCompileRef == KeyRef(family, requested_cell_key)``) and
-    ``active_compile_artifacts`` accounting treat the mint exactly like a
-    delivered cell — the warmup proof, not the artifact source, gates
+    half of gw#587/th#910: the minting worker ADVERTISES this identity — the
+    key STAMPED on the bytes it serves — so ``active_compile_artifacts``
+    accounting treats the mint exactly like a cell this pod DISCOVERED and
+    pulled (``aot_cells``); the warmup proof, not the artifact source, gates
     serving.
+
+    pgw#1032: the hub fence this feeds is the one that verifies the ADVERTISED
+    active ref against the hub's own store. The old self-attested spelling
+    (``ActiveCompileRef == KeyRef(family, requested_cell_key)``) compared a
+    stamped key against a COMPUTED one — disjoint spaces since pgw#1010, so it
+    could never match — and is retired with the requested key itself.
     """
 
     family: str
@@ -136,6 +143,13 @@ class PendingSelfMint:
     mint_root: Path
     publisher: Optional["CellPublisher"]
     cache_dir: Optional[Path] = None
+    #: pgw#1042: the parent's computed ARM identity, axes and all. The
+    #: stamped key the child returns lives in a DISJOINT space (kind +
+    #: contract differ by formula — pgw#1032/#1033), but every axis the two
+    #: keys share (family, format, lane, sm, env_seal, toolchain) must be
+    #: byte-identical across the process boundary, and
+    #: ``adopt_delegated_mint`` refuses BY AXIS NAME when one is not.
+    arm_key: Optional[CellKey] = None
     #: pgw#784: this mint is built by a CHILD PROCESS, so the live pipeline
     #: was never armed and this process holds no capture. The live pipe stays
     #: plain eager until ``adopt_delegated_mint`` swaps it through the
@@ -210,10 +224,26 @@ _PENDING: Dict[str, "PendingSelfMint"] = {}
 # entries instead of opening a SECOND capture — which, with the first mint's
 # compiled code resident in dynamo's in-memory cache, would capture nothing
 # and disprove itself at finalize (the L4 churn loop).
+#
+# pgw#1033: keyed on the ARM key — the COMPUTED `cell_key.compute` digest the
+# miss path names its pending with — and NOT on the cell's own stamped key.
+# The two are different digest spaces by construction (`kind="inductor"` vs
+# the exported cell's `kind="aot-inductor"`, whose contract axis folds a
+# combined graph hash that does not exist until the export finishes), so a
+# ledger written under the stamped key could never be read by the only caller
+# there is: an arm that has computed its key and not yet minted anything. The
+# VALUE carries the stamped identity (`SelfMint.cell_key`/`.ref`) — this map
+# IS the process's arm-key -> stamped-cell index, and the quarantine gate
+# below reads it for exactly that.
 _FINALIZED: Dict[str, "SelfMint"] = {}
 
 
 def finalized_in_process(key: str) -> Optional["SelfMint"]:
+    """The cell this process already minted and adopted for ARM key ``key``.
+
+    ``key`` is a computed :func:`cell_key.compute` digest (pgw#1033); the
+    returned :class:`SelfMint` carries the artifact's own STAMPED key.
+    """
     with _PENDING_LOCK:
         return _FINALIZED.get(str(key or "").strip())
 
@@ -1030,8 +1060,6 @@ def _arming_policy(
             cache_dir=cache_dir,
         )
         if adopted is not None:
-            from . import aot_serve
-
             try:
                 aot_out, aot_row = _arm_candidate(
                     pipe, cfg, cache_dir, adopted.artifact,
@@ -1199,12 +1227,13 @@ def _arming_policy(
     # is known BEFORE any compile has happened.
 
     try:
-        key = cell_key.compute(
+        arm_key = cell_key.compute(
             family, loading.pipeline_weight_lane(pipe), bucket,
             contract=cell_key.contract_digest(
                 cc.declared_contract_facts(cfg)),
             regional=bool(getattr(cfg, "regional", False)),
-        ).digest
+        )
+        key = arm_key.digest
     except Exception as exc:  # noqa: BLE001 — key axes must be computable
         logger.warning("fleet-cells: self-mint key computation failed (%s)", exc)
         if bucket:
@@ -1214,16 +1243,37 @@ def _arming_policy(
             phase=EagerPhase.KEY_COMPUTATION_FAILED)
 
     # pgw#672: consult the process ledgers BEFORE opening a capture.
+    #
+    # pgw#1033: TWO identities can be quarantined for one arm, and the gate
+    # has to ask about both, because the ledger holds whatever ref actually
+    # failed:
+    #   * the ARM identity — an owed mint that died before it produced
+    #     anything has no cell of its own, so the pending's computed ref is
+    #     what `executor._abandon_pending_mint`'s quarantine writes;
+    #   * the CELL identity — a serve/finalize proof fails on an ARMED
+    #     artifact, whose ref is the exported cell's STAMPED key. That is the
+    #     ref the runtime-guard and boot-proof writers record, and the arm can
+    #     only reach it through `_FINALIZED`, this process's arm-key -> cell
+    #     index. A mint is deterministic in its axes, so re-minting an arm
+    #     whose own cell was just disproven rebuilds the same disproven cell.
     key_ref = f"{cc.system_repo(family)}#{key}"
+    finalized_prior = finalized_in_process(key)
+    quarantined_ref = ""
     if cc.cell_quarantined_in_process(key_ref):
+        quarantined_ref = key_ref
+    elif (finalized_prior is not None
+            and cc.cell_quarantined_in_process(finalized_prior.ref)):
+        quarantined_ref = finalized_prior.ref
+    if quarantined_ref:
         # This exact identity already failed its serve/finalize proof in
         # this process — re-minting it is the churn loop, not recovery.
         # DEGRADE (explicit eager, mandatory lanes included): a broken
         # optimization must never kill a serving worker.
         logger.error(
-            "fleet-cells: declining self-mint for %s key=%s — this identity "
-            "was quarantined by a failed proof in this process; serving "
-            "eager (pgw#672)", family, key)
+            "fleet-cells: declining self-mint for %s key=%s (quarantined "
+            "ref=%s) — this identity was quarantined by a failed proof in "
+            "this process; serving eager (pgw#672)",
+            family, key, quarantined_ref)
         if bucket:
             cc.drop_lora_execution_lane(pipe)
         # pgw#824: the ONE eager exit in this function that never rode a typed
@@ -1232,17 +1282,17 @@ def _arming_policy(
         # is precisely the state the hub most needs named.
         activity_mod.emit_event(
             "self_mint_skipped",
-            f"family={family} key={key} lane="
-            f"{loading.pipeline_weight_lane(pipe) or 'plain'}: this identity "
-            f"was quarantined by a failed serve/finalize proof earlier in this "
-            f"process; re-minting it is the churn loop, so this worker serves "
-            f"eager for the rest of its life and publishes nothing",
+            f"family={family} key={key} quarantined_ref={quarantined_ref} "
+            f"lane={loading.pipeline_weight_lane(pipe) or 'plain'}: this "
+            f"identity was quarantined by a failed serve/finalize proof "
+            f"earlier in this process; re-minting it is the churn loop, so "
+            f"this worker serves eager for the rest of its life and "
+            f"publishes nothing",
             phase=EagerPhase.CELL_QUARANTINED,
         )
         return ArmOutcome(
             armed=False, selection_bug=selection_bug,
             eager_reason=EagerPhase.CELL_QUARANTINED)
-    finalized_prior = finalized_in_process(key)
     if finalized_prior is not None:
         # This process already minted and ADOPTED this exact cell — re-arm
         # the same artifact through the same AOT gates instead of paying a
@@ -1287,6 +1337,7 @@ def _arming_policy(
         ref=f"{cc.system_repo(family)}#{key}",
         cfg=cfg, target=target,
         mint_root=mint_root, publisher=publisher, cache_dir=cache_dir,
+        arm_key=arm_key,
     )
     with _PENDING_LOCK:
         _PENDING.setdefault(key, pending)
@@ -1296,7 +1347,11 @@ def _arming_policy(
         "(pgw#784/#805)", recipe, family, key)
     activity_mod.emit_event(
         "self_mint_started",
-        f"family={family} recipe={recipe} key={key} "
+        # pgw#1042: labeled `arm_key` — the cell the child returns carries a
+        # STAMPED key in a disjoint space (kind/contract differ by formula),
+        # so an unlabeled `key=` here invited reading the two as one
+        # diverging key.
+        f"family={family} recipe={recipe} arm_key={key} "
         f"lane={loading.pipeline_weight_lane(pipe) or 'plain'}: a "
         f"compile-cell miss opened a delegated mint; this worker serves "
         f"eager throughout",
@@ -1314,11 +1369,46 @@ def _arming_policy(
 
 def _packed_metadata(artifact: Path) -> Dict[str, Any]:
     """The stamped metadata inside a packed cell (metadata members only)."""
-    with tarfile.open(artifact, mode="r:*") as tar:
-        member = tar.extractfile(cc.METADATA_NAME)
-        if member is None:
-            raise RuntimeError(f"{artifact} carries no {cc.METADATA_NAME}")
-        return dict(json.loads(member.read().decode()))
+    return artifact_meta.read_metadata(artifact)
+
+
+#: The key axes the computed ARM identity and the stamped cell identity
+#: SHARE. `kind` and `contract` are disjoint by formula (pgw#1032/#1033:
+#: kind "inductor" vs "aot-inductor", declared-facts digest vs traced-graph
+#: facts digest) and `mode` is "" on both sides of a whole-graph mint.
+_SHARED_KEY_AXES = ("family", "format", "lane", "sm", "env_seal", "toolchain")
+
+
+def arm_axis_divergence(
+    arm_key: CellKey, meta: Mapping[str, Any],
+) -> str:
+    """'' when the child's envelope states the parent's identity on every
+    shared axis, else the FIRST diverging axis with both values (pgw#1042).
+
+    A delegated child re-derives every environment-shaped axis in its own
+    process, so an axis that fails to survive the boundary (the measured
+    case: torch's `aot_compile` mutating global inductor config between the
+    child's establish and its metadata assembly) previously surfaced only as
+    a downstream numerics or constants error on a $3 pod. Here it is refused
+    BY NAME at the handback seam.
+    """
+    child: Dict[str, str] = {
+        "family": str(meta.get("family") or ""),
+        "format": str(meta.get("format") or ""),
+        "lane": cc.execution_lane_label(
+            str(meta.get("weight_lane") or ""),
+            int(meta.get("lora_bucket") or 0)),
+        "sm": str(meta.get("sm") or ""),
+        "env_seal": env_seal.seal_digest(
+            dict(meta.get(env_seal.SEAL_KEY) or {})),
+        "toolchain": cell_key.facts_digest(dict(meta.get("toolchain") or {})),
+    }
+    parent = arm_key.axes_dict()
+    for axis in _SHARED_KEY_AXES:
+        if parent.get(axis, "") != child.get(axis, ""):
+            return (f"{axis}: child cell states {child.get(axis, '')!r}, "
+                    f"this runtime computed {parent.get(axis, '')!r}")
+    return ""
 
 
 def adopt_delegated_mint(
@@ -1352,48 +1442,64 @@ def adopt_delegated_mint(
     # forgets to classify is visible on the wire as a gap in this function
     # instead of as an empty string that reads like "no reason exists".
     refusal: Tuple[str, str] = ("unclassified_arm_refusal", "")
-    try:
-        # pgw#805: an exported cell arms through the AOT gates (lifted-binding
-        # install -> aot_serve.enable -> rollback), not the inductor seed path.
-        # Same gates a hub-delivered `.pt2` passes; `provision.enable_compiled`
-        # itself is not reusable here because its pgw#709 receipts gate would
-        # drop a cell this pod minted seconds ago and the hub has not
-        # countersigned yet.
-        # pgw#999: the outcome is KEPT. `arm_aot` returns a classified
-        # `AdoptOutcome` (`contract_invalid`, `constants_unbound`,
-        # `no_arm_for_mode`, `numerics_refused`, …) and this call site
-        # used to spend it on `bool(...)`. That discard cost attempt 26
-        # 2 h 45 m and $2.72: a 36/36 mint sealed, finalized, and was then
-        # refused by three events that all said "could not adopt".
-        # pgw#1010: there is no second branch — a delegated mint is an AOT
-        # mint, and the inductor-seed adopt it used to fall back to armed an
-        # artifact class nothing publishes any more.
-        outcome = provision.arm_aot(
-            pipe, pending.cfg, pending.cache_dir, pending.target,
-            int(getattr(pending.cfg, "lora_bucket", 0) or 0))
-        armed = bool(outcome)
-        if not armed:
-            refusal = (outcome.reason or "unclassified_arm_refusal",
-                       outcome.detail or outcome.identity)
-    except cc.CellSelectionBugError as exc:
-        # th#883, delegated edition: the child's own cell, whose axes describe
-        # exactly this runtime, refused to arm. Loud — it is a bug in the one
-        # selection brain, not a compatibility miss.
-        logger.error(
-            "fleet-cells: cell_selection_bug adopting this pod's DELEGATED "
-            "mint (family=%s key=%s): %s",
-            pending.family, pending.cell_key, exc)
+    # pgw#1042: BEFORE any arm, the child's cell must state this parent's
+    # identity on every axis the two key spaces share. A malformed envelope
+    # is left to the arm's own classified refusal (artifact_invalid).
+    meta = artifact_meta.try_read_metadata(pending.target)
+    divergence = ""
+    if meta is not None and pending.arm_key is not None:
+        divergence = arm_axis_divergence(pending.arm_key, meta)
+    if divergence:
         armed = False
-        refusal = ("cell_selection_bug", str(exc))
-    except Exception as exc:  # noqa: BLE001 — adoption failure => eager
-        logger.warning(
-            "fleet-cells: delegated mint for %s did not adopt (%s)",
-            pending.family, exc)
-        armed = False
-        # An `AdoptError` already carries the token; anything else is named by
-        # its type rather than flattened into one word nobody can count.
-        refusal = (str(getattr(exc, "reason", "") or "") or type(exc).__name__,
-                   str(exc))
+        refusal = ("key_axis_divergence", (
+            f"the child's cell (stamped key "
+            f"{str(meta.get('cell_key') or '') if meta else 'MISSING'}) does "
+            f"not describe this runtime: {divergence}"))
+    else:
+        try:
+            # pgw#805: an exported cell arms through the AOT gates
+            # (lifted-binding install -> aot_serve.enable -> rollback), not
+            # the inductor seed path. Same gates a hub-delivered `.pt2`
+            # passes; `provision.enable_compiled` itself is not reusable here
+            # because its pgw#709 receipts gate would drop a cell this pod
+            # minted seconds ago and the hub has not countersigned yet.
+            # pgw#999: the outcome is KEPT. `arm_aot` returns a classified
+            # `AdoptOutcome` (`contract_invalid`, `constants_unbound`,
+            # `no_arm_for_mode`, `numerics_refused`, …) and this call site
+            # used to spend it on `bool(...)`. That discard cost attempt 26
+            # 2 h 45 m and $2.72: a 36/36 mint sealed, finalized, and was then
+            # refused by three events that all said "could not adopt".
+            # pgw#1010: there is no second branch — a delegated mint is an AOT
+            # mint, and the inductor-seed adopt it used to fall back to armed
+            # an artifact class nothing publishes any more.
+            outcome = provision.arm_aot(
+                pipe, pending.cfg, pending.cache_dir, pending.target,
+                int(getattr(pending.cfg, "lora_bucket", 0) or 0), meta)
+            armed = bool(outcome)
+            if not armed:
+                refusal = (outcome.reason or "unclassified_arm_refusal",
+                           outcome.detail or outcome.identity)
+        except cc.CellSelectionBugError as exc:
+            # th#883, delegated edition: the child's own cell, whose axes
+            # describe exactly this runtime, refused to arm. Loud — it is a
+            # bug in the one selection brain, not a compatibility miss.
+            logger.error(
+                "fleet-cells: cell_selection_bug adopting this pod's "
+                "DELEGATED mint (family=%s arm_key=%s): %s",
+                pending.family, pending.cell_key, exc)
+            armed = False
+            refusal = ("cell_selection_bug", str(exc))
+        except Exception as exc:  # noqa: BLE001 — adoption failure => eager
+            logger.warning(
+                "fleet-cells: delegated mint for %s did not adopt (%s)",
+                pending.family, exc)
+            armed = False
+            # An `AdoptError` already carries the token; anything else is
+            # named by its type rather than flattened into one word nobody
+            # can count.
+            refusal = (
+                str(getattr(exc, "reason", "") or "") or type(exc).__name__,
+                str(exc))
     if not armed:
         reason, detail = refusal
         # pgw#999: `phase` is the countable column, so it carries the CLASS —
@@ -1401,10 +1507,17 @@ def adopt_delegated_mint(
         # constant `delegated_adopt_failed` said only which call site fired,
         # which every reader already knew from the event kind.
         state["adopt_refusal"] = (reason, detail)
+        # pgw#1042: BOTH identities, labeled. The parent's computed ARM key
+        # and the child's stamped cell key live in disjoint spaces by
+        # formula (pgw#1032/#1033); one unlabeled `key=` carrying the arm
+        # key while the detail quoted the stamped one is what the pod lane
+        # read as "the child computed a different key".
+        stamped = str((meta or {}).get("cell_key") or "") or "unreadable"
         activity_mod.emit_event(
             "self_mint_abort",
-            f"family={pending.family} key={pending.cell_key}: the child "
-            f"process produced a cell this runtime could not adopt "
+            f"family={pending.family} arm_key={pending.cell_key} "
+            f"cell_key={stamped}: the child process produced a cell this "
+            f"runtime could not adopt "
             f"({reason}{': ' + detail if detail else ''}); serving stays "
             f"eager and nothing is published",
             phase=reason,
@@ -1415,7 +1528,7 @@ def adopt_delegated_mint(
         shutil.rmtree(pending.mint_root, ignore_errors=True)
         return None
 
-    meta = _packed_metadata(pending.target)
+    meta = dict(meta) if meta is not None else _packed_metadata(pending.target)
     key = str(meta.get("cell_key") or "").strip() or pending.cell_key
     minted = SelfMint(
         family=pending.family, cell_key=key,
@@ -1425,12 +1538,23 @@ def adopt_delegated_mint(
     )
     state["minted"] = minted
     state["meta"] = dict(meta)
+    # pgw#1033: this process has now READ a stamped `aot-inductor` key off a
+    # packed envelope, which is the one event that teaches a runtime that a
+    # key-flavored ref names an EXPORTED cell. `aot_cells.discover` registers
+    # the keys it learns for the same reason; a SELF-MINTED cell was the
+    # unregistered half, so the executor's #734/#735 kind dispatch scored this
+    # pod's own `.pt2` by FX cache hits it can never produce.
+    aot_serve.note_aot_key(minted.cell_key)
     # th#1355: the mint cost, banked at the moment the cell becomes real.
     state["mint_duration_ms"] = max(
         0, int((time.monotonic() - pending.armed_at) * 1000))
     _unregister(pending)
     with _PENDING_LOCK:
-        _FINALIZED[key] = minted
+        # pgw#1033: under the ARM key (see `_FINALIZED`). The stamped key is
+        # the VALUE's identity; keying the ledger by it made the memo
+        # unreadable by the only lookup there is, so every same-key re-arm in
+        # this process paid a second full export.
+        _FINALIZED[pending.cell_key] = minted
     logger.info(
         "fleet-cells: DELEGATED mint adopted for %s (key=%s, %.1f MB) — the "
         "worker served eager throughout and now serves compiled",
@@ -1859,6 +1983,7 @@ __all__ = [
     "PendingSelfMint",
     "SelfMint",
     "abandon_self_mint",
+    "arm_axis_divergence",
     "delegation_refusal",
     "enable_compiled",
     "finalized_in_process",

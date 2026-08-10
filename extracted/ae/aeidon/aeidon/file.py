@@ -13,17 +13,15 @@
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with this program. If not, see <http://www.gnu.org/licenses/>.
+# along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 """Base class for subtitle files."""
 
 import aeidon
 import codecs
-import os
 import re
 
-__all__ = ("SubtitleFile",)
-
+from pathlib import Path
 
 class SubtitleFile:
 
@@ -54,7 +52,7 @@ class SubtitleFile:
                        if self.format.has_header else "")
 
         self.newline = newline or aeidon.util.get_default_newline()
-        self.path = os.path.abspath(path)
+        self.path = Path(path).resolve()
 
     def copy_from(self, other):
         """Copy generic properties from `other`."""

@@ -5,7 +5,7 @@ use std::sync::{
 };
 
 pub use monty_types::CompileOptions;
-use monty_types::{ExcType, MontyException, MontyObject, NoLimitTracker, PrintWriter, ResourceTracker};
+use monty_types::{ExcType, MontyException, MontyObject, PrintWriter, ResourceTracker};
 use ruff_python_stdlib::identifiers::is_identifier;
 
 use crate::{
@@ -91,7 +91,7 @@ impl MontyRun {
     pub fn run_ref_counts_with_tracker(
         &self,
         inputs: Vec<MontyObject>,
-        resource_tracker: impl ResourceTracker,
+        resource_tracker: ResourceTracker,
     ) -> Result<RefCountOutput, MontyException> {
         self.executor.run_ref_counts_with_tracker(inputs, resource_tracker)
     }
@@ -108,37 +108,16 @@ impl MontyRun {
     pub fn run(
         &self,
         inputs: Vec<MontyObject>,
-        resource_tracker: impl ResourceTracker,
+        resource_tracker: ResourceTracker,
         print: PrintWriter<'_>,
     ) -> Result<MontyObject, MontyException> {
         self.executor.run(inputs, resource_tracker, print)
     }
 
-    /// Executes the code to completion with no resource limits, printing to stdout/stderr.
+    /// Executes the code to completion with no resource limits specified (will use the default),
+    /// printing to stdout/stderr.
     pub fn run_no_limits(&self, inputs: Vec<MontyObject>) -> Result<MontyObject, MontyException> {
-        self.run(inputs, NoLimitTracker, PrintWriter::Stdout)
-    }
-
-    /// Serializes the runner to a binary format.
-    ///
-    /// The serialized data can be stored and later restored with `load()`.
-    /// This allows caching parsed code to avoid re-parsing on subsequent runs.
-    ///
-    /// # Errors
-    /// Returns an error if serialization fails.
-    pub fn dump(&self) -> Result<Vec<u8>, postcard::Error> {
-        postcard::to_allocvec(self)
-    }
-
-    /// Deserializes a runner from binary format.
-    ///
-    /// # Arguments
-    /// * `bytes` - The serialized runner data from `dump()`
-    ///
-    /// # Errors
-    /// Returns an error if deserialization fails.
-    pub fn load(bytes: &[u8]) -> Result<Self, postcard::Error> {
-        postcard::from_bytes(bytes)
+        self.run(inputs, ResourceTracker::default(), PrintWriter::Stdout)
     }
 
     /// Starts execution with the given inputs and resource tracker, consuming self.
@@ -166,12 +145,12 @@ impl MontyRun {
     /// # Panics
     /// This method should not panic under normal operation. Internal assertions
     /// may panic if the VM reaches an inconsistent state (indicating a bug).
-    pub fn start<T: ResourceTracker>(
+    pub fn start(
         self,
         inputs: Vec<MontyObject>,
-        resource_tracker: T,
+        resource_tracker: ResourceTracker,
         print: PrintWriter<'_>,
-    ) -> Result<RunProgress<T>, MontyException> {
+    ) -> Result<RunProgress, MontyException> {
         let executor = self.executor;
 
         // Create heap and VM with empty globals, then populate inputs with VM alive
@@ -366,7 +345,7 @@ impl Executor {
     fn run(
         &self,
         inputs: Vec<MontyObject>,
-        resource_tracker: impl ResourceTracker,
+        resource_tracker: ResourceTracker,
         print: PrintWriter<'_>,
     ) -> Result<MontyObject, MontyException> {
         let heap_capacity = self.heap_capacity.load(Ordering::Relaxed);
@@ -403,7 +382,7 @@ impl Executor {
     ///
     /// This is the shared non-iterative execution core used by both the standard
     /// `run` path and the REPL's `feed_run` path.
-    pub(crate) fn run_to_completion<'h>(&'h self, vm: &mut VM<'h, impl ResourceTracker>) -> RunResult<MontyObject> {
+    pub(crate) fn run_to_completion<'h>(&'h self, vm: &mut VM<'h>) -> RunResult<MontyObject> {
         let mut frame_exit_result = vm.run_module(&self.module_code);
 
         // Handle NameLookup and ExternalCall exits by raising NameError through the VM
@@ -442,31 +421,27 @@ impl Executor {
     /// Executes the code and returns both the result and reference count data, used for testing only.
     #[cfg(feature = "ref-count-return")]
     fn run_ref_counts(&self, inputs: Vec<MontyObject>) -> Result<RefCountOutput, MontyException> {
-        self.run_ref_counts_with_tracker(inputs, NoLimitTracker)
+        self.run_ref_counts_with_tracker(inputs, ResourceTracker::default())
     }
 
     /// Executes the code and returns both the result and reference count data with a custom tracker,
     /// used for testing only.
     ///
-    /// This is used for testing reference counting behavior with a custom tracker. Returns:
-    /// - The execution result (`Exit`)
-    /// - Reference count data as a tuple of:
-    ///   - A map from variable names to their reference counts (only for heap-allocated values)
-    ///   - The number of unique heap value IDs referenced by variables
-    ///   - The total number of live heap values
+    /// This is used for testing reference counting behavior with a custom tracker. Returns
+    /// the execution result plus, in [`RefCountOutput`], a map from variable names to their
+    /// reference counts (heap-allocated values only), any live-but-unreachable heap entries,
+    /// and the total live heap population.
     ///
-    /// For strict matching validation, compare unique_refs_count with heap_entry_count.
-    /// If they're equal, all heap values are accounted for by named variables.
+    /// For strict-matching validation, assert that `unreachable` is empty: every live heap
+    /// object should be reachable from a named variable, so anything left over is a leak.
     ///
     /// Only available when the `ref-count-return` feature is enabled.
     #[cfg(feature = "ref-count-return")]
     fn run_ref_counts_with_tracker(
         &self,
         inputs: Vec<MontyObject>,
-        resource_tracker: impl ResourceTracker,
+        resource_tracker: ResourceTracker,
     ) -> Result<RefCountOutput, MontyException> {
-        use std::collections::HashSet;
-
         let mut heap = Heap::new(self.namespace_size(), resource_tracker);
         let globals = self.empty_globals();
 
@@ -491,7 +466,7 @@ impl Executor {
             // Read refcounts BEFORE converting the return value, because
             // `frame_exit_to_object` drops the return value (decrementing its refcount).
             let mut counts = ahash::AHashMap::new();
-            let mut unique_ids = HashSet::new();
+            let mut roots = Vec::new();
 
             for (namespace_id, name_id) in executor.globals.iter() {
                 let idx = namespace_id.index();
@@ -499,10 +474,22 @@ impl Executor {
                     && let Value::Ref(id) = &globals[idx]
                 {
                     counts.insert(executor.interns.get_str(name_id).to_owned(), vm.heap.get_refcount(*id));
-                    unique_ids.insert(*id);
+                    roots.push(*id);
                 }
             }
-            let unique_refs = unique_ids.len();
+            // The module's result is a root too: it is still owned by the pending
+            // `FrameExit::Return` here, since `frame_exit_to_object` below is what drops it.
+            if let Ok(FrameExit::Return(Value::Ref(id))) = &frame_exit_result {
+                roots.push(*id);
+            }
+            // Those are the only roots: locals are gone once the module frame exits, so
+            // anything still live must hang off a name or the result to not be a leak.
+            let unreachable: Vec<String> = vm
+                .heap
+                .unreachable_entries(roots)
+                .into_iter()
+                .map(|(id, ty)| format!("{} (id {})", ty.name(vm.heap, &executor.interns), id.index()))
+                .collect();
             let heap_count = vm.heap.entry_count();
 
             // Convert return value while VM is still alive (needs access to interns).
@@ -511,16 +498,14 @@ impl Executor {
                 .map_err(|e| e.into_python_exception(&executor.interns, |_| Some(executor.code.as_str())))?;
 
             // Drop globals with proper ref counting
-            for value in globals {
-                value.drop_with(vm.heap);
-            }
+            globals.drop_with(vm.heap);
 
             let allocations_since_gc = vm.heap.get_allocations_since_gc();
 
             Ok(RefCountOutput {
                 py_object,
                 counts,
-                unique_refs,
+                unreachable,
                 heap_count,
                 allocations_since_gc,
             })
@@ -541,11 +526,7 @@ impl Executor {
     /// This runs with the VM alive so that `to_value` has access to the full VM context.
     /// On error partway through, the VM's `Drop` impl will drain globals and
     /// properly decrement refcounts for any already-converted values.
-    pub(crate) fn populate_inputs(
-        &self,
-        inputs: Vec<MontyObject>,
-        vm: &mut VM<'_, impl ResourceTracker>,
-    ) -> Result<(), MontyException> {
+    pub(crate) fn populate_inputs(&self, inputs: Vec<MontyObject>, vm: &mut VM<'_>) -> Result<(), MontyException> {
         if inputs.len() > self.namespace_size() {
             return Err(MontyException::runtime_error("too many inputs for namespace"));
         }
@@ -563,10 +544,7 @@ impl Executor {
 ///
 /// Used by non-iterative execution paths where suspendable outcomes (external calls,
 /// name lookups) are not supported and should produce errors.
-pub(crate) fn frame_exit_to_object(
-    frame_exit_result: RunResult<FrameExit>,
-    vm: &mut VM<'_, impl ResourceTracker>,
-) -> RunResult<MontyObject> {
+pub(crate) fn frame_exit_to_object(frame_exit_result: RunResult<FrameExit>, vm: &mut VM<'_>) -> RunResult<MontyObject> {
     match frame_exit_result? {
         FrameExit::Return(return_value) => Ok(MontyObject::new(return_value, vm)),
         FrameExit::ExternalCall {
@@ -613,7 +591,11 @@ pub(crate) fn frame_exit_to_object(
 pub struct RefCountOutput {
     pub py_object: MontyObject,
     pub counts: ahash::AHashMap<String, usize>,
-    pub unique_refs: usize,
+    /// Live heap entries reachable from no named variable, described as
+    /// `"<type> (id N)"`. Non-empty means the run leaked: a missed `drop_with`
+    /// left an object alive that nothing can reach. Reachability is transitive,
+    /// so objects owned by another object are accounted for by their owner.
+    pub unreachable: Vec<String>,
     pub heap_count: usize,
     /// Number of GC-tracked allocations since the last cycle collection.
     ///

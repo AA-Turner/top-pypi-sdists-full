@@ -125,7 +125,7 @@ def apply(
         parameters,
         "Performance Directly-Follows Graph",
     )
-    business_hour_slots = vis_utils.get_business_hour_slots(parameters)
+    business_hour_slots = vis_utils.get_business_hour_slots(parameters, dfg)
 
     # if all the aggregation measures are provided for a given key,
     # then pick one of the values for the representation

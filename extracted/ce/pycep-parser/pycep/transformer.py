@@ -396,8 +396,22 @@ class BicepToJson(Transformer[Token, pycep_typing.BicepJson]):
     #
     ####################
 
-    def data_type(self, arg: tuple[Token]) -> str:
-        return str(arg[0])
+    def array_suffix(self, _: list[Any]) -> None:
+        return None  # presence counts; value is unused
+
+    def base_type(self, args: list[Any]) -> pycep_typing.DataType:
+        result = args[0]
+        return str(result) if isinstance(result, Token) else result
+
+    def union_type(self, args: list[pycep_typing.DataType]) -> pycep_typing.UnionType:
+        return {"type": "union", "members": list(args)}
+
+    def data_type(self, args: list[Any]) -> pycep_typing.DataType:
+        base, *suffixes = args
+        result: pycep_typing.DataType = base
+        for _ in suffixes:
+            result = {"type": "array", "item_type": result}
+        return result
 
     def type_api_pair(self, args: tuple[Token, Token]) -> pycep_typing.ApiTypeVersion:
         type_name, api_version = str(args[0])[1:-1].split("@")
@@ -899,13 +913,13 @@ class BicepToJson(Transformer[Token, pycep_typing.BicepJson]):
     def multi_line_string(self, arg: tuple[Token]) -> str:
         return sanitize_multi_line_string_token(arg[0])
 
-    def true(self, _: Any) -> Literal[True]:  # noqa: ANN401
+    def true(self, _: Any) -> Literal[True]:  # ruff:ignore[any-type]
         return True
 
-    def false(self, _: Any) -> Literal[False]:  # noqa: ANN401
+    def false(self, _: Any) -> Literal[False]:  # ruff:ignore[any-type]
         return False
 
-    def null(self, _: Any) -> None:  # noqa: ANN401
+    def null(self, _: Any) -> None:  # ruff:ignore[any-type]
         return None
 
     def lambda_expression(self, args: tuple[pycep_typing.PossibleValue, ...]) -> pycep_typing.LambdaExpression:

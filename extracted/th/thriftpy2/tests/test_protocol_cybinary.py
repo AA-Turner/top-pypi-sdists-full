@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 import collections
 import multiprocessing
 import os
@@ -130,6 +128,38 @@ def test_write_string():
     proto.write_val(b, TType.STRING, "你好世界")
     b.flush()
     assert "00 00 00 0c e4 bd a0 e5 a5 bd e4 b8 96 e7 95 8c" == \
+        hexlify(b.getvalue())
+
+
+def test_write_memoryview():
+    # contiguous 8-bit items
+    b = TCyMemoryBuffer()
+    data = memoryview(b"hello world!\x01")
+    proto.write_val(b, TType.BINARY, data)
+    b.flush()
+    assert "00 00 00 0d 68 65 6c 6c 6f 20 77 6f 72 6c 64 21 01" == \
+        hexlify(b.getvalue())
+
+    # not 8-bit items
+    b = TCyMemoryBuffer()
+    data = memoryview(b"0000111122223333").cast("h")
+    proto.write_val(b, TType.BINARY, data)
+    b.flush()
+    assert "00 00 00 10 30 30 30 30 31 31 31 31 32 32 32 32 33 33 33 33" == \
+        hexlify(b.getvalue())
+
+    # not contiguous
+    with pytest.raises(BufferError, match="contiguous"):
+        b = TCyMemoryBuffer()
+        data = memoryview(b"0123")[::-1]
+        proto.write_val(b, TType.BINARY, data)
+
+
+def test_write_bytearray():
+    b = TCyMemoryBuffer()
+    proto.write_val(b, TType.BINARY, bytearray("hello world!", "utf-8"))
+    b.flush()
+    assert "00 00 00 0c 68 65 6c 6c 6f 20 77 6f 72 6c 64 21" == \
         hexlify(b.getvalue())
 
 

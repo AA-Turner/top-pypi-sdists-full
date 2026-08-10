@@ -1013,6 +1013,35 @@ def test_load_device_from_storage_family_sidecar_uses_board_snapshot(tmp_path: P
     assert load_device_from_storage(yaml_file).logger_interface == "USB_SERIAL_JTAG"
 
 
+@pytest.mark.usefixtures("_redirect_ext_storage")
+def test_load_device_from_storage_loaded_platforms_dotted(tmp_path: Path) -> None:
+    """StorageJSON's slash-separated pairs surface sorted and dotted."""
+    yaml_file = tmp_path / "pairs.yaml"
+    yaml_file.write_text("esphome:\n  name: pairs\nesp32:\n", encoding="utf-8")
+    write_storage_json(
+        tmp_path,
+        "pairs.yaml",
+        overrides={"loaded_platforms": ["time/homeassistant", "ota/esphome"]},
+    )
+    assert load_device_from_storage(yaml_file).loaded_platforms == [
+        "ota.esphome",
+        "time.homeassistant",
+    ]
+
+    missing = tmp_path / "fresh.yaml"
+    missing.write_text("esphome:\n  name: fresh\nesp32:\n", encoding="utf-8")
+    assert load_device_from_storage(missing).loaded_platforms == []
+
+    # Pre-2025 sidecar without the key at all (upstream ``.get`` degrade).
+    legacy = tmp_path / "legacy.yaml"
+    legacy.write_text("esphome:\n  name: legacy\nesp32:\n", encoding="utf-8")
+    sidecar = write_storage_json(tmp_path, "legacy.yaml")
+    stripped = json.loads(sidecar.read_text(encoding="utf-8"))
+    del stripped["loaded_platforms"]
+    sidecar.write_text(json.dumps(stripped), encoding="utf-8")
+    assert load_device_from_storage(legacy).loaded_platforms == []
+
+
 @pytest.mark.parametrize(
     "ota",
     [

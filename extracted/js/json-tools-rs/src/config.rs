@@ -29,6 +29,15 @@ pub(crate) static DEFAULT_MAX_ARRAY_INDEX: LazyLock<usize> =
 pub(crate) static DEFAULT_NUM_THREADS: LazyLock<Option<usize>> =
     LazyLock::new(|| parse_env_usize_opt("JSON_TOOLS_NUM_THREADS"));
 
+/// `available_parallelism()` is a syscall (`sched_getaffinity`/sysctl-class, depending on
+/// platform) and constant for the process lifetime -- cached once instead of re-queried on
+/// every document that qualifies for nested parallelism (see `effective_thread_count`).
+static AVAILABLE_PARALLELISM: LazyLock<usize> = LazyLock::new(|| {
+    std::thread::available_parallelism()
+        .map(|p| p.get())
+        .unwrap_or(4)
+});
+
 /// Operation mode for the unified JSONTools API
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u8)] // Smaller discriminant for better cache locality
@@ -678,11 +687,7 @@ impl ProcessingConfig {
     /// Resolve the thread count to use for a parallel workload of `item_count` items,
     /// honoring an explicit `num_threads` override and never exceeding `item_count`.
     pub(crate) fn effective_thread_count(&self, item_count: usize) -> usize {
-        let base = self.num_threads.unwrap_or_else(|| {
-            std::thread::available_parallelism()
-                .map(|p| p.get())
-                .unwrap_or(4)
-        });
+        let base = self.num_threads.unwrap_or(*AVAILABLE_PARALLELISM);
         base.max(1).min(item_count)
     }
 

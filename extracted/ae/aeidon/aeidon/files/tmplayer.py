@@ -13,15 +13,12 @@
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with this program. If not, see <http://www.gnu.org/licenses/>.
+# along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 """TMPlayer file."""
 
 import aeidon
 import re
-
-__all__ = ("TMPlayer",)
-
 
 class TMPlayer(aeidon.SubtitleFile):
 
@@ -93,4 +90,4 @@ class TMPlayer(aeidon.SubtitleFile):
                            else start[1:-4]))
 
             text = subtitle.get_text(doc).replace("\n", "|")
-            f.write("{}:{}\n".format(start, text))
+            f.write(f"{start}:{text}\n")

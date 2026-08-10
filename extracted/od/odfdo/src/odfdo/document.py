@@ -30,12 +30,14 @@ import io
 import posixpath
 from contextlib import suppress
 from copy import deepcopy
+from functools import cache
 from importlib import resources as rso
 from operator import itemgetter
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, BinaryIO, cast
 
 from .const import (
+    FOLDER,
     ODF_CONTENT,
     ODF_MANIFEST,
     ODF_MANIFEST_NAME,
@@ -44,6 +46,7 @@ from .const import (
     ODF_SETTINGS,
     ODF_STYLES,
     ODF_TEMPLATES,
+    OFFICE_VERSION,
     PACKAGING,
     XML,
     ZIP,
@@ -220,6 +223,20 @@ def _container_from_template(template: str | Path | io.BytesIO) -> Container:
     manifest = Manifest(ODF_MANIFEST, container)
     manifest.set_media_type("/", mimetype)
     container.set_part(ODF_MANIFEST, manifest.serialize())
+    return container
+
+
+@cache
+def _template_container(doc_type: str) -> Container | None:
+    """Return a raw template container for the given document type."""
+    template_file = ODF_TEMPLATES.get(doc_type)
+    if not template_file:
+        return None
+    container = Container()
+    with rso.as_file(
+        rso.files("odfdo.templates").joinpath(template_file)
+    ) as template_path:
+        container.open(template_path)
     return container
 
 
@@ -811,6 +828,73 @@ class Document(MDDocument):
             if ODF_MANIFEST_RDF in parts:
                 self.container.del_part(ODF_MANIFEST_RDF)
 
+    def _ensure_odf14(self) -> None:
+        """Upgrade older ODF documents to ODF 1.4 and create missing core
+        parts.
+
+        Existing XML parts get their `office:version` attribute set to "1.4".
+        Missing core parts (`content.xml`, `styles.xml`, `meta.xml`,
+        `settings.xml`) are copied from the default template for the document
+        type and added to the manifest.
+
+        Note:
+            The ODF 1.4 specification keeps the same namespace URIs as earlier
+            versions for the core vocabularies, so only the `office:version`
+            attribute needs to change; missing extension namespace declarations
+            are added implicitly when those prefixes are actually used.
+        """
+        if not self.container:
+            return
+        if ODF_CONTENT not in self.container.parts:
+            # Too broken to fix automatically.
+            return
+        content_part = self.get_part(ODF_CONTENT)
+        if content_part is None or not isinstance(content_part, XmlPart):
+            return
+        current_version = content_part.root.get_attribute("office:version")
+        all_parts_present = all(
+            path in self.container.parts
+            for path in (ODF_META, ODF_SETTINGS, ODF_STYLES)
+        )
+        if current_version == OFFICE_VERSION and all_parts_present:
+            return
+
+        doc_type = self.get_type()
+        template_container = _template_container(doc_type)
+        manifest = self.get_part(ODF_MANIFEST)
+        if not isinstance(manifest, Manifest):
+            return
+        for path in (ODF_CONTENT, ODF_META, ODF_SETTINGS, ODF_STYLES):
+            part = self.__xmlparts.get(path)
+            if part is None and path not in self.container.parts:
+                if template_container is None:
+                    continue
+                raw_data = template_container.get_part(path)
+                if raw_data is None:
+                    continue
+                template_data = (
+                    raw_data.encode("utf-8")
+                    if isinstance(raw_data, str)
+                    else raw_data
+                )
+                self.container.set_part(path, template_data)
+                manifest.add_full_path(path, "text/xml")
+                part = self.get_part(path)
+            elif part is None:
+                part = self.get_part(path)
+            if part is not None and isinstance(part, XmlPart):
+                part.root.set_attribute("office:version", OFFICE_VERSION)
+        # Keep manifest:version in sync with office:version. LibreOffice is
+        # strict about this attribute and may report a corrupt document when
+        # office:version is "1.4" but manifest:version is still "1.3".
+        manifest.root.set_attribute("manifest:version", OFFICE_VERSION)
+        root_entry = manifest.root.get_element(
+            "//manifest:file-entry[@manifest:full-path='/']"
+        )
+        if root_entry is not None:
+            root_entry.set_attribute("manifest:version", OFFICE_VERSION)
+        self.container.set_part(ODF_MANIFEST, manifest.serialize())
+
     def save(
         self,
         target: str | Path | io.BytesIO | None = None,
@@ -849,14 +933,20 @@ class Document(MDDocument):
         if target is None and self.path is None:
             raise ValueError("Saving a document without path requires a target")
         # Some advertising
-        self.meta.set_generator_default()
+        if packaging != FOLDER:
+            self.meta.set_generator_default()
         # Synchronize data with container
         container = self.container
         if pretty is None:
             pretty = packaging in {"folder", "xml"}
         pretty = bool(pretty)
         backup = bool(backup)
-        self._check_manifest_rdf()
+        # Folder packaging is intended for debugging/analysis: preserve the
+        # original parts (version, missing files, manifest.rdf) as much as
+        # possible, but still pretty-print XML when requested.
+        if packaging != FOLDER:
+            self._ensure_odf14()
+            self._check_manifest_rdf()
         if pretty and packaging != XML:
             for path, part in self.__xmlparts.items():
                 if part is not None:
@@ -865,7 +955,7 @@ class Document(MDDocument):
                 if path in self.__xmlparts:
                     continue
                 # Only create and serialize the part if it exists in the container
-                if container.get_part(path) is None:
+                if path not in container.parts:
                     continue
                 cls = _get_part_class(path)
                 if cls is None:

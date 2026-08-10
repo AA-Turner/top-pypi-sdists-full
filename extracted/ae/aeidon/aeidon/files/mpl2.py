@@ -13,15 +13,12 @@
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with this program. If not, see <http://www.gnu.org/licenses/>.
+# along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 """MPL2 file."""
 
 import aeidon
 import re
-
-__all__ = ("MPL2",)
-
 
 class MPL2(aeidon.SubtitleFile):
 
@@ -58,7 +55,6 @@ class MPL2(aeidon.SubtitleFile):
         """
         for subtitle in subtitles:
             text = subtitle.get_text(doc).replace("\n", "|")
-            f.write(("[{:.0f}][{:.0f}]{}\n"
-                     .format(subtitle.start_seconds * 10,
-                             subtitle.end_seconds * 10,
-                             text)))
+            start = subtitle.start_seconds * 10
+            end = subtitle.end_seconds * 10
+            f.write(f"[{start:.0f}][{end:.0f}]{text}\n")

@@ -1,6 +1,7 @@
 # flake8: noqa
 
 # import apis into api package
+from mixpeek.api.account_api import AccountApi
 from mixpeek.api.adhoc_retrievers_api import AdhocRetrieversApi
 from mixpeek.api.agent_sessions_api import AgentSessionsApi
 from mixpeek.api.alerts_api import AlertsApi

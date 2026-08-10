@@ -13,15 +13,13 @@
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with this program. If not, see <http://www.gnu.org/licenses/>.
+# along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 """Base class for unit test cases."""
 
 import aeidon
-import os
 
-__all__ = ("TestCase",)
-
+from pathlib import Path
 
 class TestCase:
 
@@ -33,9 +31,7 @@ class TestCase:
             function(*args, **kwargs)
         except exception:
             return
-        raise AssertionError(
-            "{!r} failed to raise {!r}"
-            .format(function, exception))
+        raise AssertionError(f"{function!r} failed to raise {exception!r}")
 
     def get_sample_text(self, format, name=None):
         """
@@ -46,9 +42,10 @@ class TestCase:
         """
         name = name or format.name.lower()
         basename = "".join((name, format.extension))
-        path = os.path.join(aeidon.DATA_DIR, "samples", basename)
-        with open(path, "r", encoding="ascii") as f:
-            return f.read().strip()
+        # Sample files are not installed, tests are run from source.
+        data_dir = Path(__file__).resolve().parent.parent / "data"
+        path = data_dir / "samples" / basename
+        return path.read_text(encoding="ascii").strip()
 
     def get_spell_check_language(self, language):
         """Return spell-check language to use in unit tests."""
@@ -57,7 +54,7 @@ class TestCase:
         for candidate in aeidon.SpellChecker.list_languages():
             if candidate.startswith(language):
                 return candidate
-        raise Exception("Spell-check dictionary {}* not found".format(language))
+        raise Exception(f"Spell-check dictionary {language}* not found")
 
     def new_microdvd_file(self):
         """Return path to a new temporary MicroDVD file."""
@@ -78,21 +75,12 @@ class TestCase:
         """Return path to a new temporary subtitle file."""
         text = self.get_sample_text(format, name)
         path = aeidon.temp.create(format.extension)
-        with open(path, "w", encoding="ascii") as f:
-            f.write(text)
+        path.write_text(text, encoding="ascii")
         return path
-
-    def setUp(self):
-        """Compatibility alias for :meth:`setup_method`."""
-        self.setup_method(None)
 
     def setup_method(self, method):
         """Set state for executing tests in `method`."""
         pass
-
-    def tearDown(self):
-        """Compatibility alias for :meth:`teardown_method`."""
-        self.teardown_method(None)
 
     def teardown_method(self, method):
         """Remove state set for executing tests in `method`."""

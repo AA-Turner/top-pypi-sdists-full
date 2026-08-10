@@ -76,20 +76,19 @@ class Cell(ListMixin, TocMixin, SectionMixin, AnnotationMixin, ElementTyped):
         repeated across a given number of columns.
 
         Args:
-            value: The Python value to set for the cell. Can be
-                a boolean, int, float, Decimal, date, datetime, str, timedelta
-                or None.
-            text: The textual representation of the cell's
-                content. If not provided, it is generated from the value.
-            cell_type: The explicit type of the cell. Valid
-                options include 'boolean', 'currency', 'date', 'float',
-                'percentage', 'string', or 'time'. If not provided, it's
-                guessed from the value.
-            currency: A three-letter currency code (e.g., "EUR",
-                "USD") if the cell_type is 'currency'.
+            value: The Python value to set for the cell. Can be a boolean,
+                int, float, Decimal, date, datetime, str, timedelta or None.
+            text: The textual representation of the cell's content. If not
+                provided, it is generated from the value.
+            cell_type: The explicit type of the cell. Valid options include
+                'boolean', 'currency', 'date', 'float', 'percentage',
+                'string', or 'time'. If not provided, it's guessed from the
+                value.
+            currency: A three-letter currency code (e.g., "EUR", "USD") if
+                the cell_type is 'currency'.
             formula: The formula for the cell.
-            repeated: The number of times this cell should be
-                repeated across columns. Must be greater than 1.
+            repeated: The number of times this cell should be repeated across
+                columns. Must be greater than 1.
             style: The name of the style to apply to the cell.
         """
         super().__init__(**kwargs)
@@ -125,11 +124,12 @@ class Cell(ListMixin, TocMixin, SectionMixin, AnnotationMixin, ElementTyped):
         When getting, the type is inferred from the 'office:value-type'
         attribute.
         When setting, the type of the provided Python value determines the
-        'office:value-type' of the cell.
+        'office:value-type' of the cell. The style of the cell is kept, to
+        clear completely the cell, use cell.clear().
 
-        Note: the cell content is only cleared when using "cell.value = None".
+        Note: the cell style content is kepts when using "cell.value = None".
         To ensure an absolute empty cell, use cell.clear() that will remove
-        all componants (style, span property, xml:id, ...).
+        all componants (style, xml:id, ...).
 
         Warning:
             *   For `date`, `datetime`, and `timedelta`, a default text value
@@ -182,7 +182,8 @@ class Cell(ListMixin, TocMixin, SectionMixin, AnnotationMixin, ElementTyped):
     def value(self, value: CellValue | None) -> None:
         match value:
             case None:
-                self.clear()
+                self.delete_children()
+                self.clear_attrinutes()
             case str() | bytes():
                 self.string = value
             case bool():
@@ -214,6 +215,9 @@ class Cell(ListMixin, TocMixin, SectionMixin, AnnotationMixin, ElementTyped):
     def float(self) -> _float:
         """Get or set the value of the cell as a float (or 0.0).
 
+        The style of the cell is kept, to clear completely the cell, use
+        cell.clear().
+
         When setting the value, force the cell type to "float"."""
         for tag in ("office:value", "office:string-value"):
             read_attr = self.get_attribute(tag)
@@ -239,13 +243,15 @@ class Cell(ListMixin, TocMixin, SectionMixin, AnnotationMixin, ElementTyped):
             # or sub elements (test:p, ...)
             self.clear_attrinutes()
             self.set_attribute("office:value-type", "float")
-        self._erase_text_content()
         self.set_attribute("office:value", value_str)
-        self.text = value_str
+        self.set_text_content(value_str)
 
     @property
     def decimal(self) -> Decimal:
         """Get or set the value of the cell as a Decimal (or 0.0).
+
+        The style of the cell is kept, to clear completely the cell, use
+        cell.clear().
 
         When setting the value, force the cell type to "float"."""
         for tag in ("office:value", "office:string-value"):
@@ -268,6 +274,9 @@ class Cell(ListMixin, TocMixin, SectionMixin, AnnotationMixin, ElementTyped):
     def int(self) -> _int:
         """Get or set the value of the cell as an integer (or 0).
 
+        The style of the cell is kept, to clear completely the cell, use
+        cell.clear().
+
         When setting the value, force the cell type to "float"."""
         for tag in ("office:value", "office:string-value"):
             read_attr = self.get_attribute(tag)
@@ -289,6 +298,9 @@ class Cell(ListMixin, TocMixin, SectionMixin, AnnotationMixin, ElementTyped):
     def string(self) -> str:
         """Get or set the value of the cell as a string (or '').
 
+        The style of the cell is kept, to clear completely the cell, use
+        cell.clear().
+
         When setting the value, force the cell type to "string"."""
         value = self.get_attribute_string("office:string-value")
         if isinstance(value, str):
@@ -300,27 +312,29 @@ class Cell(ListMixin, TocMixin, SectionMixin, AnnotationMixin, ElementTyped):
         self,
         value: str | bytes | _int | _float | Decimal | _bool | None,
     ) -> None:
-        # self.clear()
         if value is None:
             value_str = ""
         elif isinstance(value, bytes):
             value_str = value.decode()
         else:
             value_str = str(value)
+        self.delete_children()
         if self.type != "string":
             # remove attributes that can exist from a previous different cell
             # type.
             # Note: the Cell may also contains non standanrd attributes (ooo)
-            # or sub elements (test:p, ...)
+            # or sub elements (text:p, ...)
             self.clear_attrinutes()
             self.set_attribute("office:value-type", "string")
-        self._erase_text_content()
         self.set_attribute("office:string-value", value_str)
-        self.text = value_str
+        self.set_text_content(value_str)
 
     @property
     def bool(self) -> _bool:
         """Get or set the value of the cell as a boolean.
+
+        The style of the cell is kept, to clear completely the cell, use
+        cell.clear().
 
         When setting the value, force the cell type to "boolean"."""
         value = self.get_attribute_string("office:boolean-value")
@@ -344,13 +358,15 @@ class Cell(ListMixin, TocMixin, SectionMixin, AnnotationMixin, ElementTyped):
             # or sub elements (test:p, ...)
             self.clear_attrinutes()
             self.set_attribute("office:value-type", "boolean")
-        self._erase_text_content()
         self.set_attribute("office:boolean-value", bvalue)
-        self.text = bvalue
+        self.set_text_content(bvalue)
 
     @property
     def duration(self) -> timedelta:
         """Get or set the value of the cell as a duration (Python timedelta).
+
+        The style of the cell is kept, to clear completely the cell, use
+        cell.clear().
 
         When setting the value, force the cell type to "time"."""
         value = self.get_attribute("office:time-value")
@@ -368,13 +384,15 @@ class Cell(ListMixin, TocMixin, SectionMixin, AnnotationMixin, ElementTyped):
             # or sub elements (test:p, ...)
             self.clear_attrinutes()
             self.set_attribute("office:value-type", "time")
-        self._erase_text_content()
         self.set_attribute("office:time-value", dvalue)
-        self.text = dvalue
+        self.set_text_content(dvalue)
 
     @property
     def datetime(self) -> _datetime:
         """Get or set the value of the cell as a datetime.
+
+        The style of the cell is kept, to clear completely the cell, use
+        cell.clear().
 
         When setting the value, force the cell type to "date"."""
         value = self.get_attribute("office:date-value")
@@ -392,13 +410,15 @@ class Cell(ListMixin, TocMixin, SectionMixin, AnnotationMixin, ElementTyped):
             # or sub elements (test:p, ...)
             self.clear_attrinutes()
             self.set_attribute("office:value-type", "date")
-        self._erase_text_content()
         self.set_attribute("office:date-value", dvalue)
-        self.text = dvalue
+        self.set_text_content(dvalue)
 
     @property
     def date(self) -> _date:
         """Get or set the value of the cell as a date.
+
+        The style of the cell is kept, to clear completely the cell, use
+        cell.clear().
 
         When setting the value, force the cell type to "date"."""
         value = self.get_attribute("office:date-value")
@@ -416,9 +436,8 @@ class Cell(ListMixin, TocMixin, SectionMixin, AnnotationMixin, ElementTyped):
             # or sub elements (test:p, ...)
             self.clear_attrinutes()
             self.set_attribute("office:value-type", "date")
-        self._erase_text_content()
         self.set_attribute("office:date-value", dvalue)
-        self.text = dvalue
+        self.set_text_content(dvalue)
 
     def set_value(
         self,
@@ -434,19 +453,21 @@ class Cell(ListMixin, TocMixin, SectionMixin, AnnotationMixin, ElementTyped):
         The cell type is guessed unless explicitly provided.
         For monetary values, the name of the currency must be provided.
 
+        The style of the cell is kept, to clear completely the cell, use
+        cell.clear().
+
         Args:
             value:
                 The Python value to assign to the cell.
-            text: The explicit textual representation of the
-                cell's content. If None, it is derived from the `value`.
-            cell_type: The explicit type of the cell's value.
-                Can be 'boolean', 'float', 'date', 'string', 'time', 'currency',
-                or 'percentage'.
-            currency: A string representing the currency, e.g.,
-                "EUR" or "USD", required if `cell_type` is 'currency'.
+            text: The explicit textual representation of the cell's content.
+                If None, it is derived from the `value`.
+            cell_type: The explicit type of the cell's value. Can be
+                'boolean', 'float', 'date', 'string', 'time', 'currency', or
+                'percentage'.
+            currency: A string representing the currency, e.g., "EUR" or
+                "USD", required if `cell_type` is 'currency'.
             formula: The formula to set for the cell.
         """
-        self.clear()
         text = self.set_value_and_type(
             value=value,
             text=text,
@@ -487,15 +508,15 @@ class Cell(ListMixin, TocMixin, SectionMixin, AnnotationMixin, ElementTyped):
         self.set_attribute("office:currency", currency)
 
     def _set_repeated(self, repeated: _int | None) -> None:
-        """Set the number of times the cell is repeated.
+        """Set the number of times the cell is repeated (internal).
 
-        Internal method that sets the 'table:number-columns-repeated' attribute,
-        or removes it if `repeated` is None or less than 2, without
-        triggering cache updates.
+        Internal method that sets the 'table:number-columns-repeated'
+        attribute, or removes it if `repeated` is None or less than 2,
+        without triggering cache updates.
 
         Args:
-            repeated: The number of times the cell should be
-                repeated. If None or less than 2, the attribute is removed.
+            repeated: The number of times the cell should be repeated. If
+                None or less than 2, the attribute is removed.
         """
         if repeated is None or repeated < 2:
             with contextlib.suppress(KeyError):
@@ -569,8 +590,8 @@ class Cell(ListMixin, TocMixin, SectionMixin, AnnotationMixin, ElementTyped):
         spanned. By default, cells with a style are not considered empty.
 
         Args:
-            aggressive: If True, a cell with a style but no
-                content is also considered empty. Defaults to False.
+            aggressive: If True, a cell with a style but no content is also
+                considered empty. Defaults to False.
 
         Returns:
             bool: True if the cell is empty, False otherwise.
@@ -624,7 +645,8 @@ class Cell(ListMixin, TocMixin, SectionMixin, AnnotationMixin, ElementTyped):
         """Return the dimensions of the area spanned by the cell.
 
         Returns a tuple `(nb_columns, nb_rows)` indicating how many columns
-        and rows the cell spans. If the cell is not spanned, it returns `(0, 0)`.
+        and rows the cell spans. If the cell is not spanned, it returns
+        `(0, 0)`.
 
         Returns:
             tuple[int, int]: A tuple containing the number of spanned columns

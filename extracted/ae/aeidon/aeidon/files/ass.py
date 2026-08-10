@@ -13,16 +13,15 @@
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with this program. If not, see <http://www.gnu.org/licenses/>.
+# along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 """Advanced Sub Station Alpha file."""
 
 import aeidon
 
-__all__ = ("AdvSubStationAlpha",)
+from .ssa import SubStationAlpha
 
-
-class AdvSubStationAlpha(aeidon.files.SubStationAlpha):
+class AdvSubStationAlpha(SubStationAlpha):
 
     """
     Advanced Sub Station Alpha file.
@@ -34,7 +33,7 @@ class AdvSubStationAlpha(aeidon.files.SubStationAlpha):
 
     def __init__(self, path, encoding, newline=None):
         """Initialize an :class:`AdvSubStationAlpha` instance."""
-        aeidon.files.SubStationAlpha.__init__(self, path, encoding, newline)
+        SubStationAlpha.__init__(self, path, encoding, newline)
         self.event_fields = (
             "Layer", "Start", "End", "Style", "Name",
             "MarginL", "MarginR", "MarginV", "Effect", "Text")
@@ -43,12 +42,12 @@ class AdvSubStationAlpha(aeidon.files.SubStationAlpha):
         """Save `value` of field as a subtitle attribute."""
         if field_name == "Layer":
             return setattr(subtitle.ssa, "layer", int(value))
-        decode = aeidon.files.SubStationAlpha._decode_field
+        decode = SubStationAlpha._decode_field
         return decode(self, field_name, value, subtitle)
 
     def _encode_field(self, field_name, subtitle, doc):
         """Return value of field as string to be written to file."""
         if field_name == "Layer":
             return str(subtitle.ssa.layer)
-        encode = aeidon.files.SubStationAlpha._encode_field
+        encode = SubStationAlpha._encode_field
         return encode(self, field_name, subtitle, doc)

@@ -152,6 +152,10 @@ struct jls_core_s {
     struct jls_core_chunk_s chunk_cur;           // most recent read chunk header, payload in buf
     struct jls_core_f64_buf_s * f64_sample_buf;  // for reading samples
     struct jls_core_f64_buf_s * f64_stats_buf;   // for reading statistics
+
+    // Truncation recovery in progress: scans treat reads past the truncated
+    // end as chain terminations rather than integrity failures.
+    bool recovery_active;
 };
 
 int32_t jls_core_f64_buf_alloc(size_t length, struct jls_core_f64_buf_s ** buf);
@@ -210,6 +214,44 @@ static inline uint8_t jls_core_tag_parse_track_type(uint8_t tag) {
     return (tag >> 3) & 3;
 }
 
+/**
+ * @brief Test if the writer creates a track type for a signal type.
+ *
+ * @param signal_type The jls_signal_type_e value.
+ * @param track_type The jls_track_type_e value.
+ * @return True if jls_wr_signal_def() creates this track for the signal.
+ *
+ * Tracks are created eagerly at signal definition time, so an applicable
+ * track missing from a truncated file was never written and holds no data.
+ */
+static inline bool jls_core_track_applicable(uint8_t signal_type, uint8_t track_type) {
+    switch (signal_type) {
+        case JLS_SIGNAL_TYPE_FSR:
+            return (JLS_TRACK_TYPE_FSR == track_type)
+                    || (JLS_TRACK_TYPE_ANNOTATION == track_type)
+                    || (JLS_TRACK_TYPE_UTC == track_type);
+        case JLS_SIGNAL_TYPE_VSR:
+            return (JLS_TRACK_TYPE_VSR == track_type)
+                    || (JLS_TRACK_TYPE_ANNOTATION == track_type);
+        default:
+            return false;
+    }
+}
+
+/// The FSR summary entry element size in bits for the signal data type.
+static inline uint8_t jls_core_fsr_summary_entry_size_bits(uint32_t data_type) {
+    switch (data_type & 0xffff) {
+        case JLS_DATATYPE_I32: // intentional fall-through
+        case JLS_DATATYPE_I64: // intentional fall-through
+        case JLS_DATATYPE_U32: // intentional fall-through
+        case JLS_DATATYPE_U64: // intentional fall-through
+        case JLS_DATATYPE_F64:
+            return 64;
+        default:
+            return 32;
+    }
+}
+
 int32_t jls_core_wr_data(struct jls_core_s * self, uint16_t signal_id, enum jls_track_type_e track_type,
                          const uint8_t * payload, uint32_t payload_length);
 
@@ -229,7 +271,37 @@ int32_t jls_fsr_open(struct jls_core_fsr_s ** instance, struct jls_core_signal_s
 int32_t jls_fsr_close(struct jls_core_fsr_s * self);
 
 int32_t jls_core_rd_chunk(struct jls_core_s * self);
+
+/**
+ * @brief Read the chunk at the current position and validate tag and chunk_meta.
+ *
+ * @param self The core instance.
+ * @param tag The required chunk tag.
+ * @param chunk_meta The required chunk metadata value.
+ * @return 0 or error code; JLS_ERROR_MESSAGE_INTEGRITY on tag/meta mismatch.
+ *
+ * Damaged or repaired files may contain pointers to foreign chunks.
+ * Every chain or index hop must validate the destination chunk with
+ * this function (or equivalent) before using its payload.
+ */
+int32_t jls_core_rd_chunk_validate(struct jls_core_s * self, uint8_t tag, uint16_t chunk_meta);
 int32_t jls_core_rd_chunk_end(struct jls_core_s * self);
+
+/**
+ * @brief Truncate the torn tail and relink an orphan final chunk.
+ *
+ * @param self The core instance, opened for write ("a").
+ * @param pos The offset of the last valid chunk, from a prior
+ *      jls_core_rd_chunk_end() + jls_raw_chunk_tell().
+ * @param tail[out] The last valid chunk (header and offset).
+ * @return 0 or error code.
+ *
+ * Removes any partial write after the last valid chunk, rewrites that
+ * chunk so subsequent appends link correctly, and repairs the crash
+ * window where the final chunk was written but its predecessor's
+ * item_next update was lost.
+ */
+int32_t jls_core_truncate_tail(struct jls_core_s * self, int64_t pos, struct jls_core_chunk_s * tail);
 int32_t jls_core_scan_sources(struct jls_core_s * self);
 int32_t jls_core_scan_signals(struct jls_core_s * self);
 int32_t jls_core_scan_fsr_sample_id(struct jls_core_s * self);
@@ -255,6 +327,50 @@ int32_t jls_core_rd_fsr_level1(struct jls_core_s * self, uint16_t signal_id, int
 int32_t jls_core_rd_fsr_data0(struct jls_core_s * self, uint16_t signal_id, int64_t start_sample_id);
 
 int32_t jls_core_repair_fsr(struct jls_core_s * self, uint16_t signal_id);
+
+/**
+ * @brief Walk an item_next chain and clamp it at the first invalid chunk.
+ *
+ * @param self The core instance.
+ * @param offset The file offset of the first chunk in the chain.
+ * @param tag The required tag for every chunk in the chain.
+ * @param chunk_meta The required chunk_meta, or -1 to skip the check.
+ * @return 0 on success (including a clamped chain),
+ *      JLS_ERROR_NOT_FOUND if the first chunk is invalid (the caller
+ *      must clear the reference to it), or another error code.
+ *
+ * Truncation leaves dangling item_next pointers.  Later repair appends
+ * chunks at the vacated offsets, so a dangling pointer can re-bind to
+ * a valid but foreign chunk.  This function zeros the item_next of the
+ * last valid chunk so readers stop at the damage.
+ */
+int32_t jls_core_repair_chain(struct jls_core_s * self, int64_t offset, uint8_t tag, int32_t chunk_meta);
+
+/// Cursor state for jls_core_repair_chain_walk.
+struct jls_core_chain_walk_s {
+    int64_t offset;                  ///< Next chunk to visit; from the chain head.
+    struct jls_core_chunk_s prev;    ///< Last valid chunk visited; zero initialize.
+    uint8_t tag;                     ///< The required tag for every chunk in the chain.
+    int32_t chunk_meta;              ///< The required chunk_meta, or -1 to skip the check.
+    bool done;                       ///< Set when the walk completed; zero initialize.
+};
+
+/**
+ * @brief Incremental jls_core_repair_chain: advance a walk by up to max_hops chunks.
+ *
+ * @param self The core instance.
+ * @param walk The walk cursor.  Initialize offset, tag, and chunk_meta;
+ *      zero prev and done.  Do not modify between calls.
+ * @param max_hops The maximum chunks to visit in this call.
+ * @return 0 or error code as jls_core_repair_chain.
+ *
+ * walk->done is set once the chain end was reached or the chain was
+ * clamped; further calls are no-ops.  This exists so a caller can
+ * interleave a chain walk with another bounded search and stop at
+ * whichever finishes first.
+ */
+int32_t jls_core_repair_chain_walk(struct jls_core_s * self, struct jls_core_chain_walk_s * walk,
+                                   int32_t max_hops);
 
 
 JLS_CPP_GUARD_END

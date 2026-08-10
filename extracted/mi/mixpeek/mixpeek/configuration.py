@@ -114,6 +114,8 @@ HTTPSignatureAuthSetting = TypedDict(
 AuthSettings = TypedDict(
     "AuthSettings",
     {
+        "BearerAuth": BearerAuthSetting,
+        "NamespaceHeader": APIKeyAuthSetting,
     },
     total=False,
 )
@@ -164,6 +166,26 @@ class Configuration:
     :param ca_cert_data: verify the peer using concatenated CA certificate data
       in PEM (str) or DER (bytes) format.
 
+    :Example:
+
+    API Key Authentication Example.
+    Given the following security scheme in the OpenAPI specification:
+      components:
+        securitySchemes:
+          cookieAuth:         # name for the security scheme
+            type: apiKey
+            in: cookie
+            name: JSESSIONID  # cookie name
+
+    You can programmatically set the cookie:
+
+conf = mixpeek.Configuration(
+    api_key={'cookieAuth': 'abc123'}
+    api_key_prefix={'cookieAuth': 'JSESSIONID'}
+)
+
+    The following cookie will be added to the HTTP request:
+       Cookie: JSESSIONID abc123
     """
 
     _default: ClassVar[Optional[Self]] = None
@@ -491,6 +513,22 @@ class Configuration:
         :return: The Auth Settings information dict.
         """
         auth: AuthSettings = {}
+        if self.access_token is not None:
+            auth['BearerAuth'] = {
+                'type': 'bearer',
+                'in': 'header',
+                'key': 'Authorization',
+                'value': 'Bearer ' + self.access_token
+            }
+        if 'NamespaceHeader' in self.api_key:
+            auth['NamespaceHeader'] = {
+                'type': 'api_key',
+                'in': 'header',
+                'key': 'X-Namespace',
+                'value': self.get_api_key_with_prefix(
+                    'NamespaceHeader',
+                ),
+            }
         return auth
 
     def to_debug_report(self) -> str:
@@ -502,7 +540,7 @@ class Configuration:
                "OS: {env}\n"\
                "Python Version: {pyversion}\n"\
                "Version of the API: 0.82\n"\
-               "SDK Package Version: 1.3.301".\
+               "SDK Package Version: 1.3.311".\
                format(env=sys.platform, pyversion=sys.version)
 
     def get_host_settings(self) -> List[HostSetting]:

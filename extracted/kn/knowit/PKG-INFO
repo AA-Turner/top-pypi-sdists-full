@@ -1,32 +1,33 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: knowit
-Version: 0.5.11
+Version: 0.6.1
 Summary: Know better your media files
 License: MIT
+License-File: LICENSE
 Keywords: video,mkv,mp4,mediainfo,metadata,movie,episode,tv,shows,series
 Author: Rato
-Requires-Python: >=3.9,<4.0
+Requires-Python: >=3.10,<4.0
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Topic :: Multimedia :: Video
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Provides-Extra: pint
-Requires-Dist: babelfish (>=0.6.1,<0.7.0)
-Requires-Dist: enzyme (>=0.5.2,<0.6.0)
-Requires-Dist: pint (>=0.20.1,<0.25.0) ; extra == "pint"
-Requires-Dist: pymediainfo (>=7.0.1,<8.0.0)
-Requires-Dist: pyyaml (>=6.0,<7.0)
-Requires-Dist: trakit (>=0.2.2,<0.3.0)
+Requires-Dist: babelfish (>=0.6.1)
+Requires-Dist: enzyme (>=0.5.2)
+Requires-Dist: pint (>=0.20.1) ; extra == "pint"
+Requires-Dist: pymediainfo (>=7.0.1)
+Requires-Dist: pyyaml (>=6.0)
+Requires-Dist: trakit (>=0.2.2)
 Project-URL: Repository, https://github.com/ratoaq2/knowit
 Description-Content-Type: text/markdown
 

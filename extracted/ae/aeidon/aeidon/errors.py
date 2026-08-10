@@ -13,25 +13,15 @@
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with this program. If not, see <http://www.gnu.org/licenses/>.
+# along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 """All :mod:`aeidon` error classes."""
-
-__all__ = (
-    "Error",
-    "AffirmationError",
-    "FormatError",
-    "ParseError",
-    "ProcessError",
-)
-
 
 class Error(Exception):
 
     """Base class for all :mod:`aeidon` errors."""
 
     pass
-
 
 class AffirmationError(Error):
 
@@ -46,13 +36,11 @@ class AffirmationError(Error):
 
     pass
 
-
 class FormatError(Error):
 
     """Unrecognized subtitle file format."""
 
     pass
-
 
 class ParseError(Error):
 
@@ -64,7 +52,6 @@ class ParseError(Error):
     """
 
     pass
-
 
 class ProcessError(Error):
 

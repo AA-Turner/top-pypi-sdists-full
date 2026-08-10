@@ -138,7 +138,7 @@ pub struct Pickle(alias::PyObject);
 impl Pickle {
     /// Begin building a top-level pickle tuple with exactly `size` slots.
     #[inline]
-    pub fn builder<'py>(py: pyo3::Python<'py>, size: usize) -> pyo3::PyResult<PickleBuilder<'py>> {
+    pub fn builder(py: pyo3::Python, size: usize) -> pyo3::PyResult<PickleBuilder> {
         PickleBuilder::new(py, size)
     }
 
@@ -511,7 +511,10 @@ impl<'a, P: Builder> DictBuilder<'a, P> {
             // SAFETY: the GIL is held for the entire lifetime of this builder because
             // the root PickleBuilder<'py> (which does own the 'py borrow) is kept alive
             // as our `parent`.
-            unsafe { std::mem::transmute(self.parent.py()) },
+            #[allow(clippy::missing_transmute_annotations)]
+            unsafe {
+                std::mem::transmute(self.parent.py())
+            },
         );
 
         let vptr = {
@@ -545,7 +548,10 @@ impl<'a, P: Builder> DictBuilder<'a, P> {
             // SAFETY: the GIL is held for the entire lifetime of this builder because
             // the root PickleBuilder<'py> (which does own the 'py borrow) is kept alive
             // as our `parent`.
-            unsafe { std::mem::transmute(self.parent.py()) },
+            #[allow(clippy::missing_transmute_annotations)]
+            unsafe {
+                std::mem::transmute(self.parent.py())
+            },
         );
 
         let vptr = {
@@ -577,7 +583,10 @@ impl<'a, P: Builder> DictBuilder<'a, P> {
             // SAFETY: the GIL is held for the entire lifetime of this builder because
             // the root PickleBuilder<'py> (which does own the 'py borrow) is kept alive
             // as our `parent`.
-            unsafe { std::mem::transmute(self.parent.py()) },
+            #[allow(clippy::missing_transmute_annotations)]
+            unsafe {
+                std::mem::transmute(self.parent.py())
+            },
         );
 
         let vptr = {

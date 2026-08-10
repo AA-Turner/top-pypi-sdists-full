@@ -13,33 +13,32 @@
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with this program. If not, see <http://www.gnu.org/licenses/>.
+# along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 """Names and ISO 639 codes for languages and conversions between them."""
 
 import aeidon
+import contextlib
 import json
-import os
 
 from aeidon.i18n import d_
+from pathlib import Path
 
 _languages = {}
-
 
 def _init_languages():
     """Initialize the dictionary mapping codes to names."""
     # Prefer globally installed, fall back on possibly bundled.
-    path = "/usr/share/iso-codes/json/iso_639-2.json"
-    if os.path.isfile(path):
+    path = Path("/usr/share/iso-codes/json/iso_639-2.json")
+    if path.is_file():
         return _init_languages_json(path)
-    path = os.path.join(aeidon.DATA_DIR, "iso-codes", "iso_639-2.json")
-    if os.path.isfile(path):
+    path = aeidon.DATA_DIR / "iso-codes" / "iso_639-2.json"
+    if path.is_file():
         return _init_languages_json(path)
 
 def _init_languages_json(path):
     """Initialize the dictionary mapping codes to names."""
-    with open(path, "r", encoding="utf_8") as f:
-        iso = json.load(f)
+    iso = json.loads(path.read_text(encoding="utf_8"))
     for language in iso["639-2"]:
         code = language.get("alpha_2", None)
         name = language.get("name", None)
@@ -50,7 +49,7 @@ def code_to_name(code):
     """Convert ISO 639 `code` to localized language name."""
     if not _languages:
         _init_languages()
-    with aeidon.util.silent(LookupError):
+    with contextlib.suppress(LookupError):
         return d_("iso_639", _languages[code])
     return code
 

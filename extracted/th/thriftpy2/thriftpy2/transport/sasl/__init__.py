@@ -20,8 +20,6 @@
 # Initially copied from
 # https://github.com/cloudera/thrift_sasl/blob/master/thrift_sasl/__init__.py
 
-from __future__ import absolute_import
-
 import struct
 from io import BytesIO
 
@@ -60,7 +58,7 @@ class TSaslClientTransport(TTransportBase):
 
         if self.sasl is not None:
             raise TTransportException(
-                type=TTransportException.NOT_OPEN,
+                type=TTransportException.ALREADY_OPEN,
                 message="Already open!")
         self.sasl = self.sasl_client_factory()
 
@@ -88,6 +86,12 @@ class TSaslClientTransport(TTransportBase):
             self._send_message(self.OK, response)
 
     def _send_message(self, status, body):
+        # Depending on the SASL library, the mechanism name and the initial
+        # response may come back as str or None instead of bytes.
+        if body is None:
+            body = b""
+        elif isinstance(body, str):
+            body = body.encode("utf-8")
         header = struct.pack(">BI", status, len(body))
         self._trans.write(header + body)
         self._trans.flush()
@@ -98,47 +102,51 @@ class TSaslClientTransport(TTransportBase):
         if length > 0:
             payload = readall(self._trans.read, length)
         else:
-            payload = ""
+            payload = b""
         return status, payload
 
-    def write(self, data):
-        self.__wbuf.write(data)
+    def write(self, buf):
+        self.__wbuf.write(buf)
 
     def flush(self):
         buffer = self.__wbuf.getvalue()
+        sasl = self.sasl
+        assert sasl is not None
         # The first time we flush data, we send it to sasl.encode()
         # If the length doesn't change, then we must be using a QOP
         # of auth and we should no longer call sasl.encode(), otherwise
         # we encode every time.
         if self.encode is None:
-            success, encoded = self.sasl.encode(buffer)
+            success, encoded = sasl.encode(buffer)
             if not success:
                 raise TTransportException(type=TTransportException.UNKNOWN,
-                                          message=self.sasl.getError())
+                                          message=sasl.getError())
             if (len(encoded) == len(buffer)):
                 self.encode = False
-                self._flushPlain(buffer)
+                self._flush_plain(buffer)
             else:
                 self.encode = True
                 self._trans.write(encoded)
         elif self.encode:
-            self._flushEncoded(buffer)
+            self._flush_encoded(buffer)
         else:
-            self._flushPlain(buffer)
+            self._flush_plain(buffer)
 
         self._trans.flush()
         self.__wbuf = BytesIO()
 
-    def _flushEncoded(self, buffer):
-        # sasl.ecnode() does the encoding and adds the length header, so nothing
+    def _flush_encoded(self, buffer):
+        # sasl.encode() does the encoding and adds the length header, so nothing
         # to do but call it and write the result.
-        success, encoded = self.sasl.encode(buffer)
+        sasl = self.sasl
+        assert sasl is not None
+        success, encoded = sasl.encode(buffer)
         if not success:
             raise TTransportException(type=TTransportException.UNKNOWN,
-                                      message=self.sasl.getError())
+                                      message=sasl.getError())
         self._trans.write(encoded)
 
-    def _flushPlain(self, buffer):
+    def _flush_plain(self, buffer):
         # When we have QOP of auth, sasl.encode() will pass the input to the output
         # but won't put a length header, so we have to do that.
 
@@ -154,24 +162,37 @@ class TSaslClientTransport(TTransportBase):
 
     def read(self, sz):
         ret = self.__rbuf.read(sz)
-        if len(ret) == sz:
-            return ret
-
-        self._read_frame()
-        return ret + self.__rbuf.read(sz - len(ret))
+        # A thrift message may span multiple SASL frames, so keep reading
+        # frames until we have the requested amount of data. The protocol
+        # layer calls read() directly and relies on getting exactly `sz`
+        # bytes (see TTransportBase.read).
+        while len(ret) < sz:
+            self._read_frame()
+            chunk = self.__rbuf.read(sz - len(ret))
+            if not chunk:
+                # A frame that yields no data (e.g. a zero-length frame or an
+                # empty SASL decode result) would make this loop spin forever
+                # without ever satisfying the request, so treat it as EOF.
+                raise TTransportException(
+                    type=TTransportException.END_OF_FILE,
+                    message="Received empty SASL frame while more data expected")
+            ret += chunk
+        return ret
 
     def _read_frame(self):
         header = readall(self._trans.read, 4)
         (length,) = struct.unpack(">I", header)
         if self.encode:
+            sasl = self.sasl
+            assert sasl is not None
             # If the frames are encoded (i.e. you're using a QOP of auth-int or
             # auth-conf), then make sure to include the header in the bytes you send to
             # sasl.decode()
             encoded = header + readall(self._trans.read, length)
-            success, decoded = self.sasl.decode(encoded)
+            success, decoded = sasl.decode(encoded)
             if not success:
                 raise TTransportException(type=TTransportException.UNKNOWN,
-                                          message=self.sasl.getError())
+                                          message=sasl.getError())
         else:
             # If the frames are not encoded, just pass it through
             decoded = readall(self._trans.read, length)
@@ -180,6 +201,9 @@ class TSaslClientTransport(TTransportBase):
     def close(self):
         self._trans.close()
         self.sasl = None
+        self.encode = None
+        self.__wbuf = BytesIO()
+        self.__rbuf = BytesIO(b'')
 
     # XXX: Is this actually needed?
     # Implement the CReadableTransport interface.
@@ -199,5 +223,22 @@ class TSaslClientTransport(TTransportBase):
         return self.__rbuf
 
 
+class TSaslClientTransportFactory(object):
+    def __init__(self, sasl_client_factory, mechanism):
+        """
+        @param sasl_client_factory: a callable that returns a new sasl.Client object
+        @param mechanism: the SASL mechanism (e.g. "GSSAPI")
+        """
+        self.sasl_client_factory = sasl_client_factory
+        self.mechanism = mechanism
+
+    def get_transport(self, trans):
+        return TSaslClientTransport(
+            self.sasl_client_factory, self.mechanism, trans)
+
+
 if CYTHON:
-    from .cysasl import TCySaslClientTransport  # noqa
+    from .cysasl import (  # noqa
+        TCySaslClientTransport,
+        TCySaslClientTransportFactory,
+    )

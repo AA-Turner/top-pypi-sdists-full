@@ -1,9 +1,8 @@
-from datetime import date, datetime, time, timezone
+from datetime import datetime, timezone
 from enum import Enum
 from ipaddress import IPv4Address, IPv6Address
 from itertools import chain
 from typing import Dict, Sequence, Union
-from uuid import UUID
 
 from clickhouse_driver.util import escape
 
@@ -38,83 +37,47 @@ def escape_binary(item: bytes, context):
     return b2s[1:]
 
 
-@escape.maybe_enquote_for_server
-def escape_param(item, context, for_server=False):
-    if item is None:
-        return "NULL"
+def escape_param(item, context):
+    """Escape the types clickhouse-driver escapes differently, or not at all.
 
-    elif isinstance(item, datetime):
+    A collection is escaped here rather than left to clickhouse-driver, which
+    would escape the elements with its own escape_param and lose these branches.
+    """
+    if isinstance(item, datetime):
         return escape_datetime(item, context)
 
-    elif isinstance(item, date):
-        return "'%s'" % item.strftime("%Y-%m-%d")
-
-    elif isinstance(item, time):
-        return "'%s'" % item.strftime("%H:%M:%S")
-
-    elif isinstance(item, str):
-        # We need double escaping for server-side parameters.
-        if for_server:
-            item = "".join(escape.escape_chars_map.get(c, c) for c in item)
-        return "'%s'" % "".join(escape.escape_chars_map.get(c, c) for c in item)
-
     elif isinstance(item, list):
-        return "[%s]" % ",".join(
-            str(escape_param(x, context, for_server=for_server)) for x in item
-        )
+        return "[%s]" % ",".join(str(escape_param(x, context)) for x in item)
 
     elif isinstance(item, tuple):
-        return "tuple(%s)" % ",".join(
-            str(escape_param(x, context, for_server=for_server)) for x in item
-        )
+        # clickhouse-driver renders a one element tuple as (x), which is just x.
+        return "tuple(%s)" % ",".join(str(escape_param(x, context)) for x in item)
 
     elif isinstance(item, dict):
         return "map(%s)" % ",".join(
-            str(escape_param(x, context, for_server=for_server))
-            for x in chain.from_iterable(item.items())
+            str(escape_param(x, context)) for x in chain.from_iterable(item.items())
         )
 
     elif isinstance(item, Enum):
-        return escape_param(item.value, context, for_server=for_server)
+        return escape_param(item.value, context)
 
-    elif isinstance(item, (UUID, IPv4Address, IPv6Address)):
+    elif isinstance(item, (IPv4Address, IPv6Address)):
         return "'%s'" % str(item)
 
     elif isinstance(item, types.Binary):
         return escape_binary(item, context)
 
-    elif isinstance(item, types.JSON):
-        value = item.value
-        if isinstance(value, list):
-            return escape_param(
-                [types.JSON(v) for v in value], context, for_server=for_server
-            )
-        elif isinstance(value, dict):
-            return escape_param(
-                tuple(types.JSON(v) for v in value.values()),
-                context,
-                for_server=for_server,
-            )
-        else:
-            return escape_param(value, context, for_server=for_server)
-
-    else:
-        return item
+    return escape.escape_param(item, context)
 
 
-def escape_params(params: Params, context: Dict, for_server=False) -> Params:
+def escape_params(params: Params, context: Dict) -> Params:
     """Escape param to qualified string representation.
 
     This function is not used in INSERT INTO queries.
     """
     if isinstance(params, dict):
-        escaped = {
-            key: escape_param(value, context, for_server=for_server)
-            for key, value in params.items()
-        }
+        escaped = {key: escape_param(value, context) for key, value in params.items()}
     else:
-        escaped = tuple(
-            escape_param(value, context, for_server=for_server) for value in params
-        )
+        escaped = tuple(escape_param(value, context) for value in params)
 
     return escaped

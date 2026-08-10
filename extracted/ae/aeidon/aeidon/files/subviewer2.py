@@ -13,15 +13,12 @@
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with this program. If not, see <http://www.gnu.org/licenses/>.
+# along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 """SubViewer 2.0 file."""
 
 import aeidon
 import re
-
-__all__ = ("SubViewer2",)
-
 
 class SubViewer2(aeidon.SubtitleFile):
 
@@ -69,4 +66,4 @@ class SubViewer2(aeidon.SubtitleFile):
             start = subtitle.calc.round(subtitle.start_time, 2)[:-1]
             end = subtitle.calc.round(subtitle.end_time, 2)[:-1]
             text = subtitle.get_text(doc).replace("\n", "[br]")
-            f.write("\n{},{}\n{}\n".format(start, end, text))
+            f.write(f"\n{start},{end}\n{text}\n")

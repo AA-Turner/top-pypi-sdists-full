@@ -15,8 +15,6 @@
 //! change both; coverage lives in `test_cases/function__arity_defaults.py`
 //! and `test_cases/args__macro_errors.py`.
 
-use monty_types::ResourceTracker;
-
 use crate::{
     args::{ArgPosIter, ArgValues},
     bytecode::VM,
@@ -216,7 +214,7 @@ impl Signature {
         &self,
         args: ArgValues,
         defaults: &[Value],
-        vm: &mut VM<'_, impl ResourceTracker>,
+        vm: &mut VM<'_>,
         func_name: Identifier,
         namespace: &mut Vec<Value>,
     ) -> RunResult<()> {
@@ -274,10 +272,8 @@ impl Signature {
         let keyword_args = keyword_args.into_iter();
         defer_drop_mut!(keyword_args, vm);
 
-        // Extract interns before guards since DropGuard borrows the full VM mutably
-        // but we only need mutable access to the heap portion.
-        let mut pos_iter_guard = DropGuard::new(pos_iter, vm);
-        let (pos_iter, vm) = pos_iter_guard.as_parts_mut();
+        // Keep unconsumed positional values guarded throughout binding.
+        defer_drop_mut!(pos_iter, vm);
 
         // Calculate how many positional params we have
         let pos_param_count = self.pos_arg_count();
@@ -328,7 +324,7 @@ impl Signature {
         // any excess (the deferred overflow) stays in `pos_iter`, drained by
         // its guard when the overflow error returns below.
         if self.var_args.is_some() {
-            namespace[namespace_base + total_positional_params] = allocate_tuple(pos_iter.collect(), vm.heap)?;
+            namespace[namespace_base + total_positional_params] = allocate_tuple(pos_iter.collect(), vm.heap);
         }
 
         // 3. Bind keyword args
@@ -533,7 +529,7 @@ impl Signature {
         // Namespace layout: [pos_args][args][*args?][kwargs][**kwargs?]
         let (excess_kwargs, vm) = excess_kwargs_guard.into_parts();
         if let Some(excess_kwargs) = excess_kwargs {
-            let dict_id = vm.heap.allocate(HeapData::Dict(excess_kwargs))?;
+            let dict_id = vm.heap.allocate(HeapData::Dict(excess_kwargs));
             let last_slot = namespace.len() - 1;
             namespace[last_slot] = Value::Ref(dict_id);
         }

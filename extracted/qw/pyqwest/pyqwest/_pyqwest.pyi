@@ -259,6 +259,7 @@ class Client:
         Raises:
             ConnectionError: If the connection fails.
             TimeoutError: If the request times out.
+            RemoteProtocolError: If the peer violates the HTTP protocol.
             ReadError: If an error occurs reading the response.
             WriteError: If an error occurs writing the request.
         """
@@ -283,6 +284,7 @@ class Client:
         Raises:
             ConnectionError: If the connection fails.
             TimeoutError: If the request times out.
+            RemoteProtocolError: If the peer violates the HTTP protocol.
             ReadError: If an error occurs reading the response.
             WriteError: If an error occurs writing the request.
         """
@@ -303,6 +305,7 @@ class Client:
         Raises:
             ConnectionError: If the connection fails.
             TimeoutError: If the request times out.
+            RemoteProtocolError: If the peer violates the HTTP protocol.
             ReadError: If an error occurs reading the response.
             WriteError: If an error occurs writing the request.
         """
@@ -324,6 +327,7 @@ class Client:
         Raises:
             ConnectionError: If the connection fails.
             TimeoutError: If the request times out.
+            RemoteProtocolError: If the peer violates the HTTP protocol.
             ReadError: If an error occurs reading the response.
             WriteError: If an error occurs writing the request.
         """
@@ -345,6 +349,7 @@ class Client:
         Raises:
             ConnectionError: If the connection fails.
             TimeoutError: If the request times out.
+            RemoteProtocolError: If the peer violates the HTTP protocol.
             ReadError: If an error occurs reading the response.
             WriteError: If an error occurs writing the request.
         """
@@ -369,6 +374,7 @@ class Client:
         Raises:
             ConnectionError: If the connection fails.
             TimeoutError: If the request times out.
+            RemoteProtocolError: If the peer violates the HTTP protocol.
             ReadError: If an error occurs reading the response.
             WriteError: If an error occurs writing the request.
         """
@@ -393,6 +399,7 @@ class Client:
         Raises:
             ConnectionError: If the connection fails.
             TimeoutError: If the request times out.
+            RemoteProtocolError: If the peer violates the HTTP protocol.
             ReadError: If an error occurs reading the response.
             WriteError: If an error occurs writing the request.
         """
@@ -419,6 +426,7 @@ class Client:
         Raises:
             ConnectionError: If the connection fails.
             TimeoutError: If the request times out.
+            RemoteProtocolError: If the peer violates the HTTP protocol.
             ReadError: If an error occurs reading the response.
             WriteError: If an error occurs writing the request.
         """
@@ -445,6 +453,7 @@ class Client:
         Raises:
             ConnectionError: If the connection fails.
             TimeoutError: If the request times out.
+            RemoteProtocolError: If the peer violates the HTTP protocol.
             ReadError: If an error occurs reading the response.
             WriteError: If an error occurs writing the request.
         """
@@ -523,6 +532,8 @@ class HTTPTransport:
         enable_zstd: bool = True,
         use_system_dns: bool = False,
         enable_cookie_store: bool = False,
+        follow_redirects: bool = True,
+        max_redirects: int = 10,
         enable_otel: bool = True,
         meter_provider: MeterProvider | None = None,
         tracer_provider: TracerProvider | None = None,
@@ -569,6 +580,13 @@ class HTTPTransport:
             enable_cookie_store: Whether to enable automatic cookie storage and sending. When enabled,
                           the transport will automatically store cookies from responses and send
                           them with subsequent requests.
+            follow_redirects: Whether to automatically follow redirect responses. When disabled,
+                              which is the default, redirect responses are returned as-is.
+                              Leave this disabled when the transport is used through
+                              pyqwest.httpx, because httpx clients apply their own
+                              follow_redirects setting and track redirects in response.history.
+            max_redirects: Maximum number of redirects to follow when follow_redirects is enabled.
+                           A request exceeding it fails with TooManyRedirects.
         """
 
     def __aenter__(self) -> Awaitable[HTTPTransport]:
@@ -593,6 +611,7 @@ class HTTPTransport:
         Raises:
             ConnectionError: If the connection fails.
             TimeoutError: If the request times out.
+            RemoteProtocolError: If the peer violates the HTTP protocol.
             ReadError: If an error occurs reading the response.
             WriteError: If an error occurs writing the request.
         """
@@ -687,6 +706,9 @@ class Response:
             headers: The response headers.
             content: The response content.
             trailers: The response trailers.
+
+        Raises:
+            RemoteProtocolError: If the status is not a valid HTTP status code.
         """
 
     def __aenter__(self) -> Awaitable[Response]:
@@ -771,6 +793,7 @@ class SyncClient:
         Raises:
             ConnectionError: If the connection fails.
             TimeoutError: If the request times out.
+            RemoteProtocolError: If the peer violates the HTTP protocol.
             ReadError: If an error occurs reading the response.
             WriteError: If an error occurs writing the request.
         """
@@ -797,6 +820,7 @@ class SyncClient:
         Raises:
             ConnectionError: If the connection fails.
             TimeoutError: If the request times out.
+            RemoteProtocolError: If the peer violates the HTTP protocol.
             ReadError: If an error occurs reading the response.
             WriteError: If an error occurs writing the request.
         """
@@ -820,6 +844,7 @@ class SyncClient:
         Raises:
             ConnectionError: If the connection fails.
             TimeoutError: If the request times out.
+            RemoteProtocolError: If the peer violates the HTTP protocol.
             ReadError: If an error occurs reading the response.
             WriteError: If an error occurs writing the request.
         """
@@ -843,6 +868,7 @@ class SyncClient:
         Raises:
             ConnectionError: If the connection fails.
             TimeoutError: If the request times out.
+            RemoteProtocolError: If the peer violates the HTTP protocol.
             ReadError: If an error occurs reading the response.
             WriteError: If an error occurs writing the request.
         """
@@ -866,6 +892,7 @@ class SyncClient:
         Raises:
             ConnectionError: If the connection fails.
             TimeoutError: If the request times out.
+            RemoteProtocolError: If the peer violates the HTTP protocol.
             ReadError: If an error occurs reading the response.
             WriteError: If an error occurs writing the request.
         """
@@ -892,6 +919,7 @@ class SyncClient:
         Raises:
             ConnectionError: If the connection fails.
             TimeoutError: If the request times out.
+            RemoteProtocolError: If the peer violates the HTTP protocol.
             ReadError: If an error occurs reading the response.
             WriteError: If an error occurs writing the request.
         """
@@ -918,6 +946,7 @@ class SyncClient:
         Raises:
             ConnectionError: If the connection fails.
             TimeoutError: If the request times out.
+            RemoteProtocolError: If the peer violates the HTTP protocol.
             ReadError: If an error occurs reading the response.
             WriteError: If an error occurs writing the request.
         """
@@ -946,6 +975,7 @@ class SyncClient:
         Raises:
             ConnectionError: If the connection fails.
             TimeoutError: If the request times out.
+            RemoteProtocolError: If the peer violates the HTTP protocol.
             ReadError: If an error occurs reading the response.
             WriteError: If an error occurs writing the request.
         """
@@ -974,6 +1004,7 @@ class SyncClient:
         Raises:
             ConnectionError: If the connection fails.
             TimeoutError: If the request times out.
+            RemoteProtocolError: If the peer violates the HTTP protocol.
             ReadError: If an error occurs reading the response.
             WriteError: If an error occurs writing the request.
         """
@@ -1016,6 +1047,8 @@ class SyncHTTPTransport:
         enable_zstd: bool = True,
         use_system_dns: bool = False,
         enable_cookie_store: bool = False,
+        follow_redirects: bool = True,
+        max_redirects: int = 10,
         enable_otel: bool = True,
         meter_provider: MeterProvider | None = None,
         tracer_provider: TracerProvider | None = None,
@@ -1062,6 +1095,13 @@ class SyncHTTPTransport:
             enable_cookie_store: Whether to enable automatic cookie storage and sending. When enabled,
                           the transport will automatically store cookies from responses and send
                           them with subsequent requests.
+            follow_redirects: Whether to automatically follow redirect responses. When disabled,
+                              which is the default, redirect responses are returned as-is.
+                              Leave this disabled when the transport is used through
+                              pyqwest.httpx, because httpx clients apply their own
+                              follow_redirects setting and track redirects in response.history.
+            max_redirects: Maximum number of redirects to follow when follow_redirects is enabled.
+                           A request exceeding it fails with TooManyRedirects.
         """
 
     def __enter__(self) -> SyncHTTPTransport:
@@ -1175,6 +1215,9 @@ class SyncResponse:
             headers: The response headers.
             content: The response content.
             trailers: The response trailers.
+
+        Raises:
+            RemoteProtocolError: If the status is not a valid HTTP status code.
         """
 
     def __enter__(self) -> SyncResponse:
@@ -1276,6 +1319,10 @@ class ReadError(Exception):
 @final
 class WriteError(Exception):
     """An error representing a write error during request sending."""
+
+@final
+class TooManyRedirects(Exception):
+    """An error raised when a request exceeded the transport's max_redirects."""
 
 @final
 class HTTPHeaderName:

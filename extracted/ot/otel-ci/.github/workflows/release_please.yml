@@ -2,7 +2,7 @@ name: Release Please
 on:
   push:
     branches:
-    - main
+      - main
 
 
 permissions:
@@ -20,12 +20,12 @@ jobs:
   release-please:
     runs-on: ubuntu-latest
     steps:
-    - uses: googleapis/release-please-action@v4
-      id: release
-      with:
-        config-file: release-please-config.json
-        manifest-file: .release-please-manifest.json
-        release-type: python
+      - uses: googleapis/release-please-action@16a9c90856f42705d54a6fda1823352bdc62cf38 # ratchet:googleapis/release-please-action@v4
+        id: release
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+          release-type: python
     outputs:
       # Root level release_created
       release_created: ${{ steps.release.outputs['release_created'] }}
@@ -40,12 +40,12 @@ jobs:
 
     if: ${{ needs.release-please.outputs.tag_name }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # ratchet:actions/checkout@v4
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v3
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # ratchet:astral-sh/setup-uv@v9.0.0
         with:
-          version: "0.4.19"
+          version: "0.11.26"
 
       - name: Build and Publish
         run: |

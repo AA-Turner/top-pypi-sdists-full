@@ -131,7 +131,7 @@ class TestSpecialCases(util.ColorAsserts, unittest.TestCase):
         c = Color('color(--hct 30 20 0)')
         c2 = c.convert('srgb')
         self.assertEqual(c2.in_gamut(tolerance=0), False)
-        self.assertColorEqual(c2, Color('rgb(0.12248 0.01215 -0.47841)'))
+        self.assertColorEqual(c2, Color('rgb(0.16607 0.00962 -0.6929)'))
 
 
 class TestNull(util.ColorAsserts, unittest.TestCase):

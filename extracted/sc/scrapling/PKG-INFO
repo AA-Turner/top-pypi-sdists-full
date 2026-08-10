@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: scrapling
-Version: 0.4.12
+Version: 0.4.13
 Summary: Scrapling is an undetectable, powerful, flexible, high-performance Python library that makes Web Scraping easy and effortless as it should be!
 Home-page: https://github.com/D4Vinci/Scrapling
 Author: Karim Shoair
@@ -69,23 +69,23 @@ Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: lxml>=6.1.1
-Requires-Dist: cssselect>=1.4.0
+Requires-Dist: cssselect>=1.5.0
 Requires-Dist: orjson>=3.11.8
 Requires-Dist: tld>=0.13.2
 Requires-Dist: w3lib>=2.4.1
 Requires-Dist: typing_extensions
 Provides-Extra: fetchers
 Requires-Dist: click>=8.3.0; extra == "fetchers"
-Requires-Dist: curl_cffi>=0.15.0; extra == "fetchers"
-Requires-Dist: playwright==1.61.0; extra == "fetchers"
-Requires-Dist: patchright==1.61.2; extra == "fetchers"
+Requires-Dist: curl_cffi>=0.16.1b1; extra == "fetchers"
+Requires-Dist: playwright>=1.61.0; extra == "fetchers"
+Requires-Dist: patchright>=1.61.2; extra == "fetchers"
 Requires-Dist: browserforge>=1.2.4; extra == "fetchers"
-Requires-Dist: apify-fingerprint-datapoints>=0.13.0; extra == "fetchers"
+Requires-Dist: apify-fingerprint-datapoints>=0.15.0; extra == "fetchers"
 Requires-Dist: msgspec>=0.21.1; extra == "fetchers"
 Requires-Dist: anyio>=4.13.0; extra == "fetchers"
 Requires-Dist: protego>=0.6.2; extra == "fetchers"
 Provides-Extra: ai
-Requires-Dist: mcp>=1.27.0; extra == "ai"
+Requires-Dist: mcp>=2.0.0; extra == "ai"
 Requires-Dist: markdownify>=1.2.0; extra == "ai"
 Requires-Dist: scrapling[fetchers]; extra == "ai"
 Provides-Extra: shell
@@ -286,9 +286,12 @@ MySpider().start()
 
 <!-- sponsors -->
 
+<a href="https://www.novada.com/?d4vinci-scrapling" target="_blank" title="The All-in-One Solution for Every Data Scraping Scenario"><img src="https://raw.githubusercontent.com/D4Vinci/Scrapling/main/images/novada.jpg"></a>
+
+<br/>
+
 <a href="https://serpapi.com/?utm_source=scrapling" target="_blank" title="Scrape Google and other search engines with SerpApi"><img src="https://raw.githubusercontent.com/D4Vinci/Scrapling/main/images/SerpApi.png"></a>
 <a href="https://visit.decodo.com/Dy6W0b" target="_blank" title="Try the Most Efficient Residential Proxies for Free"><img src="https://raw.githubusercontent.com/D4Vinci/Scrapling/main/images/decodo.png"></a>
-<a href="https://hasdata.com/?utm_source=github&utm_medium=banner&utm_campaign=D4Vinci" target="_blank" title="The web scraping service that actually beats anti-bot systems!"><img src="https://raw.githubusercontent.com/D4Vinci/Scrapling/main/images/hasdata.png"></a>
 <a href="https://proxyempire.io/?ref=scrapling&utm_source=scrapling" target="_blank" title="Collect The Data Your Project Needs with the Best Residential Proxies"><img src="https://raw.githubusercontent.com/D4Vinci/Scrapling/main/images/ProxyEmpire.png"></a>
 <a href="https://www.webshare.io/?referral_code=48r2m2cd5uz1" target="_blank" title="The Most Reliable Proxy with Unparalleled Performance"><img src="https://raw.githubusercontent.com/D4Vinci/Scrapling/main/images/webshare.png"></a>
 <a href="https://proxiware.com/?ref=scrapling" target="_blank" title="Collect Any Data. At Any Scale."><img src="https://raw.githubusercontent.com/D4Vinci/Scrapling/main/images/proxiware.png"></a>
@@ -309,10 +312,10 @@ MySpider().start()
 - 💾 **Pause & Resume**: Checkpoint-based crawl persistence. Press Ctrl+C for a graceful shutdown; restart to resume from where you left off.
 - 📡 **Streaming Mode**: Stream scraped items as they arrive via `async for item in spider.stream()` with real-time stats - ideal for UI, pipelines, and long-running crawls.
 - 🛡️ **Blocked Request Detection**: Automatic detection and retry of blocked requests with customizable logic.
-- 🎚️ **AutoThrottle**: Stop guessing delays. The spider tunes the delay of each domain on its own from how fast the website responds, then doubles it (or waits what `Retry-After` asks) whenever the website starts blocking or rate-limiting you, and speeds back up once it stops.
+- 🚦 **AutoThrottle**: Stop guessing delays. The spider tunes the delay of each domain on its own from how fast the website responds, then doubles it (or waits what `Retry-After` asks) whenever the website starts blocking or rate-limiting you, and speeds back up once it stops.
 - 🤖 **Robots.txt Compliance**: Optional `robots_txt_obey` flag that respects `Disallow`, `Crawl-delay`, and `Request-rate` directives with per-domain caching.
 - 🧪 **Development Mode**: Cache responses to disk on the first run and replay them on subsequent runs - iterate on your `parse()` logic without re-hitting the target servers.
-- 🧩 **Ready-made Spider Templates**: Skip the boilerplate with `CrawlSpider` for rule-based link following, `SitemapSpider` for sitemap/robots.txt-driven crawls, and `ShopifySpider` to pull every product out of any Shopify store through its JSON API, one item per variant.
+- 🧩 **Ready-made Spider Templates**: Skip the boilerplate with `CrawlSpider` for rule-based link following, `SitemapSpider` for sitemap/robots.txt-driven crawls, `XMLFeedSpider`/`CSVFeedSpider` for iterating XML/RSS and CSV feeds, and `ShopifySpider` to pull every product out of any Shopify store through its JSON API, one item per variant.
 - 🔗 **Link Extraction**: A standalone `LinkExtractor` primitive with allow/deny patterns, domain filters, CSS/XPath scoping, extension filtering, and canonicalization - use it inside the templates or on its own.
 - 📦 **Built-in Export**: Export results through hooks and your own pipeline or the built-in JSON/JSONL/CSV/XML exporters with `result.items.to_json()`, `to_jsonl()`, `to_csv()`, and `to_xml()`.
 
@@ -545,14 +548,14 @@ Scrapling isn't just powerful-it's also blazing fast. The following benchmarks c
 
 | # |      Library      | Time (ms) | vs Scrapling | 
 |---|:-----------------:|:---------:|:------------:|
-| 1 |     Scrapling     |   1.98    |     1.0x     |
-| 2 |   Parsel/Scrapy   |   1.99    |    1.005     |
-| 3 |     Raw Lxml      |   2.48    |    1.253     |
-| 4 |      PyQuery      |   23.15   |     ~12x     |
-| 5 |    Selectolax     |  196.09   |     ~99x     |
-| 6 |  MechanicalSoup   |  1531.24  |   ~773.4x    |
-| 7 |   BS4 with Lxml   |  1535.19  |   ~775.3x    |
-| 8 | BS4 with html5lib |  3388.16  |   ~1711.2x   |
+| 1 |     Scrapling     |   1.99    |     1.0x     |
+| 2 |   Parsel/Scrapy   |   2.06    |    1.035     |
+| 3 |     Raw Lxml      |   2.56    |    1.286     |
+| 4 |      PyQuery      |   23.98   |     ~12x     |
+| 5 |    Selectolax     |  197.02   |     ~99x     |
+| 6 |  MechanicalSoup   |  1545.15  |   ~776.5x    |
+| 7 |   BS4 with Lxml   |  1562.1  |   ~785.0x    |
+| 8 | BS4 with html5lib |  3412.73  |   ~1714.9x   |
 
 
 ### Element Similarity & Text Search Performance
@@ -561,8 +564,8 @@ Scrapling's adaptive element finding capabilities significantly outperform alter
 
 | Library     | Time (ms) | vs Scrapling |
 |-------------|:---------:|:------------:|
-| Scrapling   |   2.29    |     1.0x     |
-| AutoScraper |   12.46   |    5.441x    |
+| Scrapling   |   2.3    |     1.0x     |
+| AutoScraper |   12.58   |    5.47x    |
 
 
 > All benchmarks represent averages of 100+ runs. See [benchmarks.py](https://github.com/D4Vinci/Scrapling/blob/main/benchmarks.py) for methodology.

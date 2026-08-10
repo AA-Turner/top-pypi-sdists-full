@@ -13,7 +13,9 @@ use crate::common::httpversion::HTTPVersion;
 use crate::pyerrors;
 use crate::shared::constants::Constants;
 use crate::shared::otel::{Instrumentation, Operation};
-use crate::shared::transport::{get_default_reqwest_client, new_reqwest_client, ClientParams};
+use crate::shared::transport::{
+    get_default_reqwest_client, new_reqwest_client, ClientParams, DEFAULT_MAX_REDIRECTS,
+};
 
 #[pyclass(module = "_pyqwest", name = "HTTPTransport", frozen, from_py_object)]
 #[derive(Clone)]
@@ -48,6 +50,8 @@ impl HttpTransport {
         enable_zstd = true,
         use_system_dns = false,
         enable_cookie_store = false,
+        follow_redirects = true,
+        max_redirects = DEFAULT_MAX_REDIRECTS,
         enable_otel = true,
         meter_provider = None,
         tracer_provider = None,
@@ -71,6 +75,8 @@ impl HttpTransport {
         enable_zstd: bool,
         use_system_dns: bool,
         enable_cookie_store: bool,
+        follow_redirects: bool,
+        max_redirects: usize,
         enable_otel: bool,
         meter_provider: Option<Bound<'_, PyAny>>,
         tracer_provider: Option<Bound<'_, PyAny>>,
@@ -93,6 +99,8 @@ impl HttpTransport {
             enable_zstd,
             use_system_dns,
             enable_cookie_store,
+            follow_redirects,
+            max_redirects,
         })?;
         let constants = Constants::get(py)?;
         Ok(Self {
@@ -162,7 +170,6 @@ impl HttpTransport {
         let fut = future_into_py(py, {
             let client = client.clone();
             let operation = operation.clone();
-            let request_iter_task = request_iter_task.clone();
             async move {
                 let res = client
                     .execute(request_rs)
@@ -170,7 +177,6 @@ impl HttpTransport {
                     .map_err(|e| pyerrors::from_reqwest(&e, "Request failed"))?;
                 operation.fill_response(&res);
                 response.fill(res).await;
-                response.set_request_iter_task(&request_iter_task);
                 Ok(response)
             }
         })?;
@@ -258,10 +264,22 @@ struct EndOperationCallback {
 #[pymethods]
 impl EndOperationCallback {
     fn __call__(&self, py: Python<'_>, fut: &Bound<'_, PyAny>) -> PyResult<()> {
-        if let Some(task) = self.request_iter_task.swap(None) {
-            task.call_method0(py, &self.constants.cancel)?;
-        }
         let res = fut.call_method0(&self.constants.result);
+        if let Some(task) = self.request_iter_task.swap(None) {
+            let response = res
+                .as_ref()
+                .ok()
+                .and_then(|res| res.cast::<Response>().ok());
+            match response {
+                // Move the request iterator task to the response being returned in this future
+                // so it can be canceled when the response is closed.
+                Some(response) => response.get().set_request_iter_task(task),
+                None => {
+                    // Response already failed, cancel the request iterator here.
+                    task.call_method0(py, &self.constants.cancel)?;
+                }
+            }
+        }
         self.operation.end(py, res.as_ref().err())
     }
 }

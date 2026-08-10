@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fpdf2
-Version: 2.8.7
+Version: 2.8.8
 Summary: Simple & fast PDF generation for Python
 Author: Olivier PLATHEY, Max, Lucas Cimon (@Lucas-C), Georg Mischler (@gmischler), Anderson Herzogenrath da Costa (@andersonhc)
 License-Expression: LGPL-3.0-only
@@ -52,8 +52,9 @@ Requires-Dist: mknotebooks; extra == "docs"
 Requires-Dist: pdoc3; extra == "docs"
 Provides-Extra: test
 Requires-Dist: brotli; extra == "test"
-Requires-Dist: camelot-py[base]; extra == "test"
-Requires-Dist: endesive[full]; extra == "test"
+Requires-Dist: camelot-py; extra == "test"
+Requires-Dist: endesive; extra == "test"
+Requires-Dist: pypdf; extra == "test"
 Requires-Dist: pytest; extra == "test"
 Requires-Dist: pytest-cov; extra == "test"
 Requires-Dist: qrcode; extra == "test"
@@ -416,6 +417,24 @@ This library could only exist thanks to the dedication of many volunteers around
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/amidou-naba"><img src="https://avatars.githubusercontent.com/u/234197600?v=4?s=100" width="100px;" alt="amidou-naba"/><br /><sub><b>amidou-naba</b></sub></a><br /><a href="https://github.com/py-pdf/fpdf2/commits?author=amidou-naba" title="Code">💻</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://rittau.org/"><img src="https://avatars.githubusercontent.com/u/52799?v=4?s=100" width="100px;" alt="Sebastian Rittau"/><br /><sub><b>Sebastian Rittau</b></sub></a><br /><a href="https://github.com/py-pdf/fpdf2/commits?author=srittau" title="Code">💻</a></td>
       <td align="center" valign="top" width="14.28%"><a href="https://github.com/paulsuh"><img src="https://avatars.githubusercontent.com/u/297348?v=4?s=100" width="100px;" alt="Paul Suh"/><br /><sub><b>Paul Suh</b></sub></a><br /><a href="https://github.com/py-pdf/fpdf2/commits?author=paulsuh" title="Documentation">📖</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/CoLa5"><img src="https://avatars.githubusercontent.com/u/61389643?v=4?s=100" width="100px;" alt="CoLa"/><br /><sub><b>CoLa</b></sub></a><br /><a href="https://github.com/py-pdf/fpdf2/issues?q=author%3ACoLa5" title="Bug reports">🐛</a> <a href="https://github.com/py-pdf/fpdf2/commits?author=CoLa5" title="Code">💻</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/makapuf"><img src="https://avatars.githubusercontent.com/u/610577?v=4?s=100" width="100px;" alt="makapuf"/><br /><sub><b>makapuf</b></sub></a><br /><a href="https://github.com/py-pdf/fpdf2/issues?q=author%3Amakapuf" title="Bug reports">🐛</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://pawansingh3889.github.io"><img src="https://avatars.githubusercontent.com/u/42340841?v=4?s=100" width="100px;" alt="Pawan Singh Kapkoti"/><br /><sub><b>Pawan Singh Kapkoti</b></sub></a><br /><a href="#translation-Pawansingh3889" title="Translation">🌍</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/HippolyteCediey"><img src="https://avatars.githubusercontent.com/u/175031994?v=4?s=100" width="100px;" alt="HippolyteCediey"/><br /><sub><b>HippolyteCediey</b></sub></a><br /><a href="https://github.com/py-pdf/fpdf2/issues?q=author%3AHippolyteCediey" title="Bug reports">🐛</a></td>
+    </tr>
+    <tr>
+      <td align="center" valign="top" width="14.28%"><a href="https://theo-massenya.fr"><img src="https://avatars.githubusercontent.com/u/81651096?v=4?s=100" width="100px;" alt="theo"/><br /><sub><b>theo</b></sub></a><br /><a href="https://github.com/py-pdf/fpdf2/commits?author=Theo1335" title="Code">💻</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://www.linkedin.com/in/eugen-goebel"><img src="https://avatars.githubusercontent.com/u/271369117?v=4?s=100" width="100px;" alt="Eugen Goebel"/><br /><sub><b>Eugen Goebel</b></sub></a><br /><a href="https://github.com/py-pdf/fpdf2/commits?author=eugen-goebel" title="Code">💻</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/gaoflow"><img src="https://avatars.githubusercontent.com/u/3355843?v=4?s=100" width="100px;" alt="Vincent Gao"/><br /><sub><b>Vincent Gao</b></sub></a><br /><a href="https://github.com/py-pdf/fpdf2/commits?author=gaoflow" title="Code">💻</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/iamfazakb"><img src="https://avatars.githubusercontent.com/u/261377750?v=4?s=100" width="100px;" alt="Fazal Akbar"/><br /><sub><b>Fazal Akbar</b></sub></a><br /><a href="https://github.com/py-pdf/fpdf2/commits?author=iamfazakb" title="Documentation">📖</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/uttam12331"><img src="https://avatars.githubusercontent.com/u/159913047?v=4?s=100" width="100px;" alt="uttam12331"/><br /><sub><b>uttam12331</b></sub></a><br /><a href="https://github.com/py-pdf/fpdf2/commits?author=uttam12331" title="Code">💻</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://dannymaaz.com"><img src="https://avatars.githubusercontent.com/u/61290346?v=4?s=100" width="100px;" alt="Danny Maaz"/><br /><sub><b>Danny Maaz</b></sub></a><br /><a href="https://github.com/py-pdf/fpdf2/commits?author=dannymaaz" title="Code">💻</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/hvbtup"><img src="https://avatars.githubusercontent.com/u/7644776?v=4?s=100" width="100px;" alt="Henning von Bargen"/><br /><sub><b>Henning von Bargen</b></sub></a><br /><a href="https://github.com/py-pdf/fpdf2/issues?q=author%3Ahvbtup" title="Bug reports">🐛</a></td>
+    </tr>
+    <tr>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/prateek-dagar"><img src="https://avatars.githubusercontent.com/u/107306613?v=4?s=100" width="100px;" alt="prateek-dagar"/><br /><sub><b>prateek-dagar</b></sub></a><br /><a href="https://github.com/py-pdf/fpdf2/commits?author=prateek-dagar" title="Code">💻</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/stumpylog"><img src="https://avatars.githubusercontent.com/u/797416?v=4?s=100" width="100px;" alt="Trenton H"/><br /><sub><b>Trenton H</b></sub></a><br /><a href="https://github.com/py-pdf/fpdf2/issues?q=author%3Astumpylog" title="Bug reports">🐛</a> <a href="https://github.com/py-pdf/fpdf2/commits?author=stumpylog" title="Code">💻</a></td>
+      <td align="center" valign="top" width="14.28%"><a href="https://github.com/Sanjays2402"><img src="https://avatars.githubusercontent.com/u/51058514?v=4?s=100" width="100px;" alt="Sanjay Santhanam"/><br /><sub><b>Sanjay Santhanam</b></sub></a><br /><a href="https://github.com/py-pdf/fpdf2/commits?author=Sanjays2402" title="Code">💻</a></td>
     </tr>
   </tbody>
 </table>

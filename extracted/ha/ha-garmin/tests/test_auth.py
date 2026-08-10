@@ -111,6 +111,28 @@ class TestGarminAuth:
             auth.login("e@x.com", "pw")
         assert auth.di_token == "good"
 
+    def test_login_success_non_mfa_does_not_set_pending(self):
+        """A normal non-MFA login must succeed and leave _mfa_pending False."""
+        from ha_garmin.models import AuthResult
+
+        auth = GarminAuth()
+
+        def working_strategy(_email, _password):
+            auth.di_token = "good"
+            auth.di_refresh_token = "refresh"
+            auth.di_client_id = "CID"
+            return AuthResult(success=True)
+
+        with (
+            patch.object(auth, "_mobile_login_cffi", side_effect=working_strategy),
+            patch.object(auth, "_verify_token", return_value=True),
+        ):
+            result = auth.login("u@x.com", "pw")
+
+        assert result.success is True
+        assert auth._mfa_pending is False
+        assert auth.is_authenticated
+
     async def test_refresh_session_not_authenticated(self):
         """Test refresh_session returns False when not authenticated."""
         auth = GarminAuth()
@@ -252,13 +274,13 @@ class TestGarminAuth:
         )
 
     def test_widget_bare_signin_title_not_mfa(self) -> None:
-        """The bare signin page title must not be mistaken for an MFA challenge."""
+        """The bare signin page title falls through to portal strategies."""
         auth = GarminAuth()
         sess = self._widget_session("GARMIN Authentication Application")
         with (
             patch("ha_garmin.auth.cffi_requests.Session", return_value=sess),
             patch("time.sleep"),
-            pytest.raises(GarminAPIError, match="unexpected title"),
+            pytest.raises(GarminAPIError, match="auth application page"),
         ):
             auth._widget_web_login("u@x.com", "pw")
 
@@ -297,3 +319,86 @@ class TestGarminAuth:
             assert not (file_mode & (stat.S_IRWXG | stat.S_IRWXO))
         finally:
             os.umask(old_umask)
+
+    # ------------------------------------------------------------------ #
+    #  Security hardening                                                  #
+    # ------------------------------------------------------------------ #
+
+    async def test_save_session_failure_logs_warning(self, tmp_path, caplog):
+        """A failed token persistence write must be logged at WARNING."""
+        auth = GarminAuth()
+        auth.di_token = "di_abc"
+        auth.di_refresh_token = "di_refresh"
+        auth.di_client_id = "CID"
+        auth._tokenstore_path = str(tmp_path / "tokens")
+
+        with (
+            patch.object(auth, "_refresh_di_token") as mock_refresh,
+            patch.object(auth, "save_session", side_effect=OSError("read-only fs")),
+        ):
+            result = await auth.refresh_session()
+
+        # The refresh itself succeeded (we faked the network side); persistence failed.
+        mock_refresh.assert_called_once()
+        assert result is True
+        assert "Failed to persist tokens" in caplog.text
+        assert "read-only fs" in caplog.text
+
+    @pytest.mark.skipif(sys.platform == "win32", reason="POSIX symlinks only")
+    async def test_save_session_rejects_symlinked_directory(self, tmp_path):
+        """A symlinked tokenstore directory must not be followed."""
+        real_dir = tmp_path / "real"
+        real_dir.mkdir()
+        symlink_dir = tmp_path / "link"
+        symlink_dir.symlink_to(real_dir)
+
+        auth = GarminAuth()
+        auth.di_token = "di_abc"
+        auth.di_refresh_token = "di_refresh"
+        auth.di_client_id = "CID"
+
+        # The symlinked path must be rejected before any write occurs.
+        with pytest.raises(ValueError, match="Token path must not be a symlink"):
+            auth.save_session(str(symlink_dir))
+        assert not any(real_dir.iterdir())
+
+    @pytest.mark.skipif(sys.platform == "win32", reason="POSIX symlinks only")
+    async def test_load_session_rejects_symlinked_file(self, tmp_path):
+        """A symlinked token file must not be followed on load."""
+        real_file = tmp_path / "real_tokens.json"
+        symlink_file = tmp_path / "link_tokens.json"
+        real_file.write_text('{"token": "x"}')
+        symlink_file.symlink_to(real_file)
+
+        auth = GarminAuth()
+        result = auth.load_session(str(symlink_file))
+        assert result is False
+
+    async def test_refresh_session_holds_token_lock(self):
+        """refresh_session must execute the refresh while holding the token lock."""
+        auth = GarminAuth()
+        auth.di_token = "di_abc"
+        auth.di_refresh_token = "di_refresh"
+        auth.di_client_id = "CID"
+
+        lock_held_during_refresh = []
+
+        def tracked_refresh_di_token() -> None:
+            # _refresh_with_lock acquires the lock before calling this helper.
+            assert auth._token_lock._is_owned()  # type: ignore[attr-defined]
+            lock_held_during_refresh.append(True)
+
+        with patch.object(
+            auth, "_refresh_di_token", side_effect=tracked_refresh_di_token
+        ):
+            result = await auth.refresh_session()
+
+        assert result is True
+        assert lock_held_during_refresh == [True]
+
+    def test_login_rejects_interleaved_mfa(self):
+        """login() must refuse to start when an MFA flow is already pending."""
+        auth = GarminAuth()
+        auth._mfa_pending = True
+        with pytest.raises(GarminAuthError, match="MFA login already in progress"):
+            auth.login("u@x.com", "pw")

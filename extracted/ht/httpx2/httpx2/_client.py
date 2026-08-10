@@ -16,6 +16,7 @@ from ._config import (
     DEFAULT_KEEPALIVE_PING_INTERVAL_SECONDS,
     DEFAULT_KEEPALIVE_PING_TIMEOUT_SECONDS,
     DEFAULT_LIMITS,
+    DEFAULT_MAX_EVENT_SIZE_BYTES,
     DEFAULT_MAX_MESSAGE_SIZE_BYTES,
     DEFAULT_MAX_REDIRECTS,
     DEFAULT_QUEUE_SIZE,
@@ -34,8 +35,8 @@ from ._exceptions import (
 from ._models import Cookies, Headers, Request, Response
 from ._sse import EventSource
 from ._status_codes import codes
+from ._transports import AsyncHTTPTransport, HTTPTransport
 from ._transports.base import AsyncBaseTransport, BaseTransport
-from ._transports.default import AsyncHTTPTransport, HTTPTransport
 from ._types import (
     AsyncByteStream,
     AuthTypes,
@@ -871,6 +872,7 @@ class Client(BaseClient):
         follow_redirects: bool | UseClientDefault = USE_CLIENT_DEFAULT,
         timeout: TimeoutTypes | UseClientDefault = USE_CLIENT_DEFAULT,
         extensions: RequestExtensions | None = None,
+        max_event_size: int | None = DEFAULT_MAX_EVENT_SIZE_BYTES,
     ) -> Generator[EventSource]:
         """
         Connect to a server-sent events endpoint and yield an `EventSource`.
@@ -894,7 +896,7 @@ class Client(BaseClient):
             timeout=timeout,
             extensions=extensions,
         ) as response:
-            yield EventSource(response)
+            yield EventSource(response, max_event_size=max_event_size)
 
     @contextmanager
     def websocket(
@@ -1708,6 +1710,7 @@ class AsyncClient(BaseClient):
         follow_redirects: bool | UseClientDefault = USE_CLIENT_DEFAULT,
         timeout: TimeoutTypes | UseClientDefault = USE_CLIENT_DEFAULT,
         extensions: RequestExtensions | None = None,
+        max_event_size: int | None = DEFAULT_MAX_EVENT_SIZE_BYTES,
     ) -> AsyncGenerator[EventSource]:
         """
         Connect to a server-sent events endpoint and yield an `EventSource`.
@@ -1731,7 +1734,7 @@ class AsyncClient(BaseClient):
             timeout=timeout,
             extensions=extensions,
         ) as response:
-            yield EventSource(response)
+            yield EventSource(response, max_event_size=max_event_size)
 
     @asynccontextmanager
     async def websocket(

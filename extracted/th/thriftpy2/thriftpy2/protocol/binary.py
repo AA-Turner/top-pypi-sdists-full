@@ -1,8 +1,5 @@
-# -*- coding: utf-8 -*-
-
-from __future__ import absolute_import
-
 import struct
+from typing import Any
 
 from ..thrift import TType
 
@@ -96,7 +93,7 @@ def write_map_begin(outbuf, ktype, vtype, size):
     outbuf.write(pack_i8(ktype) + pack_i8(vtype) + pack_i32(size))
 
 
-def write_val(outbuf, ttype, val, spec=None):
+def write_val(outbuf, ttype, val, spec: Any = None):
     if ttype == TType.BOOL:
         if val:
             outbuf.write(pack_i8(1))
@@ -119,9 +116,11 @@ def write_val(outbuf, ttype, val, spec=None):
         outbuf.write(pack_double(val))
 
     elif ttype in BIN_TYPES:
-        if not isinstance(val, bytes):
+        if isinstance(val, str):
             val = val.encode('utf-8')
-        outbuf.write(pack_string(val))
+        val = memoryview(val)
+        outbuf.write(pack_i32(val.nbytes))
+        outbuf.write(val)
 
     elif ttype == TType.SET or ttype == TType.LIST:
         if isinstance(spec, tuple):
@@ -215,7 +214,7 @@ def read_map_begin(inbuf):
     return k_type, v_type, sz
 
 
-def read_val(inbuf, ttype, spec=None, decode_response=True,
+def read_val(inbuf, ttype, spec: Any = None, decode_response=True,
              strict_decode=False):
     if ttype == TType.BOOL:
         return bool(unpack_i8(inbuf.read(1)))

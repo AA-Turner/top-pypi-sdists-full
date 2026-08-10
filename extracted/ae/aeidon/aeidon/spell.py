@@ -13,19 +13,18 @@
 # GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with this program. If not, see <http://www.gnu.org/licenses/>.
+# along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 """Checking and correcting spelling."""
 
 import aeidon
-import os
+import contextlib
 import re
+import traceback
 
-with aeidon.util.silent(Exception):
-    from gi.repository import Gspell
-
-__all__ = ("SpellChecker", "SpellCheckNavigator", "SpellCheckTokenizer")
-
+with contextlib.suppress(Exception):
+    from gi.repository import Spelling
+    Spelling.init()
 
 class SpellChecker:
 
@@ -33,12 +32,13 @@ class SpellChecker:
 
     def __init__(self, language):
         """Initialize a :class:`SpellChecker` instance."""
-        glanguage = Gspell.language_lookup(language)
-        if glanguage is None:
-            raise aeidon.Error('Language "{}" not supported'.format(language))
-        self.checker = Gspell.Checker(language=glanguage)
+        provider = Spelling.Provider.get_default()
+        if not provider.supports_language(language):
+            raise aeidon.Error(f'Language "{language}" not supported')
+        self.checker = Spelling.Checker.new(provider, language)
         self.language = language
         self.replacements = []
+        self.session_words = set()
         self.read_replacements()
 
     def add_replacement(self, word, replacement):
@@ -47,16 +47,19 @@ class SpellChecker:
 
     def add_to_personal(self, word):
         """Add `word` to personal word list."""
-        self.checker.add_word_to_personal(word, -1)
+        self.checker.add_word(word)
 
     def add_to_session(self, word):
         """Add `word` to session word list."""
-        self.checker.add_word_to_session(word, -1)
+        # libspelling's ignore_word applies to a dictionary shared
+        # between all checkers of the same language, so keep the
+        # session word list per-checker here, like Gspell had it.
+        self.session_words.add(word)
 
     @classmethod
     def available(cls):
         """Return ``True`` if spell-check is available."""
-        return "Gspell" in globals()
+        return "Spelling" in globals()
 
     def check(self, word, leading_context="", trailing_context=""):
         """Return ``True`` if `word` is correct, ``False`` otherwise."""
@@ -82,36 +85,46 @@ class SpellChecker:
                 # Accept ordinal numerals comprised of number and suffix.
                 # https://en.wikipedia.org/wiki/English_numerals#Ordinal_numbers
                 return True
-        return self.checker.check_word(word, -1)
+        return self._check_word(word)
 
     def check_all(self, *words):
         """Return ``True`` if all of `words` are correct, ``False`` otherwise."""
-        return all(self.checker.check_word(x, -1) for x in words)
+        return all(self._check_word(x) for x in words)
 
     def check_any(self, *words):
         """Return ``True`` if any of `words` is correct, ``False`` otherwise."""
-        return any(self.checker.check_word(x, -1) for x in words)
+        return any(self._check_word(x) for x in words)
+
+    def _check_word(self, word):
+        """Return ``True`` if `word` is correct, ``False`` otherwise."""
+        if word in self.session_words: return True
+        return self.checker.check_word(word, -1)
 
     @classmethod
     def list_languages(cls):
         """Return a list of supported language codes."""
-        languages = Gspell.Language.get_available()
-        return sorted(x.get_code() for x in languages)
+        languages = Spelling.Provider.get_default().list_languages()
+        codes = [x.get_code() for x in languages]
+        # Filter out odd Enchant entries, e.g. "en-variant_0" and
+        # "en-w_accents", that are not valid locale codes.
+        return sorted(filter(aeidon.locales.is_valid, codes))
 
     def read_replacements(self):
         """Read list of replacements from file."""
-        if not os.path.isfile(self.replacement_file): return
-        with aeidon.util.silent(IOError, OSError, tb=True):
+        if not self.replacement_file.is_file(): return
+        try:
             lines = aeidon.util.readlines(self.replacement_file)
             lines = aeidon.util.get_unique(lines)
             lines = list(filter(lambda x: x.strip(), lines))
             self.replacements = [tuple(x.strip().split("|", 1)) for x in lines]
+        except OSError:
+            traceback.print_exc()
 
     @property
     def replacement_file(self):
         """Return path to the replacement file."""
-        directory = os.path.join(aeidon.CONFIG_HOME_DIR, "spell-check")
-        return os.path.join(directory, "{}.repl".format(self.language))
+        directory = aeidon.CONFIG_HOME_DIR / "spell-check"
+        return directory / f"{self.language}.repl"
 
     def suggest(self, word):
         """Return a list of suggestions for `word`."""
@@ -126,7 +139,7 @@ class SpellChecker:
             replacement = re.sub(r"^(\d+)(\D+)$", r"\1 \2", word)
             if self.check_all(*replacement.split()):
                 custom.append(replacement)
-        suggestions = self.checker.get_suggestions(word, -1)
+        suggestions = self.checker.list_corrections(word) or []
         return aeidon.util.get_unique(custom + suggestions)
 
     def write_replacements(self):
@@ -135,9 +148,10 @@ class SpellChecker:
         replacements = aeidon.util.get_unique(
             self.replacements, keep_last=True)[-10000:]
         text = "\n".join("|".join(x) for x in replacements) + "\n"
-        with aeidon.util.silent(IOError, OSError, tb=True):
+        try:
             aeidon.util.write(self.replacement_file, text)
-
+        except OSError:
+            traceback.print_exc()
 
 class SpellCheckNavigator:
 
@@ -235,7 +249,6 @@ class SpellCheckNavigator:
     def trailing_context(self, n):
         """Return `n` characters after the current word."""
         return self.text[self.endpos:][:n]
-
 
 class SpellCheckTokenizer:
 

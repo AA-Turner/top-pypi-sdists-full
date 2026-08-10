@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.5
 Name: transmission-rpc
-Version: 7.0.11
+Version: 7.0.12
 Summary: Python module that implements the Transmission bittorent client JSON-RPC protocol
 Keywords: transmission,rpc
 Author-email: trim21 <trim21me@gmail.com>
@@ -17,6 +17,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
+License-File: LICENSE
 Requires-Dist: requests~=2.23
 Requires-Dist: typing-extensions>=4.5.0
 Requires-Dist: pre-commit==3.8.0 ; extra == "dev" and ( python_version >= "3.9")
@@ -34,6 +35,7 @@ Requires-Dist: sphinx-github-style==1.2.2  ; extra == "dev" and ( python_version
 Requires-Dist: sphinx-autobuild==2024.4.16  ; extra == "dev" and ( python_version >= "3.9")
 Project-URL: Homepage, https://github.com/Trim21/transmission-rpc
 Provides-Extra: dev
+Import-Name: transmission_rpc
 
 # Transmission-rpc Readme
 

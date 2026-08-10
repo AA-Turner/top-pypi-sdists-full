@@ -1,8 +1,8 @@
 Metadata-Version: 2.4
 Name: pycep-parser
-Version: 0.7.0
+Version: 0.7.1
 Summary: A Python based Bicep parser
-Keywords: bicep,parser,lark
+Keywords: bicep,lark,parser
 Author: Anton Grübel
 Author-email: Anton Grübel <anton.gruebel@gmail.com>
 License-Expression: Apache-2.0
@@ -15,7 +15,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Typing :: Typed
 Requires-Dist: lark>=1.3.0,<2.0.0
-Requires-Dist: regex>=2024.11.6,<2026.0.0
+Requires-Dist: regex>=2024.11.6,<2027.0.0
 Requires-Dist: typing-extensions>=4.12.0,<5.0.0
 Requires-Python: >=3.10
 Project-URL: Changelog, https://github.com/gruebel/pycep/blob/master/CHANGELOG.md
@@ -56,12 +56,11 @@ pip install --upgrade pycep-parser
 
 ### Custom data types
 Initial support was added with following parts still missing
-- Array type
 - Decorators in object type
 - Union type in object type
 
 ### Functions
-- [ ] Array (in progress)
+- [x] Array
 - [ ] CIDR (in progress)
 - [ ] Lambda (in progress)
 

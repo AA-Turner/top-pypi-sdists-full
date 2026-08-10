@@ -18,7 +18,7 @@ use crate::{
     builtins::BuiltinsFunctions,
     exceptions::ExcType,
     file_mode::FileMode,
-    format::{FormatFloat, StringRepr, bytes_repr, format_offset_timedelta_repr, string_repr_fmt},
+    format::{FormatFloat, StringRepr, bytes_repr_fmt, format_offset_timedelta_repr, string_repr_fmt},
     resource::ResourceError,
 };
 
@@ -54,6 +54,8 @@ use crate::{
 pub enum MontyObject {
     /// Python's `Ellipsis` singleton (`...`).
     Ellipsis,
+    /// Python's `NotImplemented` singleton.
+    NotImplemented,
     /// Python's `None` singleton.
     None,
     /// Python boolean (`True` or `False`).
@@ -244,6 +246,7 @@ impl MontyObject {
     fn repr_fmt(&self, f: &mut impl Write) -> fmt::Result {
         match self {
             Self::Ellipsis => f.write_str("Ellipsis"),
+            Self::NotImplemented => f.write_str("NotImplemented"),
             Self::None => f.write_str("None"),
             Self::Bool(true) => f.write_str("True"),
             Self::Bool(false) => f.write_str("False"),
@@ -251,7 +254,7 @@ impl MontyObject {
             Self::BigInt(v) => write!(f, "{v}"),
             Self::Float(v) => write!(f, "{}", FormatFloat(*v)),
             Self::String(s) => string_repr_fmt(s, f),
-            Self::Bytes(b) => f.write_str(&bytes_repr(b)),
+            Self::Bytes(b) => bytes_repr_fmt(b, f),
             Self::List(l) => {
                 f.write_char('[')?;
                 let mut iter = l.iter();
@@ -467,7 +470,7 @@ impl MontyObject {
     pub fn is_truthy(&self) -> bool {
         match self {
             Self::None => false,
-            Self::Ellipsis => true,
+            Self::Ellipsis | Self::NotImplemented => true,
             Self::Bool(b) => *b,
             Self::Int(i) => *i != 0,
             Self::BigInt(bi) => !bi.is_zero(),
@@ -502,6 +505,7 @@ impl MontyObject {
         match self {
             Self::None => "NoneType",
             Self::Ellipsis => "ellipsis",
+            Self::NotImplemented => "NotImplementedType",
             Self::Bool(_) => "bool",
             Self::Int(_) | Self::BigInt(_) => "int",
             Self::Float(_) => "float",
@@ -542,7 +546,7 @@ impl Hash for MontyObject {
         }
 
         match self {
-            Self::Ellipsis | Self::None => {}
+            Self::Ellipsis | Self::NotImplemented | Self::None => {}
             Self::Bool(bool) => bool.hash(state),
             Self::Int(i) => i.hash(state),
             Self::BigInt(bi) => {
@@ -578,6 +582,7 @@ impl PartialEq for MontyObject {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::Ellipsis, Self::Ellipsis) => true,
+            (Self::NotImplemented, Self::NotImplemented) => true,
             (Self::None, Self::None) => true,
             (Self::Bool(a), Self::Bool(b)) => a == b,
             (Self::Int(a), Self::Int(b)) => a == b,
@@ -727,6 +732,11 @@ pub enum MontyType {
     Str,
     Bytes,
     List,
+    /// `collections.deque`. Qualified like `datetime.datetime` so the
+    /// host-boundary name matches the runtime `Type::Deque` (`collections.deque`)
+    /// rather than a bare `deque`.
+    #[strum(serialize = "collections.deque")]
+    Deque,
     #[strum(serialize = "list_iterator")]
     ListIterator,
     #[strum(serialize = "callable_iterator")]
@@ -781,6 +791,45 @@ pub enum MontyType {
     RePattern,
     #[strum(serialize = "re.Match")]
     ReMatch,
+    // Serialized enum variants are append-only to preserve postcard discriminants.
+    #[strum(serialize = "tuple_iterator")]
+    TupleIterator,
+    #[strum(serialize = "str_ascii_iterator")]
+    StrAsciiIterator,
+    #[strum(serialize = "str_iterator")]
+    StrIterator,
+    #[strum(serialize = "bytes_iterator")]
+    BytesIterator,
+    #[strum(serialize = "range_iterator")]
+    RangeIterator,
+    #[strum(serialize = "dict_keyiterator")]
+    DictKeyIterator,
+    #[strum(serialize = "dict_itemiterator")]
+    DictItemIterator,
+    #[strum(serialize = "dict_valueiterator")]
+    DictValueIterator,
+    #[strum(serialize = "set_iterator")]
+    SetIterator,
+    #[strum(serialize = "itertools.count")]
+    ItertoolsCount,
+    #[strum(serialize = "itertools.repeat")]
+    ItertoolsRepeat,
+    /// A `dataclasses.Field` describing one field of a sandbox `@dataclass`,
+    /// as found in a class's `__dataclass_fields__`.
+    #[strum(serialize = "Field")]
+    Field,
+    #[strum(serialize = "itertools.pairwise")]
+    ItertoolsPairwise,
+    #[strum(serialize = "itertools.compress")]
+    ItertoolsCompress,
+    #[strum(serialize = "itertools.islice")]
+    ItertoolsIslice,
+    #[strum(serialize = "itertools.chain")]
+    ItertoolsChain,
+    #[strum(serialize = "itertools.cycle")]
+    ItertoolsCycle,
+    #[strum(serialize = "NotImplementedType")]
+    NotImplementedType,
 }
 
 impl fmt::Display for MontyType {
@@ -974,7 +1023,7 @@ impl Error for ConversionError {}
 ///
 /// This can occur when:
 /// - A `MontyObject` variant (like `Repr`) is only valid as an output, not an input
-/// - A resource limit (memory, allocations) is exceeded during conversion
+/// - A resource limit is exceeded during conversion
 #[derive(Debug, Clone)]
 pub enum InvalidInputError {
     /// The input type is not valid for conversion to a runtime Value.

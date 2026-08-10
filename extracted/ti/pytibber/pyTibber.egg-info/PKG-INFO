@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyTibber
-Version: 0.37.6
+Version: 0.38.0
 Summary: A python3 library to communicate with Tibber
 Author-email: Daniel Hjelseth Hoyer <mail@dahoiv.net>
 License-Expression: GPL-3.0-or-later
@@ -16,6 +16,7 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: aiohttp>=3.0.6
 Requires-Dist: gql>=4.0.0
+Requires-Dist: tenacity>=9.0.0
 Requires-Dist: websockets>=14.0.0
 Dynamic: license-file
 

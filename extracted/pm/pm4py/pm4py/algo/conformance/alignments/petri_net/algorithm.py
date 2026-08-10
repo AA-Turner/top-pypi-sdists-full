@@ -49,6 +49,7 @@ class Variants(Enum):
     VERSION_STATE_EQUATION_A_STAR = variants.state_equation_a_star
     VERSION_DIJKSTRA_NO_HEURISTICS = variants.dijkstra_no_heuristics
     VERSION_DIJKSTRA_LESS_MEMORY = variants.dijkstra_less_memory
+    VERSION_DIJKSTRA_SEMANTICS = variants.dijkstra_semantics
     VERSION_DISCOUNTED_A_STAR = variants.discounted_a_star
     APPROX_TANDEM_REPEATS = variants.approx_tandem_repeats
     APPROX_SLIDING_WINDOW = variants.approx_sliding_window
@@ -80,6 +81,7 @@ class Parameters(Enum):
     EXPONENT="theta"
     ENABLE_BEST_WORST_COST = "enable_best_worst_cost"
     UNPACK_VARIANT_ALIGNMENTS = "unpack_alignments"
+    PETRI_SEMANTICS = "petri_semantics"
 
 
 def __variant_mapper(variant):
@@ -90,6 +92,8 @@ def __variant_mapper(variant):
             variant = Variants.VERSION_DIJKSTRA_NO_HEURISTICS
         elif variant == "Variants.VERSION_DIJKSTRA_LESS_MEMORY":
             variant = Variants.VERSION_DIJKSTRA_LESS_MEMORY
+        elif variant == "Variants.VERSION_DIJKSTRA_SEMANTICS":
+            variant = Variants.VERSION_DIJKSTRA_SEMANTICS
         elif variant == "Variants.VERSION_DISCOUNTED_A_STAR":
             variant = Variants.VERSION_DISCOUNTED_A_STAR
         elif variant == "Variants.APPROX_TANDEM_REPEATS":
@@ -109,6 +113,7 @@ if solver.DEFAULT_LP_SOLVER_VARIANT is not None:
 VERSION_STATE_EQUATION_A_STAR = Variants.VERSION_STATE_EQUATION_A_STAR
 VERSION_DIJKSTRA_NO_HEURISTICS = Variants.VERSION_DIJKSTRA_NO_HEURISTICS
 VERSION_DIJKSTRA_LESS_MEMORY = Variants.VERSION_DIJKSTRA_LESS_MEMORY
+VERSION_DIJKSTRA_SEMANTICS = Variants.VERSION_DIJKSTRA_SEMANTICS
 VERSION_DISCOUNTED_A_STAR = Variants.VERSION_DISCOUNTED_A_STAR
 APPROX_TANDEM_REPEATS = Variants.APPROX_TANDEM_REPEATS
 APPROX_SLIDING_WINDOW = Variants.APPROX_SLIDING_WINDOW
@@ -118,6 +123,7 @@ VERSIONS = {
     Variants.VERSION_DIJKSTRA_NO_HEURISTICS,
     Variants.VERSION_STATE_EQUATION_A_STAR,
     Variants.VERSION_DIJKSTRA_LESS_MEMORY,
+    Variants.VERSION_DIJKSTRA_SEMANTICS,
     Variants.VERSION_DISCOUNTED_A_STAR,
     Variants.APPROX_TANDEM_REPEATS,
     Variants.APPROX_SLIDING_WINDOW,
@@ -180,7 +186,9 @@ def apply_trace(
         selected variant of the algorithm. Approximation-oriented values are
         ``Variants.APPROX_TANDEM_REPEATS``,
         ``Variants.APPROX_SLIDING_WINDOW``, and
-        ``Variants.APPROX_FIXED_HORIZON``.
+        ``Variants.APPROX_FIXED_HORIZON``. Use
+        ``Variants.VERSION_DIJKSTRA_SEMANTICS`` for non-classic Petri-net
+        semantics.
     parameters
         :class:`dict` parameters of the algorithm, for key \'state_equation_a_star\':
             Parameters.ACTIVITY_KEY -> Attribute in the log that contains the activity
@@ -190,6 +198,9 @@ def apply_trace(
             mapping of each transition in the model to corresponding model cost
             Parameters.PARAM_TRACE_COST_FUNCTION ->
             mapping of each index of the trace to a positive cost value
+            Parameters.PETRI_SEMANTICS ->
+            semantics used by ``VERSION_DIJKSTRA_SEMANTICS`` (classic by
+            default)
 
     Returns
     -------
@@ -269,7 +280,9 @@ def apply_log(
         selected variant of the algorithm. Approximation-oriented values are
         ``Variants.APPROX_TANDEM_REPEATS``,
         ``Variants.APPROX_SLIDING_WINDOW``, and
-        ``Variants.APPROX_FIXED_HORIZON``.
+        ``Variants.APPROX_FIXED_HORIZON``. Use
+        ``Variants.VERSION_DIJKSTRA_SEMANTICS`` for non-classic Petri-net
+        semantics.
     parameters
         :class:`dict` parameters of the algorithm:
 
@@ -308,7 +321,12 @@ def apply_log(
         Parameters.TIMESTAMP_KEY, parameters, xes_constants.DEFAULT_TIMESTAMP_KEY
     )
 
-    if solver.DEFAULT_LP_SOLVER_VARIANT is not None:
+    variant = __variant_mapper(variant)
+
+    if (
+        solver.DEFAULT_LP_SOLVER_VARIANT is not None
+        and exec_utils.get_variant(variant) is not variants.dijkstra_semantics
+    ):
         if not check_soundness.check_easy_soundness_net_in_fin_marking(
             petri_net, initial_marking, final_marking
         ):
@@ -319,8 +337,6 @@ def apply_log(
     enable_best_worst_cost = exec_utils.get_param_value(
         Parameters.ENABLE_BEST_WORST_COST, parameters, True
     )
-
-    variant = __variant_mapper(variant)
 
     start_time = time.time()
     max_align_time = exec_utils.get_param_value(

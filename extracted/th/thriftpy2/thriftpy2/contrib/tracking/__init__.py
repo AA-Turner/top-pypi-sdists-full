@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 Tracking support similar to twitter finagle-thrift.
 
@@ -7,10 +5,9 @@ Note: When using tracking, every client should have a corresponding
 server processor.
 """
 
-from __future__ import absolute_import
-
 import os.path
 import time
+from typing import Callable, Optional
 
 from ...thrift import TClient, TApplicationException, TMessageType, \
     TProcessor, TType
@@ -155,6 +152,7 @@ class TTrackedProcessor(TProcessor, VersionMixin):
 
     def _try_upgrade(self, iprot):
         api, msg_type, seqid = iprot.read_message_begin()
+        call: Optional[Callable] = None
         if msg_type == TMessageType.CALL and api == track_method:
             self.during_handshake = True
 
@@ -171,8 +169,9 @@ class TTrackedProcessor(TProcessor, VersionMixin):
 
             result.oneway = False
 
-            def call():
+            def handshake_call():
                 pass
+            call = handshake_call
 
             iprot.read_message_end()
         else:
@@ -192,9 +191,8 @@ class TTrackedProcessor(TProcessor, VersionMixin):
         iprot.read_message_end()
         result = getattr(self._service, api + "_result")()
 
-        # convert kwargs to args
-        api_args = [args.thrift_spec[k][1]
-                    for k in sorted(args.thrift_spec)]
+        # convert kwargs to args, following the IDL declaration order
+        api_args = [item[1] for item in args.thrift_spec.values()]
 
         def call():
             return getattr(self._handler, api)(

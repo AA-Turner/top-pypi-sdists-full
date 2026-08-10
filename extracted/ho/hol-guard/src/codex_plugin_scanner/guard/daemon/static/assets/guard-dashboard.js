@@ -13270,6 +13270,7 @@ function buildDecisionPayload(input) {
     scope: normalizedScope,
     workspace,
     reason: input.reason,
+    ...input.action === "allow" && normalizedScope === "artifact" && input.persistExactAction === true && input.item.exact_action_persistence_eligible === true ? { persist_policy: true } : {},
     ...hasCompleteBinding ? {
       scope_contract_version: contractVersion,
       scope_contract_digest: contractDigest
@@ -28352,6 +28353,13 @@ function ReviewScopeControls(props) {
       },
       choice.value
     )) }),
+    showAllowScopes && props.exactActionPersistenceEligible && props.allowScope === "artifact" && /* @__PURE__ */ jsxRuntimeExports.jsx(
+      ExactActionPersistenceChoice,
+      {
+        checked: props.rememberExactAction,
+        onChange: props.onRememberExactActionChange
+      }
+    ),
     showAllowScopes && props.broaderScopeOptions.length > 0 && /* @__PURE__ */ jsxRuntimeExports.jsxs("details", { className: "rounded-xl border border-brand-blue/15 bg-brand-blue/[0.03] p-3", children: [
       /* @__PURE__ */ jsxRuntimeExports.jsx("summary", { className: "cursor-pointer select-none text-xs font-semibold uppercase tracking-[0.16em] text-brand-blue", children: "Save for project or app" }),
       /* @__PURE__ */ jsxRuntimeExports.jsx("p", { className: "mt-2 text-xs text-brand-dark/70", children: "These options save a decision that skips review for matching actions going forward. Choose the narrowest scope that fits what you meant to allow." }),
@@ -28394,6 +28402,29 @@ function ReviewScopeControls(props) {
         },
         choice.value
       )) })
+    ] })
+  ] });
+}
+function ExactActionPersistenceChoice(props) {
+  const handleChange = reactExports.useCallback(
+    (event) => {
+      props.onChange(event.target.checked);
+    },
+    [props.onChange]
+  );
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs("label", { className: "flex cursor-pointer items-start gap-3 rounded-lg border border-brand-blue/20 bg-brand-blue/[0.03] px-4 py-3", children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsx(
+      "input",
+      {
+        type: "checkbox",
+        checked: props.checked,
+        onChange: handleChange,
+        className: "mt-0.5 h-4 w-4 accent-brand-blue"
+      }
+    ),
+    /* @__PURE__ */ jsxRuntimeExports.jsxs("span", { children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "block text-sm font-medium text-brand-dark", children: "Always allow this exact action" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx("span", { className: "mt-0.5 block text-xs text-muted-foreground", children: "Save only this exact command for this AI app. Changed commands still need review." })
     ] })
   ] });
 }
@@ -28774,6 +28805,7 @@ function ReviewDecisionCard(props) {
   const [mcpGrantDuration, setMcpGrantDuration] = reactExports.useState("once");
   const [localToolGrantTarget, setLocalToolGrantTarget] = reactExports.useState("capability");
   const [localToolGrantDuration, setLocalToolGrantDuration] = reactExports.useState("once");
+  const [rememberExactAction, setRememberExactAction] = reactExports.useState(false);
   const timerRef = reactExports.useRef(null);
   const allowButtonRef = reactExports.useRef(null);
   const availableScopeChoices = reactExports.useMemo(
@@ -28821,6 +28853,7 @@ function ReviewDecisionCard(props) {
       setUseCooldown(false);
       setPendingAction(null);
       setPendingContractKey(null);
+      setRememberExactAction(false);
       const nextTemporaryOptions = temporaryMcpApprovalOptions(item);
       if (nextTemporaryOptions !== null) {
         setMcpGrantTarget(defaultTemporaryMcpTarget(nextTemporaryOptions));
@@ -28869,7 +28902,8 @@ function ReviewDecisionCard(props) {
             item,
             action,
             scope: requestedScope,
-            reason: action === "allow" ? "approved in review" : "blocked in review"
+            reason: action === "allow" ? "approved in review" : "blocked in review",
+            persistExactAction: action === "allow" ? rememberExactAction : false
           }),
           ...includeGateFields && needsPassword ? { approval_password: approvalPassword } : {},
           ...includeGateFields && !needsPassword ? { approval_totp_code: approvalTotpCode } : {},
@@ -28894,6 +28928,7 @@ function ReviewDecisionCard(props) {
       item,
       allowScope,
       blockScope,
+      rememberExactAction,
       props.onResolve,
       props.approvalGate,
       approvalPassword,
@@ -29027,6 +29062,9 @@ function ReviewDecisionCard(props) {
   const evidenceItems = buildEvidenceItems(item);
   const actionPresentation = guardActionPresentation(item.policy_action);
   let resolvedAllowButtonLabel = allowButtonLabel(allowScope);
+  if (rememberExactAction && allowScope === "artifact") {
+    resolvedAllowButtonLabel = "Approve and remember";
+  }
   if (temporaryMcpOptions !== null) {
     resolvedAllowButtonLabel = temporaryMcpAllowButtonLabel(mcpGrantDuration);
   } else if (localToolOptions !== null) {
@@ -29127,11 +29165,14 @@ function ReviewDecisionCard(props) {
             blockScopeOptions,
             hasAllowScope,
             taskCapabilityCopy,
+            exactActionPersistenceEligible: item.exact_action_persistence_eligible === true,
+            rememberExactAction,
             allowScope,
             blockScope,
             showAllowScopes: temporaryMcpOptions === null && localToolOptions === null,
             onAllowScopeChange: setAllowScope,
-            onBlockScopeChange: setBlockScope
+            onBlockScopeChange: setBlockScope,
+            onRememberExactActionChange: setRememberExactAction
           }
         )
       ] }),
@@ -30742,7 +30783,11 @@ function App() {
         message: inventoryResult.reason instanceof Error ? inventoryResult.reason.message : "Unable to load watched app inventory."
       });
     }
+    return inboxResult.status === "fulfilled" ? inboxResult.value.snapshot : null;
   }, [setRuntime, setRequests, setReceipts, setPolicies, setInventory]);
+  const refreshStateWithoutResult = reactExports.useCallback(async () => {
+    await refreshStateAfterAction();
+  }, [refreshStateAfterAction]);
   const handleClearPolicies = reactExports.useCallback(async (scope) => {
     setClearConfirm(scope);
   }, []);
@@ -30929,9 +30974,18 @@ function App() {
     } catch (error) {
       failures.push(error instanceof Error ? error.message : "integrity protection");
     }
-    await refreshStateAfterAction();
+    const refreshedSnapshot = await refreshStateAfterAction();
     if (failures.length > 0) {
       throw new Error(`Repair paused at ${failures.join(", ")}. Retry repair to continue from this page.`);
+    }
+    if (refreshedSnapshot === null) {
+      throw new Error("Repair completed, but Guard could not recheck protection. Check again in a moment.");
+    }
+    const remainingHealth = protectionHealthFor(refreshedSnapshot);
+    if (remainingHealth.state !== "protected") {
+      const failedApps = remainingHealth.apps.filter((app) => app.checks.some((check) => check.status === "fail")).map((app) => harnessDisplayName(app.harness));
+      const remaining = failedApps.length > 0 ? `${failedApps.join(", ")} still ${failedApps.length === 1 ? "needs" : "need"} repair.` : "A local protection check still needs attention.";
+      throw new Error(`${remaining} Open the repair details below for the exact check.`);
     }
     return "Automatic repairs completed. Guard rechecked every protection layer below.";
   }, [refreshStateAfterAction]);
@@ -30952,10 +31006,10 @@ function App() {
         onOpenRequest: handleOpenRequest,
         onClearAppPolicies: handleClearAppPolicies,
         onClearPolicy: handleClearPolicy,
-        onManagedInstallChanged: refreshStateAfterAction
+        onManagedInstallChanged: refreshStateWithoutResult
       }
     );
-  }, [view, appDetailHarness, runtime, receipts, policies, inventory, requests, handleGoHome, handleOpenRequest, handleClearAppPolicies, handleClearPolicy, refreshStateAfterAction]);
+  }, [view, appDetailHarness, runtime, receipts, policies, inventory, requests, handleGoHome, handleOpenRequest, handleClearAppPolicies, handleClearPolicy, refreshStateWithoutResult]);
   const policyContent = reactExports.useMemo(() => {
     if (runtime.kind !== "ready") {
       return null;
@@ -31070,7 +31124,7 @@ function App() {
             onOpenSettings: handleOpenSettings,
             onGoHome: handleGoHome,
             onNavigate: navigate,
-            onRuntimeRefresh: refreshStateAfterAction
+            onRuntimeRefresh: refreshStateWithoutResult
           }
         ) }) : null,
         policyContent,

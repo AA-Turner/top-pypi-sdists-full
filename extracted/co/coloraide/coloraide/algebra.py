@@ -41,6 +41,7 @@ NaN = math.nan
 INF = math.inf
 MAX_10_EXP = sys.float_info.max_10_exp
 MIN_FLOAT = sys.float_info.min
+MAX_FLOAT = sys.float_info.max
 
 # Keeping for backwards compatibility
 _all = builtins.all
@@ -206,14 +207,11 @@ def clamp(
 ) -> SupportsFloatOrInt:
     """Clamp the value to the given minimum and maximum."""
 
-    if mn is not None and mx is not None:
-        return max(min(value, mx), mn)
-    elif mn is not None:
-        return max(value, mn)
-    elif mx is not None:
-        return min(value, mx)
-    else:
-        return value
+    if mx is not None and value > mx:
+        value = mx
+    if mn is not None and value < mn:
+        value = mn
+    return value
 
 
 def zdiv(a: float, b: float, default: float = 0.0) -> float:
@@ -387,7 +385,7 @@ def _solve_cubic(poly: VectorLike) -> Vector:
     k = b / 3
 
     # Primitive roots: `pr = (-1 +/- -3 ** (1/2)) / 2 ~= -0.5 +/- 0.8660254037844386j`
-    # The complex part (`prc`) equivalent calculation: `(0.8660254037844386j) = 3 ** (1/3) / 2j`
+    # The complex part (`prc`) equivalent calculation: `(0.8660254037844386j) = 3 ** (1/2) / 2j`
     prc = cmath.sqrt(3) / 2j
 
     # We can find the other two roots by multiplying u and v with the primitive roots:
@@ -421,6 +419,58 @@ def _solve_cubic(poly: VectorLike) -> Vector:
     ]
 
 
+def solve_nth_poly(
+    coef: VectorLike,
+    guess: float = 0.5,
+    maxiter: int = 50,
+    rtol: float = RTOL,
+    atol: float = ATOL
+) -> Vector:
+    """
+    Solve polynomial of nth degree.
+
+    Takes a polynomial of any degree greater outputs all real roots (assuming it can find them).
+
+    Approach uses Newton's method to find a root and then uses synthetic division to reduce the degree
+    of the polynomial simplifying the solution for the next root. If the degree falls below 4, solve
+    the for the remaining roots using more precise approaches.
+
+    Newton's method is not guaranteed to converge. If we can no longer converge upon roots, give up,
+    assuming there are no more real roots, even if that is not true.
+    """
+
+    roots = []  # type: Vector
+    while len(coef) > 4:
+        root, status = solve_newton(
+            guess,
+            lambda x, coef=coef: sum([c * x ** i for i, c in enumerate(coef[::-1], 0)]),
+            lambda x, coef=coef: sum([i * c * x ** (i - 1) for i, c in enumerate(coef[-2::-1], 1)]),
+            maxiter=maxiter,
+            rtol=rtol,
+            atol=atol
+        )
+
+        # Can't find any more roots
+        if not status:
+            break
+
+        roots.append(root)
+
+        # Perform synthetic division to reduce the order of the equation
+        quotient = [coef[0]]
+        for c in coef[1:]:
+            quotient.append(quotient[-1] * root + c)
+        # Ignore remainder
+        quotient.pop()
+        coef = quotient
+
+    # Solve the rest with lower order approaches
+    if 4 >= len(coef) > 1:
+        roots.extend(solve_poly(coef))
+
+    return roots
+
+
 def solve_poly(poly: VectorLike) -> Vector:
     """
     Solve the given polynomial.
@@ -442,7 +492,7 @@ def solve_poly(poly: VectorLike) -> Vector:
     # Select the appropriate solver
     l = len(poly)
     if l > 4:
-        raise ValueError('Polynomials of degrees greater than 3 are not currently supported')
+        return solve_nth_poly(poly)
     elif l == 4:
         return _solve_cubic(poly)
     elif l == 3:
@@ -461,28 +511,40 @@ def solve_newton(
     maxiter: int = 50,
     rtol: float = RTOL,
     atol: float = ATOL,
-    ostrowski: bool = False
+    order: int = 2,
+    bounds: tuple[float, float] | None = None,
 ) -> tuple[float, bool | None]:
     """
     Solve equation using Newton's method.
 
-    If the second derivative is given, Halley's method will be used as an additional step.
+    If order <= 3 and second derivative is given, Halley's method will be used as an additional step.
     Newton provides 2nd order convergence and Halley provides 3rd order convergence.
 
     ```
     newton = yn = xn - f(xn) / f'(xn)
-    halley = xn - (f(xn) * f'(xn)) / (f'(xn) ** 2 - 0.5 * f(xn) * f''(xn))
+    halley = xn - 2 f(xn) f'(xn) / (2 f'(xn)^2 - f(xn) f''(xn))
     ```
 
     Algebraically, we can pull the Newton stop out of the Halley method into two separate steps
     that can be applied on top of each other.
 
     ```
-    Step1: yn = f(xn) / f'(xn)
-    Step2: halley = xn - yn / (1 - 0.5 * yn * f''(xn) / f'(xn))
+    Step1: halley = xn - f(xn) * f'(xn) / (f'(xn) ** 2 - 0.5 * f(xn) * f''(xn))
+    Step2: yn = f(xn) / f'(xn)
+    Step3: halley = xn - f(xn) / (f'(xn) - (0.5 * yn * f''(xn))
+    Step4: halley = xn - yn / (1 - 0.5 * yn * f''(xn) / f'(xn))
     ```
 
-    If Ostrowski method is enabled, only one derivative is needed, but you can get 4th order convergence.
+    If order == 3 and 2nd derivative is not provided, we can use Traub's method which gives 3rd order convergence
+    without a second derivative.
+
+    ```
+    yn = xn - f(xn) / f'(xn)
+    traub = yn - f(yn) / f'(xn)
+    ```
+
+    If order >= 3, we can use Ostrowski method where only one derivative is needed, but you can get 4th order
+    convergence.
 
     ```
     yn = xn - f(xn) / f'(xn)
@@ -492,47 +554,76 @@ def solve_newton(
     Return result along with True if converged, False if did not converge, None if could not converge.
     """
 
+    if dx2 is not None and order < 3:
+        order = 3
+
+    if bounds is not None:
+        lo, hi = bounds
+        bracketed = True
+    else:
+        lo, hi = -math.inf, math.inf
+        bracketed = False
+
     for _ in range(maxiter):
         # Get result form equation when setting value to expected result
         fx = f0(x0, *args) if args else f0(x0)
         prev = x0
 
         # If the result is zero, we've converged
-        if fx == 0:
+        if fx == 0 and (not bracketed or lo <= x0 <= hi):
             return x0, True
+
+        # Update brackets
+        if bracketed:
+            if fx > 0:
+                hi = min(x0, hi)
+            else:
+                lo = max(x0, lo)
 
         # Cannot find a solution if derivative is zero
         d1 = dx(x0, *args) if args else dx(x0)
-        if d1 == 0:
-            return x0, None  # pragma: no cover
+        if abs(d1) < ATOL:
+            # Try to bisect to a different location
+            if bracketed:
+                x0 = (hi + lo) * 0.5
+                if x0 != prev:
+                    continue
+            return x0, None
 
-        # Calculate new, hopefully closer value with Newton's method
-        newton =  fx / d1
+        # Newton step
+        newton = fx / d1
 
-        # If second derivative is provided, apply the Halley's method step: 3rd order convergence
-        if dx2 is not None and not ostrowski:
-            d2 = dx2(x0, *args) if args else dx2(x0)
-            value = (0.5 * newton * d2) / d1
-            # If the value is greater than one, the solution is deviating away from the newton step
-            if abs(value) < 1:
-                newton /= 1 - value
+        if order == 3:
+            # Halley's method: 3rd order convergence.
+            if dx2 is not None:
+                d2 = dx2(x0, *args) if args else dx2(x0)
+                denom = 1 - (0.5 * newton * d2) / d1
+                if abs(denom) >= ATOL:
+                    newton /= denom
+
+            # Traub's method: 3rd order convergence
+            else:
+                fy = f0(x0 - newton, *args) if args else f0(x0 - newton)
+                newton -= fy / d1
 
         # If change is under our epsilon, we can consider the result converged.
         x0 -= newton
-        if math.isclose(x0, prev, rel_tol=rtol, abs_tol=atol):
-            return x0, True  # pragma: no cover
-        # Use Ostrowski method: 4th order convergence
-        if ostrowski:
-            fy = f0(x0, *args) if args else f0(x0)
-            if fy == 0:
-                return x0, True
-            fy_x2 = 2 * fy
-            if fy_x2 == fx:  # pragma: no cover
-                return x0, None
-            x0 -= fx / (fx - fy_x2) * (fy / d1)
 
-            if math.isclose(x0, prev, rel_tol=rtol, abs_tol=atol):  # pragma: no cover
-                return x0, True
+        # Ostrowski's method: 4th order convergence
+        if order == 4:
+            fy = f0(x0, *args) if args else f0(x0)
+            denom = fx - 2 * fy
+            if abs(denom) >= ATOL:
+                x0 -= fx / denom * (fy / d1)
+
+        if bracketed and not (lo <= x0 <= hi):
+            x0 = (hi + lo) * 0.5
+            if x0 == prev:  # pragma: no cover
+                return x0, None
+            continue
+
+        if math.isclose(x0, prev, rel_tol=rtol, abs_tol=atol):
+            return x0, True
 
     return x0, False  # pragma: no cover
 
@@ -573,7 +664,7 @@ def ilerp2d(
     vertices: Matrix,
     point: Vector,
     *,
-    vertices_t: Matrix | None = None,
+    guess: Vector | None = None,
     max_iter: int = 20,
     tol: float = ATOL
 ) -> Vector:
@@ -590,11 +681,8 @@ def ilerp2d(
     ```
     """
 
-    if vertices_t is None:  # pragma: no cover
-        vertices_t = transpose(vertices)
-
     # Initial guess
-    xy = [0.5, 0.5]
+    xy = guess if guess is not None else [0.5, 0.5]
 
     try:
         for _ in range(max_iter):
@@ -608,14 +696,18 @@ def ilerp2d(
 
             # Build up the Jacobian matrix so we can solve for the next, closer guess.
             x, y = xy
-            _x = [-(1 - y), 1 - y, -y, y]
-            jx = [sum(i) for i in zip(*[[xi * c for c in ci] for ci, xi in zip(vertices_t, _x)])]
 
-            _y = [-(1 - x), -x, x, 1 - x]
-            jy = [sum(i) for i in zip(*[[yi * c for c in ci] for ci, yi in zip(vertices_t, _y)])]
+            wx = 1 - x
+            wy = 1 - y
 
-            # Create the Jacobian matrix, but we need it in column form
-            j = [*zip(jx, jy)]
+            m = [
+                [-wy, -wx],
+                [wy,  -x],
+                [-y,  wx],
+                [y,   x]
+            ]
+
+            j = matmul(vertices, m, dims=D2)
 
             # Solve for new guess
             xy = subtract(xy, solve(j, residual), dims=D1)
@@ -664,8 +756,8 @@ def ilerp3d(
     vertices: Matrix,
     point: Vector,
     *,
-    vertices_t: Matrix | None = None,
-    max_iter: int = 20,
+    guess: Vector | None = None,
+    max_iter: int = 50,
     tol: float = ATOL
 ) -> Vector:
     """
@@ -702,17 +794,14 @@ def ilerp3d(
     will just stop at `0.9xxxx`, etc. Some sets of vertices have no issues at all.
     """
 
-    if vertices_t is None:  # pragma: no cover
-        vertices_t = transpose(vertices)
-
     # Initial guess.
-    xyz = [0.5, 0.5, 0.5]
+    xyz = guess if guess is not None else [0.5, 0.5, 0.5]
 
     try:
         for _ in range(max_iter):
 
             # Calculate the residual by using our guess to calculate the what should be the input and compare
-            residual = subtract(lerp3d(vertices, xyz), point, dims=D1)
+            residual = subtract_x3(lerp3d(vertices, xyz), point, dims=D1)
 
             # If we are close enough to our input, we can quit
             if math.sqrt(residual[0] ** 2 + residual[1] ** 2 + residual[2] ** 2) < tol:
@@ -720,47 +809,25 @@ def ilerp3d(
 
             # Build up the Jacobian matrix so we can solve for the next, closer guess
             x, y, z = xyz
-            _x = [
-                -(1 - y) * (1 - z),
-                (1 - y) * (1 - z),
-                -y * (1 - z),
-                y * (1 - z),
-                -(1 - y) * z,
-                (1 - y) * z,
-                -y * z,
-                y * z
-            ]
-            jx = [sum(i) for i in zip(*[[xi * c for c in ci] for ci, xi in zip(vertices_t, _x)])]
+            wx = 1 - x
+            wy = 1 - y
+            wz = 1 - z
 
-            _y = [
-                -(1 - x) * (1 - z),
-                -x * (1 - z),
-                (1 - x) * (1 - z),
-                x * (1 - z),
-                -(1 - x) * z,
-                -x * z,
-                (1 - x) * z,
-                x * z,
+            m = [
+                [-wy * wz, -wx * wz, -wx * wy],
+                [wy * wz,  -x * wz,  -x * wy],
+                [-y * wz,  wx * wz,  -wx * y],
+                [y * wz,   x * wz,   -x * y],
+                [-wy * z,  -wx * z,  wx * wy],
+                [wy * z,   -x * z,   x * wy],
+                [-y * z,   wx * z,   wx * y],
+                [y * z,    x * z,    x * y]
             ]
-            jy = [sum(i) for i in zip(*[[yi * c for c in ci] for ci, yi in zip(vertices_t, _y)])]
 
-            _z = [
-                -(1 - x) * (1 - y),
-                -x * (1 - y),
-                -(1 - x) * y,
-                -x * y,
-                (1 - x) * (1 - y),
-                x * (1 - y),
-                (1 - x) * y,
-                x * y
-            ]
-            jz = [sum(i) for i in zip(*[[zi * c for c in ci] for ci, zi in zip(vertices_t, _z)])]
-
-            # Create the Jacobian matrix, but we need it in column form
-            j = [*zip(jx, jy, jz)]
+            j = matmul(vertices, m, dims=D2)
 
             # Solve for new guess
-            xyz = subtract(xyz, solve(j, residual), dims=D1)
+            xyz = subtract_x3(xyz, solve(j, residual), dims=D1)
     except ValueError:  # pragma: no cover
         # The Jacobian matrix shouldn't fail inversion if we are in range.
         # Out of range may give us values we cannot invert. There are potential
@@ -1122,7 +1189,7 @@ class SpragueInterpolator(Interpolator):
             # and we use the first 6 starting points as context. The last two
             # relate to the end points and use the last t points as context.
             s0[i], s1[i], e0[i], e1[i] = [
-                matmul(row, [j[i] for j in (p1 if e < 2 else p2)], dims = D1) / 209
+                matmul(row, [j[i] for j in (p1 if e < 2 else p2)], dims=D1) / 209
                 for e, row in enumerate(cls.SPRAGUE_COEFFICIENTS)
             ]
         points.insert(0, s0)
@@ -1663,7 +1730,7 @@ def dot(
                 n = shape_b[-1]  # type: ignore[misc]
                 with ArrayBuilder(result, shape_a[:-1] + shape_b[:-2]) as build:
                     for row in _extract_rows(a, shape_a):  # type: ignore[arg-type]
-                        r = [sum(multiply(row, col)) for col in cols]
+                        r = [sum(multiply(row, col, dims=D1)) for col in cols]
                         start = 0
                         for _ in range(len(r) // n):
                             end = start + n
@@ -3783,65 +3850,40 @@ def reshape(array: ArrayLike | float, new_shape: int | Shape) -> float | Array:
 
 
 @overload
-def _quick_shape(a: float) -> EmptyShape:
+def shape(a: float, *, quick: bool = ...) -> EmptyShape:
     ...
 
 
 @overload
-def _quick_shape(a: VectorLike) -> VectorShape:
+def shape(a: VectorLike, *, quick: bool = ...) -> VectorShape:
     ...
 
 
 @overload
-def _quick_shape(a: MatrixLike) -> MatrixShape:
+def shape(a: MatrixLike, *, quick: bool = ...) -> MatrixShape:
     ...
 
 
 @overload
-def _quick_shape(a: TensorLike) -> TensorShape:
+def shape(a: TensorLike, *, quick: bool = ...) -> TensorShape:
     ...
 
 
-def _quick_shape(a: ArrayLike | float) -> Shape:
-    """
-    Acquire shape taking shortcuts by assuming a non-ragged, consistently shaped array.
-
-    No checking for consistency is performed allowing for a quicker check.
-    """
-
-    t = a  # type: Any
-    s = []
-    while isinstance(t, Sequence):
-        l = len(t)
-        s.append(l)
-        if not l:
-            break
-        t = t[0]
-    return tuple(s)
-
-
-@overload
-def shape(a: float) -> EmptyShape:
-    ...
-
-
-@overload
-def shape(a: VectorLike) -> VectorShape:
-    ...
-
-
-@overload
-def shape(a: MatrixLike) -> MatrixShape:
-    ...
-
-
-@overload
-def shape(a: TensorLike) -> TensorShape:
-    ...
-
-
-def shape(a: ArrayLike | float) -> Shape:
+def shape(a: ArrayLike | float, *, quick: bool = False) -> Shape:
     """Get the shape of a list."""
+
+    # Perform a quick shape calculation that will not validate all indexes.
+    # This can allow a ragged shape to slip through, but is much faster.
+    if quick:
+        t = a  # type: Any
+        s = []
+        while isinstance(t, Sequence):
+            l = len(t)
+            s.append(l)
+            if not l:
+                break
+            t = t[0]
+        return tuple(s)
 
     # Found a scalar input
     if not isinstance(a, Sequence):
@@ -5280,7 +5322,7 @@ def fnnls(
     Journal of Chemometrics. 11, 393-401 (1997)
     """
 
-    m, n = _quick_shape(A)
+    m, n = shape(A, quick=True)
 
     if m != len(b):
         raise ValueError(f'Vector length of b must match first dimension of A: {m} != {len(b)}')

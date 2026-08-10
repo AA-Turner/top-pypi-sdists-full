@@ -1,12 +1,8 @@
-# -*- coding: utf-8 -*-
-
-from __future__ import absolute_import
-
 import array
 import sys
 from struct import pack, unpack
+from typing import Any
 
-import six
 
 from ..thrift import TException, TType
 from .base import TProtocolBase
@@ -281,7 +277,7 @@ class TCompactProtocol(TProtocolBase):
             self._read_field_end()
         self._read_struct_end()
 
-    def _read_val(self, ttype, spec=None):
+    def _read_val(self, ttype, spec: Any = None):
         if ttype == TType.BOOL:
             return self._read_bool()
 
@@ -364,9 +360,9 @@ class TCompactProtocol(TProtocolBase):
             self._write_i16(fid)
         self._last_fid = fid
 
-    def write_message_begin(self, name, type, seqid):
+    def write_message_begin(self, name, ttype, seqid):
         self._write_ubyte(self.PROTOCOL_ID)
-        self._write_ubyte(self.VERSION | (type << self.TYPE_SHIFT_AMOUNT))
+        self._write_ubyte(self.VERSION | (ttype << self.TYPE_SHIFT_AMOUNT))
         write_varint(self.trans, seqid)
         self._write_string(name)
 
@@ -437,7 +433,7 @@ class TCompactProtocol(TProtocolBase):
 
     def _write_binary(self, b):
         self._write_size(len(b))
-        if isinstance(b, six.string_types) and sys.version_info[0] > 2:
+        if isinstance(b, str):
             b = b.encode()
         self.trans.write(b)
 
@@ -469,7 +465,7 @@ class TCompactProtocol(TProtocolBase):
         self._write_field_stop()
         self._write_struct_end()
 
-    def _write_val(self, ttype, val, spec=None):
+    def _write_val(self, ttype, val, spec: Any = None):
 
         if ttype == TType.BOOL:
             self._write_bool(val)
@@ -552,7 +548,7 @@ class TCompactProtocol(TProtocolBase):
             self._read_string()
 
         elif ttype == TType.STRUCT:
-            name = self._read_struct_begin()
+            self._read_struct_begin()
             while True:
                 (name, ttype, id) = self._read_field_begin()
                 if ttype == TType.STOP:

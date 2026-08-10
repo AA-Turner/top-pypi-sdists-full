@@ -4,7 +4,7 @@ requires = ["setuptools>=77.0"]
 
 [project]
 name = "ical"
-version = "14.0.1"
+version = "14.1.0"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Python iCalendar implementation (rfc 5545) with built-in recurring event support"
@@ -29,6 +29,9 @@ dependencies = [
   "tzdata>=2023.3",
   "pydantic>=2.10.4",
 ]
+
+[project.optional-dependencies]
+async = ["aiohttp>=3.10.0"]
 
 [project.urls]
 Source = "https://github.com/allenporter/ical"

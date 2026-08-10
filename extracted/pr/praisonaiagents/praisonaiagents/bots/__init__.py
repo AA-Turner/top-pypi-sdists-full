@@ -27,6 +27,7 @@ from .protocols import (
     EmailProtocol,
     EmailInbox,
     SupportsPresentation,
+    PresentationRendererProtocol,
     PlatformCapabilities,
     ChannelField,
     ChannelDescriptor,
@@ -52,8 +53,12 @@ from .presentation import (
     ButtonStyle,
     BlockType,
     adapt_presentation,
+    adapt_presentation_with_report,
+    DegradedDelivery,
     table_to_markdown,
     chart_to_text,
+    register_presentation_renderer,
+    get_presentation_renderer,
 )
 from .interactive import (
     InteractiveContext,
@@ -95,6 +100,14 @@ from .silence import (
     BotLoopPolicy,
     BotLoopGuard,
 )
+from .failure import (
+    FailureReply,
+    render_failure_reply,
+)
+from .admission import (
+    IngressDecision,
+    resolve_ingress_admission,
+)
 from .run_status import (
     RunPhase,
     RunStatusController,
@@ -133,8 +146,13 @@ __all__ = [
     "ButtonStyle",
     "BlockType",
     "adapt_presentation",
+    "adapt_presentation_with_report",
+    "DegradedDelivery",
     "table_to_markdown",
     "chart_to_text",
+    "PresentationRendererProtocol",
+    "register_presentation_renderer",
+    "get_presentation_renderer",
     "PlatformCapabilities",
     "ChannelField",
     "ChannelDescriptor",
@@ -175,6 +193,10 @@ __all__ = [
     "classify_final",
     "BotLoopPolicy",
     "BotLoopGuard",
+    "FailureReply",
+    "render_failure_reply",
+    "IngressDecision",
+    "resolve_ingress_admission",
     "RunPhase",
     "RunStatusController",
     "StallState",

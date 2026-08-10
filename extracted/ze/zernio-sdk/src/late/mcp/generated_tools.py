@@ -5828,6 +5828,7 @@ def register_generated_tools(mcp, _get_client):
         click_tag: str | None = None,
         dm_delay_seconds: int | None = None,
         comment_reply_delay_seconds: int | None = None,
+        also_match_in_dms: bool = False,
         audience: dict[str, Any] | None = None,
         follow_gate: dict[str, Any] | None = None,
     ) -> str:
@@ -5855,6 +5856,7 @@ def register_generated_tools(mcp, _get_client):
             click_tag: Optional tag applied to a contact when they click a tracked link (requires linkTracking). Lets you segment clickers for broadcasts/sequences.
             dm_delay_seconds: Seconds to wait after the trigger before sending the DM. Omit or send 0 to reply immediately (the default). Max 86400 (24h). The trigger is still matched and deduplicated the moment the comment arrives, so a delay only moves when the response is sent.
             comment_reply_delay_seconds: Seconds to wait before posting the public comment reply. Omit or send 0 to post it right after the DM (the default). The reply never goes out before the DM, so a value below dmDelaySeconds is raised to it. Ignored when trigger=story_reply, which has no public reply.
+            also_match_in_dms: Also fire these keywords on a plain inbound DM, so the automation answers people who message the keyword instead of commenting it. Requires at least one keyword (an empty keyword list means 'match anything', which would answer every inbound message) and is rejected on story_reply automations, which already trigger on DMs. Dedup is per door: a contact who already received the DM from their comment can still receive it from a DM.
             audience
             follow_gate"""
         client = _get_client()
@@ -5881,6 +5883,7 @@ def register_generated_tools(mcp, _get_client):
                 click_tag=click_tag,
                 dm_delay_seconds=dm_delay_seconds,
                 comment_reply_delay_seconds=comment_reply_delay_seconds,
+                also_match_in_dms=also_match_in_dms,
                 audience=audience,
                 follow_gate=follow_gate,
             )
@@ -5934,6 +5937,7 @@ def register_generated_tools(mcp, _get_client):
         comment_reply_variations: list[str] | None = None,
         link_tracking: bool | None = None,
         click_tag: str | None = None,
+        also_match_in_dms: bool | None = None,
         dm_delay_seconds: int | None = None,
         comment_reply_delay_seconds: int | None = None,
         audience: dict[str, Any] | None = None,
@@ -5958,6 +5962,7 @@ def register_generated_tools(mcp, _get_client):
             comment_reply_variations: Alternate public replies for random rotation. Pass [] to clear.
             link_tracking: Wrap link buttons in a tracked redirect to count clicks. Pass false to send links untouched.
             click_tag: Tag applied to a contact when they click a tracked link (requires linkTracking). Empty string clears it.
+            also_match_in_dms: Also fire these keywords on a plain inbound DM. Enabling it requires the automation to end up with at least one keyword (this request's keywords if you send them, otherwise the stored ones) and is rejected on story_reply automations.
             dm_delay_seconds: Seconds to wait after the trigger before sending the DM. Send 0 to clear the delay and reply immediately.
             comment_reply_delay_seconds: Seconds to wait before posting the public comment reply. Send 0 to clear it. The reply never goes out before the DM.
             audience
@@ -5981,6 +5986,7 @@ def register_generated_tools(mcp, _get_client):
                 comment_reply_variations=comment_reply_variations,
                 link_tracking=link_tracking,
                 click_tag=click_tag,
+                also_match_in_dms=also_match_in_dms,
                 dm_delay_seconds=dm_delay_seconds,
                 comment_reply_delay_seconds=comment_reply_delay_seconds,
                 audience=audience,
@@ -6332,7 +6338,11 @@ def register_generated_tools(mcp, _get_client):
         )
     )
     def comments_like_inbox_comment(
-        post_id: str, comment_id: str, account_id: str, cid: str | None = None
+        post_id: str,
+        comment_id: str,
+        account_id: str,
+        reaction_type: str | None = None,
+        cid: str | None = None,
     ) -> str:
         """Like comment
 
@@ -6340,11 +6350,16 @@ def register_generated_tools(mcp, _get_client):
             post_id: (required)
             comment_id: (required)
             account_id: The social account ID (required)
+            reaction_type: (LinkedIn only) Reaction to create. Defaults to LIKE; ignored on other platforms.
             cid: (Bluesky only) Content identifier for the comment"""
         client = _get_client()
         try:
             response = client.comments.like_inbox_comment(
-                post_id=post_id, comment_id=comment_id, account_id=account_id, cid=cid
+                post_id=post_id,
+                comment_id=comment_id,
+                account_id=account_id,
+                reaction_type=reaction_type,
+                cid=cid,
             )
             return _format_response(response)
         except Exception as e:
@@ -6375,6 +6390,65 @@ def register_generated_tools(mcp, _get_client):
                 comment_id=comment_id,
                 account_id=account_id,
                 like_uri=like_uri,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Like post",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def comments_like_post(
+        post_id: str,
+        account_id: str,
+        reaction_type: str | None = None,
+        cid: str | None = None,
+    ) -> str:
+        """Like post
+
+        Args:
+            post_id: Zernio post ID or the platform's native post ID (required)
+            account_id: The social account acting as the liker (required)
+            reaction_type: (LinkedIn only) Reaction to create. Defaults to LIKE; ignored on other platforms.
+            cid: (Bluesky only) Content identifier of the post"""
+        client = _get_client()
+        try:
+            response = client.comments.like_post(
+                post_id=post_id,
+                account_id=account_id,
+                reaction_type=reaction_type,
+                cid=cid,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Unlike post",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def comments_unlike_post(
+        post_id: str, account_id: str, like_uri: str | None = None
+    ) -> str:
+        """Unlike post
+
+        Args:
+            post_id: Zernio post ID or the platform's native post ID (required)
+            account_id: (required)
+            like_uri: (Bluesky only) The like URI returned when liking"""
+        client = _get_client()
+        try:
+            response = client.comments.unlike_post(
+                post_id=post_id, account_id=account_id, like_uri=like_uri
             )
             return _format_response(response)
         except Exception as e:
@@ -6440,14 +6514,22 @@ def register_generated_tools(mcp, _get_client):
         profile_id: str,
         redirect_url: str | None = None,
         headless: bool = False,
+        login_method: str = "instagram_login",
     ) -> str:
         """Get OAuth connect URL
 
-        Args:
-            platform: Social media platform to connect (required)
-            profile_id: Your Zernio profile ID (get from /v1/profiles). For WhatsApp, a Zernio-provisioned number can only be connected on the profile it was provisioned to; connecting from any other profile is rejected with a 409. (required)
-            redirect_url: Your custom redirect URL after connection completes. Accepts an http(s) URL, a custom app scheme for mobile deeplinks (e.g. myapp://callback), or a relative path. Result params are appended with the URL API, so an existing query string is preserved. Standard mode appends connected={platform}&profileId=X&accountId=Y&username=Z. Headless mode appends OAuth data params for platforms requiring selection (e.g. LinkedIn orgs, Facebook pages). If no selection is needed, the account is created directly and the redirect includes accountId.
-            headless: When true, the user is redirected to your redirect_url with raw OAuth data (code, state) instead of Zernio's default account selection UI. Use this to build a custom connect experience."""
+            Args:
+                platform: Social media platform to connect (required)
+                profile_id: Your Zernio profile ID (get from /v1/profiles). For WhatsApp, a Zernio-provisioned number can only be connected on the profile it was provisioned to; connecting from any other profile is rejected with a 409. (required)
+                redirect_url: Your custom redirect URL after connection completes. Accepts an http(s) URL, a custom app scheme for mobile deeplinks (e.g. myapp://callback), or a relative path. Result params are appended with the URL API, so an existing query string is preserved. Standard mode appends connected={platform}&profileId=X&accountId=Y&username=Z. Headless mode appends OAuth data params for platforms requiring selection (e.g. LinkedIn orgs, Facebook pages). If no selection is needed, the account is created directly and the redirect includes accountId.
+                headless: When true, the user is redirected to your redirect_url with raw OAuth data (code, state) instead of Zernio's default account selection UI. Use this to build a custom connect experience.
+                login_method: Instagram only. Which of the two Instagram connection methods to use. Ignored for every other platform.
+
+        `instagram_login` (the default, and what you get if you omit this): the Instagram Login dialog. The user authorizes their Instagram professional account directly, no Facebook Page required.
+
+        `facebook_login`: the Facebook Login dialog, i.e. "Instagram API with Facebook Login". The user authorizes a Facebook Page that has a linked Instagram professional account, and every API call for that account then runs through the Page. Use this when the customer manages Instagram through a Page and expects the Facebook consent screen. Because the user has to pick which Page to connect, the callback continues at the account-selection step, `/v1/connect/instagram/select-account`.
+
+        `facebook_login` supports `headless=true` like the other selection platforms: the callback redirects to your `redirect_url` with `profileId`, `tempToken`, `platform=instagram`, `step=select_account` and `connect_token`, which you pass into the select-account endpoints to finish. The default `instagram_login` has no selection step, so it connects the account directly."""
         client = _get_client()
         try:
             response = client.connect.get_connect_url(
@@ -6455,6 +6537,7 @@ def register_generated_tools(mcp, _get_client):
                 profile_id=profile_id,
                 redirect_url=redirect_url,
                 headless=headless,
+                login_method=login_method,
             )
             return _format_response(response)
         except Exception as e:
@@ -6634,6 +6717,59 @@ def register_generated_tools(mcp, _get_client):
                 page_id=page_id,
                 temp_token=temp_token,
                 user_profile=user_profile,
+                redirect_url=redirect_url,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List Pages with a linked Instagram account",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def connect_list_instagram_pages(profile_id: str, temp_token: str) -> str:
+        """List Pages with a linked Instagram account
+
+        Args:
+            profile_id: Profile ID from your connection flow (required)
+            temp_token: Long-lived Facebook user access token from the OAuth callback redirect (required)"""
+        client = _get_client()
+        try:
+            response = client.connect.list_instagram_pages(
+                profile_id=profile_id, temp_token=temp_token
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Select the Page whose Instagram account to connect",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def connect_select_instagram_account(
+        profile_id: str, page_id: str, temp_token: str, redirect_url: str | None = None
+    ) -> str:
+        """Select the Page whose Instagram account to connect
+
+        Args:
+            profile_id: Profile ID from your connection flow (required)
+            page_id: The Facebook Page ID selected by the user, from GET /v1/connect/instagram/select-account (required)
+            temp_token: Long-lived Facebook user access token from the OAuth callback redirect (required)
+            redirect_url: Optional custom redirect URL to return to after selection"""
+        client = _get_client()
+        try:
+            response = client.connect.select_instagram_account(
+                profile_id=profile_id,
+                page_id=page_id,
+                temp_token=temp_token,
                 redirect_url=redirect_url,
             )
             return _format_response(response)
@@ -10791,6 +10927,42 @@ def register_generated_tools(mcp, _get_client):
         client = _get_client()
         try:
             response = client.messages.upload_media_direct()
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Resolve message attachment",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def messages_get_message_attachment(
+        conversation_id: str,
+        message_id: str,
+        index: int,
+        account_id: str,
+        format: str = "redirect",
+    ) -> str:
+        """Resolve message attachment
+
+        Args:
+            conversation_id: The conversation ID (Zernio id or platform conversation id) (required)
+            message_id: The message id as returned by the list-messages endpoint (the platform message id) (required)
+            index: Zero-based position of the attachment in the message's attachments array (required)
+            account_id: Social account ID (required)
+            format: `redirect` (default) answers 302 to the media; `json` returns the url in the body"""
+        client = _get_client()
+        try:
+            response = client.messages.get_message_attachment(
+                conversation_id=conversation_id,
+                message_id=message_id,
+                index=index,
+                account_id=account_id,
+                format=format,
+            )
             return _format_response(response)
         except Exception as e:
             return f"Error: {e}"

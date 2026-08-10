@@ -10,7 +10,8 @@
     XSS_HIDE_SYMBOL void qsort(T *arr, \
                                size_t arrsize, \
                                bool hasnan = false, \
-                               bool descending = false); \
+                               bool descending = false, \
+                               bool nans_last = true); \
     template <typename T1, typename T2> \
     XSS_HIDE_SYMBOL void keyvalue_qsort(T1 *key, \
                                         T2 *val, \
@@ -22,7 +23,8 @@
                                  size_t k, \
                                  size_t arrsize, \
                                  bool hasnan = false, \
-                                 bool descending = false); \
+                                 bool descending = false, \
+                                 bool nans_last = true); \
     template <typename T1, typename T2> \
     XSS_HIDE_SYMBOL void keyvalue_select(T1 *key, \
                                          T2 *val, \
@@ -35,7 +37,8 @@
                                        size_t k, \
                                        size_t arrsize, \
                                        bool hasnan = false, \
-                                       bool descending = false); \
+                                       bool descending = false, \
+                                       bool nans_last = true); \
     template <typename T1, typename T2> \
     XSS_HIDE_SYMBOL void keyvalue_partial_sort(T1 *key, \
                                                T2 *val, \
@@ -44,13 +47,18 @@
                                                bool hasnan = false, \
                                                bool descending = false); \
     template <typename T> \
-    XSS_HIDE_SYMBOL std::vector<size_t> argsort(T *arr, \
+    XSS_HIDE_SYMBOL std::vector<size_t> argsort(const T *arr, \
                                                 size_t arrsize, \
                                                 bool hasnan = false, \
-                                                bool descending = false); \
+                                                bool descending = false, \
+                                                bool nans_last = true); \
     template <typename T> \
-    XSS_HIDE_SYMBOL std::vector<size_t> \
-    argselect(T *arr, size_t k, size_t arrsize, bool hasnan = false); \
+    XSS_HIDE_SYMBOL std::vector<size_t> argselect(const T *arr, \
+                                                  size_t k, \
+                                                  size_t arrsize, \
+                                                  bool hasnan = false, \
+                                                  bool descending = false, \
+                                                  bool nans_last = true); \
     }
 
 namespace xss {

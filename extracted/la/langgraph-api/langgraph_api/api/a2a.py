@@ -755,6 +755,38 @@ def _create_response_artifact_update(
     }
 
 
+def _tool_result_data(message: dict[str, Any]) -> dict[str, Any] | None:
+    """Build the published form of one tool result, or None if not publishable.
+
+    A tool result is only published when it is correlated to the call that
+    produced it: ``tool_call_id`` is what lets a client match the payload back
+    to its request. Uncorrelated tool output stays internal.
+
+    Only the correlation id, content, tool name, and status are copied. Raw
+    LangChain internals (``response_metadata``, ``additional_kwargs``,
+    ``artifact``) are deliberately excluded.
+    """
+    tool_call_id = message.get("tool_call_id")
+    if not isinstance(tool_call_id, str) or not tool_call_id:
+        return None
+
+    result: dict[str, Any] = {"toolCallId": tool_call_id}
+    content = message.get("content")
+    if content not in (None, ""):
+        result["content"] = content
+    for key in ("name", "status"):
+        value = message.get(key)
+        if isinstance(value, str) and value:
+            result[key] = value
+    return result
+
+
+def _tool_results_data_part(tool_results: list[dict[str, Any]]) -> dict[str, Any]:
+    """Wrap one or more tool results in a single A2A DataPart."""
+
+    return {"kind": "data", "data": {"tool_results": tool_results}}
+
+
 def _lc_stream_items_to_a2a_message(
     items: list[dict[str, Any]],
     *,
@@ -765,8 +797,11 @@ def _lc_stream_items_to_a2a_message(
     """Convert LangChain stream "messages/*" items into a valid A2A Message.
 
     This takes the list found in a messages/* StreamPart's data field and
-    constructs a single A2A Message object, concatenating textual content and
-    omitting internal system/tool messages and metadata.
+    constructs a single A2A Message object. Only public agent prose becomes
+    text; internal system/tool prose and LangChain metadata are omitted.
+    Correlated tool results are published separately as a structured DataPart
+    so data-consuming clients keep receiving them without tool output ever
+    being rendered as agent speech.
 
     Args:
         items: List of LangChain message dicts from stream (e.g., with keys like
@@ -780,8 +815,14 @@ def _lc_stream_items_to_a2a_message(
     """
     # Aggregate any text content across items
     text_parts: list[str] = []
+    tool_results: list[dict[str, Any]] = []
     for it in items:
-        if not isinstance(it, dict) or _a2a_role_for_message(it) is None:
+        if not isinstance(it, dict):
+            continue
+        if _a2a_role_for_message(it) is None:
+            tool_result = _tool_result_data(it)
+            if tool_result is not None:
+                tool_results.append(tool_result)
             continue
         text = _content_to_text(it.get("content"))
         if text:
@@ -790,6 +831,8 @@ def _lc_stream_items_to_a2a_message(
     parts: list[dict[str, Any]] = []
     if text_parts:
         parts.append({"kind": "text", "text": "".join(text_parts)})
+    if tool_results:
+        parts.append(_tool_results_data_part(tool_results))
 
     # Ensure we always produce a minimally valid A2A Message
     if not parts:
@@ -965,6 +1008,12 @@ def _convert_messages_to_a2a_format(
 ) -> list[dict[str, Any]]:
     """Convert LangChain messages to A2A message format.
 
+    Public human/agent turns become text (and file) parts. Internal messages
+    never become prose: a system prompt or uncorrelated tool output is dropped
+    outright, while a tool result correlated by ``tool_call_id`` is published
+    as a data-only agent message so clients can consume the structured payload
+    without it being rendered as agent speech.
+
     Args:
         messages: List of LangChain messages
         task_id: The task ID to assign to all messages
@@ -980,20 +1029,26 @@ def _convert_messages_to_a2a_format(
     for msg in messages:
         if isinstance(msg, dict):
             a2a_role = _a2a_role_for_message(msg)
-            if a2a_role is None:
-                continue
 
-            content = msg.get("content", "")
-            id = msg.get("id") or str(uuid7())
-            text = _content_to_text(content)
-            if a2a_role == "ROLE_AGENT" and not text:
-                continue
+            if a2a_role is None:
+                # Internal message: publish a correlated tool result as data,
+                # drop system prompts and uncorrelated output entirely.
+                tool_result = _tool_result_data(msg)
+                if tool_result is None:
+                    continue
+                a2a_role = "ROLE_AGENT"
+                parts = [_tool_results_data_part([tool_result])]
+            else:
+                text = _content_to_text(msg.get("content", ""))
+                if a2a_role == "ROLE_AGENT" and not text:
+                    continue
+                parts = [{"kind": "text", "text": text}]
 
             a2a_message = {
                 "kind": "message",
                 "role": a2a_role,
-                "parts": [{"kind": "text", "text": text}],
-                "messageId": id,
+                "parts": parts,
+                "messageId": msg.get("id") or str(uuid7()),
                 "taskId": task_id,
                 "contextId": context_id,
             }

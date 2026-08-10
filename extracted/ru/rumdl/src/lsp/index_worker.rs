@@ -15,7 +15,8 @@ use tower_lsp::lsp_types::*;
 
 use crate::config::{Config, MarkdownFlavor};
 use crate::discovery::{ExcludeMatchers, MarkdownWalkOptions, is_markdown_extension, path_relative_to};
-use crate::lsp::types::{IndexState, IndexUpdate};
+use crate::lsp::server::DocumentEntry;
+use crate::lsp::types::{IndexState, IndexUpdate, RelintRequest};
 use crate::rule::{CrossFileScope, Rule};
 use crate::workspace_index::{FileIndex, WorkspaceIndex};
 
@@ -46,6 +47,14 @@ pub(super) fn cross_file_rules(config: &Config) -> Vec<Box<dyn Rule>> {
         .collect()
 }
 
+/// A file update waiting out its debounce window.
+struct PendingUpdate {
+    /// The content to index once the window closes.
+    content: String,
+    /// When the update was queued, which starts the window.
+    queued_at: Instant,
+}
+
 /// Background worker for managing the workspace index
 ///
 /// Receives updates via a channel and maintains the workspace index
@@ -61,28 +70,47 @@ pub struct IndexWorker {
     client: Client,
     /// Workspace root folders
     workspace_roots: Arc<RwLock<Vec<PathBuf>>>,
-    /// Debouncing: path -> (content, last_update_time)
-    pending: HashMap<PathBuf, (String, Instant)>,
+    /// Debouncing: path -> the update waiting out its window
+    pending: HashMap<PathBuf, PendingUpdate>,
     /// Debounce duration
     debounce_duration: Duration,
     /// Sender to request re-linting of files (back to server)
-    relint_tx: mpsc::Sender<PathBuf>,
+    relint_tx: mpsc::Sender<RelintRequest>,
     /// Resolved rumdl configuration; drives walk options and excludes for
     /// workspace scans so the index covers the same files the CLI lints.
     rumdl_config: Arc<RwLock<Config>>,
+    /// The server's document store, so a scan of the workspace indexes what an
+    /// editor is showing rather than what was last written to disk.
+    documents: Arc<RwLock<HashMap<Url, DocumentEntry>>>,
+}
+
+/// The state an index worker shares with the server that spawned it.
+///
+/// Each handle is the server's own, so the worker reads what the editor is
+/// currently working with rather than a copy taken at startup.
+pub(crate) struct SharedIndexState {
+    pub(crate) workspace_index: Arc<RwLock<WorkspaceIndex>>,
+    pub(crate) index_state: Arc<RwLock<IndexState>>,
+    pub(crate) workspace_roots: Arc<RwLock<Vec<PathBuf>>>,
+    pub(crate) rumdl_config: Arc<RwLock<Config>>,
+    pub(crate) documents: Arc<RwLock<HashMap<Url, DocumentEntry>>>,
 }
 
 impl IndexWorker {
     /// Create a new index worker
-    pub fn new(
+    pub(crate) fn new(
         rx: mpsc::Receiver<IndexUpdate>,
-        workspace_index: Arc<RwLock<WorkspaceIndex>>,
-        index_state: Arc<RwLock<IndexState>>,
         client: Client,
-        workspace_roots: Arc<RwLock<Vec<PathBuf>>>,
-        relint_tx: mpsc::Sender<PathBuf>,
-        rumdl_config: Arc<RwLock<Config>>,
+        relint_tx: mpsc::Sender<RelintRequest>,
+        shared: SharedIndexState,
     ) -> Self {
+        let SharedIndexState {
+            workspace_index,
+            index_state,
+            workspace_roots,
+            rumdl_config,
+            documents,
+        } = shared;
         Self {
             rx,
             workspace_index,
@@ -93,6 +121,7 @@ impl IndexWorker {
             debounce_duration: Duration::from_millis(100),
             relint_tx,
             rumdl_config,
+            documents,
         }
     }
 
@@ -106,10 +135,19 @@ impl IndexWorker {
                 msg = self.rx.recv() => {
                     match msg {
                         Some(IndexUpdate::FileChanged { path, content }) => {
-                            self.pending.insert(path, (content, Instant::now()));
+                            self.pending.insert(path, PendingUpdate {
+                                content,
+                                queued_at: Instant::now(),
+                            });
                         }
-                        Some(IndexUpdate::FileDeleted { path }) => {
-                            self.handle_file_deleted(&path).await;
+                        Some(IndexUpdate::FileRemoved { path }) => {
+                            // A change is debounced and a removal is not, so an
+                            // update queued moments earlier is still waiting
+                            // here. Flushing it afterwards would put the path
+                            // back in an index that no longer covers it, and
+                            // nothing would take it out again.
+                            self.pending.remove(&path);
+                            self.handle_file_removed(&path).await;
                         }
                         Some(IndexUpdate::FullRescan) => {
                             self.full_rescan().await;
@@ -135,7 +173,7 @@ impl IndexWorker {
         let ready: Vec<_> = self
             .pending
             .iter()
-            .filter(|(_, (_, time))| now.duration_since(*time) >= self.debounce_duration)
+            .filter(|(_, pending)| now.duration_since(pending.queued_at) >= self.debounce_duration)
             .map(|(path, _)| path.clone())
             .collect();
 
@@ -152,8 +190,8 @@ impl IndexWorker {
         };
 
         for path in ready {
-            if let Some((content, _)) = self.pending.remove(&path) {
-                self.update_single_file(&path, &content, &rules).await;
+            if let Some(pending) = self.pending.remove(&path) {
+                self.update_single_file(&path, &pending.content, &rules).await;
             }
         }
     }
@@ -169,6 +207,24 @@ impl IndexWorker {
             return;
         };
 
+        // What the index held for this file, so the update can answer whether it
+        // changed anything a cross-file check reads. Typing in a paragraph
+        // rewrites the entry with the same links and anchors, and re-linting
+        // every open file that links here on each pause in typing would cost a
+        // full lint per file for an answer that cannot have changed.
+        let previous = {
+            let index = self.workspace_index.read().await;
+            index.get_file(path).cloned()
+        };
+        let changed = previous
+            .as_ref()
+            .is_none_or(|previous| previous.extracted_data_differs(&file_index));
+        // Whether a link is involved on either side, so this file is worth
+        // re-linting itself. A link removed is as much a change as one added:
+        // the diagnostic it produced is on screen until something recomputes it.
+        let links_involved = !file_index.cross_file_links.is_empty()
+            || previous.is_some_and(|previous| !previous.cross_file_links.is_empty());
+
         // Get old dependents before updating
         let old_dependents = {
             let index = self.workspace_index.read().await;
@@ -181,6 +237,10 @@ impl IndexWorker {
             index.update_file(path, file_index);
         }
 
+        if !changed {
+            return;
+        }
+
         // Get new dependents after updating
         let new_dependents = {
             let index = self.workspace_index.read().await;
@@ -191,10 +251,25 @@ impl IndexWorker {
         let mut affected: std::collections::HashSet<PathBuf> = old_dependents.into_iter().collect();
         affected.extend(new_dependents);
 
+        // The file itself: its own cross-file diagnostics were computed against
+        // the entry this update just replaced, which for the document being
+        // typed in is the one the editor holds.
+        if links_involved {
+            affected.insert(path.to_path_buf());
+        }
+
         for dep_path in affected {
-            if self.relint_tx.send(dep_path.clone()).await.is_err() {
-                log::warn!("Failed to send re-lint request for {}", dep_path.display());
-            }
+            self.request_relint(RelintRequest::File(dep_path)).await;
+        }
+    }
+
+    /// Ask the server to publish a document's diagnostics again.
+    ///
+    /// A closed channel means the server is gone, which happens on shutdown and
+    /// is not worth a warning; the request has nowhere useful to arrive.
+    async fn request_relint(&self, request: RelintRequest) {
+        if self.relint_tx.send(request).await.is_err() {
+            log::debug!("Re-lint channel closed; skipping re-lint request");
         }
     }
 
@@ -220,11 +295,9 @@ impl IndexWorker {
         crate::build_file_index_only(content, rules, flavor, path.map(Path::to_path_buf))
     }
 
-    /// Handle a file deletion
-    async fn handle_file_deleted(&self, path: &Path) {
-        // Remove pending update for this file
-        // (self.pending is not accessible here directly, but FileDeleted is handled immediately)
-
+    /// Drop a file from the index, whether it was deleted or stopped being one
+    /// the index covers.
+    async fn handle_file_removed(&self, path: &Path) {
         // Get dependents before removing
         let dependents = {
             let index = self.workspace_index.read().await;
@@ -239,15 +312,32 @@ impl IndexWorker {
 
         // Request re-lint of dependent files (they now have broken links)
         for dep_path in dependents {
-            if self.relint_tx.send(dep_path.clone()).await.is_err() {
-                log::warn!("Failed to send re-lint request for {}", dep_path.display());
-            }
+            self.request_relint(RelintRequest::File(dep_path)).await;
         }
+    }
+
+    /// The content of every document an editor holds, keyed by the path it
+    /// indexes under.
+    ///
+    /// The index is keyed by path, so it answers with one version of a file
+    /// however many URI spellings name it, which is what the update messages
+    /// keyed by path already assume.
+    async fn open_buffers(&self) -> HashMap<PathBuf, String> {
+        self.documents
+            .read()
+            .await
+            .iter()
+            .filter(|(_, entry)| !entry.from_disk)
+            .filter_map(|(uri, entry)| Some((crate::lsp::resolve_uri(uri)?, entry.content.clone())))
+            .collect()
     }
 
     /// Perform a full rescan of the workspace
     async fn full_rescan(&mut self) {
-        // Clear pending updates
+        // Every waiting update is about to be superseded: a scan reads the
+        // filesystem for the disk-originated ones and the editor's own buffer
+        // for the rest, both of which are at least as new as what is waiting
+        // here, because a document is stored before its update is queued.
         self.pending.clear();
 
         // Find all markdown files in workspace roots
@@ -265,15 +355,32 @@ impl IndexWorker {
         for (pattern, error) in &excludes.invalid {
             log::warn!("Invalid exclude pattern '{pattern}': {error}");
         }
-        let files = scan_markdown_files(&roots, options, excludes).await;
+        let mut files = scan_markdown_files(&roots, options, excludes).await;
+
+        // A document an editor holds belongs in the index whatever discovery says
+        // about it, because opening one indexes it: a scan that dropped it would
+        // be the rescan taking it back out. Its content comes from the buffer as
+        // well, since the filesystem holds the last save, and answering
+        // cross-file questions from that describes a version of the file the
+        // editor stopped showing.
+        let open_buffers = self.open_buffers().await;
+        let mut current: std::collections::HashSet<PathBuf> = files.iter().cloned().collect();
+        for path in open_buffers.keys() {
+            // Except where the file is gone, which no buffer speaks for: a
+            // rename reaches the server as a deletion of the old path, and the
+            // document can still be open under it when this runs. Asked as
+            // whether a file is there rather than whether anything is, because a
+            // directory that took the name answers the weaker question and the
+            // scan would never hand such a path back.
+            if tokio::fs::metadata(path).await.is_ok_and(|meta| meta.is_file()) && current.insert(path.clone()) {
+                files.push(path.clone());
+            }
+        }
         let total = files.len();
 
-        // Evict entries the scan no longer discovers (deleted files, newly
-        // excluded or gitignored ones) so navigation and completions stop
-        // surfacing them. An explicitly opened excluded file is re-indexed on
-        // its next did_open/did_change, which deliberately bypasses discovery.
+        // Evict entries the scan no longer covers (deleted files, newly excluded
+        // or gitignored ones) so navigation and completions stop surfacing them.
         {
-            let current: std::collections::HashSet<PathBuf> = files.iter().cloned().collect();
             let removed = self.workspace_index.write().await.retain_only(&current);
             if removed > 0 {
                 log::info!("Workspace rescan evicted {removed} stale index entries");
@@ -282,6 +389,7 @@ impl IndexWorker {
 
         if total == 0 {
             *self.index_state.write().await = IndexState::Ready;
+            self.request_relint(RelintRequest::AllOpen).await;
             return;
         }
 
@@ -295,9 +403,13 @@ impl IndexWorker {
         // Report progress start
         self.report_progress_begin(total).await;
 
-        // Index each file
+        // Index each file, an open document from the buffer read above.
         for (i, path) in files.iter().enumerate() {
-            if let Ok(content) = tokio::fs::read_to_string(path).await {
+            let content = match open_buffers.get(path) {
+                Some(buffer) => Some(buffer.clone()),
+                None => tokio::fs::read_to_string(path).await.ok(),
+            };
+            if let Some(content) = content {
                 let flavor = self.rumdl_config.read().await.get_flavor_for_file(path);
                 let file_index = Self::build_file_index(&content, &rules, flavor, Some(path));
 
@@ -322,6 +434,12 @@ impl IndexWorker {
         self.report_progress_done().await;
 
         log::info!("Workspace indexing complete: {total} files indexed");
+
+        // Every document opened while the scan ran was linted with cross-file
+        // checks skipped, because those are gated on the index being ready.
+        // Nothing else recomputes them, so without this the editor shows an
+        // incomplete answer until the file is edited.
+        self.request_relint(RelintRequest::AllOpen).await;
     }
 
     /// Report progress begin via LSP
@@ -931,5 +1049,47 @@ More text with [link](./other.md#section).
             &options,
             &no_excludes
         ));
+    }
+
+    /// The guard deciding whether an index update is worth re-linting for.
+    ///
+    /// Every keystroke rewrites the typed file's entry, so answering "changed"
+    /// for a prose edit would lint every file linking here on each pause in
+    /// typing, for an answer that cannot have moved.
+    #[test]
+    fn test_extracted_data_differs_ignores_a_prose_only_edit() {
+        let before = build_index(
+            "# Guide\n\nProse.\n\nSee [other](./other.md#section).\n",
+            MarkdownFlavor::default(),
+        );
+        let after = build_index(
+            "# Guide\n\nProse, now with a clause typed into it.\n\nSee [other](./other.md#section).\n",
+            MarkdownFlavor::default(),
+        );
+
+        // Control: the two really are different documents, so a `false` here is
+        // the guard answering rather than the test comparing a value to itself.
+        assert_ne!(before.content_hash, after.content_hash);
+        assert!(!before.extracted_data_differs(&after));
+    }
+
+    #[test]
+    fn test_extracted_data_differs_reports_a_renamed_heading() {
+        // What a file's dependents read: rename the anchor they link to and
+        // their diagnostics change, with no event in their own documents.
+        let before = build_index("# Setup\n", MarkdownFlavor::default());
+        let after = build_index("# Installation\n", MarkdownFlavor::default());
+
+        assert!(before.extracted_data_differs(&after));
+    }
+
+    #[test]
+    fn test_extracted_data_differs_reports_a_new_link() {
+        // What the typed file itself reads: a link just written has no
+        // diagnostic yet, and nothing but this update will ask for one.
+        let before = build_index("# Guide\n\nProse.\n", MarkdownFlavor::default());
+        let after = build_index("# Guide\n\nSee [other](./other.md#nope).\n", MarkdownFlavor::default());
+
+        assert!(before.extracted_data_differs(&after));
     }
 }
